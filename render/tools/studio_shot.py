@@ -1,4 +1,4 @@
-# Headless Chrome contact sheet of one action-studio clip, for render checks (~25 s per frame on swiftshader).
+# Headless Chrome contact sheet of one action-studio clip, for render checks (~25-90 s per frame on swiftshader).
 # THREE_DIR=.../node_modules/three/ OUT=/tmp python3 studio_shot.py REPO ACT CLIP '1.2,2.05' 'back=-0.9,1.2,7/-0.9,1,0/30' TAG
 import sys,os,asyncio,mimetypes
 from playwright.async_api import async_playwright
@@ -46,7 +46,7 @@ async def main():
       for t in times:
         await pg.evaluate(f"()=>{{const s=document.getElementById('stScrub');s.value={round(1000*t/dur)};s.dispatchEvent(new Event('input'))}}")
         await pg.wait_for_timeout(900)
-        f=OUT+f'/{tag}_{n}_{t:.2f}.png';await pg.screenshot(path=f)
+        f=OUT+f'/{tag}_{n}_{t:.2f}.png';await pg.screenshot(path=f,timeout=180000)
         im=Image.open(f).resize((400,280));ImageDraw.Draw(im).text((6,6),f'{n} {t:.2f}s',fill=(255,255,0));row.append(im)
       rows.append(row)
     W=Image.new('RGB',(400*len(times),280*len(rows)))

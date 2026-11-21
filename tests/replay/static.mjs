@@ -1,8 +1,9 @@
 /* Static site check (plain Node): every local file the page, the modules and the stylesheets
  * refer to exists, every script parses, and the workflow folder holds only the two allowed files.
+ * It also runs tests/names.check.mjs (league name rules) as a child process, so CI covers it.
  * Usage: node tests/replay/static.mjs */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -37,6 +38,9 @@ if (existsSync(wf)) for (const f of readdirSync(wf)) if (!['ci.yml', 'merge-gate
 const rules = readFileSync(path.join(ROOT, '.agent/rules.md'), 'utf8').split('\n').length - 1;
 if (rules > 50) problems.push(`.agent/rules.md has ${rules} lines (cap is 50)`);
 if (readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8').trimEnd().split('\n').length !== 3) problems.push('CLAUDE.md must be exactly 3 lines');
+const names = spawnSync(process.execPath, [path.join(ROOT, 'tests/names.check.mjs')], { encoding: 'utf8' });
+process.stdout.write(names.stdout || ''); process.stderr.write(names.stderr || '');
+if (names.status !== 0) problems.push(`tests/names.check.mjs failed (exit ${names.status === null ? 'killed by ' + names.signal : names.status})`);
 
 console.log(`${seen.size} files reachable from the page checked`);
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }

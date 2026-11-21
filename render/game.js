@@ -145,36 +145,87 @@ const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;con
 const standMat=(()=>{const {triplanarTexture,texture,positionWorld,normalWorld,float,dot,vec3,clamp:tc,color}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.9});
   const t=triplanarTexture(texture(tex('concrete_c',1)),null,null,float(.35),positionWorld,normalWorld);m.colorNode=color(LC(0x2a3246)).mul(tc(dot(t.rgb,vec3(.2126,.7152,.0722)).div(.31),.6,1.4));
   const o=triplanarTexture(texture(tex('concrete_orm')),null,null,float(.35),positionWorld,normalWorld);m.roughnessNode=o.g;return m})(),seatMat=new THREE.MeshStandardMaterial({color:LC(0x16365c),roughness:.6});const fans=[];
-function stand(px,pz,rotY,len,rows,side,roof){
+/* #33 scale, real stadium figures: seat width ~.5 m (was .82), row depth .9 m and rise .55 m (~31 deg rake, a steep lower bowl).
+   Foul-line stands 16 m off the line and the backstop 24 m behind the plate are already in the real range (MLB backstop >= 18 m). */
+const CROWD_EMPTY=.1,/* share of seats left empty */SEAT_W=.55,ROW_D=.9,ROW_RISE=.55,FRONT_H=1,BACK_WALL=4,RAIL_H=1.1;
+function stand(px,pz,rotY,len,rows,side,roof,base=0){
   const g=new THREE.Group();g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
-  for(let r=0;r<rows;r++){const h=1+r*.55,d=r*.9+.45;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,.9),standMat);b.position.set(0,h/2,d);g.add(b);
-    for(let x=-len/2+.5;x<len/2-.3;x+=.82)if(Math.random()<.9)fans.push({g,x:x+(Math.random()-.5)*.2,y:h,z:d,side})}
-  const top=1+rows*.55,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+4,1),standMat);w.position.set(0,(top+4)/2,rows*.9+.5);g.add(w);
-  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,1.1,.25),seatMat);rail.position.set(0,.55,-.1);g.add(rail);
+  for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.position.set(0,h/2,d);g.add(b);
+    for(let x=-len/2+.4;x<len/2-.3;x+=SEAT_W)fans.push({g,x,y:h,z:d,side,empty:Math.random()<CROWD_EMPTY})}
+  const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
   if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
     const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,.25,.25),new THREE.MeshBasicMaterial({color:0xfff3d6}));lip.position.set(0,top+7.4,-4.9);g.add(lip)}
   g.updateMatrixWorld(true);
 }
 const Q=Math.PI/4;
 stand(0,24,0,48,16,2,true);stand(46.7,-24.1,Q,72,14,1,true);stand(-46.7,-24.1,-Q,72,14,0,true);
-for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*116,-Math.cos(t)*116,Math.atan2(Math.sin(t),-Math.cos(t)),21,10,a<0?0:a>0?1:2)}
-const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},{x:0,y:3.75,z:-120.5,tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
+/* Outfield bleachers start right behind the 3 m fence (110 m) with the front row above its top, as in a real park; they used to sit 6 m back
+   at ground level, so the first rows peeked over the wall and made it look small. */
+const OF_R=111.5,OF_BASE=2.4,OF_ROWS=10,OF_SEAT_ROW=5;
+for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.cos(t)*OF_R,Math.atan2(Math.sin(t),-Math.cos(t)),20,OF_ROWS,a<0?0:a>0?1:2,false,OF_BASE)}
+const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
+  {x:0,y:OF_BASE+FRONT_H+OF_SEAT_ROW*ROW_RISE+.55,z:-(OF_R+OF_SEAT_ROW*ROW_D+ROW_D/2+.12),tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
 const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
 const FOLLOW_T=new THREE.Vector3(0,1.3,-9),_fw=new THREE.Vector3();
 const v3=new THREE.Vector3(),dummy=new THREE.Object3D(),col=new THREE.Color();
-for(const f of fans){v3.set(f.x,f.y+.36,f.z).applyMatrix4(f.g.matrixWorld);f.wx=v3.x;f.wy=v3.y;f.wz=v3.z}
+/* Crowd (#33): seated people from a few low-poly capsules, instanced. Draw calls: seats, seated bodies, arms-up bodies, heads.
+   Body = shirt (per-instance 'shirt' attribute) + trousers (vertex colour CROWD_PANTS). Not instanceColor: node materials multiply it into every
+   vertex, so trousers came out shirt-tinted. The per-vertex 'tint' mask (1 = shirt part) picks where the shirt colour applies. A CROWD_CHEER_SHARE of fans also
+   have an arms-up body that replaces the seated one while they bounce above CROWD_CHEER_ON m. Seats and bodies face along the row; the body turns
+   toward home plate by at most CROWD_YAW_MAX, the head turns the rest (up to CROWD_HEAD_MAX) and sways. Real proportions: seat .44 m, head top ~1.35 m */
+const CROWD_HIP_BACK=.12,CROWD_YAW_MAX=.35,CROWD_HEAD_MAX=.6,CROWD_YAW_JIT=.15,CROWD_LEAN=.07,CROWD_CHEER_SHARE=.35,CROWD_CHEER_ON=.12,CROWD_TEAM_SHARE=.35,
+  CROWD_SCALE_MIN=.92,CROWD_SCALE_SPAN=.16,CROWD_SWAY=.25,CROWD_PANTS=[.07,.08,.12],CROWD_WHITE=[1,1,1],
+  CROWD_SHIRTS=[0xf2f2f2,0x2b2b2e,0x8d929a,0x1f3a5f,0x3d5a80,0xb23a3a,0x2f6b4a,0xd8c9a3,0xe0b030,0x5a4a8a];
+function crowdGeo(parts){const gs=parts.map(([g,c])=>[g.index?g.toNonIndexed():g,c]),n=gs.reduce((a,[q])=>a+q.attributes.position.count,0);
+  const P=new Float32Array(n*3),N=new Float32Array(n*3),C=new Float32Array(n*3),M=new Float32Array(n);let o=0;
+  for(const [q,c] of gs){const k=q.attributes.position.count;P.set(q.attributes.position.array,o*3);N.set(q.attributes.normal.array,o*3);for(let i=0;i<k;i++)C.set(c,(o+i)*3);if(c===CROWD_WHITE)M.fill(1,o,o+k);o+=k}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(P,3));g.setAttribute('normal',new THREE.BufferAttribute(N,3));g.setAttribute('color',new THREE.BufferAttribute(C,3));
+  g.setAttribute('tint',new THREE.BufferAttribute(M,1));return g}
+const cLimb=(a,b,r)=>{const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=d.length(),g=new THREE.CylinderGeometry(r,r,L+r,5,1,true);/* open 5-sided prism, 10 triangles */
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize()));g.translate((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);return g};
+const cBox=(w,h,d,x,y,z)=>new THREE.BoxGeometry(w,h,d).translate(x,y,z);
+/* Local frame: floor of the tread at y=0, hip above the origin, +z = facing the field */
+function crowdBody(up){const W=CROWD_WHITE,T=CROWD_PANTS,P=[[new THREE.CylinderGeometry(.17,.14,.58,6).scale(1.25,1,.8).translate(0,.81,-.04),W],[new THREE.CylinderGeometry(.045,.045,.12,5,1,true).translate(0,1.12,-.03),W]];
+  for(const s of [-1,1]){P.push([cLimb([s*.1,.53,-.02],[s*.11,.54,.4],.075),T],[cLimb([s*.11,.5,.42],[s*.12,.04,.5],.06),T]);
+    if(up)P.push([cLimb([s*.21,1.02,-.04],[s*.3,1.3,0],.055),W],[cLimb([s*.3,1.3,0],[s*.31,1.6,.08],.05),W]);
+    else P.push([cLimb([s*.21,1.02,-.04],[s*.25,.77,.1],.055),W],[cLimb([s*.25,.77,.1],[s*.15,.6,.36],.05),W])}
+  return crowdGeo(P)}
+const seatGeo=crowdGeo([[cBox(.46,.05,.42,0,.42,-.02),CROWD_WHITE],[cBox(.46,.42,.04,0,.64,-.24),CROWD_WHITE]]);
+for(const f of fans){v3.set(f.x,f.y,f.z+CROWD_HIP_BACK).applyMatrix4(f.g.matrixWorld);f.wx=v3.x;f.wy=v3.y;f.wz=v3.z;f.sy=f.g.rotation.y+Math.PI}
 for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-s.x,fans[i].wz-s.z)<2.2))fans.splice(i,1);
-const crowd=new THREE.InstancedMesh(new THREE.CapsuleGeometry(.2,.32,3,8).scale(1,1,.75),new THREE.MeshStandardMaterial({roughness:.85}),fans.length);
-const heads=new THREE.InstancedMesh(new THREE.SphereGeometry(.12,10,8),new THREE.MeshStandardMaterial({roughness:.7}),fans.length);
-fans.forEach((f,i)=>{f.ph=Math.random()*6.28;f.ry=Math.atan2(-f.wx,-f.wz);const tm=f.side===2?(Math.random()<.5?0:1):(Math.random()<.85?f.side:1-f.side);f.team=tm;
-  col.setHex(Math.random()<.12?0xdedede:TEAMS[tm].color).multiplyScalar(.35+Math.random()*.65);crowd.setColorAt(i,col);col.setHex([0xc99572,0xe0b48f,0xa8775a,0xd9a983,0x8a5a3c][i%5]);if(Math.random()<.35)col.setHex(Math.random()<.5?0x1a1a1e:0x3a2a1c);heads.setColorAt(i,col)});
-scene.add(crowd,heads);
+const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty);
+for(let i=people.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[people[i],people[j]]=[people[j],people[i]]}/* random order: a lower quality tier draws a prefix, i.e. a random subset */
+people.forEach((f,i)=>f.pi=i);const cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
+const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.5}),fans.length);
+const crowdMat=(()=>{const {attribute,mix,vec3}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.85});
+  m.colorNode=attribute('color','vec3').mul(mix(vec3(1),attribute('shirt','vec3'),attribute('tint','float')));return m})();
+const crowdShirts=(geo,n)=>{const a=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3);geo.setAttribute('shirt',a);return a};
+const crowd=new THREE.InstancedMesh(crowdBody(false),crowdMat,people.length),crowdUp=new THREE.InstancedMesh(crowdBody(true),crowdMat,cheerers.length);
+const shirtA=crowdShirts(crowd.geometry,people.length),shirtUpA=crowdShirts(crowdUp.geometry,cheerers.length);
+const heads=new THREE.InstancedMesh(new THREE.SphereGeometry(.11,6,4).scale(.9,1.05,.95).translate(0,1.25,0),new THREE.MeshStandardMaterial({roughness:.7}),people.length);
+fans.forEach((f,i)=>{dummy.position.set(f.wx,f.wy,f.wz);dummy.rotation.set(0,f.sy,0);dummy.scale.set(1,1,1);dummy.updateMatrix();seats.setMatrixAt(i,dummy.matrix)});
+people.forEach((f,i)=>{f.ph=Math.random()*6.28;const home=Math.atan2(-f.wx,-f.wz),d=wrapPI(home-f.sy);
+  f.ry=f.sy+clamp(d,-CROWD_YAW_MAX,CROWD_YAW_MAX)+(Math.random()-.5)*2*CROWD_YAW_JIT;f.hy=clamp(wrapPI(home-f.ry),-CROWD_HEAD_MAX,CROWD_HEAD_MAX);
+  f.rx=(Math.random()-.5)*2*CROWD_LEAN;f.k=CROWD_SCALE_MIN+Math.random()*CROWD_SCALE_SPAN;
+  const tm=f.side===2?(Math.random()<.5?0:1):(Math.random()<.85?f.side:1-f.side);f.team=tm;
+  col.setHex(Math.random()<CROWD_TEAM_SHARE?TEAMS[tm].color:CROWD_SHIRTS[(Math.random()*CROWD_SHIRTS.length)|0]).multiplyScalar(.7+Math.random()*.35);shirtA.setXYZ(i,col.r,col.g,col.b);f.shirt=col.getHex();
+  col.setHex([0xc99572,0xe0b48f,0xa8775a,0xd9a983,0x8a5a3c][i%5]);if(Math.random()<.35)col.setHex(Math.random()<.5?0x1a1a1e:0x3a2a1c);heads.setColorAt(i,col)});
+cheerers.forEach((f,i)=>{f.ui=i;col.setHex(f.shirt);shirtUpA.setXYZ(i,col.r,col.g,col.b)});
+seats.instanceMatrix.needsUpdate=true;
+scene.add(seats,crowd,crowdUp,heads);
+const HIDE=new THREE.Matrix4().makeScale(0,0,0);
+/* Share of fans drawn per quality tier (0 desktop .. 3 lowest); the rest become empty seats. Cheer bodies follow people order, so a prefix too. */
+const CROWD_DENSITY=[1,.6,.45,.35];let crowdN=people.length;
+function setCrowdDensity(k){crowdN=Math.round(people.length*k);crowd.count=heads.count=crowdN;let c=0;while(c<cheerers.length&&cheerers[c].pi<crowdN)c++;crowdUp.count=c}
 function updateCrowd(now,ex,batTeam,live){
-  const beat=(now/1000)*BPM/60*2;
-  for(let i=0;i<fans.length;i++){const f=fans[i];let up=Math.max(0,Math.sin(now*.008+f.ph))*ex*.5;
+  const beat=(now/1000)*BPM/60*2,ts=now/1000;
+  for(let i=0;i<crowdN;i++){const f=people[i];let up=Math.max(0,Math.sin(now*.008+f.ph))*ex*.5;
     if(live&&f.team===batTeam)up+=Math.max(0,Math.sin(beat*Math.PI))*.1*(i%2?1:.6);
-    dummy.position.set(f.wx,f.wy+up-.02,f.wz);dummy.rotation.set(0,f.ry,0);dummy.updateMatrix();crowd.setMatrixAt(i,dummy.matrix);dummy.position.y+=.47;dummy.updateMatrix();heads.setMatrixAt(i,dummy.matrix)}
-  crowd.instanceMatrix.needsUpdate=true;heads.instanceMatrix.needsUpdate=true;
+    dummy.position.set(f.wx,f.wy+up,f.wz);dummy.rotation.set(f.rx,f.ry,0,'YXZ');dummy.scale.setScalar(f.k);dummy.updateMatrix();
+    const cheer=f.ui!==undefined&&up>CROWD_CHEER_ON;crowd.setMatrixAt(i,cheer?HIDE:dummy.matrix);if(f.ui!==undefined)crowdUp.setMatrixAt(f.ui,cheer?dummy.matrix:HIDE);
+    dummy.rotation.set(f.rx,f.ry+f.hy+Math.sin(ts*.3+f.ph)*CROWD_SWAY,0,'YXZ');dummy.updateMatrix();heads.setMatrixAt(i,dummy.matrix)}
+  crowd.instanceMatrix.needsUpdate=true;crowdUp.instanceMatrix.needsUpdate=true;heads.instanceMatrix.needsUpdate=true;
 }
 /* light towers + sky */
 const TOWER_I=.16*Math.PI,BEAM_K=.025;/* Keep only a hint of light beam, so the camera passing through it does not white out */
@@ -245,12 +296,13 @@ const LOGO_DIR='assets/logos/',LOGO_PX=128,logoSrc=id=>`${LOGO_DIR}${id}_${LOGO_
 const logoOf=(i,px)=>{const T=TEAMS[i];if(!T||!T.id)return'';return`<img src="${logoSrc(T.id)}" alt="" draggable="false" ${px?`width="${px}" height="${px}"`:'style="width:100%;height:100%;display:block;object-fit:contain"'} onerror="this.remove()">`};
 const INTRO_LOGO_PX=84;$('mas').innerHTML=logoOf(0,INTRO_LOGO_PX)+logoOf(1,INTRO_LOGO_PX);
 const logoImgs={};for(const T of TEAMS){if(!T.id)continue;const im=new Image();im.onload=()=>{sbKey=''};im.src=logoSrc(T.id);logoImgs[T.id]=im}
-/* outfield scoreboard */
+/* outfield scoreboard (raised with the outfield bleachers so their back wall does not cover its bottom edge) */
+const SB_Y=18;
 const sbC=document.createElement('canvas');sbC.width=1024;sbC.height=400;const sbTex=new THREE.CanvasTexture(sbC);sbTex.colorSpace=THREE.SRGBColorSpace;
 const sbMesh=new THREE.Mesh(new THREE.PlaneGeometry(26,10),new THREE.MeshBasicMaterial({map:sbTex,toneMapped:false}));
-{const t=-28*Math.PI/180;sbMesh.position.set(Math.sin(t)*128,16,-Math.cos(t)*128);sbMesh.lookAt(0,10,0);scene.add(sbMesh);
+{const t=-28*Math.PI/180;sbMesh.position.set(Math.sin(t)*128,SB_Y,-Math.cos(t)*128);sbMesh.lookAt(0,10,0);scene.add(sbMesh);
  const back=new THREE.Mesh(new THREE.BoxGeometry(27,11,.6),mast);back.position.copy(sbMesh.position);back.quaternion.copy(sbMesh.quaternion);back.translateZ(-.35);scene.add(back);
- const leg=new THREE.Mesh(new THREE.BoxGeometry(2,11,1),mast);leg.position.set(sbMesh.position.x,5.5,sbMesh.position.z);scene.add(leg)}
+ const leg=new THREE.Mesh(new THREE.BoxGeometry(2,SB_Y-5,1),mast);leg.position.set(sbMesh.position.x,(SB_Y-5)/2,sbMesh.position.z);scene.add(leg)}
 let sbKey='';
 function drawBoard(s,txt){const k=s.sc.join()+txt;if(k===sbKey)return;sbKey=k;const g=sbC.getContext('2d');
   g.fillStyle='#05070d';g.fillRect(0,0,1024,400);g.font='600 64px "Noto Sans TC",sans-serif';g.textBaseline='middle';
@@ -322,8 +374,9 @@ const bat=window.PL?PL.makeBat(0xc9a06a):new THREE.Mesh(new THREE.CylinderGeomet
 /* batting keyframes: S stance, L load (stride + hands back), C contact, F follow-through. Frame: batter-local, +z faces the plate, +x faces the pitcher */
 const BK={yaw:[-.15,-.45,.75,1.7],lean:[.12,.16,.2,.1],hx:[-.2,-.3,-.05,.35],hy:[.55,.62,.38,.65],hz:[.3,.22,.56,.35],
   bx:[-.3,-.5,-.55,.4],by:[.95,.85,.12,.7],bz:[.12,.1,.82,.55],stride:[.2,.3,.42,.4],back:[-.2,-.2,-.25,-.32],head:[1.1,1.15,.6,.2]};
-/* When the batter stays in the box after a pitch (foul, take, swing and miss), the bat comes down to rest and goes back up before the next pitch */
-const BAT_REST={yaw:-.1,hx:-.1,hy:.5,hz:.35,bx:.15,by:-.85,bz:.5},BAT_REST_AT=1.4,BAT_REST_DUR=.6,BAT_UNREST_DUR=.5;
+/* When the batter stays in the box after a pitch (foul, take, swing and miss), the bat comes down to rest on his back shoulder, hands low in front
+   (never held vertical in front of him, #43), and goes back up before the next pitch */
+const BAT_REST={yaw:-.1,hx:.02,hy:.3,hz:.28,bx:-.6,by:.55,bz:-.55},BAT_REST_AT=1.4,BAT_REST_DUR=.6,BAT_UNREST_DUR=.5;
 const BAT_LOAD_LEAD=.9,BAT_LOAD_DUR=.6,BAT_SWING_LEAD=.22,BAT_SWING_DUR=.3,BAT_FT_DELAY=.06,BAT_FT_DUR=.3,BAT_ARM_LEN=.6,BAT_SHOULDER_X=.3,BAT_SHOULDER_Y=.57;
 const _bv=new THREE.Vector3(),_bq=new THREE.Quaternion(),_dn=new THREE.Vector3(0,-1,0),_up=new THREE.Vector3(0,1,0),sat01=t=>Math.max(0,Math.min(1,t)),ease=t=>t*t*(3-2*t);
 function aimArm(a,sx,tx,ty,tz){_bv.set(tx-sx,ty-BAT_SHOULDER_Y,tz);const d=_bv.length();_bq.setFromUnitVectors(_dn,_bv.normalize());a.quaternion.copy(_bq);a.scale.y=Math.max(ARM_S_MIN,Math.min(1.2,d/BAT_ARM_LEN))}
@@ -338,16 +391,28 @@ const _ugm=new THREE.Matrix4(),_ugh=new THREE.Vector3(),_ugd=new THREE.Vector3()
 let buntK=0,buntDrop=0;const buntPt=[0,1,.3];
 /* Convert a point (or direction) from the batter's ground frame into the upper-body frame batPivot lives in */
 function groundToUp(v,dir){batter.g.updateMatrixWorld(true);_ugm.copy(batter.g.matrixWorld).invert().multiply(BR.up.matrixWorld).invert();return dir?v.transformDirection(_ugm):v.applyMatrix4(_ugm)}
+/* Hit by pitch: the ball ends on the batter's body (spot picked from the pitch height, on the pitcher's side of him), he flinches and turns away,
+   the ball drops and hops, then he goes to first at the engine's st0. Batter-local: +x faces the pitcher. */
+const HBP_BODY_R=.2,HBP_Y_MIN=.55,HBP_Y_MAX=1.5,HBP_DROP_DUR=.5,HBP_HOP_DUR=.3,HBP_DROP_DX=.3,HBP_DROP_DZ=.35,HBP_HOP_DX=.2,HBP_HOP_DZ=.25,HBP_HOP_PEAK=.1,HBP_DROP_PEAK=.12,HBP_BALL_GONE=2.2;
+const HBP_REACT_IN=.15,HBP_REACT_OUT_AT=.45,HBP_REACT_OUT=.35,HBP_YAW=-.9,HBP_LEAN=.4,HBP_KNEE=.15;
+const hbpReact=u=>ease(sat01((u-ARRIVE)/HBP_REACT_IN))*(1-ease(sat01((u-ARRIVE-HBP_REACT_OUT_AT)/HBP_REACT_OUT)));
+function hbpSpot(e){const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',kk=batter.k||1;
+  return[lf?-BAT_BOX[0]:BAT_BOX[0],clamp(.45+e.zy*.75,HBP_Y_MIN,HBP_Y_MAX)*kk,BAT_BOX[1]-HBP_BODY_R]}
+function hbpBall(e,u){const S=hbpSpot(e),t=u-ARRIVE,sg=S[0]>0?-1:1;/* he stands on the side away from the plate: the ball bounces back toward it and toward the pitcher */
+  const g1=[S[0]+sg*HBP_DROP_DX,BALL_R,S[2]-HBP_DROP_DZ],g2=[g1[0]+sg*HBP_HOP_DX,BALL_R,g1[2]-HBP_HOP_DZ];
+  if(t<HBP_DROP_DUR)return arc(S,g1,HBP_DROP_PEAK,t/HBP_DROP_DUR);
+  if(t<HBP_DROP_DUR+HBP_HOP_DUR)return arc(g1,g2,HBP_HOP_PEAK,(t-HBP_DROP_DUR)/HBP_HOP_DUR);
+  return t<HBP_BALL_GONE?g2:null}
 function poseBatter(e,u){
   const bn=e.r==='inplay'&&e.play&&e.play.bunt?ease(sat01((u-(ARRIVE-BUNT_SQUARE_LEAD))/BUNT_SQUARE_DUR)):0;
   const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing&&!bn?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing&&!bn?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
   const K=(k,c)=>{const a=BK[k];let v=lerp(a[0],a[1],ld);v=lerp(v,c===undefined?a[2]:c,sw);return lerp(v,a[3],ft)};
   const stay=!(e.pa&&e.r!=='ibb'),rw=stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
   const yaw=lerp(K('yaw'),BAT_REST.yaw,rw),py=.45+e.zy*.75,dyC=Math.max(-.7,Math.min(.2,(py-1.33)/.85));
-  const byaw=lerp(yaw,BUNT.yaw,bn);BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn),byaw,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(K('head'),BUNT.head,bn)-byaw;
+  const byaw=lerp(yaw,BUNT.yaw,bn);const hb=e.r==='hbp'?hbpReact(u):0;BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn)+HBP_LEAN*hb,byaw+HBP_YAW*hb,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(K('head'),BUNT.head,bn)-byaw;
   BR.l0.rotation.z=K('back');BR.l1.rotation.z=lerp(lerp(BK.stride[0],BK.stride[1],ld),BK.stride[2],sw);
   /* Knees bend with the square-around, deeper for a low pitch so the bat stays level instead of chopping down */
-  const knee=clamp(BUNT_KNEE+(BUNT_KNEE_REF-py)*BUNT_KNEE_LOW,BUNT_KNEE_MIN,BUNT_KNEE_MAX)*bn;buntK=bn;buntDrop=LEG_LEN*knee*(batter.k||1);BR.l0.scale.y=BR.l1.scale.y=1-knee;
+  const knee=Math.max(clamp(BUNT_KNEE+(BUNT_KNEE_REF-py)*BUNT_KNEE_LOW,BUNT_KNEE_MIN,BUNT_KNEE_MAX)*bn,HBP_KNEE*hb);buntK=bn;buntDrop=LEG_LEN*knee*(batter.k||1);BR.l0.scale.y=BR.l1.scale.y=1-knee;
   let gx=lerp(K('hx'),BAT_REST.hx,rw),gy=lerp(K('hy'),BAT_REST.hy,rw),gz=lerp(K('hz'),BAT_REST.hz,rw);
   _bv.set(lerp(K('bx'),BAT_REST.bx,rw),lerp(K('by',dyC),BAT_REST.by,rw),lerp(K('bz'),BAT_REST.bz,rw)).normalize();
   if(bn>0){const give=BUNT_GIVE*ease(sat01((u-ARRIVE)/BUNT_GIVE_DUR)),L=Math.hypot(...BUNT_DIR),sl=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L'?-1:1;
@@ -406,6 +471,9 @@ const PK={
   a1:[[0,0],[.4,0],[.95,-1.1],[1.25,1.5],[1.4,2.6],[1.6,3.5],[1.9,4.9],[2.5,6.28]],
   dz:[[0,0],[.95,0],[1.4,.85],[3.2,.85],[4.6,0]]};
 const PITCH_SH_Y=.57,PITCH_ARM=.62,P_RUN_BLEND=.4;
+/* Coverer leaves the base COVER_BACK_AT s after the throw arrives. A fielder whose home spot is within BAG_CROWD_R m of
+   that base (1B holding the runner, 3-1 / 3-6-3) waits until the coverer is CROWD_CLEAR_T s off the bag before walking back */
+const COVER_BACK_AT=2.2,BAG_CROWD_R=2.5,CROWD_CLEAR_T=.6;
 /* Release point (closed form, same model as the proxy joints). Right-handed = inner x mirror, so world x flips sign; skinned figure scaled by k */
 const pitchTipAt=(u,px,pz)=>{const P=fielders.P,sg=P.mirrored?-1:1,k=P.k||1,L=kf(u,PK.lean),th=kf(u,PK.a1),y=kf(u,PK.yaw),lz=PITCH_SH_Y*Math.sin(L)-PITCH_ARM*Math.sin(th);return[px+sg*k*(.3*Math.cos(y)+lz*Math.sin(y)),k*(.95+PITCH_SH_Y*Math.cos(L)-PITCH_ARM*Math.cos(th)),pz+kf(u,PK.dz)+k*(-.3*Math.sin(y)+lz*Math.cos(y))]};
 function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,PK.a1),bx=P.g.position.x,bz=P.g.position.z;
@@ -466,10 +534,16 @@ const dugout=t=>[(t===0?1:-1)*INTRO_X,INTRO_Z];
 function crouch(f,R,c,fwd,splay,lean,shrink){const fw=fwd*c,sp=splay*c,len=LEG_LEN*(1-shrink*c);f.g.position.y=-(LEG_LEN-len*Math.cos(sp)*Math.cos(fw))*(f.k||1);R.l0.scale.y=R.l1.scale.y=1-shrink*c;R.l0.rotation.set(-fw,0,-sp);R.l1.rotation.set(-fw,0,sp);R.up.rotation.set(lean*c,0,0)}
 function aimWorld(R,arm,sx,wx,wy,wz){R.up.updateWorldMatrix(true,false);_tv.set(wx,wy,wz);R.up.worldToLocal(_tv);aimArm(arm,sx,_tv.x,_tv.y,_tv.z)}
 function armsDown(R){R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1}
+/* #43 plate pose: a crouched catcher's head is ~1.1 m up, a high miss arrives at 1.3-1.55 m. Instead of an arm straight up he rises out of the
+   crouch in a controlled way (up to C_HIGH_RISE of it, from C_HIGH_Y over C_HIGH_SPAN of pitch height). After the catch he holds the mitt
+   MITT_HOLD s, then brings it back to rest at his chest and sinks back into the crouch over MITT_BACK s (the return throw starts from there). */
+const C_HIGH_Y=.95,C_HIGH_SPAN=.5,C_HIGH_RISE=.6,MITT_HOLD=.35,MITT_BACK=.5;
 function poseBattery(e,u){
-  const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG',isP=e.k==='P',c=set?1:0;
-  C.noAnim=c>0;crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
-  if(c>0){const py=isP?.45+e.zy*.75:.7,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,gx=lerp(0,isP?e.zx:0,k),gy=lerp(.7,py,k);
+  const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG',isP=e.k==='P';
+  const py=isP?.45+e.zy*.75:MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
+    back=isP&&!e.sbGo?ease(sat01((u-(ARRIVE+CATCH_SNAP+MITT_HOLD))/MITT_BACK)):0,rise=C_HIGH_RISE*sat01((py-C_HIGH_Y)/C_HIGH_SPAN)*k*(1-back),c=set?1-rise:0;
+  C.noAnim=set;crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
+  if(set){const gx=lerp(lerp(0,isP?e.zx:0,k),0,back),gy=lerp(lerp(MITT_REST_Y,py,k),MITT_REST_Y,back);
     aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,gx*.8,gy-.15,MITT_Z+.2)}else armsDown(CR);
   const call=isP&&(e.r==='cstr'||e.r==='sstr')?ease(sat01((u-(ARRIVE+CALL_DELAY))/CALL_UP))*(1-ease(sat01((u-(ARRIVE+CALL_HOLD))/CALL_DOWN))):0,cu=(set?1:0)*(1-CALL_STAND*call);
   crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.hg.rotation.x=-UMP_HEAD_UP*cu;
@@ -547,7 +621,7 @@ function poseScene(e,u,dt){
   if(e.r==='inplay'&&(e.play.fielder==='P'||e.plan.CV.key==='P')&&u>=ARRIVE){const k=1-ease(sat01((u-ARRIVE-FIELD_REACT)/P_RUN_BLEND));
     P.pos=[P.pos[0],P.pos[1]+kf(ARRIVE,PK.dz)];P.noAnim=false;PR.up.rotation.x*=k;PR.up.rotation.y*=k;PR.hg.rotation.y*=k;
     P.mix={k,l0:P.legs[0].rotation.x,l1:P.legs[1].rotation.x,a0:P.arms[0].rotation.x,a1:wrapA(P.arms[1].rotation.x)}}
-  const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],mitt=[e.zx,plate[1],MITT_Z],bunt=e.r==='inplay'&&e.play.bunt;
+  const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],mitt=[e.zx,plate[1],MITT_Z],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp';
   const moving=new Set((e.moves||[]).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n))standRunner(i,u,n)}
   const contact=e.r==='inplay'||e.r==='foul';
@@ -555,9 +629,9 @@ function poseScene(e,u,dt){
   const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
-  else if(u<ARRIVE)bp=arc(hand,plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
-  else if(!contact){ if(e.r==='hbp'){bp=u<ARRIVE+.4?arc(plate,[-0.9,.3,1],.5,(u-ARRIVE)/.4):null}
-    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3)bp=arc(mitt,hand,3,(u-3.4)/.9)}
+  else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
+  else if(!contact){ if(hbp)bp=hbpBall(e,u);
+    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-3.4)/.9)}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
@@ -596,10 +670,12 @@ function poseScene(e,u,dt){
     const catchT=PL.catchT,D=PL.D,cx=PL.stand[0],cz=PL.stand[1];
     const tgt=[CV.spot[0],1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
     const BAG=[BASES[1][0],BASES[1][1]],DB=Math.hypot(BAG[0]-cx,BAG[1]-cz),soloAt=PL.soloAt;
+    const crowd=!!CV.key&&CV.key!==p.fielder&&Math.hypot(f.pos[0]-CV.spot[0],f.pos[1]-CV.spot[1])<BAG_CROWD_R;
     const t0=solo?Infinity:PL.t0,TT=PL.TT,rt=PL.rt,a1=dp?PL.a1:t0+TT,t1=dp?PL.t1:a1,arrive=PL.arrive;
+    const rtF=crowd?Math.max(rt,arrive+COVER_BACK_AT+CROWD_CLEAR_T):rt;
     if(u2>0){const tc=catchT-FIELD_REACT,cc=tc<=0?1:tc<RUN_ACCEL?.5*tc*tc/RUN_ACCEL:.5*RUN_ACCEL+(tc-RUN_ACCEL),vCh=clamp(D/cc,CHASE_VMIN,CHASE_VMAX);/* Chase speed: arrive exactly at the catch moment (capped at 9 m/s) */
       const k=D<.5?1:clamp(runDist(u2-FIELD_REACT,vCh)/D,0,1),kk=hr?Math.min(k,.5):k,tx=lerp(f.pos[0],cx,kk),tz=lerp(f.pos[1],cz,kk);
-      if(CV.key){const c=fielders[CV.key],D2=Math.hypot(CV.spot[0]-c.pos[0],CV.spot[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u2-FIELD_REACT-COVER_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u2-(arrive+2.2),COVER_SPEED)/D2,0,1);
+      if(CV.key){const c=fielders[CV.key],D2=Math.hypot(CV.spot[0]-c.pos[0],CV.spot[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u2-FIELD_REACT-COVER_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u2-(arrive+COVER_BACK_AT),COVER_SPEED)/D2,0,1);
         c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),c.pos[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),c.pos[1],bk));
         if(tagPlay&&CV.key==='C'){resetPose(c);c.g.position.y=0}
         const fromX=dp?PVspot[0]:cx,fromZ=dp?PVspot[1]:cz;if(bk===0&&u2>arrive-TT-(dp?TT2:0)-.2){face(c,fromX-c.g.position.x,fromZ-c.g.position.z);c.noAnim=true;
@@ -612,14 +688,15 @@ function poseScene(e,u,dt){
         pv.g.position.set(lerp(lerp(pv.pos[0],PVspot[0],kp),pv.pos[0],bp2),0,lerp(lerp(pv.pos[1],PVspot[1],kp),pv.pos[1],bp2));
         if(bp2===0&&u2>a1-.6){pv.noAnim=true;if(u2<a1){face(pv,cx-pv.g.position.x,cz-pv.g.position.z);gloveTo(pv,ease(sat01((u2-(a1-.45))/.3)),null)}
           else{face(pv,tgt[0]-pv.g.position.x,tgt[2]-pv.g.position.z);throwPose(pv,u2-a1,PIVOT_XFER,tgt)}}else if(kp<1)face(pv,PVspot[0]-pv.g.position.x,PVspot[1]-pv.g.position.z)}
-      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.pos[0]-sx0,f.pos[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rt,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.pos[0],back),0,lerp(sz0,f.pos[1],back));/* Back to position: walk back from wherever he last stood */
+      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.pos[0]-sx0,f.pos[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.pos[0],back),0,lerp(sz0,f.pos[1],back));/* Back to position: walk back from wherever he last stood */
       if(solo&&u2>catchT+.15&&back===0){const k2=DB<.3?1:clamp(runDist(u2-catchT-.15,6.5)/DB,0,1);f.g.position.set(lerp(tx,BAG[0],k2),0,lerp(tz,BAG[1],k2));if(k2<1){face(f,BAG[0]-cx,BAG[1]-cz);f.noAnim=false}}
       const fx=f.g.position.x,fz=f.g.position.z;
       if(back>0&&back<1)face(f,f.pos[0]-sx0,f.pos[1]-sz0);
       else if(!hr&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
+      else if(crowd&&u2<rtF)face(f,CV.spot[0]-fx,CV.spot[1]-fz);/* Waiting off the bag: watch the coverer */
       else face(f,-p.lx,-p.lz);
       /* Catch motion: glove reaches toward the ball in the last .35 s; after the catch both hands come to the chest for the transfer; then arm up and throw */
-      if(!hr&&back===0&&u2>catchT-.35){f.noAnim=true;const low=p.type==='GB'||hit;
+      if(!hr&&back===0&&u2>catchT-.35&&(u2<rt||!crowd)){f.noAnim=true;const low=p.type==='GB'||hit;
         if(u2<catchT+.12){const bpos=ballAt(u2+.04);reachGlove(f,bpos||[fx,low?.25:1.6,fz])}
         else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* Glove raised holding the ball while touching the base */
         else throwPose(f,u2-catchT,TH.xfer,tgtF)}}
@@ -762,18 +839,21 @@ sayBtn.onclick=()=>{sayOn=!sayOn;sayBtn.setAttribute('aria-pressed',sayOn);if(sa
 let seat=3,yawOff=0,pitchOff=0,zoomed=false;
 const look=(sx,sy,sz,tx,ty,tz)=>[Math.atan2(-(tx-sx),-(tz-sz)),Math.atan2(ty-sy,Math.hypot(tx-sx,tz-sz))];
 let shotNow=-1,autoSeat=-1,hitPrev=false;
+/* Seat fovs are vertical. On a 19.5:9 phone 55 deg vertical is ~97 deg across, a fisheye that stretches the near stands while dragging the
+   view around and makes the park feel like a model; cap the horizontal angle at HFOV_MAX (a 16:10 desktop stays as it was). */
+const HFOV_MAX=80,fitFov=f=>Math.min(f,2*Math.atan(Math.tan(HFOV_MAX*Math.PI/360)/camera.aspect)*180/Math.PI);
 /* Broadcast camera after contact: high behind home plate looking at the whole field, aim drifting slowly between the field centre and the ball */
 const HITCAM={x:0,y:8,z:11,fov:62,mid:[0,0,-26]};
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
-  if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=SEATS[id].follow?30:SEATS[id].fov;camera.updateProjectionMatrix()}
+  if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
   return SEATS[id]}
 function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat];
   if(renderer.xr&&renderer.xr.isPresenting){const v=s.cam?SEATS[0]:s;rig.position.set(v.x,v.y,v.z);rig.rotation.set(0,look(v.x,0,v.z,v.tx,0,v.tz)[0],0);return}
   rig.rotation.set(0,0,0);camera.position.set(0,0,0);
   const hit=!!(s.auto&&curEvent&&curEvent.k==='P'&&(curEvent.r==='inplay'||curEvent.r==='foul')&&curU>=ARRIVE&&ball.visible);
   const cs=hit?HITCAM:s,py=cs.y+(cs.cam?0:1.25);rig.position.set(cs.x,py,cs.z);
-  if(hit!==hitPrev){hitPrev=hit;if(hit)FOLLOW_T.set(...HITCAM.mid);else FOLLOW_T.set(s.tx,s.ty,s.tz);camera.fov=hit?HITCAM.fov:s.fov;camera.updateProjectionMatrix()}
+  if(hit!==hitPrev){hitPrev=hit;if(hit)FOLLOW_T.set(...HITCAM.mid);else FOLLOW_T.set(s.tx,s.ty,s.tz);camera.fov=fitFov(hit?HITCAM.fov:s.fov);camera.updateProjectionMatrix()}
   let tx=s.tx,ty=s.ty,tz=s.tz,bf=s.fov;
   /* Broadcast camera (auto): normally a fixed long lens on home plate; once the ball is hit (fair or foul) it follows the ball, then pans slowly back to home after the ball is gone */
   const trk=s.auto&&curEvent&&curEvent.k==='P'&&(curEvent.r==='inplay'||curEvent.r==='foul')&&curU>=ARRIVE&&ball.visible;
@@ -781,7 +861,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   if(s.follow||s.auto){const want=s.follow?(ball.visible?ball.position:_fw.set(0,1.3,-9)):(trk?_fw.set(HITCAM.mid[0],HITCAM.mid[1],HITCAM.mid[2]).lerp(ball.position,.35):_fw.set(s.tx,s.ty,s.tz)),k=Math.min(1,dt*(ball.visible&&(s.follow||trk)?7:s.auto?4:2.5));FOLLOW_T.lerp(want,k);tx=FOLLOW_T.x;ty=FOLLOW_T.y;tz=FOLLOW_T.z;
     const d=Math.hypot(tx-s.x,tz-s.z);if(s.follow)bf=clamp(2*Math.atan(14/Math.max(d,8))*180/Math.PI,16,40);else if(trk)bf=HITCAM.fov}
   const [y,p]=look(cs.x,py,cs.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
-  const fov=zoomed?bf*.4:bf;if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}}
+  const fov=fitFov(zoomed?bf*.4:bf);if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(editing)return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
@@ -838,6 +918,7 @@ const STUDIO_SEEDS=40,STUDIO_SEEDS_RARE=400,STUDIO_MAX=30;/* rare acts (5th fiel
 const STUDIO_ACTS=[
   ['投打','cstr','投球・看好球',e=>e.k==='P'&&e.r==='cstr'&&!K3(e)],
   ['投打','ball','投球・壞球',e=>e.k==='P'&&e.r==='ball'],
+  ['投打','hiball','投球・高壞球（捕手起身接）',e=>e.k==='P'&&e.r==='ball'&&!e.sbGo&&e.zy>1.15],
   ['投打','foul','打者・界外球',e=>e.k==='P'&&e.r==='foul'],
   ['投打','Ks','被三振・揮棒落空',e=>e.k==='P'&&e.r==='sstr'&&K3(e)],
   ['投打','Kc','被三振・站著不動',e=>e.k==='P'&&e.r==='cstr'&&K3(e)],
@@ -865,6 +946,8 @@ const STUDIO_ACTS=[
   ['跑壘','slide','滑壘・二壘/三壘安打',e=>pl(e,p=>p.res==='2B'||p.res==='3B')],
   ['跑壘','dpslide','滑壘・雙殺被封殺',e=>pl(e,p=>p.dp)],
   ['跑壘','tagup','高飛犧牲打・回壘再衝本壘',e=>pl(e,p=>p.res==='out'&&p.type==='FB'&&e.runs>0)],
+  ['跑壘','tag3','高飛接殺・二壘跑者回壘衝三壘',e=>pl(e,p=>p.res==='out')&&e.plan.tagPlay&&e.plan.CV.base===3],
+  ['跑壘','sf23','高飛犧牲打・二壘跑者跟進三壘',e=>pl(e,p=>p.res==='out'&&p.type==='FB')&&(e.moves||[]).some(m=>m[0]===3&&m[1]===4)&&(e.moves||[]).some(m=>m[0]===2&&m[1]===3),STUDIO_SEEDS_RARE],
   ['上壘','bb','四壞保送',e=>e.k==='P'&&/保送/.test(e.desc||'')&&e.r!=='ibb'],
   ['上壘','hbp','觸身球',e=>e.k==='P'&&e.r==='hbp'],
   ['上壘','ibb','故意四壞',e=>e.k==='P'&&e.r==='ibb'],
@@ -906,7 +989,7 @@ function setTier(n){gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tie
   key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);if(key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
   PP=gfxTier>=2||gfxLow?null:(PP||setupPost());
   const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;blobShadows.forEach(m=>m.visible=!sh);
-  envOn=gfxTier<2;bugs.pts.visible=envOn;if(!envOn)blades.im.visible=false;
+  envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}})}
 let envOn=true;
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;

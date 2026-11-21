@@ -1,20 +1,20 @@
 # render/ handoff (max 20 lines)
 
 ## Done
-- Tools: `tools/studio_shot.py` (contact sheets; needs `npm i three@0.186.1`, THREE_DIR; run one at a time, parallel runs time out),
-  `tools/studio_probe.py` (prints a JS expression per time, ~20 s a run). #3 comments translated (PR #12).
-- #5 bunt (PR #22): squared stance, level bat on the pitch line (`buntContact`); batter-runner leaves from the box (`BAT_LEAVE_BLEND`).
-- #5 steal (PR #24): `catcherThrow` pop-up, transfer, hold when plan.t0 is late (#23), step, throw at plan.t0, re-crouch.
-- #5 tag (feat/5-tag): `tagPose` for steal receiver, bunt-FC and tag-up plays. Out = engine `plan.actions` a:'tag' time, then
-  shows the ball; safe = late swipe at arrive+TAG_LATE_SWEEP. Glove on the runner's lane. Studio acts `sbout`, `tagfc` (400 seeds).
-
-- #5 pitcher cover (feat/5-cover, stacked on feat/5-tag): fielding/covering pitcher starts from the stride at contact
-  (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). Probed on studio act `dp3`: no jump.
+- Tools: `tools/studio_shot.py` (contact sheets; `npm i three@0.186.1`, THREE_DIR; one run at a time), `tools/studio_probe.py`.
+- #5 bunt/steal/tag/pitcher cover, 1B waits off the bag (`rtF`, PR #48); #36 studio acts `tag3`, `sf23` (PR #51).
+- #33 part 1 PR #62 (feat/33, stacked on #49): seated crowd, cheer bodies, varied shirts, denim trousers; draw calls 2 -> 4.
+- #33 part 2 PR #63 (feat/33-scale, stacked on #62): seat width .55 m, outfield bleachers r 111.5 above the wall, scoreboard
+  y 18, fov cap 80 deg across (`fitFov`), crowd share per tier `CROWD_DENSITY` [1,.6,.45,.35] (people shuffled, prefix drawn).
+- #43 item 1 hit by pitch (fix/43-hbp): ball ends on the body (spot from pitch height, pitcher side), flinch + turn (`hbpReact`),
+  ball drops and hops (`hbpBall`), runner leaves at engine st0. Seen on studio act `hbp` clips 0 (R), 3 (high), 5 (L).
 
 ## Next
-- #5 is done once PRs #24, #39 and the cover PR merge (in that order). Not yet screenshotted: `dp3` pitcher run (only probed).
+- #43 plate pose (fix/43-plate-pose, stacked on #63): catcher rises for high balls (C_HIGH_*), mitt back to rest after the catch,
+  bat rests on the back shoulder (BAT_REST). Studio act `hiball`. Next #43 item 4, then 2, 3, 5; HBP thud: `wip/43-hbp-pickup`. #42 free.
+
 ## Traps
-- Engine's second-base tag spot is in the runner's lane (issue #35): runner slides through the SS until the engine moves it.
-- Batter-local frame: +z faces the plate, +x faces the pitcher. No left-handed bunt in the studio seed bank yet.
+- Batter-local frame: +z faces the plate, +x faces the pitcher. World: pitcher at -z, catcher at +z (MITT_Z), righty at x=-.9.
 - Engine sets `e.swing=true` on bunts; guard with `e.play.bunt`. Shell env does not persist: re-export THREE_DIR each call.
-- `gh` GraphQL is blocked: use `gh api repos/...` REST for issues/PRs.
+- Node materials multiply instanceColor into every vertex (crowd: instanced 'shirt' + 'tint' mask). Swiftshader frame ~90 s.
+- `gh` GraphQL blocked: `gh api repos/...` REST. One render window at a time (double claim on #43). Upper deck idea for #33 open.
