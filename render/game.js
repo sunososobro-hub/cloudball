@@ -88,6 +88,7 @@ const fill=new THREE.DirectionalLight(LC(0xd6e2ff),FILL_I);fill.position.set(60,
   const m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,depthWrite:false,fog:false});m.colorNode=c;scene.add(new THREE.Mesh(new THREE.SphereGeometry(520,32,16),m))}
 
 /* field texture */
+const CHALK_SCUFFS=420,FIELD_WEAR_R=30,BOX_SCUFFS=160,BASE_DUST=60,DIRT_RGB='122,88,58';
 function fieldTex(){
   const X0=-130,Z0=-150,W=260,H=190,S=3072/W,c=document.createElement('canvas');c.width=3072;c.height=Math.round(H*S);
   const g=c.getContext('2d'),X=x=>(x-X0)*S,Y=z=>(z-Z0)*S;
@@ -103,6 +104,14 @@ function fieldTex(){
   g.fillStyle='#fff';for(const [x,z] of [[19.4,-19.4],[0,-38.8],[-19.4,-19.4]]){g.save();g.translate(X(x),Y(z));g.rotate(Math.PI/4);g.fillRect(-.22*S,-.22*S,.44*S,.44*S);g.restore()}
   g.beginPath();g.moveTo(X(-.22),Y(-.22));g.lineTo(X(.22),Y(-.22));g.lineTo(X(.22),Y(0));g.lineTo(X(0),Y(.22));g.lineTo(X(-.22),Y(0));g.closePath();g.fill();
   g.fillRect(X(-.3),Y(-18.5),.6*S,.15*S);
+  /* #150 round 2: worn chalk, dusty bases, plate and rubber. Dirt-coloured dabs (fixed LCG, same park every load): CHALK_SCUFFS along each
+     foul line inside FIELD_WEAR_R, heavier rub-out on the batter's boxes, a dusting on each base, the plate and the rubber. */
+  {let r=4242;const R=()=>(r=(r*1103515245+12345)&0x7fffffff)/0x7fffffff,dab=(x,z,rad,n,a,col)=>{for(let i=0;i<n;i++){const t=R()*6.283,d=Math.sqrt(R())*rad,s=(.03+R()*.09)*S;
+      g.fillStyle=`rgba(${col},${a*(.4+R()*.6)})`;g.fillRect(X(x+Math.cos(t)*d)-s/2,Y(z+Math.sin(t)*d)-s/2,s,s*(.5+R()))}};
+    for(const s of [-1,1])for(let i=0;i<CHALK_SCUFFS;i++){const L=R()*FIELD_WEAR_R;dab(s*L*Math.SQRT1_2,-L*Math.SQRT1_2,.12,1,.55,DIRT_RGB)}
+    for(const x of [-1.05,1.05])dab(x,-.1,1.1,BOX_SCUFFS,.6,DIRT_RGB);
+    for(const [x,z] of [[19.4,-19.4],[0,-38.8],[-19.4,-19.4],[0,0]])dab(x,z,.24,BASE_DUST,.35,DIRT_RGB);
+    dab(0,-18.42,.3,BASE_DUST,.4,DIRT_RGB)}
   try{const im=g.getImageData(0,0,c.width,c.height),d=im.data;let r=12345;for(let i=0;i<d.length;i+=4){r=(r*1103515245+12345)&0x7fffffff;const n=((r>>16)&31)-15;d[i]+=n;d[i+1]+=n*1.1;d[i+2]+=n*.7}g.putImageData(im,0,0)}catch(e){}
   try{FIELD_PIX={d:g.getImageData(0,0,c.width,c.height).data,w:c.width,h:c.height,X,Y}}catch(e){}
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.getMaxAnisotropy();return t;
@@ -159,8 +168,10 @@ const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.P
  const padN=genTex('padN',32,64,(u,v)=>{const dx=(hp(u+D,v)-hp(u-D,v))*PAD_BULGE*D*8,dy=(hp(u,v+D)-hp(u,v-D))*PAD_BULGE*D*8,l=Math.hypot(dx,dy,1);return[.5-dx/l/2,.5+dy/l/2,.5+.5/l]});
  padN.repeat.set(PAD_BOARDS*PAD_PER_BOARD*AD_REPEAT,1);
  for(const o of scene.children)if(o.geometry===fence.geometry){o.material.normalMap=padN;o.material.normalScale.set(1,1);o.material.roughness=.6}}
-const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshBasicMaterial({color:0xf2c230,side:THREE.DoubleSide}));fenceTop.position.y=3;scene.add(fenceTop);
-for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),new THREE.MeshBasicMaterial({color:0xf2c230}));p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);scene.add(p)}
+/* #150 round 2: fence top and foul poles are painted steel (streaks, chips) instead of flat unlit yellow; YELLOW_GLOW keeps them reading at night */
+const YELLOW_GLOW=.35,yellowPaint=new THREE.MeshStandardMaterial({color:0xf2c230,roughness:.55,metalness:.2,map:paintTex(),roughnessMap:paintTex(),emissive:0xf2c230,emissiveIntensity:YELLOW_GLOW,side:THREE.DoubleSide});
+const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),yellowPaint);fenceTop.position.y=3;scene.add(fenceTop);
+for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),yellowPaint);p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);scene.add(p)}
 /* Backstop: textured net (5 cm diamond mesh; mipmaps fade it to a thin veil at distance) plus top cable and posts */
 const NET_W=40,NET_H=9,NET_Z=20,NET_CELL=.05,NET_OPACITY=.55;
 const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.strokeStyle='rgba(220,226,235,.85)';g.lineWidth=3;
@@ -178,7 +189,7 @@ const STAIN_F=.12,STAIN_K=.22,STREAK_XZ=1.4,STREAK_Y=.07,STREAK_K=.14;
 const standMat=(()=>{const {triplanarTexture,texture,positionWorld,normalWorld,float,dot,vec3,clamp:tc,color,mx_fractal_noise_float:fn}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.9});
   const p=positionWorld,wear=float(1).sub(tc(fn(p.mul(STAIN_F),3,2,.5).add(.15),0,1).mul(STAIN_K)).sub(tc(fn(vec3(p.x.mul(STREAK_XZ),p.y.mul(STREAK_Y),p.z.mul(STREAK_XZ)),2,2,.5),0,1).mul(STREAK_K));
   const t=triplanarTexture(texture(tex('concrete_c',1)),null,null,float(.35),positionWorld,normalWorld);m.colorNode=color(LC(0x2a3246)).mul(tc(dot(t.rgb,vec3(.2126,.7152,.0722)).div(.31),.6,1.4)).mul(wear);
-  const o=triplanarTexture(texture(tex('concrete_orm')),null,null,float(.35),positionWorld,normalWorld);m.roughnessNode=o.g;return m})(),seatMat=new THREE.MeshStandardMaterial({color:LC(0x16365c),roughness:.6});const fans=[];
+  const o=triplanarTexture(texture(tex('concrete_orm')),null,null,float(.35),positionWorld,normalWorld);m.roughnessNode=o.g;return m})(),seatMat=new THREE.MeshStandardMaterial({color:LC(0x16365c),roughness:.6,metalness:.3,map:paintTex(),roughnessMap:paintTex()});const fans=[];/* front rail: painted steel (#150 round 2) */
 /* #33 scale, real stadium figures: seat width ~.5 m (was .82), row depth .9 m and rise .55 m (~31 deg rake, a steep lower bowl).
    Foul-line stands 16 m off the line and the backstop 24 m behind the plate are already in the real range (MLB backstop >= 18 m). */
 const CROWD_EMPTY=.1,/* share of seats left empty */SEAT_W=.55,ROW_D=.9,ROW_RISE=.55,FRONT_H=1,BACK_WALL=4,RAIL_H=1.1;
