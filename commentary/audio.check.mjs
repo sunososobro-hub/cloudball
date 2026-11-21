@@ -1,0 +1,78 @@
+/* Checks of the recorded voice wiring and timing (#96). Plain Node: node commentary/audio.check.mjs
+ *   1. every registered script matches its audio folder (tools/wire-audio.mjs --check);
+ *   2. wiring: a file in the folder gives its line `audio` + `dur`, a removed file clears them
+ *      (fake clips made in a temporary folder, the real script is never written);
+ *   3. timing of a recorded game (every line of the frozen game given a file): only lines with a
+ *      file are spoken, no two lines overlap, no line starts before its event, priority-2 calls are
+ *      never moved or dropped, nothing is said after the next call it would run into. */
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, unlinkSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { simGame, TEAMS } from '../engine/index.js';
+import { createBooth } from './player.js';
+import { lineId } from './tools/line-id.mjs';
+
+const DIR = path.dirname(fileURLToPath(import.meta.url)), TOOL = path.join(DIR, 'tools', 'wire-audio.mjs');
+const EPS = 1e-6;
+const errs = [];
+const bad = m => errs.push(m);
+const run = a => spawnSync(process.execPath, [TOOL, ...a], { encoding: 'utf8' });
+
+/* a valid mp3 of n silent MPEG-2 Layer III frames (24 kHz, 8 kbit/s, 24 bytes, 0.024 s each) */
+const FRAME = Buffer.concat([Buffer.from([0xff, 0xf3, 0x14, 0xc4]), Buffer.alloc(20)]), FRAME_SEC = 576 / 24000;
+const fakeMp3 = sec => Buffer.concat(Array.from({ length: Math.round(sec / FRAME_SEC) }, () => FRAME));
+
+const index = JSON.parse(readFileSync(path.join(DIR, 'scripts', 'index.json'), 'utf8')).scripts;
+for (const file of Object.values(index)) {
+  const r = run([path.join(DIR, 'scripts', file), '--check']);
+  if (r.status !== 0) bad(`scripts/${file} does not match its audio folder: run node commentary/tools/wire-audio.mjs commentary/scripts/${file}\n${r.stdout}${r.stderr}`);
+}
+
+const [seed, file] = Object.entries(index)[0];
+const tmp = mkdtempSync(path.join(tmpdir(), 'cloudball-audio-'));
+try {
+  const copy = path.join(tmp, file), audio = path.join(tmp, 'clips');
+  const original = readFileSync(path.join(DIR, 'scripts', file), 'utf8'), script = JSON.parse(original);
+  writeFileSync(copy, original);
+  mkdirSync(audio);
+  const a = script.lines[1], b = script.lines[2], ida = lineId(a, script.guest), idb = lineId(b, script.guest);
+  writeFileSync(path.join(audio, `${ida}.mp3`), fakeMp3(2.4)); writeFileSync(path.join(audio, `${idb}.mp3`), fakeMp3(1.2));
+  let r = run([copy, '--dir', audio]);
+  if (r.status !== 0) bad(`wire-audio failed: ${r.stderr}`);
+  let wired = JSON.parse(readFileSync(copy, 'utf8'));
+  const name = path.basename(file, '.json'), la = wired.lines[1];
+  if (la.audio !== `audio/${name}/${ida}.mp3`) bad(`wired line has audio "${la.audio}", expected audio/${name}/${ida}.mp3`);
+  if (Math.abs((la.dur || 0) - 2.4) > 0.03) bad(`wired line has dur ${la.dur}, expected 2.4`);
+  if (run([copy, '--check', '--dir', audio]).status !== 0) bad('--check fails right after wiring');
+  unlinkSync(path.join(audio, `${idb}.mp3`));
+  if (run([copy, '--check', '--dir', audio]).status === 0) bad('--check passes although a wired file was removed');
+  run([copy, '--dir', audio]);
+  wired = JSON.parse(readFileSync(copy, 'utf8'));
+  if (wired.lines[2].audio || wired.lines[2].dur) bad('a removed file is still wired');
+  if (readFileSync(path.join(DIR, 'scripts', file), 'utf8') !== original) bad('the real script was written by the check');
+
+  /* 3: the whole frozen game recorded, every other line without a file */
+  const g = simGame(Number(seed), {}), teams = g.teams.map(i => TEAMS[i]), bank = JSON.parse(readFileSync(path.join(DIR, 'lines.json'), 'utf8'));
+  const rec = { ...script, lines: script.lines.map((l, n) => (n % 7 === 3 ? l : { ...l, audio: `audio/${name}/${n}.mp3`, dur: 1 + (n % 5) * 0.9 })) };
+  const booth = createBooth({ stream: g.stream, seed: g.seed, bank, script: rec, teams, describe: x => g.ev[x.f].desc });
+  if (!booth.recorded) bad('a script with audio is not seen as recorded');
+  let prev = null;
+  for (const l of booth.lines) {
+    if (!l.audio) bad(`line without a file is spoken in a recorded game: ${l.text}`);
+    if (l.time < l.due - EPS) bad(`line starts before its event: ${l.text}`);
+    const urgent = l.speaker === 'pbp' && (l.priority || 0) >= 2;
+    if (urgent && Math.abs(l.time - l.due) > EPS) bad(`priority-2 call moved: ${l.text}`);
+    if (prev && !urgent && l.time < prev.end - EPS) bad(`lines overlap: "${prev.text}" / "${l.text}"`);
+    if (!urgent && l.end > l.nextCall + 0.3 + EPS) bad(`line runs into the next call: ${l.text}`);
+    prev = l;
+  }
+  for (const l of booth.plan) if (l.speaker === 'pbp' && (l.priority || 0) >= 2 && l.audio && l.drop) bad(`priority-2 call dropped: ${l.text}`);
+  const plain = createBooth({ stream: g.stream, seed: g.seed, bank, script, teams, describe: x => g.ev[x.f].desc });
+  if (plain.recorded || plain.plan) bad('a script without audio is timed as recorded');
+  const dropped = booth.plan.filter(l => l.drop && l.drop !== 'no audio').length;
+  if (!errs.length) console.log(`OK: scripts match their audio folders, wiring adds and clears files, recorded timing holds (${booth.lines.length} spoken, ${dropped} dropped for room in the test game).`);
+} finally { rmSync(tmp, { recursive: true, force: true }); }
+
+if (errs.length) { console.error(errs.join('\n')); process.exit(1); }

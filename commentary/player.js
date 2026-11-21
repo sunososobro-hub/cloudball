@@ -252,15 +252,62 @@ export function formatScript(script) {
   return JSON.stringify(head).slice(0, -1) + (pregame ? ',"pregame":' + list(pregame) : '') + ',"lines":' + list(lines) + '}\n';
 }
 
+/* ---------- recorded voice (#96) ----------
+ * A script with recorded audio (`audio` + `dur` on its lines, filled by tools/wire-audio.mjs) is
+ * timed by the real length of each clip, so it never sounds odd:
+ *   - only lines with a file are spoken: a line without one stays silent, never the browser voice;
+ *   - two lines never overlap: a line starts after the previous one has ended;
+ *   - an answer (a line bound to the same event as the line before it) follows it after a short,
+ *     constant pause;
+ *   - a line that cannot be over by the next play-by-play call (a pbp line of a later event that is
+ *     not an aside) is dropped, never played late; asides (lineup intros) never hold a line back;
+ *   - a priority-2 play-by-play call is never moved or dropped: it is said on its moment and cuts
+ *     whatever is still playing (the viewer sends it as urgent).
+ * Times only ever move later than the event, so a line still never talks about the future. */
+const REPLY_GAP = 0.35;     /* seconds between a line and the answer to it */
+const LINE_GAP = 0.2;       /* shortest pause between two lines that are not an answer */
+const CALL_GRACE = 0.3;     /* a line may run this far into the moment of the next play-by-play call */
+const SPEECH_CPS = 4.5;     /* characters per second: rough length of a clip that has no measured `dur` */
+const SPEECH_PAD = 0.4;
+export const estimateDur = text => [...String(text).replace(/[\s，。、！？「」—…：；（）]/g, '')].length / SPEECH_CPS + SPEECH_PAD;
+export const isRecorded = script => !!(script && Array.isArray(script.lines) && script.lines.some(l => l.audio));
+
+/* Every line with { due, time, end, reply, drop } (drop: null, 'no audio', 'late' or 'too long'; `cut`: a
+ * priority-2 call starts before it ends). Pure: used by the booth and by tools/wire-audio.mjs. */
+export function planRecorded(lines, stream) {
+  const out = lines.map(l => ({ ...l, due: stream[l.at].t + (l.delay || 0), time: null, end: null, drop: null }));
+  /* the next call: the next play-by-play line of a later event that is not an aside (lineup intros are asides) */
+  const isCall = l => l.speaker === 'pbp' && l.audio && !l.aside;
+  for (let k = out.length - 1, next = Infinity, nextAt = Infinity, after = Infinity; k >= 0; k--) {
+    if (out[k].at < nextAt) { after = next; nextAt = out[k].at; }   /* first line (from the end) of an earlier event: calls of later events only */
+    out[k].nextCall = after;
+    if (isCall(out[k])) next = Math.min(next, out[k].due);
+  }
+  let prev = null;
+  for (const l of out) {
+    if (!l.audio) { l.drop = 'no audio'; continue; }
+    const dur = l.dur > 0 ? l.dur : estimateDur(l.text), urgent = l.speaker === 'pbp' && (l.priority || 0) >= 2;
+    const reply = prev && prev.at === l.at && (l.delay || 0) <= (prev.delay || 0) + RESPONSE_DELAY;
+    const start = urgent || !prev ? l.due : Math.max(l.due, prev.end + (reply ? REPLY_GAP : LINE_GAP));
+    if (!urgent && start + dur > l.nextCall + CALL_GRACE) { l.drop = start > l.nextCall ? 'late' : 'too long'; continue; }
+    if (urgent && prev && prev.end > start) prev.cut = true;
+    l.time = start; l.end = start + dur; l.reply = !!reply; prev = l;
+  }
+  return out;
+}
+
 /* The booth for one game. due(T) returns the lines whose moment has come since the last call. */
 export function createBooth({ stream, seed, bank, script, teams, describe }) {
-  const usable = script && validateScript(script, stream).length === 0;
+  const usable = script && validateScript(script, stream).length === 0, recorded = usable && isRecorded(script);
   const guest = guestOf(bank, (usable && script.guest) || (teams && teams[1] && teams[1].id));
-  const lines = (usable ? script.lines : draftFromBank(stream, bank, { seed, teams, describe }))
+  const all = (usable ? script.lines : draftFromBank(stream, bank, { seed, teams, describe }))
     .map(l => ({ ...l, ...(l.speaker === 'fan' && guest && guest.cast && !l.cast ? { cast: guest.cast } : {}), time: stream[l.at].t + (l.delay || 0) }));
+  const plan = recorded ? planRecorded(all, stream) : null;
+  const lines = plan ? plan.filter(l => !l.drop).sort((a, b) => a.time - b.time) : all;
   let cursor = 0, lastT = null;
   return {
-    lines, scripted: !!usable, guest,
+    /* recorded: the game has recorded voice, so the viewer shows the "AI 語音" label and never uses the browser voice */
+    lines, plan, scripted: !!usable, recorded, guest,
     due(T, { fast = false } = {}) {
       if (lastT === null || T < lastT || T - lastT > SEEK_GAP) { cursor = lines.findIndex(l => l.time > T); if (cursor < 0) cursor = lines.length; lastT = T; return []; }
       lastT = T; const out = [];

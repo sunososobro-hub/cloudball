@@ -45,7 +45,8 @@ The key is the game's seed as an unsigned decimal integer.
 | `lines[].speaker` | yes | `pbp` (play-by-play), `color`, or `fan` (the guest). See `personas/`. |
 | `lines[].text` | yes | What is said. Also the text read by the browser voice when there is no audio. |
 | `lines[].delay` | no | Seconds after the event before the line is due. Default 0. |
-| `lines[].audio` | no | Pre-rendered audio file, path relative to `commentary/`. Played when present; if it is missing or fails to load, the browser's speechSynthesis reads `text`. |
+| `lines[].audio` | no | Pre-rendered audio file, path relative to `commentary/`. Filled by `tools/wire-audio.mjs`, never by hand. A script with any `audio` is a **recorded** game: only lines with a file are spoken; a line without one, or a file that fails to load, stays silent. The browser's speechSynthesis reads `text` only in games with no recorded audio at all. |
+| `lines[].dur` | no | Length of the `audio` clip in seconds, written by `tools/wire-audio.mjs`. Times the recorded game (see Voice). |
 | `lines[].emotion` | no | Delivery tag for voice synthesis: one of `EMOTIONS` in `tension.js` (`calm`, `excited`, `tense`, `thrilled`, `disappointed`, `amused`). The viewer ignores it. |
 | `lines[].priority` | no | `2` = also spoken when the viewer fast-forwards. Default 0. |
 | `lines[].aside` | no | `true` for the lines of a fan moment: the voice drops them, still queued, when a new play-by-play call comes. `fan` lines are asides by default. |
@@ -79,6 +80,18 @@ result. Leave the first seconds of `open` free for the music bed.
 per distinct line (pregame first, then the game), whole sentences, `fan` voiced by the guest's
 fixed voice, `tone` from `emotion`, and `id` = voice + hash of tone and text (same words, same
 file; new words, new file). Rerun it after every edit of the script.
+
+After synthesis, `tools/wire-audio.mjs <script>` fills `audio` and `dur` of every line (pregame
+too) from the files in `audio/<name>/` by sheet id, and removes them when the file is gone, so the
+viewer never asks for a missing mp3. `--check` fails when the script and the folder disagree;
+`--report` prints how the first 25 game lines are timed by their clip lengths. Rerun it after
+synth.mjs and after every edit of the script (`node commentary/audio.check.mjs` checks it).
+
+A recorded game is timed by the clips (`planRecorded` in `player.js`): two lines never overlap; an
+answer (a line on the same event as the line before it) follows after a short constant pause; a
+line that cannot be over by the next play-by-play call (a `pbp` line of a later event that is not
+an `aside`) is dropped, not played late; a priority-2 call is said on its moment and cuts what is
+still playing. Asides (lineup intros) may come late but never hold another line back.
 
 Validate with `validateScript(script, stream)` from `player.js`; the test suite runs it on every
 script that is registered.

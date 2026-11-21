@@ -3,8 +3,8 @@
  * Every line of the script (pregame part first, then the game lines) becomes one row
  * { id, role, tone, text, ... } in the input format of synth.mjs: whole sentences, no cut clips.
  *   role  pbp / color as is; fan -> the guest's fixed voice in voices.json (fan_<guest team id>)
- *   tone  from the line's `emotion` (EMOTION_TONE below); every speaker keeps its fixed persona
- *   id    <role>-<10 hex of sha1(role, tone, text)>: fixed for the same words, independent of the
+ *   tone  from the line's `emotion` (EMOTION_TONE in line-id.mjs); every speaker keeps its fixed persona
+ *   id    <role>-<10 hex of sha1(role, tone, text)> (line-id.mjs): fixed for the same words, independent of the
  *         line's position, so inserting or re-running add-lineup.mjs never renames a file, and a
  *         reworded line gets a new id (stale audio is never played for new text).
  * The same words said twice by the same voice with the same emotion are one row (one mp3).
@@ -20,7 +20,7 @@
  *   --check        write nothing; exit 1 if the sheet is missing or out of date
  *   --audio <dir>  also list mp3 files in <dir> that no row uses any more (orphans) */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { EMOTION_TONE, DEFAULT_EMOTION, roleOf as roleFor, lineId } from './line-id.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,15 +28,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { ROSTERS } = await import('../../league/players.js');
 const { STAFF, UMPIRES } = await import('../../league/staff.js');
 const { TEAMS } = await import('../../league/teams.js');
-const EMOTION_TONE = {
-  calm: '平穩清楚，正常播報',
-  excited: '興奮，音量拉高、語速加快',
-  tense: '緊張，聲音壓低、一字一字講',
-  thrilled: '非常激動，大聲、尾音拉長',
-  disappointed: '失望，語氣往下沉、慢一點',
-  amused: '覺得好笑，帶點調侃',
-};
-const DEFAULT_EMOTION = 'calm';
 
 const args = process.argv.slice(2);
 const file = args[0] && !args[0].startsWith('--') ? args[0] : null;
@@ -46,8 +37,7 @@ if (!file) { console.error('usage: node commentary/tools/make-sheet.mjs <script.
 
 const script = JSON.parse(readFileSync(file, 'utf8'));
 const roles = JSON.parse(readFileSync(path.join(ROOT, 'voices.json'), 'utf8')).roles;
-const fanRole = `fan_${script.guest}`;
-const roleOf = s => (s === 'fan' ? fanRole : s);
+const roleOf = s => roleFor(s, script.guest);
 
 const errs = [];
 const all = [
@@ -60,7 +50,7 @@ all.forEach((l, n) => {
   if (!roles[role]) errs.push(`line ${n}: speaker "${l.speaker}" has no voice in voices.json (${role})`);
   if (!tone) errs.push(`line ${n}: unknown emotion "${emotion}"`);
   if (typeof l.text !== 'string' || !l.text.trim()) errs.push(`line ${n}: empty text`);
-  const id = `${role}-${createHash('sha1').update(JSON.stringify([role, tone, l.text])).digest('hex').slice(0, 10)}`;
+  const id = lineId(l, script.guest);
   const where = l.part === 'pregame' ? `${l.seg}+${l.t ?? 0}s` : `event ${l.at}`;
   if (rows.has(id)) { rows.get(id).uses.push(where); return; }
   rows.set(id, { id, role, tone, text: l.text, emotion, part: l.part, ...(l.seg ? { seg: l.seg } : {}), uses: [where] });

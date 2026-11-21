@@ -1,7 +1,7 @@
 /* Entry point for the viewer. Loads the fallback bank and, when one exists, the script that
  * was written for a game after it was simulated. Static files only. */
-export { createBooth, draftFromBank, validateScript, validateBank, SPEAKERS } from './player.js';
-export { createVoice } from './voice.js';
+export { createBooth, draftFromBank, validateScript, validateBank, planRecorded, isRecorded, SPEAKERS } from './player.js';
+export { createVoice, CROWD_DUCK } from './voice.js';
 export { tensionTrack, tensionOf, emotionFor, EMOTIONS, TENSION_MAX } from './tension.js';
 
 const here = new URL('./', import.meta.url);
