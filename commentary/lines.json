@@ -17,7 +17,14 @@
       { "when": { "hadLastInning": 1, "lastInningRuns": { "min": 2 } }, "call": "{team}上一局才拿下{lastInningRuns}分，{batter}接著上。", "response": "打線熱起來了，投手要穩住。" },
       { "when": { "hadLastInning": 1, "lastInningRuns": 0, "inning": { "min": 4 } }, "call": "{batter}上來，{team}上一局沒有得分。", "response": "上一局掛零，這局總要有點東西了吧。" },
       { "when": { "pitchCount": { "min": 85 } }, "call": "{batter}上來，{pitcher}的用球數已經{pitchCount}球了。", "response": "到這個球數，手臂會開始重，我蹲過我知道。" },
-      { "gag": "story", "needs": ["story"], "once": true, "when": { "inning": { "min": 5 } }, "call": "{batter}上來。周哥，你今晚講幾次「我當年」了？", "response": "沒幾次啦，是我當年的事比較多而已。" }
+      { "gag": "story", "needs": ["story"], "once": true, "when": { "inning": { "min": 5 } }, "call": "{batter}上來。周哥，你今晚講幾次「我當年」了？", "response": "沒幾次啦，是我當年的事比較多而已。" },
+      { "when": { "batterPa": { "eq": 0 } }, "call": "{inning}局{half}，{outs}出局，{team}的{batter}，今天第一個打席。" },
+      { "when": { "batterAb": { "min": 1 }, "batterHits": { "eq": 0 } }, "call": "{batter}今天{batterAb}個打數，還沒有安打。", "response": "這個打席他要把球看清楚。" },
+      { "when": { "batterAb": { "min": 2 }, "batterHits": { "eq": 1 } }, "call": "{batter}今天{batterAb}打數{batterHits}安打。" },
+      { "when": { "batterHrToday": { "min": 1 } }, "call": "{batter}今天已經轟出{batterHrToday}發全壘打。", "response": "投手最好別投到中間。" },
+      { "when": { "pitcherK": { "min": 3 } }, "call": "{pitcher}今天已經三振了{pitcherK}個人，現在面對{batter}。" },
+      { "when": { "tied": 0 }, "call": "{inning}局{half}，{away}{awayScore}比{homeScore}{home}，{outs}出局，{team}的{batter}上場。" },
+      { "when": { "tied": 1 }, "call": "{inning}局{half}，{awayScore}比{homeScore}平手，{outs}出局，輪到{team}的{batter}。" }
     ] },
     "two_strikes": { "priority": 0, "silence": 0.6, "exchanges": [
       { "call": "兩好球。" },
