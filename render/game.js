@@ -164,16 +164,18 @@ const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
 const FOLLOW_T=new THREE.Vector3(0,1.3,-9),_fw=new THREE.Vector3();
 const v3=new THREE.Vector3(),dummy=new THREE.Object3D(),col=new THREE.Color();
 /* Crowd (#33): seated people from a few low-poly capsules, instanced. Draw calls: seats, seated bodies, arms-up bodies, heads.
-   Body = shirt (instance colour) + trousers (vertex colour CROWD_PANTS, so they stay dark whatever the shirt). A CROWD_CHEER_SHARE of fans also
+   Body = shirt (per-instance 'shirt' attribute) + trousers (vertex colour CROWD_PANTS). Not instanceColor: node materials multiply it into every
+   vertex, so trousers came out shirt-tinted. The per-vertex 'tint' mask (1 = shirt part) picks where the shirt colour applies. A CROWD_CHEER_SHARE of fans also
    have an arms-up body that replaces the seated one while they bounce above CROWD_CHEER_ON m. Seats and bodies face along the row; the body turns
    toward home plate by at most CROWD_YAW_MAX, the head turns the rest (up to CROWD_HEAD_MAX) and sways. Real proportions: seat .44 m, head top ~1.35 m */
 const CROWD_HIP_BACK=.12,CROWD_YAW_MAX=.35,CROWD_HEAD_MAX=.6,CROWD_YAW_JIT=.15,CROWD_LEAN=.07,CROWD_CHEER_SHARE=.35,CROWD_CHEER_ON=.12,CROWD_TEAM_SHARE=.35,
-  CROWD_SCALE_MIN=.92,CROWD_SCALE_SPAN=.16,CROWD_SWAY=.25,CROWD_PANTS=[.22,.23,.28],CROWD_WHITE=[1,1,1],
+  CROWD_SCALE_MIN=.92,CROWD_SCALE_SPAN=.16,CROWD_SWAY=.25,CROWD_PANTS=[.07,.08,.12],CROWD_WHITE=[1,1,1],
   CROWD_SHIRTS=[0xf2f2f2,0x2b2b2e,0x8d929a,0x1f3a5f,0x3d5a80,0xb23a3a,0x2f6b4a,0xd8c9a3,0xe0b030,0x5a4a8a];
 function crowdGeo(parts){const gs=parts.map(([g,c])=>[g.index?g.toNonIndexed():g,c]),n=gs.reduce((a,[q])=>a+q.attributes.position.count,0);
-  const P=new Float32Array(n*3),N=new Float32Array(n*3),C=new Float32Array(n*3);let o=0;
-  for(const [q,c] of gs){const k=q.attributes.position.count;P.set(q.attributes.position.array,o*3);N.set(q.attributes.normal.array,o*3);for(let i=0;i<k;i++)C.set(c,(o+i)*3);o+=k}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(P,3));g.setAttribute('normal',new THREE.BufferAttribute(N,3));g.setAttribute('color',new THREE.BufferAttribute(C,3));return g}
+  const P=new Float32Array(n*3),N=new Float32Array(n*3),C=new Float32Array(n*3),M=new Float32Array(n);let o=0;
+  for(const [q,c] of gs){const k=q.attributes.position.count;P.set(q.attributes.position.array,o*3);N.set(q.attributes.normal.array,o*3);for(let i=0;i<k;i++)C.set(c,(o+i)*3);if(c===CROWD_WHITE)M.fill(1,o,o+k);o+=k}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(P,3));g.setAttribute('normal',new THREE.BufferAttribute(N,3));g.setAttribute('color',new THREE.BufferAttribute(C,3));
+  g.setAttribute('tint',new THREE.BufferAttribute(M,1));return g}
 const cLimb=(a,b,r)=>{const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=d.length(),g=new THREE.CylinderGeometry(r,r,L+r,5,1,true);/* open 5-sided prism, 10 triangles */
   g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize()));g.translate((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);return g};
 const cBox=(w,h,d,x,y,z)=>new THREE.BoxGeometry(w,h,d).translate(x,y,z);
@@ -188,17 +190,20 @@ for(const f of fans){v3.set(f.x,f.y,f.z+CROWD_HIP_BACK).applyMatrix4(f.g.matrixW
 for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-s.x,fans[i].wz-s.z)<2.2))fans.splice(i,1);
 const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty),cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
 const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.5}),fans.length);
-const crowd=new THREE.InstancedMesh(crowdBody(false),new THREE.MeshStandardMaterial({roughness:.85,vertexColors:true}),people.length);
-const crowdUp=new THREE.InstancedMesh(crowdBody(true),crowd.material,cheerers.length);
+const crowdMat=(()=>{const {attribute,mix,vec3}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.85});
+  m.colorNode=attribute('color','vec3').mul(mix(vec3(1),attribute('shirt','vec3'),attribute('tint','float')));return m})();
+const crowdShirts=(geo,n)=>{const a=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3);geo.setAttribute('shirt',a);return a};
+const crowd=new THREE.InstancedMesh(crowdBody(false),crowdMat,people.length),crowdUp=new THREE.InstancedMesh(crowdBody(true),crowdMat,cheerers.length);
+const shirtA=crowdShirts(crowd.geometry,people.length),shirtUpA=crowdShirts(crowdUp.geometry,cheerers.length);
 const heads=new THREE.InstancedMesh(new THREE.SphereGeometry(.11,6,4).scale(.9,1.05,.95).translate(0,1.25,0),new THREE.MeshStandardMaterial({roughness:.7}),people.length);
 fans.forEach((f,i)=>{dummy.position.set(f.wx,f.wy,f.wz);dummy.rotation.set(0,f.sy,0);dummy.scale.set(1,1,1);dummy.updateMatrix();seats.setMatrixAt(i,dummy.matrix)});
 people.forEach((f,i)=>{f.ph=Math.random()*6.28;const home=Math.atan2(-f.wx,-f.wz),d=wrapPI(home-f.sy);
   f.ry=f.sy+clamp(d,-CROWD_YAW_MAX,CROWD_YAW_MAX)+(Math.random()-.5)*2*CROWD_YAW_JIT;f.hy=clamp(wrapPI(home-f.ry),-CROWD_HEAD_MAX,CROWD_HEAD_MAX);
   f.rx=(Math.random()-.5)*2*CROWD_LEAN;f.k=CROWD_SCALE_MIN+Math.random()*CROWD_SCALE_SPAN;
   const tm=f.side===2?(Math.random()<.5?0:1):(Math.random()<.85?f.side:1-f.side);f.team=tm;
-  col.setHex(Math.random()<CROWD_TEAM_SHARE?TEAMS[tm].color:CROWD_SHIRTS[(Math.random()*CROWD_SHIRTS.length)|0]).multiplyScalar(.7+Math.random()*.35);crowd.setColorAt(i,col);f.shirt=col.getHex();
+  col.setHex(Math.random()<CROWD_TEAM_SHARE?TEAMS[tm].color:CROWD_SHIRTS[(Math.random()*CROWD_SHIRTS.length)|0]).multiplyScalar(.7+Math.random()*.35);shirtA.setXYZ(i,col.r,col.g,col.b);f.shirt=col.getHex();
   col.setHex([0xc99572,0xe0b48f,0xa8775a,0xd9a983,0x8a5a3c][i%5]);if(Math.random()<.35)col.setHex(Math.random()<.5?0x1a1a1e:0x3a2a1c);heads.setColorAt(i,col)});
-cheerers.forEach((f,i)=>{f.ui=i;crowdUp.setColorAt(i,col.setHex(f.shirt))});
+cheerers.forEach((f,i)=>{f.ui=i;col.setHex(f.shirt);shirtUpA.setXYZ(i,col.r,col.g,col.b)});
 seats.instanceMatrix.needsUpdate=true;
 scene.add(seats,crowd,crowdUp,heads);
 const HIDE=new THREE.Matrix4().makeScale(0,0,0);
