@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.3.0';
+export const ENGINE_VERSION = '0.4.0';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -44,8 +44,16 @@ export const WALK_BACK_SPEED = 6.5;
 export const WALK_BACK_PAD = 0.6;
 
 /* ---- pitching ---- */
-export const ZONE_P_BASE = 0.53;
-export const ZONE_P_MAX = 0.64;
+/* Chance that a pitch is in the strike zone, by count [balls][strikes], times the pitcher's control.
+ * Pitchers come into the zone when behind and work off the plate when ahead. */
+export const ZONE_BY_COUNT = [
+  [0.52, 0.44, 0.36],
+  [0.55, 0.49, 0.43],
+  [0.59, 0.57, 0.51],
+  [0.64, 0.63, 0.60],
+];
+export const ZONE_P_MIN = 0.2;
+export const ZONE_P_MAX = 0.75;
 export const ZONE_HALF_WIDTH = 0.21;      /* in-zone x spread is +-this */
 export const ZONE_Y_MIN = 0.55;
 export const ZONE_Y_SPAN = 0.55;
@@ -55,7 +63,7 @@ export const MISS_LOW_Y = 0.35;
 export const MISS_LOW_SPAN = 0.25;
 export const MISS_HIGH_Y = 1.15;
 export const MISS_HIGH_SPAN = 0.3;
-export const HBP_P = 0.012;               /* chance that a taken pitch outside the zone hits the batter */
+export const HBP_P = 0.0077;              /* chance that a taken pitch outside the zone hits the batter */
 export const TIRE_AFTER_PITCHES = 85;
 export const TIRE_STUFF_PER_PITCH = 0.003;
 export const TIRE_CTRL_PER_PITCH = 0.002;
@@ -67,18 +75,25 @@ export const KMH_JITTER = 7;
 export const PITCH_TYPES = [['直球', 0.5, 0], ['滑球', 0.7, -10], ['曲球', 0.82, -22], ['變速球', 0.92, -14], ['指叉球', 1, -12]];
 
 /* ---- batting ---- */
-export const SWING_IN_ZONE = 0.65;
-export const SWING_CHASE = 0.33;          /* divided by the batter's eye */
-export const SWING_2K_IN_ZONE = 0.18;
-export const SWING_2K_CHASE = 0.1;
-export const SWING_3B_FACTOR = 0.5;
-export const SWING_30_FACTOR = 0.3;
-export const SWING_MAX = 0.95;
-export const CONTACT_IN_ZONE = 0.86;
-export const CONTACT_CHASE = 0.62;
+/* Chance of a swing by count [balls][strikes]: batters take early and on 3-0, protect with two strikes. */
+export const SWING_ZONE_BY_COUNT = [      /* at a pitch in the zone */
+  [0.45, 0.70, 0.88],
+  [0.56, 0.73, 0.91],
+  [0.57, 0.75, 0.93],
+  [0.12, 0.72, 0.95],
+];
+export const SWING_CHASE_BY_COUNT = [     /* at a pitch outside the zone; divided by the batter's eye */
+  [0.18, 0.28, 0.34],
+  [0.21, 0.31, 0.36],
+  [0.19, 0.32, 0.40],
+  [0.04, 0.23, 0.45],
+];
+export const SWING_MAX = 0.97;
+export const CONTACT_IN_ZONE = 0.825;
+export const CONTACT_CHASE = 0.555;
 export const CONTACT_MAX = 0.97;
 export const FOUL_P = 0.5;
-export const FOUL_P_2K = 0.56;
+export const FOUL_P_2K = 0.51;
 
 /* ---- batted ball mix and results ---- */
 export const GB_SHARE = 0.43;
@@ -87,15 +102,15 @@ export const POPUP_OF_AIR = 0.22;
 export const SPRAY_MAX_DEG = 44;
 export const SPRAY_MAIN_DEG = 88;
 export const SPRAY_NOISE_DEG = 20;
-export const HR_P = 0.155;                /* x pow^2 / stuff, for fly balls */
-export const GB_HIT_P = 0.255;            /* x con / stuff */
+export const HR_P = 0.162;                /* x pow^2 / stuff, for fly balls */
+export const GB_HIT_P = 0.236;            /* x con / stuff */
 export const GB_DOUBLE_P = 0.04;
-export const LD_HIT_P = 0.7;              /* x con / stuff */
-export const LD_SINGLE_END = 0.68;
-export const LD_DOUBLE_END = 0.97;
-export const FB_HIT_P = 0.17;
-export const FB_SINGLE_END = 0.35;
-export const FB_DOUBLE_END = 0.9;
+export const LD_HIT_P = 0.66;             /* x con / stuff */
+export const LD_SINGLE_END = 0.71;
+export const LD_DOUBLE_END = 0.98;
+export const FB_HIT_P = 0.15;
+export const FB_SINGLE_END = 0.38;
+export const FB_DOUBLE_END = 0.94;
 export const PU_HIT_P = 0.02;
 export const ERROR_P = 0.015;
 export const GB_OUT_DIST = [24, 16];      /* [min, random span] */
@@ -123,16 +138,17 @@ export const HIT_ROLL_TIME = 0.8;
 
 /* ---- baserunning choices ---- */
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;
-export const FIRST_TO_THIRD_ON_SINGLE = 0.25;
-export const SCORE_FROM_1ST_ON_DOUBLE = 0.4;
-export const DP_TRY_P = 0.5;
-export const SAC_FLY_P = 0.55;
+export const FIRST_TO_THIRD_ON_SINGLE = 0.29;
+export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
+export const DP_TRY_P = 0.44;
+export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
+export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
 export const GB_ADVANCE_P = 0.5;
-export const STEAL_CONSIDER_P = 0.6;
+export const STEAL_CONSIDER_P = 0.48;
 export const STEAL_TRY_BASE = 0.45;
 export const STEAL_TRY_PER_SPD = 1.2;
 export const STEAL_TRY_RANGE = [0.1, 0.85];
-export const STEAL_OK_BASE = 0.72;
+export const STEAL_OK_BASE = 0.75;
 export const STEAL_OK_PER_SPD = 0.6;
 export const STEAL_OK_RANGE = [0.5, 0.9];
 export const HOME_SLIDE_P = 0.5;
@@ -146,9 +162,10 @@ export const STAY_HOLD_BATTERS = 3;       /* after "stay", do not ask again for 
 export const IBB_MIN_INNING = 4;
 export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
-export const IBB_CLOSE_RUNS = 2;
+export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
+export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
 export const BUNT_POW_MAX = 1.0;
-export const BUNT_ASK_P = 0.6;
+export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;
 export const BUNT_MAX_DEFICIT = 1;
 export const BUNT_SAC_END = 0.7;          /* below: sacrifice attempt */
@@ -194,6 +211,9 @@ export const FORCE_MARGIN = 0.25;         /* fielders aim to beat the runner by 
 export const TAG_EARLY = 0.25;            /* on a tag out the ball is there this long before the runner */
 export const TAG_LATE = 0.3;              /* on a safe tag play the ball is this late */
 export const OUT_CALL_LAG = 0.05;
+/* A ball that beats the runner by less than this is no out: the tie goes to the runner, and every out
+ * stays provable from the stream, whose times are rounded to the millisecond. */
+export const CLOSE_PLAY_MARGIN = 0.01;
 export const CATCHER_POP = 0.7;           /* catcher's transfer on a steal */
 export const RETURN_AFTER_CATCH = 1.2;
 export const RETURN_AFTER_THROW = 0.7;
