@@ -973,15 +973,16 @@ function plBuild(){plFor=game;plStarts=[0];const marks=[];let k='';
   plTrack.setAttribute('aria-valuemax',Math.round(game.dur));$('plTime').style.minWidth=`${2*fmtClock(game.dur).length+3}ch`/* the track must not change width as the clock grows */}
 function plNear(T){const a=plStarts;let lo=0,hi=a.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(a[m]<=T)lo=m;else hi=m-1}return lo<a.length-1&&a[lo+1]-T<T-a[lo]?lo+1:lo}
 const plSnap=T=>plStarts[plNear(clamp(T,0,game.dur))];
-function seekTo(T){const from=replayT,t=plSnap(T);replayT=t;plFresh=true;lastIdx=-1;cues.clear();bugKey=hudKey=feedKey='';
-  VOICE.stop();hello=null;const ei=findIdx(t),st=game.stream||[];let j=0;while(j<st.length&&st[j].f<ei)j++;seekFloor=j;seekGame=game;
+/* floorEv (highlights, #118): land exactly on T, not on a play start, and say only lines bound to event floorEv or later */
+function seekTo(T,floorEv){const from=replayT,t=floorEv==null?plSnap(T):clamp(T,0,game.dur);replayT=t;plFresh=true;lastIdx=-1;cues.clear();bugKey=hudKey=feedKey='';
+  VOICE.stop();hello=null;const ei=floorEv==null?findIdx(t):floorEv,st=game.stream||[];let j=0;while(j<st.length&&st[j].f<ei)j++;seekFloor=j;seekGame=game;
   if(booth&&boothFor===game)booth.due(t-SEEK_EPS);
   dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from,to:t}}))}
 function plSetPaused(v){paused=v;if(v)VOICE.stop();plLast=''}
-function plReset(){paused=scrubbing=false;seekFloor=0;seekGame=null;plFor=null;plLast=''}
+function plReset(){paused=scrubbing=false;seekFloor=0;seekGame=null;plFor=null;plLast='';hlStop()}
 const plAt=x=>{const r=plTrack.getBoundingClientRect();return clamp((x-r.left)/Math.max(1,r.width),0,1)*game.dur};
 function plShowTip(t){const e=game.ev[findIdx(t)];plTip.textContent=`${halfTag(e)}・${fmtClock(t)}`;plTip.style.left=(t/game.dur*100)+'%';plTip.hidden=false}
-plPlay.onclick=()=>{if(mode!=='opening')return;if(replayT>=game.dur){seekTo(0);plSetPaused(false)}else plSetPaused(!paused)};
+plPlay.onclick=()=>{if(mode!=='opening'||hl&&(hl.done||!hl.segs))return;if(replayT>=game.dur){seekTo(0);plSetPaused(false)}else plSetPaused(!paused)};
 plTrack.addEventListener('pointerdown',ev=>{if(mode!=='opening'||ev.button>0)return;ev.preventDefault();plTrack.setPointerCapture(ev.pointerId);scrubbing=true;plEl.classList.add('drag');VOICE.stop();dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from:replayT,to:null,drag:true}}));
   replayT=plSnap(plAt(ev.clientX));plShowTip(replayT)});
 plTrack.addEventListener('pointermove',ev=>{if(mode!=='opening')return;if(scrubbing)replayT=plSnap(plAt(ev.clientX));plShowTip(scrubbing?replayT:plSnap(plAt(ev.clientX)))});
@@ -992,10 +993,35 @@ plTrack.addEventListener('keydown',ev=>{if(mode!=='opening')return;const i=plNea
   if(go===undefined)return;ev.preventDefault();seekTo(plStarts[clamp(go,0,plStarts.length-1)])});
 addEventListener('keydown',ev=>{if(mode!=='opening'||ev.key!==' '||!$('intro').hidden||ev.target.closest('button,input,select,textarea,[role=slider]'))return;ev.preventDefault();plPlay.click()});
 /* per frame: show the bar in the frozen game only, move the fill / handle, labels only when they change */
-function plUpdate(){const vis=mode==='opening'&&$('intro').hidden;if(plEl.hidden===vis){plEl.hidden=!vis;bugPlace()}if(!vis)return;if(plFor!==game)plBuild();
+function plUpdate(){const vis=mode==='opening'&&!hl&&$('intro').hidden;/* the highlights reel has no bar: it is its own showing */if(plEl.hidden===vis){plEl.hidden=!vis;bugPlace()}if(!vis)return;if(plFor!==game)plBuild();
   const t=clamp(replayT,0,game.dur),end=t>=game.dur,k=[Math.floor(t),paused,end].join('|');plEl.style.setProperty('--p',(t/game.dur).toFixed(5));
   if(k===plLast)return;plLast=k;$('plTime').textContent=`${fmtClock(t)} / ${fmtClock(game.dur)}`;plTrack.setAttribute('aria-valuenow',Math.floor(t));plTrack.setAttribute('aria-valuetext',`${halfTag(game.ev[findIdx(t)])} ${fmtClock(t)}`);
   const stop=paused||end;plPlay.textContent=stop?'▶':'❚❚';plPlay.setAttribute('aria-label',end?'從頭看':stop?'播放':'暫停')}
+/* ---------- highlights showing (#118): the scoring plays and the last out of the frozen game, back to back, with the bar's seek.
+ * The list comes from render/highlights.js (window.HIGHLIGHTS, pure, from the recorded stream and the booth's lines). In: the
+ * 「看精華」 button of the entry screen or ?hl=1. A short card (inning and score before the play) after every jump; after the last
+ * segment the final score, and the reel stops. Every jump is a seekTo, so it fires 'cloudball:seek' like the bar. */
+const HL_CARD_S=3.2;/* s the card stays up after a jump (real time) */
+let hl=null;/* {segs, i, done, cardT}; segs is null while the booth's lines load */
+const hlCard=$('hlCard');
+const hlScore=sc=>`${TEAMS[0].short} ${sc[0]}：${sc[1]} ${TEAMS[1].short}`;
+function hlShow(step,text,end){$('hlStep').textContent=step;$('hlText').textContent=text;$('hlEnd').hidden=!end;hlCard.classList.toggle('end',!!end);
+  hlCard.hidden=false;hlCard.classList.remove('off');hl.cardT=end?Infinity:performance.now()+HL_CARD_S*1000}
+function hlStop(){hl=null;if(hlCard){hlCard.hidden=true;hlCard.classList.remove('end')}}
+function hlGo(){const s=hl.segs[hl.i],e=game.ev[s.first];if(Math.abs(replayT-s.start)>SEEK_EPS)seekTo(s.start,s.first);
+  hlShow(`精華 ${hl.i+1}／${hl.segs.length}`,`${e.s0.inn} 局${e.s0.half?'下':'上'}・${hlScore(e.s0.sc)}`)}
+function startHighlights(){const H=window.HIGHLIGHTS,g=game;if(mode!=='opening'||!H)return;hlStop();
+  const first=H.highlightSegments(g,[])[0];if(!first)return;/* the starts do not depend on the booth: jump now, play once the ends are known */
+  hl={segs:null,i:0,done:false,cardT:0};paused=true;seekTo(first.start,first.first);hlShow('精華','準備中…');
+  const go=lines=>{if(!hl||hl.segs||game!==g)return;hl.segs=H.highlightSegments(g,lines);paused=false;hlGo()};
+  window.COMMENTARY.loadScript(g.seed).then(sc=>{let ls=[];try{ls=makeBooth(sc).lines}catch(err){console.warn('highlights: no booth lines, fixed tails',err)}go(ls)},()=>go([]))}
+function hlTick(){if(!hl)return;if(mode!=='opening'){hlStop();return}
+  if(performance.now()>hl.cardT)hlCard.classList.add('off');
+  if(!hl.segs||hl.done||paused||replayT<hl.segs[hl.i].end)return;
+  if(hl.i+1<hl.segs.length){hl.i++;hlGo();return}
+  hl.done=true;plSetPaused(true);const fin=game.ev[game.ev.length-1];hlShow('終場',hlScore(fin.s0.sc),true)}
+$('hlAgain').onclick=()=>startHighlights();
+$('hlFull').onclick=()=>{hlStop();seekTo(0);plSetPaused(false)};
 function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart+CYCLE*1000;
   if(mode==='studio')return{cls:'',txt:'動作片場',sub:studio?`${studio.e.desc||''}・${studio.spd}×`:''};
   if(mode==='opening')return{cls:'',txt:'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
@@ -1003,8 +1029,13 @@ function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart
   if(mode==='replay')return{cls:'',txt:`重播中（${fmtT(gameStart)} 場）`,sub:`${speed}× 速度・不影響直播`};
   if(T<game.dur)return{cls:'live',txt:'直播中',sub:`${fmtT(gameStart)} 開打・下一場 ${fmtT(next)}`};
   const left=Math.max(0,Math.floor((next-now)/1000));return{cls:'',txt:`下一場 ${fmtT(next)} 開打`,sub:`倒數 ${Math.floor(left/60)} 分 ${left%60} 秒・可按「看重播」回顧上一場`}}
-const enter=snd=>{$('intro').hidden=true;if(!LIVE_ENABLED){if(window.OPENING)startOpening();else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');sayHello([[0,'歡迎來到雲端職棒'],[1,'今晚一起來看球']])}}};
-$('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);
+const enter=(snd,hlWant)=>{$('intro').hidden=true;if(!LIVE_ENABLED){if(window.OPENING){startOpening();if(hlWant)startHighlights()}else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');sayHello([[0,'歡迎來到雲端職棒'],[1,'今晚一起來看球']])}}};
+$('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);$('enterHl').onclick=()=>enter(true,true);
+$('enterHl').hidden=!(window.OPENING&&window.HIGHLIGHTS);
+/* ?hl=1 (#118): straight into the highlights, for a link in a post. Without a click the browser keeps the sound off: the first tap turns it on. */
+if(window.OPENING&&window.HIGHLIGHTS&&new URLSearchParams(location.search).get('hl')==='1')setTimeout(()=>{enter(true,true);
+  const unlock=()=>{removeEventListener('pointerdown',unlock,true);removeEventListener('keydown',unlock,true);if(ac&&ac.state!=='running')ac.resume()};
+  addEventListener('pointerdown',unlock,true);addEventListener('keydown',unlock,true);setTimeout(()=>{if(!ac||ac.state!=='running')note('點一下畫面開聲音')},HL_CARD_S*1000)});
 
 
 /* ---------- Action studio: pick one kind of action, find examples in a fixed seed bank, loop it on its own ---------- */
@@ -1101,6 +1132,7 @@ renderer.setAnimationLoop(()=>{
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
   if(mode==='studio')studioTick(dt);
   else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed))}
+  hlTick();
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
   curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
