@@ -873,6 +873,9 @@ let talkDuck=1;/* crowd bed multiplier, CROWD_DUCK while somebody in the booth t
 const VOICE=window.COMMENTARY.createVoice({onTalk:talk=>{talkDuck=talk?window.COMMENTARY.CROWD_DUCK:1}}),WHO=['pbp','color'];
 let sayOn=false,booth=null,boothFor=null,hello=null;
 function say(who,text,urgent){if(sayOn)VOICE.say(WHO[who]||who,text,{urgent:!!urgent})}
+/* #133: one fetch per script, shared by the booth, the compact clock and the highlights, and started behind the entry card (createBooth copies the lines, so sharing the parsed script is safe) */
+const scriptP=new Map(),loadScript=seed=>{if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
+if(window.OPENING)loadScript(window.OPENING.seed).catch(()=>{});/* fetched while the park compiles, not after the click */
 function makeBooth(script){const g=game;return window.COMMENTARY.createBooth({stream:g.stream,seed:g.seed,bank:window.COMMENTARY_BANK,script,teams:g.teams.map(i=>TEAMS[i]),describe:x=>g.ev[x.f].desc})}
 function showAiTag(){const v=!(sayOn&&booth&&booth.recorded);if(aiTag.hidden!==v)aiTag.hidden=v}
 /* lines: [[who,text],...] said by the browser voice only if this game turns out to have no recorded voice */
@@ -880,7 +883,7 @@ function sayHello(lines){if(boothFor===game&&booth){if(!booth.recorded)for(const
 function setBooth(b,T0){booth=b;VOICE.setRecorded(b.recorded);b.due(T0-BOOTH_PRIME);showAiTag();
   const h=hello;hello=null;if(h&&!b.recorded)for(const [w,t] of h)say(w,t)}
 function commentary(T){if(!sayOn||!window.COMMENTARY_BANK)return;
-  if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);window.COMMENTARY.loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)})}
+  if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)})}
   if(!booth)return;showAiTag();
   for(const l of booth.due(T,{fast:mode!=='live'&&speed>1}))if(seekGame!==game||l.at>=seekFloor)VOICE.say(l.speaker,l.text,{urgent:l.priority>=2&&l.speaker==='pbp',audio:l.audio,cast:l.cast,aside:l.aside})}
 const sayBtn=$('say');
@@ -931,7 +934,12 @@ $('land').onclick=goLandscape;
 addEventListener('orientationchange',()=>setTimeout(()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);bugPlace()},300));
 /* Collapse the studio panel: keep only play and the timeline so it covers less of the view (stored in zu_stFold) */
 {let fold=false;try{fold=localStorage.getItem('zu_stFold')==='1'}catch(e){}const setFold=v=>{fold=v;$('studio').classList.toggle('fold',v);$('stFold').textContent=v?'▴':'▾';try{localStorage.setItem('zu_stFold',v?'1':'0')}catch(e){}};setFold(fold);$('stFold').onclick=()=>setFold(!fold)}
-$('report').onclick=async()=>{const code=`#BUG fps=${fpsAvg.toFixed(0)} tier=${gfxTier} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
+/* #133 entry log: what happened in the first seconds after the click (ms from the click), carried in the report code so a cold visit on a real
+   machine can be read back: f1 first drawn frame, gap longest stretch without a drawn frame in the first ENTRY_WATCH_MS, tA>B a quality drop (r = shaders rebuilt), wN warm-up ms */
+const ENTRY_WATCH_MS=15000;let entryT0=0,entryDraw=0,entryGap=0;const entryLog=[];
+const entryNote=x=>{if(entryT0&&entryLog.length<12)entryLog.push(`${x}@${Math.round(performance.now()-entryT0)}`)};
+function entryFrame(now){if(!entryT0||now-entryT0>ENTRY_WATCH_MS)return;if(!entryDraw)entryNote('f1');else entryGap=Math.max(entryGap,now-entryDraw);entryDraw=now}
+$('report').onclick=async()=>{const code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} fps=${fpsAvg.toFixed(0)} tier=${gfxTier} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
   try{await navigator.clipboard.writeText(code);note('已複製，貼給 Claude 就能重現這一刻')}catch(err){prompt('複製這行貼給 Claude：',code)}};
 const luEl=$('lu');
 function showLineup(){let h='<div class="cols">';for(let t=0;t<2;t++){const R=ROSTERS[t],f=game.ev.find(x=>x.k==='P'&&x.pit&&x.pit[0]===t),sp=f?R.pit[f.pit[1]]:R.pit[0];
@@ -1032,7 +1040,7 @@ let cpClock=null,cpFor=null,cpReal=false;
 try{cpReal=!!(window.SITE&&window.SITE.dev)&&(localStorage.getItem('zu_realTime')==='1'||new URLSearchParams(location.search).get('rt')==='1')}catch(e){}
 /* the cuts need the booth's line times, so they are known once the script has loaded (a second or so; real time until then) */
 function cpLoad(g){cpFor=g;cpClock=null;plFor=null;
-  Promise.all([COMPACT,window.COMMENTARY.loadScript(g.seed).catch(()=>null)]).then(([C,sc])=>{if(!C||cpFor!==g||game!==g)return;let ls=[];try{ls=makeBooth(sc).lines}catch(err){console.warn('compact: no booth lines',err)}
+  Promise.all([COMPACT,loadScript(g.seed).catch(()=>null)]).then(([C,sc])=>{if(!C||cpFor!==g||game!==g)return;let ls=[];try{ls=makeBooth(sc).lines}catch(err){console.warn('compact: no booth lines',err)}
     cpClock=C.compactClock(C.compactCuts(cpEvents(g),ls),g.dur);plFor=null;plLast=''})}
 const cpOn=()=>mode==='opening'&&!!cpClock&&cpFor===game&&!cpReal;
 const cpView=T=>cpOn()?cpClock.toView(T):T,cpGame=v=>cpOn()?cpClock.toGame(v):v,cpDur=()=>cpOn()?cpClock.dur:game.dur;
@@ -1056,7 +1064,7 @@ function startHighlights(){const H=window.HIGHLIGHTS,g=game;if(mode!=='opening'|
   const first=H.highlightSegments(g,[])[0];if(!first)return;/* the starts do not depend on the booth: jump now, play once the ends are known */
   hl={segs:null,i:0,done:false,cardT:0};paused=true;seekTo(first.start,first.first);hlShow('精華','準備中…');
   const go=lines=>{if(!hl||hl.segs||game!==g)return;hl.segs=H.highlightSegments(g,lines);paused=false;hlGo()};
-  window.COMMENTARY.loadScript(g.seed).then(sc=>{let ls=[];try{ls=makeBooth(sc).lines}catch(err){console.warn('highlights: no booth lines, fixed tails',err)}go(ls)},()=>go([]))}
+  loadScript(g.seed).then(sc=>{let ls=[];try{ls=makeBooth(sc).lines}catch(err){console.warn('highlights: no booth lines, fixed tails',err)}go(ls)},()=>go([]))}
 function hlTick(){if(!hl)return;if(mode!=='opening'){hlStop();return}
   if(performance.now()>hl.cardT)hlCard.classList.add('off');
   if(!hl.segs||hl.done||paused||replayT<hl.segs[hl.i].end)return;
@@ -1071,7 +1079,7 @@ function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart
   if(mode==='replay')return{cls:'',txt:`重播中（${fmtT(gameStart)} 場）`,sub:`${speed}× 速度・不影響直播`};
   if(T<game.dur)return{cls:'live',txt:'直播中',sub:`${fmtT(gameStart)} 開打・下一場 ${fmtT(next)}`};
   const left=Math.max(0,Math.floor((next-now)/1000));return{cls:'',txt:`下一場 ${fmtT(next)} 開打`,sub:`倒數 ${Math.floor(left/60)} 分 ${left%60} 秒・可按「看重播」回顧上一場`}}
-const enter=(snd,hlWant)=>{$('intro').hidden=true;if(!LIVE_ENABLED){if(window.OPENING){startOpening();if(hlWant)startHighlights()}else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');sayHello([[0,'歡迎來到雲端職棒'],[1,'今晚一起來看球']])}}};
+const enter=(snd,hlWant)=>{$('intro').hidden=true;entryT0=performance.now();entryDraw=entryGap=0;entryLog.length=0;fpsAcc=fpsN=0;tierT0=performance.now();/* #133: frames drawn under the blurred entry card are not the game's frame rate */if(!LIVE_ENABLED){if(window.OPENING){startOpening();if(hlWant)startHighlights()}else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');sayHello([[0,'歡迎來到雲端職棒'],[1,'今晚一起來看球']])}}};
 $('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);$('enterHl').onclick=()=>enter(true,true);
 $('enterHl').hidden=!(window.OPENING&&window.HIGHLIGHTS);
 /* ?hl=1 (#118): straight into the highlights, for a link in a post. Without a click the browser keeps the sound off: the first tap turns it on. */
@@ -1155,14 +1163,19 @@ addEventListener('keydown',e=>{if(!studio||e.target.tagName==='SELECT')return;if
 const IS_MOBILE=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches,FPS_WIN=90,FPS_BUDGET_MS=19,FPS_WARMUP_MS=4000,TIER_MAX=3;
 let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{const t=+localStorage.getItem('zu_tier');if(t>gfxTier&&t<=TIER_MAX)gfxTier=t}catch(e){}
 const blobShadows=[...Object.values(fielders),batter,ump,...runners].map(f=>{const m=new THREE.Mesh(GEO.shadow,shadowMat);m.rotation.x=-Math.PI/2;m.position.y=.02;m.scale.setScalar(.8);m.visible=false;f.g.add(m);return m});
-function setTier(n){gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
+function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
   renderer.setPixelRatio(Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
-  key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);if(key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
+  key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);/* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
   PP=gfxTier>=2||gfxLow?null:(PP||setupPost());
   const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;blobShadows.forEach(m=>m.visible=!sh);
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
+  /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
+     rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
+  const sig=`${sh}|${!!PP}`;entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
+  if(!first&&key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
   if(warmStarted)warmUp()}/* a drop in play rebuilds every material: compile it off the frame instead of freezing the tab (#125) */
+let tierSig=null;
 let envOn=true;
 /* ---------- cold start (#125) ----------
    On a first visit the first frame built and compiled every material in one go: a frozen tab for seconds, right when the visitor presses enter.
@@ -1170,14 +1183,14 @@ let envOn=true;
    what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
    then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
 const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk;window.READY=new Promise(ok=>readyOk=ok);setTimeout(()=>readyOk(),READY_MAX_MS);
-async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[];
+async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();
   scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
   /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one */
   const sp=PP&&PP.scenePass;let p=null;
   try{if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;p=sp.compileAsync(renderer)}else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera)}
   catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true}
   try{await p}catch(e){console.warn('warm-up failed',e)}
-  if(run!==warmRun)return;warming=false;fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
+  if(run!==warmRun)return;warming=false;entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
   if(performance.now()-tierT0>FPS_WARMUP_MS&&$('intro').hidden&&!document.hidden&&avg>FPS_BUDGET_MS&&gfxTier<TIER_MAX){setTier(gfxTier+1);tierT0=performance.now();note(`有點卡，自動降畫質（${gfxTier}/${TIER_MAX}）`)}}
 setTier(gfxTier);
@@ -1204,7 +1217,7 @@ renderer.setAnimationLoop(()=>{
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
   updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(envOn){updateBugs(now/1000);updateBlades()}
   if(warming)return;/* the last drawn picture stays up while the materials compile */
-  if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);
+  if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());
   if(readyN<READY_FRAMES&&++readyN===READY_FRAMES)readyOk();
 });
 warmUp();
