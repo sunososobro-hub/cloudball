@@ -1,0 +1,22 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: |
+          set -e
+          for f in $(git ls-files 'engine/**/*.js' 'engine/**/*.mjs' 'render/*.js' 'ui/**/*.js' 'commentary/**/*.js' 'tests/**/*.mjs'); do node --check "$f"; done
+      - name: Headless game suite
+        run: node tests/replay/run.mjs

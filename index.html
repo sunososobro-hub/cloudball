@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>雲端職棒</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 台灣夜間球場直播，HUD 安靜，畫面讓給球場和應援
+   IDEA: 球場的外野記分板與轉播角落比分條
+   PICTURE: 全螢幕 3D 夜間棒球場，兩隊同步直播
+   COLOUR and TYPE: 夜空深底、照明燈白，沙丁魚青與貓頭鷹紫兩隊色；Barlow Condensed 記分字 + Noto Sans TC
+   LAYOUT: 左上比分與壘包、右上直播狀態、左下戰況、底部座位列；手機自動堆疊 */
+:root{color-scheme:dark;--bg:#070b16;--ink:#eef2f8;--muted:#9aa6bd;--glass:rgba(9,14,28,.78);--line:rgba(255,255,255,.14);--a:#2f7fc4;--b:#e8743b;--live:#ff4d4d}
+:root[data-theme=light],:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans TC',system-ui,sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0}#stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.num{font-family:'Barlow Condensed','Noto Sans TC',sans-serif;font-variant-numeric:tabular-nums}
+.panel{background:var(--glass);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(8px)}
+#sb{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));display:flex;gap:10px;align-items:stretch;padding:8px 10px;max-width:calc(100vw - 24px)}
+#ls{border-collapse:collapse;font-size:17px}
+#ls td,#ls th{padding:1px 6px;text-align:right;white-space:nowrap}
+#ls th{color:var(--muted);font-weight:500;font-size:13px}
+#ls td:first-child,#ls th:first-child{text-align:left;font-family:'Noto Sans TC',sans-serif;font-size:15px;font-weight:600}
+#ls .rhe{border-left:1px solid var(--line)}
+#ls .R{font-weight:700;font-size:20px}
+.chip{display:inline-block;width:6px;height:16px;border-radius:2px;vertical-align:-2px;margin-inline-end:6px}
+#lsWrap{overflow-x:auto}
+.sit{display:grid;grid-template-columns:auto auto;gap:4px 10px;align-items:center;padding-left:10px;border-left:1px solid var(--line)}
+.sit .inn{grid-column:1/-1;font-size:18px;font-weight:600;white-space:nowrap}
+.dots{display:flex;gap:4px;align-items:center;font-size:13px;color:var(--muted)}
+.dots i{width:9px;height:9px;border-radius:50%;border:1px solid rgba(255,255,255,.4)}
+.dots i.on.b{background:#4cd07d;border-color:#4cd07d}.dots i.on.s{background:#f2c230;border-color:#f2c230}.dots i.on.o{background:#ff5a5a;border-color:#ff5a5a}
+.bases{grid-row:2/5;grid-column:2;width:46px;height:46px;position:relative}
+.bases i{position:absolute;width:15px;height:15px;transform:rotate(45deg);border:1.5px solid rgba(255,255,255,.55)}
+.bases i.on{background:#f2c230;border-color:#f2c230}
+#sb,#pinfo{display:none!important}
+.bar.collapsed{display:none}#feed{display:none}body.hist #feed,body.edit #feed{display:block}
+#bug{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:150px;width:min(300px,calc(100vw - 24px));background:#0b0d12;border:1px solid rgba(255,255,255,.2);border-radius:6px;overflow:hidden;font-variant-numeric:tabular-nums;box-shadow:0 4px 18px rgba(0,0,0,.5);z-index:5;color:#fff}
+#bug .r1{display:grid;grid-template-columns:1fr 1fr}
+#bug .tm{display:flex;align-items:center;gap:6px;padding:4px 8px}#bug .tm .lg{width:30px;height:30px;flex:none}#bug .tm .lg svg{width:100%;height:100%;display:block}#bug .tm .tn{flex:1;font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.5)}#bug .tm .sc{font:700 32px/1 'Barlow Condensed','Noto Sans TC',sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+#bug .r2{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4px;padding:6px 10px}
+#bug .bin{font:700 38px/1 'Barlow Condensed','Noto Sans TC',sans-serif;min-width:52px}#bug .bs{display:flex;justify-content:center}#bug .bs .dia{width:88px;height:60px}
+#bug .bso{font-size:15px;line-height:1.4;white-space:nowrap}#bug .bso b{display:inline-block;width:16px;font-weight:700}
+#bug .bb,#bug .bp{display:flex;gap:8px;align-items:center;padding:4px 10px;font-size:14px;border-top:1px solid rgba(255,255,255,.14);white-space:nowrap;overflow:hidden;min-height:26px}#bug .bb b{color:#ffd24d}#bug .bp b{color:#8fd0ff}#bug .st{margin-left:auto;color:#cfd8e8}#bug .sp{margin-left:auto;font-weight:700}#bug .sp+.st{margin-left:10px}
+#bug .av{font-weight:700;font-size:13px;color:#e8edf7}#bug .av i{font-style:normal;font-size:10px;color:#9aa6bd;margin-right:3px}
+#bug .ft{padding:3px 10px;font-size:11px;color:#9aa6bd;background:#14171f;border-top:1px solid rgba(255,255,255,.1)}
+body.edit #bug,body.edit #feed,body.edit #who,body.edit #gear,body.edit #tag{cursor:move;touch-action:none;user-select:none}body.edit #feed{min-width:220px;min-height:44px}#lu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto;padding:12px;cursor:pointer}#lu .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}#lu h3{margin:0 0 6px;font-size:15px}#lu table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}#lu td{padding:2px 3px;border-top:1px solid rgba(255,255,255,.12)}#lu td:first-child{color:var(--muted);width:16px}#lu .sp{margin-top:6px;font-size:13px}#lu .hint{margin-top:8px;font-size:12px;color:var(--muted);text-align:center}@media(max-width:520px){#lu .cols{grid-template-columns:1fr}}
+#lbls{position:fixed;inset:0;pointer-events:none;z-index:30}#lbls .bx{position:fixed;border:2px dashed #f2c230;border-radius:6px}#lbls .bx.sel{border-style:solid;background:rgba(242,194,48,.12)}#lbls .lb{position:fixed;background:#f2c230;color:#14110a;font-size:12px;font-weight:700;padding:1px 6px;border-radius:4px;white-space:nowrap}#lbls .lb.sel{background:#fff}#edbar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:40;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 10px;max-width:calc(100vw - 16px)}#edbar #edTxt{font-size:13px;margin-right:4px}.mas{display:flex;gap:18px;justify-content:center;margin:0 0 10px}.mas svg{width:84px;height:84px}
+#pinfo{position:fixed;left:max(12px,env(safe-area-inset-left));top:calc(max(12px,env(safe-area-inset-top)) + 170px);padding:6px 10px;font-size:13px;line-height:1.5;max-width:min(300px,58vw)}#pinfo b{color:#f2c230}#pinfo .spd{font-size:20px;font-weight:700;color:#fff}#pinfo small{color:var(--muted);font-size:12px}
+#who{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));padding:8px 12px;max-width:min(340px,48vw);text-align:left}#gear{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:6}
+#status{font-weight:600;white-space:nowrap}#status.live::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--live);margin-inline-end:6px;vertical-align:1px;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+#who small{display:block;color:var(--muted);font-size:13px;line-height:1.45}
+#matchup{display:none;margin-top:4px;font-size:14px;line-height:1.5}
+#feed{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:84px;margin:0;padding:0;list-style:none;max-width:min(380px,72vw);font-size:14px}
+#feed li{padding:5px 10px;margin-top:6px;animation:in .35s ease-out}
+#feed li b{font-family:'Barlow Condensed',sans-serif;color:var(--muted);margin-inline-end:8px;font-weight:600;white-space:nowrap}
+#feed li.big{border-color:#f2c230}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+.bar{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 54px);right:max(12px,env(safe-area-inset-right));left:auto;bottom:auto;width:min(330px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--glass);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(8px);z-index:6}.bar .seg{justify-content:flex-start}
+.bar h4{margin:2px 2px -2px;font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--muted)}.bar h4:not(:first-child){margin-top:6px;padding-top:8px;border-top:1px solid var(--line)}.seg.g2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.seg.g2 button{width:100%;padding:0 6px}.seg.g2 .wide{grid-column:1/-1}.seg.g2 button[hidden]{display:none}
+.seg{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+button{font:inherit;font-size:15px;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--glass);color:var(--ink);cursor:pointer;white-space:nowrap}
+button[aria-pressed=true]{background:var(--ink);color:#0a0f1f}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
+#tag{position:fixed;right:max(12px,env(safe-area-inset-right));top:calc(max(12px,env(safe-area-inset-top)) + 54px);font-size:12px;color:var(--muted);text-align:right;max-width:46vw}
+#note{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:8px 14px;display:none;max-width:90vw;text-align:center}
+#big{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);font:700 clamp(40px,8vw,84px)/1 'Barlow Condensed','Noto Sans TC',sans-serif;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .4s;white-space:nowrap}
+.over{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,rgba(7,11,22,.55),rgba(7,11,22,.93));padding:20px}
+.card{max-width:480px;text-align:center}
+.card h1{font:700 52px/1.05 'Barlow Condensed','Noto Sans TC',sans-serif;margin:0 0 10px;text-wrap:balance}
+.card p{color:var(--muted);margin:0 0 18px}
+.card .go{background:#f2c230;color:#14110a;border-color:transparent;font-weight:600;padding:0 22px}
+.card small{display:block;margin-top:16px;color:var(--muted);font-size:13px}
+#introStatus{color:var(--ink);font-weight:600}
+#vote{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);width:min(520px,calc(100vw - 24px));padding:12px 14px;border-color:rgba(242,194,48,.55)}
+#vote .vq{font-size:15px;margin-bottom:8px}#vote .vq b{color:#f2c230;margin-inline-end:6px}
+#vote .vopts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#vote .vopts button{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 10px;white-space:normal;line-height:1.3}
+#vote .vopts button span{font-size:13px;color:var(--muted)}#vote .vopts button[aria-pressed=true] span{color:#333}
+#vote .vfoot{margin-top:8px;font-size:13px;color:var(--muted);text-align:center}
+.pick{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:0 0 14px}
+#report{position:fixed;top:max(12px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 96px);z-index:6}
+#studio{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:8;padding:8px 10px;display:flex;flex-direction:column;gap:6px;width:min(560px,calc(100vw - 16px))}
+#studio .srow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}#studio select{flex:1;min-width:120px;height:34px;background:#121a2b;color:#fff;border:1px solid var(--line);border-radius:8px;padding:0 6px;font:inherit}
+#studio input[type=range]{flex:1;min-width:140px}#studio #stT,#studio #stIdx{font:600 14px/1 'Barlow Condensed','Noto Sans TC',sans-serif;min-width:52px;text-align:center}
+body.studio #bug,body.studio #feed{display:none}#studio.fold .srow.x{display:none}#stFold{min-width:40px}
+@media(orientation:landscape) and (max-height:520px){#studio{zoom:.75;bottom:4px;width:min(640px,calc(100vw - 16px))}}
+@media(max-width:700px) and (orientation:portrait){#studio{zoom:.85}}
+[hidden]{display:none!important}
+@media(max-width:700px){#vote{bottom:146px}#sb{flex-direction:column;gap:6px;right:max(12px,env(safe-area-inset-right))}.sit{border-left:0;padding-left:0;grid-template-columns:auto auto auto auto;grid-auto-flow:column}.sit .inn{grid-column:auto;grid-row:auto}.bases{grid-row:auto;grid-column:auto;width:38px;height:38px;transform:scale(.85)}
+#who{top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:auto;max-width:56vw;padding:6px 10px}#matchup{display:none}#pinfo{top:calc(max(12px,env(safe-area-inset-top)) + 214px);max-width:64vw}#feed{bottom:208px;max-width:calc(100vw - 24px);font-size:13px}#vr:disabled{display:none}#feed li:nth-child(n+3){display:none}#tag{display:none}button{font-size:14px;padding:0 10px}.card h1{font-size:40px}}
+#land{position:fixed;top:max(12px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 196px);z-index:6;display:none}
+@media(pointer:coarse){#land{display:inline-block}}
+/* 手機橫放：高度很矮，介面縮小讓球場多露一點 */
+@media(orientation:landscape) and (max-height:520px){#bug{zoom:.72}#tag,#pinfo,#matchup{display:none}#feed{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-width:38vw;font-size:12px}#feed li:nth-child(n+3){display:none}
+ #who{padding:4px 8px;font-size:12px}button{min-height:36px;font-size:13px;padding:0 9px}.bar{top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-height:calc(100vh - 56px)}#vote{max-width:46vw}}
+@media(prefers-reduced-motion:reduce){#feed li{animation:none}#status.live::before{animation:none}}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="sb" class="panel">
+  <div id="lsWrap"><table id="ls"></table></div>
+  <div class="sit">
+    <div class="inn num" id="inn">1 局上</div>
+    <div class="dots">B <i class="b"></i><i class="b"></i><i class="b"></i></div>
+    <div class="bases" aria-label="壘包"><i style="left:16px;top:3px"></i><i style="left:29px;top:16px"></i><i style="left:3px;top:16px"></i></div>
+    <div class="dots">S <i class="s"></i><i class="s"></i></div>
+    <div class="dots">O <i class="o"></i><i class="o"></i></div>
+  </div>
+</div>
+<div id="pinfo" class="panel" hidden></div>
+<div id="bug"><div class="r1"><div class="tm" id="bt0"></div><div class="tm" id="bt1"></div></div><div class="r2"><div class="bin" id="bin"></div><div class="bs" id="bs"></div><div class="bso" id="bso"></div></div><div class="bb" id="bb"></div><div class="bp" id="bp"></div><div class="ft">雲端職棒・開發版</div></div>
+<div id="who" class="panel">
+  <div id="status">載入中</div>
+  <small id="sched"></small>
+  <div id="matchup"></div>
+</div>
+<ul id="feed"></ul>
+<div id="tag">開發版，成績不列入正史<br><span id="seedTag"></span></div>
+<div id="big"></div>
+<div id="note" class="panel"></div>
+<div id="vote" class="panel" hidden></div>
+<button id="gear" aria-label="設定">⚙ 設定</button>
+<button id="report" title="複製這一刻給 Claude">🐞 回報</button>
+<button id="land" aria-label="全螢幕橫向">⛶ 橫向</button>
+<div class="bar collapsed" id="bar">
+  <h4>鏡頭</h4>
+  <div class="seg g2" id="seats">
+    <button data-seat="3" aria-pressed="true">轉播鏡頭</button>
+    <button data-seat="6" aria-pressed="false">導播切換</button>
+    <button data-seat="0" aria-pressed="false">本壘後方</button>
+    <button data-seat="1" aria-pressed="false">一壘內野</button>
+    <button data-seat="2" aria-pressed="false">外野看台</button>
+    <button id="zoom" aria-pressed="false">望遠鏡</button>
+  </div>
+  <h4>畫面</h4>
+  <div class="seg g2">
+    <button id="zone" aria-pressed="true">好球帶</button>
+    <button id="hist" aria-pressed="false">戰況紀錄</button>
+    <button id="lineup" class="wide">先發名單</button>
+    <button id="gfx">畫質：高</button>
+    <button id="compat" aria-pressed="false">相容模式</button>
+    <button id="editUI" class="wide">編輯版面（自己拖面板）</button>
+  </div>
+  <h4>聲音</h4>
+  <div class="seg g2">
+    <button id="snd" aria-pressed="false">音效</button>
+    <button id="say" aria-pressed="false">播報</button>
+    <button id="accent" class="wide" hidden>口音：台灣</button>
+    <button id="bantAI" class="wide" hidden aria-pressed="false">AI 球評閒聊：關（開了會用你的 Claude 額度）</button>
+  </div>
+  <h4>比賽</h4>
+  <div class="seg g2">
+    <button id="practice">新的一場</button>
+    <button id="studioBtn">🎬 動作片場</button>
+    <button id="spd" hidden>1×</button>
+    <button id="mode" hidden class="wide">看重播</button>
+    <button id="team" class="wide" style="display:none">選邊站</button>
+  </div>
+</div>
+<div id="lu" class="panel" hidden></div>
+<div id="studio" class="panel" hidden>
+  <div class="srow x"><b>🎬 動作片場</b><select id="stAct"></select><button id="stPrev" aria-label="上一個例子">◀</button><span id="stIdx"></span><button id="stNext" aria-label="下一個例子">▶</button></div>
+  <div class="srow"><button id="stFold" aria-label="收合片場面板" title="收合／展開">▾</button><button id="stPlay">暫停</button><input id="stScrub" type="range" min="0" max="1000" value="0"><span id="stT">0.00s</span></div>
+  <div class="srow x"><button id="stSpd">1×</button><button id="stLoop" aria-pressed="true">循環</button><button id="stStep">+0.05s</button><button id="stExit">離開片場</button></div>
+</div>
+<div id="edbar" class="panel" hidden><span id="edTxt"></span><button id="edMinus">－</button><button id="edPlus">＋</button><button id="edOne">這個復原</button><button id="edAll">全部復原</button><button id="edDone">完成</button></div>
+<div class="over" id="intro">
+  <div class="card">
+    <div class="mas" id="mas"></div>
+    <h1>雲端職棒</h1>
+    <p>開發版：進場就開一場新的比賽，台北捷運沙丁魚對新竹爆肝貓頭鷹。比賽中遇到換投、敬遠、盜壘，教練團會喊暫停，交給所有球迷投票決定，想投誰、怎麼投都行（故意亂投也算數）。</p>
+    <p id="introStatus">計算賽程中…</p>
+    <div class="pick" id="introTeam" style="display:none"><button data-t="0">我挺沙丁魚</button><button data-t="1">我挺貓頭鷹</button><button data-t="-1">中立看球</button></div>
+    <button class="go" id="enter">進場（開聲音）</button>
+    <button id="enterMute">靜音進場</button>
+    <small>虛構球隊，正規 9 局，每一球都由引擎依當場種子和球迷的決定算出；任何人用同樣的種子和決定重算，結果都一樣。開發期間兩隊都由你調度；想重來就按「新的一場」。</small>
+  </div>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three/webgpu';import * as TSL from 'three/tsl';
+import {bloom} from 'three/addons/tsl/display/BloomNode.js';
+import {ao} from 'three/addons/tsl/display/GTAONode.js';
+import {fxaa} from 'three/addons/tsl/display/FXAANode.js';
+window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
+const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await R.init()}catch(e){console.error(e)}window.RENDERER=R;
+/* 骨架球員(render/players.js)：先載 assets/players.b64.txt；載不到就用程式生成的骨架人（一樣的關節介面） */
+try{window.PL=await import('./render/players.js');try{await window.PL.loadPlayerAssets('assets/')}catch(e){console.warn('players 素材載入失敗，改用程式生成人體',e)}}catch(e){console.error('players.js 載入失敗',e);window.PL=null}
+/* Game logic (engine/) loads first as a classic script, then the 3D/UI code (render/game.js). */
+const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
+await load('engine/sim/sim.js');await load('render/game.js');
+</script>
+</body>
+</html>
