@@ -81,9 +81,18 @@ per distinct line (pregame first, then the game), whole sentences, `fan` voiced 
 fixed voice, `tone` from `emotion`, and `id` = voice + hash of tone and text (same words, same
 file; new words, new file). Rerun it after every edit of the script.
 
+`tools/synth.mjs --in <name>.tts.json --out audio/<name>` makes the missing rows only. Every clip
+must say its line and nothing more: the transcript is compared after dropping punctuation and
+spaces and writing numbers one way (「五十九」 = 「59」, 「一比零」 = 「1比0」); a clip that adds or
+loses a word is made again (three tries), then dropped, and the run exits 1 with the failed ids.
+The persona in `voices.json` says how a voice sounds, never what it says. Without `OPENAI_API_KEY`
+the request has no `Authorization` header (cloud: the proxy adds it from the environment's network
+secret); `--ping` checks access for free. Needs `ffmpeg` (or env `FFMPEG`).
+
 After synthesis, `tools/wire-audio.mjs <script>` fills `audio` and `dur` of every line (pregame
 too) from the files in `audio/<name>/` by sheet id, and removes them when the file is gone, so the
-viewer never asks for a missing mp3. `--check` fails when the script and the folder disagree;
+viewer never asks for a missing mp3. It refuses a clip whose manifest transcript does not say
+its line (or that has no manifest entry). `--check` fails when the script and the folder disagree;
 `--report` prints how the first 25 game lines are timed by their clip lengths. Rerun it after
 synth.mjs and after every edit of the script (`node commentary/audio.check.mjs` checks it).
 
