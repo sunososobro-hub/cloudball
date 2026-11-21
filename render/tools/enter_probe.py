@@ -1,6 +1,8 @@
 # Measures the main thread around the click on 「進場」 (#125): long tasks, frame gaps, and a CPU profile of the busiest functions.
 # THREE_DIR=.../node_modules/three/ [W=1280 H=720] [ACT=enter|tier] python3 enter_probe.py REPO [gl|gpu] [tier] [wait_s]
 # ACT=quick: click the moment the button is enabled (an impatient or returning visitor). ACT=tier: enter, then time one automatic quality drop (setTier(+1)) the way the fps watchdog does it.
+# Also counts the shader programs (WebGL2 linkProgram) and pipelines (WebGPU createRenderPipeline*) created after the click, and the files fetched after it (#133):
+# in headless every frame costs seconds, so the count of compiles left for after the click is the number to read, not the milliseconds.
 # Headless swiftshader is not a real desktop or phone: read the numbers as relative (before/after), not absolute.
 import sys,os,asyncio,mimetypes,json,collections
 from playwright.async_api import async_playwright
@@ -10,6 +12,9 @@ INIT="""
 window.__lt=[];window.__fr=[];
 try{new PerformanceObserver(l=>{for(const e of l.getEntries())__lt.push([e.startTime,e.duration])}).observe({type:'longtask',buffered:true})}catch(e){}
 (function f(t){__fr.push(performance.now());requestAnimationFrame(f)})();
+window.__lp=[];window.__rs=[];
+{const P=self.WebGL2RenderingContext&&WebGL2RenderingContext.prototype;if(P){const o=P.linkProgram;P.linkProgram=function(p){__lp.push(performance.now());return o.call(this,p)}}
+ const D=self.GPUDevice&&GPUDevice.prototype;if(D)for(const k of ['createRenderPipeline','createRenderPipelineAsync','createComputePipeline','createComputePipelineAsync']){const o=D[k];if(o)D[k]=function(...a){__lp.push(performance.now());return o.apply(this,a)}}}
 window.__click=null;if(%s){const go=()=>{const b=document.getElementById('enter');if(b&&!b.disabled&&!__click){__click=performance.now();b.click();return true}};const mo=new MutationObserver(()=>{if(go())mo.disconnect()});document.addEventListener('DOMContentLoaded',()=>mo.observe(document.body,{attributes:true,subtree:true,attributeFilter:['disabled']}))}
 try{localStorage.setItem('zu_gl','%s');localStorage.setItem('zu_tier','%s')}catch(e){}
 """%('true' if os.environ.get('ACT')=='quick' else 'false','1' if MODE=='gl' else '0',TIER)
@@ -65,6 +70,9 @@ async def main():
         if prev is not None:gaps.append(round(t-prev))
         prev=t
       elif t<t0:prev=t
+    lp=await pg.evaluate("__lp");res=await pg.evaluate("performance.getEntriesByType('resource').map(r=>[r.startTime,r.responseEnd,r.name.split('/').slice(-2).join('/'),r.transferSize||r.encodedBodySize])")
+    print('compiles before ready',len([x for x in lp if x<tReady]),'| while poster',len([x for x in lp if tReady<=x<t0]),'| after click',len([x for x in lp if x>=t0]),'at ms',[round(x-t0) for x in lp if x>=t0][:40])
+    print('fetched after click',[(round(a-t0),round(b-a),n,z) for a,b,n,z in res if a>=t0][:40])
     print(json.dumps({'mode':MODE,'tier':TIER,'ready_at_ms':round(tReady),'longtasks_while_poster':[round(x) for x in before],'longtasks_after_click':after[:15],'max_after':max([d for _,d in after] or [0]),'frame_gaps_after_click':gaps[:30],'errs':errs[:3]}))
     # self time by function
     nodes={n['id']:n for n in prof['nodes']};self=collections.Counter()
