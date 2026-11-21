@@ -1,10 +1,9 @@
 # league/ handoff (roster window: league/ + tests/)
 
 ## Done
-- #50 names, #52 `staff.js` + `tests/staff.check.mjs`, #47 recorder (`preseason/opening.json`).
+- #50 names, #52 `staff.js` + `staff.check.mjs`, #47 recorder (`preseason/opening.json`), #113 slots.
 - #54 wave 1: `league/bios.js` lines + tags for the 28 starters/SP of the default pairing
   (pheasants vs owls); `tests/bios.check.mjs` runs from `static.mjs`. Owner strikes lines in the PR.
-- #113: the seven #82 staff slots are in `KNOWN_SLOTS` (`tests/replay/commentary.mjs`).
 
 ## Next
 1. #54 wave 2 (after the owner's strike list on wave 1): the other 44 players, same rules.
