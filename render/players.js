@@ -394,16 +394,21 @@ export async function loadPlayerAssets(base = './assets/') {
 }
 const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
 /* Get (cached) the geometry for a build, plus head shape (for the cap) and back depth (for the number) */
-function realAsset(build) {
-  const key = buildKey(build); if (PACK.geos.has(key)) return PACK.geos.get(key);
+function realAsset(build, head = 0) {
+  head = (head | 0) % HEAD_SHAPES.length;
+  const key = buildKey(build) + (head ? '|h' + head : ''); if (PACK.geos.has(key)) return PACK.geos.get(key);
   const { H, P0, D: Dl, SI, SW, IX } = PACK, J = H.joints, n = H.n;
   const w = typeof build === 'string' ? (build === 'normal' ? {} : { [build]: 1 }) : build || {};
   const P = new Float32Array(P0);
   for (const k in w) { const d = Dl[k], a = w[k] * H.ds; if (!d || !a) continue; for (let i = 0; i < n * 3; i++) P[i] += d[i] * a }
+  shapeHead(P, HEAD_SHAPES[head]);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
-  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(SI, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(SW, 4));
-  geo.setIndex(new THREE.BufferAttribute(IX, 1));
+  /* Topology, weights and index are the same for every build/head: share the attribute objects so the GPU keeps one copy */
+  PACK.att = PACK.att || { si: new THREE.Uint16BufferAttribute(SI, 4), sw: new THREE.BufferAttribute(SW, 4), ix: new THREE.BufferAttribute(IX, 1) };
+  geo.setAttribute('skinIndex', PACK.att.si); geo.setAttribute('skinWeight', PACK.att.sw);
+  geo.setIndex(PACK.att.ix);
+  geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P), 4, true));
   for (const [start, count, name] of H.groups) geo.addGroup(start, count, R_SLOTS.indexOf(name));
   geo.computeVertexNormals(); geo.computeBoundingSphere();
   /* Head extent: width / depth / top measured above the ears; the cap is sized from this */
@@ -420,6 +425,68 @@ function realAsset(build) {
   }
   hb.pts = new Float32Array(pts);
   const A = { key, geo, J, head: hb, backZ }; PACK.geos.set(key, A); return A;
+}
+/* =====================================================================
+ * Faces (#151, first PR): head shapes + painted face detail, all code-generated (0 bytes added).
+ * Rest-pose landmarks of the packed MakeHuman head (metres, unscaled REF_H body, measured from the mesh profile at x = 0).
+ * The face is painted as a per-vertex multiplier on the skin colour (the head front has ~3800 vertices, about 3.5 mm apart),
+ * so it costs no texture, no draw call and no extra material: skin.vertexColors multiplies it in.
+ * ===================================================================== */
+const FACE = { chinY: 1.62, mouthY: 1.676, lipY: 1.668, noseY: 1.697, nostrilY: 1.688, browY: 1.762, cheekY: 1.708, eyeX: .033, faceZ: .12 };
+/* Head shapes: jaw / cheek / noseW = fractional widening, nose / brow / chin = metres forward. Picked per player by a fixed hash of his id (headOf). */
+export const HEAD_SHAPES = [
+  { jaw: 0, cheek: 0, nose: 0, noseW: 0, brow: 0, chin: 0 },                  /* As modelled */
+  { jaw: .2, cheek: .03, nose: -.002, noseW: .18, brow: .002, chin: .003 },  /* Square jaw, broad nose */
+  { jaw: -.12, cheek: .06, nose: .007, noseW: -.14, brow: .001, chin: .006 },  /* Narrow face, long thin nose */
+  { jaw: .08, cheek: .14, nose: -.004, noseW: .28, brow: 0, chin: -.005 },     /* Round face, full cheeks, flat broad nose */
+  { jaw: -.04, cheek: -.05, nose: .004, noseW: .03, brow: .004, chin: .01 }, /* Heavy brow, long chin */
+  { jaw: .14, cheek: -.04, nose: .001, noseW: .1, brow: -.001, chin: -.003 },/* Wide jaw, flat cheeks */
+];
+const HEAD_FRONT = [.02, .09];           /* z range over which face offsets fade in (behind it the skull stays as is, so caps still fit) */
+const g1 = (v, c, s) => Math.exp(-(((v - c) / s) ** 2));
+const ramp = (v, a, b) => Math.min(1, Math.max(0, (v - a) / (b - a)));
+/* Fixed hash of a player id -> head shape index (FNV-1a; no Math.random, same man in every game and after a jump) */
+export function headOf(id) {
+  let h = 2166136261; const s = String(id ?? '');
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return (h >>> 0) % HEAD_SHAPES.length;
+}
+function shapeHead(P, S) {
+  if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin) return;
+  const { SI, SW, H } = PACK, n = H.n;
+  for (let i = 0; i < n; i++) {
+    if (SI[i * 4] !== B.neck) continue;
+    const wt = SW[i * 4], x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], fr = ramp(z, HEAD_FRONT[0], HEAD_FRONT[1]) * wt;
+    if (!fr || y > FACE.browY + .03 || y < FACE.chinY - .06) continue;
+    const nose = g1(x, 0, .014) * g1(y, FACE.noseY + .008, .022) * ramp(z, .15, .175);
+    let sx = 1 + S.jaw * g1(y, FACE.chinY + .02, .03) * fr + S.cheek * g1(y, FACE.cheekY, .022) * fr + S.noseW * nose;
+    let dz = S.nose * nose + S.brow * g1(y, FACE.browY - .002, .008) * ramp(z, .13, .16) + S.chin * g1(y, FACE.chinY, .016) * g1(x, 0, .032) * fr
+      + S.cheek * .03 * g1(y, FACE.cheekY, .018) * g1(Math.abs(x), .05, .02) * fr;
+    P[i * 3] = x * sx; P[i * 3 + 2] = z + dz;
+  }
+}
+/* Face paint as RGBA8 multipliers (white = skin as is): cap shadow over the eyes, eye sockets, brows, lips and mouth line, nostrils, a little cheek colour */
+const FACE_PAINT = { capShade: .34, socket: .28, brow: .75, mouth: .55, nostril: .35, chinShade: .18 };
+const LIP_RGB = [.82, .56, .56], CHEEK_RGB = [1, .9, .88];
+function faceColors(P) {
+  const { SI, H } = PACK, n = H.n, C = new Uint8Array(n * 4).fill(255), J = H.joints, eyeY = J.eyeL[1], F = FACE_PAINT;
+  for (let i = 0; i < n; i++) {
+    if (SI[i * 4] !== B.neck) continue;
+    const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], ax = Math.abs(x), fr = ramp(z, FACE.faceZ - .03, FACE.faceZ);
+    if (!fr) continue;
+    let r = 1, g = 1, b = 1; const mul = (k, cr = k, cg = k, cb = k) => { r *= cr; g *= cg; b *= cb };
+    const cap = ramp(y, eyeY - .035, eyeY + .03); mul(1 - F.capShade * cap * fr);                                  /* The cap brim's shadow on the upper face */
+    const de = Math.hypot(ax - FACE.eyeX, (y - eyeY) * 1.3); mul(1 - F.socket * g1(de, 0, .021) * fr);              /* Eye sockets */
+    const by = FACE.browY + .006 * g1(ax, .036, .018), brow = g1(y, by, .0055) * ramp(ax, .01, .018) * (1 - ramp(ax, .055, .066));
+    mul(1 - F.brow * brow * fr);                                                                                   /* Brows (skin darkened toward the hair) */
+    const lip = g1(y, FACE.lipY, .0075) * g1(x, 0, .02) * fr; mul(1, 1 - (1 - LIP_RGB[0]) * lip, 1 - (1 - LIP_RGB[1]) * lip, 1 - (1 - LIP_RGB[2]) * lip);
+    mul(1 - F.mouth * g1(y, FACE.mouthY, .0028) * g1(x, 0, .019) * fr);                                          /* Mouth line */
+    mul(1 - F.nostril * g1(y, FACE.nostrilY, .004) * g1(ax, .011, .006) * fr);                                     /* Nostrils / under the nose */
+    const ck = g1(y, FACE.cheekY - .006, .016) * g1(ax, .052, .016) * fr; mul(1, 1 - (1 - CHEEK_RGB[0]) * ck, 1 - (1 - CHEEK_RGB[1]) * ck, 1 - (1 - CHEEK_RGB[2]) * ck);
+    mul(1 - F.chinShade * ramp(y, FACE.chinY - .005, FACE.chinY - .035) * fr);                                          /* Under the chin */
+    C[i * 4] = Math.round(r * 255); C[i * 4 + 1] = Math.round(g * 255); C[i * 4 + 2] = Math.round(b * 255);
+  }
+  return C;
 }
 /* Build weights -> height (interpolates BUILDS h by weight) */
 export function buildHeight(build) {
@@ -540,6 +607,7 @@ function makeRealPlayer(opts, A) {
   const PAR = [-1, 0, 0, 2, 2, 4, 5, 2, 7, 8, 0, 10, 11, 0, 13, 14];
   names.forEach((n, i) => { const p = V3(J[n]); if (PAR[i] >= 0) { p.sub(V3(J[names[PAR[i]]])); bones[PAR[i]].add(bones[i]) } bones[i].position.copy(p) });
   mir.add(bones[0]);
+  skin.vertexColors = true;   /* Face paint lives in the geometry's colour attribute (faceColors); white everywhere else */
   const mesh = new THREE.SkinnedMesh(A.geo, [jersey, pants, skin, dark, sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3)]);
   mesh.castShadow = true; mesh.frustumCulled = false; mir.add(mesh);
   g.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones));
@@ -583,10 +651,10 @@ function makeRealPlayer(opts, A) {
     /* Change handedness: 'R' mirrors the inner node (old keyframes -> right-handed), 'L' does not. Batters unchanged */
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
-    setBuild(build, height) { const k = buildKey(build) + ':' + (height || ''); if (f.buildKey === k) return; f.buildKey = k;
-      A = realAsset(build); mesh.geometry = A.geo; putHead(headKind); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+    setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; if (f.buildKey === k) return; f.buildKey = k;
+      A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
-  f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '');
+  f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0';
   if (opts.num != null) f.setNum(opts.num);
 
   /* Coordinate conversion from the up proxy (origin at the old .95) to the spine bone (origin at the real lumbar spine) */
