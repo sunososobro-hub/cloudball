@@ -18,7 +18,8 @@ import { createBooth, draftFromBank, validateScript, validateBank, SPEAKERS } fr
 const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../commentary');
 const GAMES = Number(process.env.GAMES || 60);
 const KNOWN_SLOTS = new Set(['desc', 'batter', 'pitcher', 'runner', 'team', 'fieldTeam', 'away', 'home', 'inning', 'half', 'outs', 'awayScore', 'homeScore', 'margin', 'leadTeam', 'tied', 'runs', 'halfRuns',
-  'lastInningRuns', 'hadLastInning', 'batterPa', 'batterAb', 'batterHits', 'batterKToday', 'batterHrToday', 'batterPrev', 'hasPrev', 'pitcherK', 'pitchCount']);
+  'lastInningRuns', 'hadLastInning', 'batterPa', 'batterAb', 'batterHits', 'batterKToday', 'batterHrToday', 'batterPrev', 'hasPrev', 'pitcherK', 'pitchCount',
+  'manager', 'pitchingCoach', 'homeManager', 'managerName', 'managerLine', 'plateUmp', 'plateUmpLine']);
 const KNOWN_TRIGGERS = new Set(['game_start', 'batter_up', 'two_strikes', 'full_count', 'stolen_base', 'caught_stealing', 'run_scores', 'pitching_change', 'fan_decision', 'half_end', 'walkoff', 'game_end',
   'strikeout', 'walk', 'intentional_walk', 'hit_by_pitch', 'single', 'infield_single', 'bunt_single', 'double', 'triple', 'home_run', 'groundout', 'flyout', 'lineout', 'popout', 'double_play', 'fielders_choice', 'sac_bunt', 'sac_fly', 'error']);
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
