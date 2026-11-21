@@ -1,19 +1,19 @@
 # ui / root files: HANDOFF (2026-11-21)
 
-Agent: the interface window. Covers `ui/` and root files only. The roster window owns `league/` and `tests/` (split on #58); `tests/replay/run.mjs` is engine.
+Agent: the interface window. Covers `ui/` and root files only. The roster window owns `league/` and `tests/`; `tests/replay/run.mjs` is engine.
 
 ## Done
-- #60 Kaohsiung team renamed (merged). #25 entry screen cleanup (merged). #29 tension checks in CI (merged).
-- #58 entry screen as a matchup poster: PR from `feat/58` (two 512 logos, VS, team names, one match line, big buttons, blurred dark backdrop, name tile when a logo fails).
+- #60, #25, #29, #58 merged (rename, entry screen, tension checks, matchup poster).
+- #53 part 1: PR from `feat/53`. `guide.html` + `ui/guide.js` + `ui/guide.css`; one small link on the entry screen. Teams, all 72 players on a 20-80 grade, empty career-stats note. Staff/umpire block is in but hidden until `league/staff.js` exists.
 
 ## Next
-- Manager order: #53 guide page (waits for the staff issue #52 and the names issue), then #47 and #55 (only when the roster window has no open PR; say so on the issue first).
-- #4 move HUD/voting code out of `render/game.js`: NOT started; needs the render agent idle on `render/game.js`.
-- Backdrop: a wide park shot with nobody behind the card needs a render issue (opened from the #58 PR). Until then the card blurs the live scene.
-- Look at the entry screen in a real browser once the CDN is reachable (the agent sandbox blocks it, so the game never booted there; screenshots were taken with the scripts blocked).
+- #53 part 2: box score of the frozen game, after #47 has merged (`boxFromStream` on `league/preseason/opening.json`).
+- When #52 merges: check the staff block in a browser. `ui/guide.js` GUESSES the shape (`STAFF` per team as array or by team id, `UMPIRES` list, fields `name/num/line`); fix it to the real one.
+- Then #47 and #55 (only when the roster window has no open PR; say so on the issue first).
+- #4 move HUD/voting code out of `render/game.js`: NOT started; needs the render agent idle on it.
 
 ## Traps
-- `render/game.js` still fills `#mas` (old small logos) and writes `#introStatus` / `#status`. `#mas` and `#introStatus` stay in `index.html` as hidden nodes on purpose; do not show them or delete them (game.js would throw).
-- The poster reads `TEAMS[0]` (left) vs `TEAMS[1]` (right) like `render/game.js`; keep them in step.
-- The match line still says "今晚 A 對 B"; #55 replaces it with the start time and countdown.
-- `render/players_test.html` still has an old team name (render area).
+- `render/game.js` still fills `#mas` and writes `#introStatus` / `#status`; they stay hidden in `index.html` on purpose.
+- The poster reads `TEAMS[0]` (left) vs `TEAMS[1]` (right) like `render/game.js`.
+- `static.mjs` follows the entry-screen link into `guide.html`. The staff file is imported through a variable so a missing file does not fail it; keep it that way.
+- Grades: 50 + (rating - 1) * 100, step 5, clamped 20-80. `avg` in players.js is a placeholder and is not shown.

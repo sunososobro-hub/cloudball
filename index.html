@@ -87,6 +87,7 @@ button:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
 .acts button{flex:1 1 220px;min-height:58px;font-size:18px;border-radius:14px}
 .card .go{background:#f2c230;color:#14110a;border-color:transparent;font-weight:700;padding:0 22px}
 .card small{display:block;color:var(--muted);font-size:13px}
+.card .guide{color:var(--muted);text-underline-offset:3px;display:inline-block;padding:8px 6px}
 #vote{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);width:min(520px,calc(100vw - 24px));padding:12px 14px;border-color:rgba(242,194,48,.55)}
 #vote .vq{font-size:15px;margin-bottom:8px}#vote .vq b{color:#f2c230;margin-inline-end:6px}
 #vote .vopts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -197,6 +198,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
       <button id="enterMute" disabled>靜音進場</button>
     </div>
     <small>季前熱身賽，成績不列入正史</small>
+    <small><a class="guide" href="guide.html">球隊與球員介紹</a></small>
   </div>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
