@@ -145,10 +145,11 @@ const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;con
 const standMat=(()=>{const {triplanarTexture,texture,positionWorld,normalWorld,float,dot,vec3,clamp:tc,color}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.9});
   const t=triplanarTexture(texture(tex('concrete_c',1)),null,null,float(.35),positionWorld,normalWorld);m.colorNode=color(LC(0x2a3246)).mul(tc(dot(t.rgb,vec3(.2126,.7152,.0722)).div(.31),.6,1.4));
   const o=triplanarTexture(texture(tex('concrete_orm')),null,null,float(.35),positionWorld,normalWorld);m.roughnessNode=o.g;return m})(),seatMat=new THREE.MeshStandardMaterial({color:LC(0x16365c),roughness:.6});const fans=[];
+const CROWD_EMPTY=.1;/* share of seats left empty */
 function stand(px,pz,rotY,len,rows,side,roof){
   const g=new THREE.Group();g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
   for(let r=0;r<rows;r++){const h=1+r*.55,d=r*.9+.45;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,.9),standMat);b.position.set(0,h/2,d);g.add(b);
-    for(let x=-len/2+.5;x<len/2-.3;x+=.82)if(Math.random()<.9)fans.push({g,x:x+(Math.random()-.5)*.2,y:h,z:d,side})}
+    for(let x=-len/2+.5;x<len/2-.3;x+=.82)fans.push({g,x,y:h,z:d,side,empty:Math.random()<CROWD_EMPTY})}
   const top=1+rows*.55,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+4,1),standMat);w.position.set(0,(top+4)/2,rows*.9+.5);g.add(w);
   const rail=new THREE.Mesh(new THREE.BoxGeometry(len,1.1,.25),seatMat);rail.position.set(0,.55,-.1);g.add(rail);
   if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
@@ -162,19 +163,53 @@ const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:
 const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
 const FOLLOW_T=new THREE.Vector3(0,1.3,-9),_fw=new THREE.Vector3();
 const v3=new THREE.Vector3(),dummy=new THREE.Object3D(),col=new THREE.Color();
-for(const f of fans){v3.set(f.x,f.y+.36,f.z).applyMatrix4(f.g.matrixWorld);f.wx=v3.x;f.wy=v3.y;f.wz=v3.z}
+/* Crowd (#33): seated people from a few low-poly capsules, instanced. Draw calls: seats, seated bodies, arms-up bodies, heads.
+   Body = shirt (instance colour) + trousers (vertex colour CROWD_PANTS, so they stay dark whatever the shirt). A CROWD_CHEER_SHARE of fans also
+   have an arms-up body that replaces the seated one while they bounce above CROWD_CHEER_ON m. Seats and bodies face along the row; the body turns
+   toward home plate by at most CROWD_YAW_MAX, the head turns the rest (up to CROWD_HEAD_MAX) and sways. Real proportions: seat .44 m, head top ~1.35 m */
+const CROWD_HIP_BACK=.12,CROWD_YAW_MAX=.35,CROWD_HEAD_MAX=.6,CROWD_YAW_JIT=.15,CROWD_LEAN=.07,CROWD_CHEER_SHARE=.35,CROWD_CHEER_ON=.12,CROWD_TEAM_SHARE=.35,
+  CROWD_SCALE_MIN=.92,CROWD_SCALE_SPAN=.16,CROWD_SWAY=.25,CROWD_PANTS=[.22,.23,.28],CROWD_WHITE=[1,1,1],
+  CROWD_SHIRTS=[0xf2f2f2,0x2b2b2e,0x8d929a,0x1f3a5f,0x3d5a80,0xb23a3a,0x2f6b4a,0xd8c9a3,0xe0b030,0x5a4a8a];
+function crowdGeo(parts){const gs=parts.map(([g,c])=>[g.index?g.toNonIndexed():g,c]),n=gs.reduce((a,[q])=>a+q.attributes.position.count,0);
+  const P=new Float32Array(n*3),N=new Float32Array(n*3),C=new Float32Array(n*3);let o=0;
+  for(const [q,c] of gs){const k=q.attributes.position.count;P.set(q.attributes.position.array,o*3);N.set(q.attributes.normal.array,o*3);for(let i=0;i<k;i++)C.set(c,(o+i)*3);o+=k}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(P,3));g.setAttribute('normal',new THREE.BufferAttribute(N,3));g.setAttribute('color',new THREE.BufferAttribute(C,3));return g}
+const cLimb=(a,b,r)=>{const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=d.length(),g=new THREE.CylinderGeometry(r,r,L+r,5,1,true);/* open 5-sided prism, 10 triangles */
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize()));g.translate((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);return g};
+const cBox=(w,h,d,x,y,z)=>new THREE.BoxGeometry(w,h,d).translate(x,y,z);
+/* Local frame: floor of the tread at y=0, hip above the origin, +z = facing the field */
+function crowdBody(up){const W=CROWD_WHITE,T=CROWD_PANTS,P=[[new THREE.CylinderGeometry(.17,.14,.58,6).scale(1.25,1,.8).translate(0,.81,-.04),W],[new THREE.CylinderGeometry(.045,.045,.12,5,1,true).translate(0,1.12,-.03),W]];
+  for(const s of [-1,1]){P.push([cLimb([s*.1,.53,-.02],[s*.11,.54,.4],.075),T],[cLimb([s*.11,.5,.42],[s*.12,.04,.5],.06),T]);
+    if(up)P.push([cLimb([s*.21,1.02,-.04],[s*.3,1.3,0],.055),W],[cLimb([s*.3,1.3,0],[s*.31,1.6,.08],.05),W]);
+    else P.push([cLimb([s*.21,1.02,-.04],[s*.25,.77,.1],.055),W],[cLimb([s*.25,.77,.1],[s*.15,.6,.36],.05),W])}
+  return crowdGeo(P)}
+const seatGeo=crowdGeo([[cBox(.46,.05,.42,0,.42,-.02),CROWD_WHITE],[cBox(.46,.42,.04,0,.64,-.24),CROWD_WHITE]]);
+for(const f of fans){v3.set(f.x,f.y,f.z+CROWD_HIP_BACK).applyMatrix4(f.g.matrixWorld);f.wx=v3.x;f.wy=v3.y;f.wz=v3.z;f.sy=f.g.rotation.y+Math.PI}
 for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-s.x,fans[i].wz-s.z)<2.2))fans.splice(i,1);
-const crowd=new THREE.InstancedMesh(new THREE.CapsuleGeometry(.2,.32,3,8).scale(1,1,.75),new THREE.MeshStandardMaterial({roughness:.85}),fans.length);
-const heads=new THREE.InstancedMesh(new THREE.SphereGeometry(.12,10,8),new THREE.MeshStandardMaterial({roughness:.7}),fans.length);
-fans.forEach((f,i)=>{f.ph=Math.random()*6.28;f.ry=Math.atan2(-f.wx,-f.wz);const tm=f.side===2?(Math.random()<.5?0:1):(Math.random()<.85?f.side:1-f.side);f.team=tm;
-  col.setHex(Math.random()<.12?0xdedede:TEAMS[tm].color).multiplyScalar(.35+Math.random()*.65);crowd.setColorAt(i,col);col.setHex([0xc99572,0xe0b48f,0xa8775a,0xd9a983,0x8a5a3c][i%5]);if(Math.random()<.35)col.setHex(Math.random()<.5?0x1a1a1e:0x3a2a1c);heads.setColorAt(i,col)});
-scene.add(crowd,heads);
+const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty),cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
+const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.5}),fans.length);
+const crowd=new THREE.InstancedMesh(crowdBody(false),new THREE.MeshStandardMaterial({roughness:.85,vertexColors:true}),people.length);
+const crowdUp=new THREE.InstancedMesh(crowdBody(true),crowd.material,cheerers.length);
+const heads=new THREE.InstancedMesh(new THREE.SphereGeometry(.11,6,4).scale(.9,1.05,.95).translate(0,1.25,0),new THREE.MeshStandardMaterial({roughness:.7}),people.length);
+fans.forEach((f,i)=>{dummy.position.set(f.wx,f.wy,f.wz);dummy.rotation.set(0,f.sy,0);dummy.scale.set(1,1,1);dummy.updateMatrix();seats.setMatrixAt(i,dummy.matrix)});
+people.forEach((f,i)=>{f.ph=Math.random()*6.28;const home=Math.atan2(-f.wx,-f.wz),d=wrapPI(home-f.sy);
+  f.ry=f.sy+clamp(d,-CROWD_YAW_MAX,CROWD_YAW_MAX)+(Math.random()-.5)*2*CROWD_YAW_JIT;f.hy=clamp(wrapPI(home-f.ry),-CROWD_HEAD_MAX,CROWD_HEAD_MAX);
+  f.rx=(Math.random()-.5)*2*CROWD_LEAN;f.k=CROWD_SCALE_MIN+Math.random()*CROWD_SCALE_SPAN;
+  const tm=f.side===2?(Math.random()<.5?0:1):(Math.random()<.85?f.side:1-f.side);f.team=tm;
+  col.setHex(Math.random()<CROWD_TEAM_SHARE?TEAMS[tm].color:CROWD_SHIRTS[(Math.random()*CROWD_SHIRTS.length)|0]).multiplyScalar(.7+Math.random()*.35);crowd.setColorAt(i,col);f.shirt=col.getHex();
+  col.setHex([0xc99572,0xe0b48f,0xa8775a,0xd9a983,0x8a5a3c][i%5]);if(Math.random()<.35)col.setHex(Math.random()<.5?0x1a1a1e:0x3a2a1c);heads.setColorAt(i,col)});
+cheerers.forEach((f,i)=>{f.ui=i;crowdUp.setColorAt(i,col.setHex(f.shirt))});
+seats.instanceMatrix.needsUpdate=true;
+scene.add(seats,crowd,crowdUp,heads);
+const HIDE=new THREE.Matrix4().makeScale(0,0,0);
 function updateCrowd(now,ex,batTeam,live){
-  const beat=(now/1000)*BPM/60*2;
-  for(let i=0;i<fans.length;i++){const f=fans[i];let up=Math.max(0,Math.sin(now*.008+f.ph))*ex*.5;
+  const beat=(now/1000)*BPM/60*2,ts=now/1000;
+  for(let i=0;i<people.length;i++){const f=people[i];let up=Math.max(0,Math.sin(now*.008+f.ph))*ex*.5;
     if(live&&f.team===batTeam)up+=Math.max(0,Math.sin(beat*Math.PI))*.1*(i%2?1:.6);
-    dummy.position.set(f.wx,f.wy+up-.02,f.wz);dummy.rotation.set(0,f.ry,0);dummy.updateMatrix();crowd.setMatrixAt(i,dummy.matrix);dummy.position.y+=.47;dummy.updateMatrix();heads.setMatrixAt(i,dummy.matrix)}
-  crowd.instanceMatrix.needsUpdate=true;heads.instanceMatrix.needsUpdate=true;
+    dummy.position.set(f.wx,f.wy+up,f.wz);dummy.rotation.set(f.rx,f.ry,0,'YXZ');dummy.scale.setScalar(f.k);dummy.updateMatrix();
+    const cheer=f.ui!==undefined&&up>CROWD_CHEER_ON;crowd.setMatrixAt(i,cheer?HIDE:dummy.matrix);if(f.ui!==undefined)crowdUp.setMatrixAt(f.ui,cheer?dummy.matrix:HIDE);
+    dummy.rotation.set(f.rx,f.ry+f.hy+Math.sin(ts*.3+f.ph)*CROWD_SWAY,0,'YXZ');dummy.updateMatrix();heads.setMatrixAt(i,dummy.matrix)}
+  crowd.instanceMatrix.needsUpdate=true;crowdUp.instanceMatrix.needsUpdate=true;heads.instanceMatrix.needsUpdate=true;
 }
 /* light towers + sky */
 const TOWER_I=.16*Math.PI,BEAM_K=.025;/* Keep only a hint of light beam, so the camera passing through it does not white out */
