@@ -1,0 +1,264 @@
+{
+  "lines": [
+    {
+      "at": 30,
+      "id": "pbp-c27064a939",
+      "role": "pbp",
+      "emotion": "thrilled",
+      "chars": 22,
+      "gainDb": 4,
+      "tempo": 1.08,
+      "before": {
+        "level": -14.74,
+        "cps": 3.37,
+        "sec": 7.85
+      },
+      "after": {
+        "level": -10.8,
+        "cps": 3.56,
+        "sec": 6.83
+      }
+    },
+    {
+      "at": 30,
+      "id": "color-dcbde0f4f3",
+      "role": "color",
+      "emotion": "amused",
+      "chars": 13,
+      "gainDb": -4,
+      "tempo": 1,
+      "before": {
+        "level": -14.21,
+        "cps": 5.75,
+        "sec": 3.45
+      },
+      "after": {
+        "level": -18.15,
+        "cps": 5.83,
+        "sec": 2.67
+      }
+    },
+    {
+      "at": 30,
+      "id": "fan_owls-005c137878",
+      "role": "fan_owls",
+      "emotion": "disappointed",
+      "chars": 7,
+      "gainDb": -3,
+      "tempo": 1,
+      "before": {
+        "level": -17.11,
+        "cps": 5.47,
+        "sec": 1.8
+      },
+      "after": {
+        "level": -20.07,
+        "cps": 5.51,
+        "sec": 1.61
+      }
+    },
+    {
+      "at": 30,
+      "id": "pbp-994b1fcad5",
+      "role": "pbp",
+      "emotion": "amused",
+      "chars": 8,
+      "gainDb": -4,
+      "tempo": 1,
+      "before": {
+        "level": -15.64,
+        "cps": 3.92,
+        "sec": 2.65
+      },
+      "after": {
+        "level": -19.56,
+        "cps": 4,
+        "sec": 2.36
+      }
+    },
+    {
+      "at": 142,
+      "id": "pbp-aa17172448",
+      "role": "pbp",
+      "emotion": "excited",
+      "chars": 20,
+      "gainDb": 2,
+      "tempo": 1.12,
+      "before": {
+        "level": -14.51,
+        "cps": 5.17,
+        "sec": 5.7
+      },
+      "after": {
+        "level": -12.69,
+        "cps": 5.65,
+        "sec": 4.31
+      }
+    },
+    {
+      "at": 142,
+      "id": "fan_owls-e01f1f7fa3",
+      "role": "fan_owls",
+      "emotion": "disappointed",
+      "chars": 14,
+      "gainDb": -3,
+      "tempo": 1,
+      "before": {
+        "level": -14.93,
+        "cps": 5.41,
+        "sec": 3.7
+      },
+      "after": {
+        "level": -17.83,
+        "cps": 5.53,
+        "sec": 2.85
+      }
+    },
+    {
+      "at": 142,
+      "id": "color-010a07a3f5",
+      "role": "color",
+      "emotion": "amused",
+      "chars": 19,
+      "gainDb": -4,
+      "tempo": 1,
+      "before": {
+        "level": -14.47,
+        "cps": 5.67,
+        "sec": 4.65
+      },
+      "after": {
+        "level": -18.37,
+        "cps": 5.79,
+        "sec": 3.74
+      }
+    },
+    {
+      "at": 1296,
+      "id": "pbp-788e5b04d7",
+      "role": "pbp",
+      "emotion": "thrilled",
+      "chars": 21,
+      "gainDb": 4,
+      "tempo": 1.08,
+      "before": {
+        "level": -15.3,
+        "cps": 3.08,
+        "sec": 7.75
+      },
+      "after": {
+        "level": -11.4,
+        "cps": 3.27,
+        "sec": 6.9
+      }
+    },
+    {
+      "at": 1296,
+      "id": "fan_owls-fd4e11ecf0",
+      "role": "fan_owls",
+      "emotion": "thrilled",
+      "chars": 14,
+      "gainDb": 4,
+      "tempo": 1.08,
+      "before": {
+        "level": -15.03,
+        "cps": 4.83,
+        "sec": 4
+      },
+      "after": {
+        "level": -11.16,
+        "cps": 5.09,
+        "sec": 3.15
+      }
+    },
+    {
+      "at": 1296,
+      "id": "color-742e71652b",
+      "role": "color",
+      "emotion": "excited",
+      "chars": 25,
+      "gainDb": 2,
+      "tempo": 1.12,
+      "before": {
+        "level": -14.79,
+        "cps": 5.24,
+        "sec": 6.05
+      },
+      "after": {
+        "level": -12.94,
+        "cps": 5.73,
+        "sec": 5.04
+      }
+    },
+    {
+      "at": 1296,
+      "id": "pbp-3985e8fc3b",
+      "role": "pbp",
+      "emotion": "amused",
+      "chars": 11,
+      "gainDb": -4,
+      "tempo": 1,
+      "before": {
+        "level": -14.6,
+        "cps": 5.02,
+        "sec": 2.8
+      },
+      "after": {
+        "level": -18.54,
+        "cps": 5.09,
+        "sec": 2.5
+      }
+    },
+    {
+      "at": 1296,
+      "id": "color-5415a74d30",
+      "role": "color",
+      "emotion": "amused",
+      "chars": 12,
+      "gainDb": -4,
+      "tempo": 1,
+      "before": {
+        "level": -15.88,
+        "cps": 5.38,
+        "sec": 2.85
+      },
+      "after": {
+        "level": -19.72,
+        "cps": 5.58,
+        "sec": 2.56
+      }
+    }
+  ],
+  "files": [
+    {
+      "at": 30,
+      "file": "audio/_trial/post/ab-30.mp3",
+      "aSec": 16.8,
+      "bSec": 13.48
+    },
+    {
+      "at": 142,
+      "file": "audio/_trial/post/ab-142.mp3",
+      "aSec": 14.75,
+      "bSec": 11.06
+    },
+    {
+      "at": 1296,
+      "file": "audio/_trial/post/ab-1296.mp3",
+      "aSec": 24.85,
+      "bSec": 20.24
+    }
+  ],
+  "before": {
+    "levelSpreadDb": 2.9,
+    "levelSdDb": 0.77,
+    "cps": 4.56,
+    "cpsSd": 0.86
+  },
+  "after": {
+    "levelSpreadDb": 9.27,
+    "levelSdDb": 3.59,
+    "cps": 4.78,
+    "cpsSd": 0.88
+  }
+}

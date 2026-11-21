@@ -6,11 +6,13 @@
 - #108 sheet `ctx`; #82 part 1 people slots; #115 whole frozen game recorded (351 clips, US$2.09).
 - #129: `synth.mjs --converse` trial; owner verdict: not better, approach dropped (tool stays, unwired).
 - #134 step 1: `banter.js` (score per exchange, `topBanter` with gap and full line range) + check.
+- #140: `tools/post-trial.mjs` free A/B (gain per emotion, silence trim, tempo, turn gaps) on at 30/142/1296; files in `audio/_trial/post/` (force-added; `_trial/` is git-ignored).
 
 ## Next (board order)
-1. #134: owner verdict on the top 8 tunes the weights in `banter.js`; then the render issue (step 2).
-2. #82 part 2 (after #113 `KNOWN_SLOTS`): coach named in `pitching_change` exchanges (re-synth missing rows).
-3. #45 owner edits; #56 pregame (move `先發投手…` there). No paid call by a worker (#68 Money).
+1. #140: owner listens to the 3 A/B files; better -> manager opens "apply to whole game" issue; still read -> manager brings model/voice options.
+2. #134: owner verdict on the top 8 tunes the weights in `banter.js`; then the render issue (step 2).
+3. #82 part 2 (after #113 `KNOWN_SLOTS`): coach named in `pitching_change` exchanges (re-synth missing rows).
+4. #45 owner edits; #56 pregame (move `先發投手…` there). No paid call by a worker (#68 Money).
 
 ## Known traps
 - `tests/` is not this folder: new slots in exchanges need `KNOWN_SLOTS`; `banter.check.mjs` is not in CI yet (issue).
