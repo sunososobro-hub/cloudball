@@ -325,18 +325,24 @@ const _bv=new THREE.Vector3(),_bq=new THREE.Quaternion(),_dn=new THREE.Vector3(0
 function aimArm(a,sx,tx,ty,tz){_bv.set(tx-sx,ty-BAT_SHOULDER_Y,tz);const d=_bv.length();_bq.setFromUnitVectors(_dn,_bv.normalize());a.quaternion.copy(_bq);a.scale.y=Math.max(ARM_S_MIN,Math.min(1.2,d/BAT_ARM_LEN))}
 /* Skinned players: shortening the arm proxy = bending the elbow, so the hand really lands on the target; on block figures too short looks like a stub, so keep .85 */
 const ARM_S_MIN=window.PL?.3:.85;
+/* Sacrifice/drag bunt: the batter squares around toward the pitcher during the delivery, holds the bat level in front at the top of the zone
+   with the top hand slid up the barrel, and gives with the pitch at contact instead of swinging */
+const BUNT={yaw:1.25,hips:.75,head:1.45,lean:.32,hx:.12,hy:.28,hz:.42,bx:-1,by:.12,bz:.18,gap:.32},BUNT_SQUARE_LEAD=1.05,BUNT_SQUARE_DUR=.45,BUNT_GIVE=.08,BUNT_GIVE_DUR=.15;
 function poseBatter(e,u){
-  const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
+  const bn=e.r==='inplay'&&e.play&&e.play.bunt?ease(sat01((u-(ARRIVE-BUNT_SQUARE_LEAD))/BUNT_SQUARE_DUR)):0;
+  const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing&&!bn?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing&&!bn?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
   const K=(k,c)=>{const a=BK[k];let v=lerp(a[0],a[1],ld);v=lerp(v,c===undefined?a[2]:c,sw);return lerp(v,a[3],ft)};
   const stay=!(e.pa&&e.r!=='ibb'),rw=stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
   const yaw=lerp(K('yaw'),BAT_REST.yaw,rw),py=.45+e.zy*.75,dyC=Math.max(-.7,Math.min(.2,(py-1.33)/.85));
-  BR.up.rotation.set(K('lean'),yaw,0);BR.hips.rotation.y=yaw*.6;BR.hg.rotation.y=K('head')-yaw;
+  const byaw=lerp(yaw,BUNT.yaw,bn);BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn),byaw,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(K('head'),BUNT.head,bn)-byaw;
   BR.l0.rotation.z=K('back');BR.l1.rotation.z=lerp(lerp(BK.stride[0],BK.stride[1],ld),BK.stride[2],sw);
-  const gx=lerp(K('hx'),BAT_REST.hx,rw),gy=lerp(K('hy'),BAT_REST.hy,rw),gz=lerp(K('hz'),BAT_REST.hz,rw);batPivot.position.set(gx,gy,gz);
-  _bv.set(lerp(K('bx'),BAT_REST.bx,rw),lerp(K('by',dyC),BAT_REST.by,rw),lerp(K('bz'),BAT_REST.bz,rw)).normalize();batPivot.quaternion.setFromUnitVectors(_up,_bv);
+  const give=bn?BUNT_GIVE*ease(sat01((u-ARRIVE)/BUNT_GIVE_DUR)):0;
+  const gx=lerp(lerp(K('hx'),BAT_REST.hx,rw),BUNT.hx,bn),gy=lerp(lerp(K('hy'),BAT_REST.hy,rw),BUNT.hy+dyC*BUNT_ZONE_FOLLOW,bn),gz=lerp(lerp(K('hz'),BAT_REST.hz,rw),BUNT.hz,bn)-give;batPivot.position.set(gx,gy,gz);
+  _bv.set(lerp(lerp(K('bx'),BAT_REST.bx,rw),BUNT.bx,bn),lerp(lerp(K('by',dyC),BAT_REST.by,rw),BUNT.by,bn),lerp(lerp(K('bz'),BAT_REST.bz,rw),BUNT.bz,bn)).normalize();batPivot.quaternion.setFromUnitVectors(_up,_bv);
+  const gap=lerp(BAT_HAND_GAP,BUNT.gap,bn);
   /* Hands apart on the bat: bottom hand (arms[1], a right-handed batter's left hand) on the handle, top hand (arms[0]) BAT_HAND_GAP toward the barrel */
-  aimArm(BR.a0,-BAT_SHOULDER_X,gx+_bv.x*BAT_HAND_GAP,gy+_bv.y*BAT_HAND_GAP,gz+_bv.z*BAT_HAND_GAP);aimArm(BR.a1,BAT_SHOULDER_X,gx,gy,gz)}
-const BAT_HAND_GAP=.09;
+  aimArm(BR.a0,-BAT_SHOULDER_X,gx+_bv.x*gap,gy+_bv.y*gap,gz+_bv.z*gap);aimArm(BR.a1,BAT_SHOULDER_X,gx,gy,gz)}
+const BAT_HAND_GAP=.09,BUNT_ZONE_FOLLOW=.35;
 const runners=[0,1,2,3].map(()=>figure(matOff,pants,false,{head:'helmet'}));
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
