@@ -83,3 +83,7 @@ nothing else. Pre-season games are never written there.
   OpenAI gpt-audio-1.5, not human recordings." The voices are AI-generated (OpenAI
   gpt-audio-1.5). The site must show an "AI 語音" label wherever this audio plays (OpenAI usage
   policy disclosure).
+
+## Anonymous viewing counts
+
+The site counts how people watch, without knowing who they are: a random id made for each page load (never stored in a cookie or in the browser), the milestone reached (entered, sound on, inning, game end, fast-forward, leaving), the game seed, and the seconds watched. No IP address, user agent or account is stored by us. Code: `ui/stats.js`, `functions/api/v.js`, `ui/stats-report.mjs`.
