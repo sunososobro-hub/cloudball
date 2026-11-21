@@ -10,7 +10,7 @@
 /* VOICE: 台灣夜間球場直播，HUD 安靜，畫面讓給球場和應援
    IDEA: 球場的外野記分板與轉播角落比分條
    PICTURE: 全螢幕 3D 夜間棒球場，兩隊同步直播
-   COLOUR and TYPE: 夜空深底、照明燈白，沙丁魚青與貓頭鷹紫兩隊色；Barlow Condensed 記分字 + Noto Sans TC
+   COLOUR and TYPE: night-sky base, floodlight white, teal (pheasants) and purple (owls) as the two team colours; Barlow Condensed 記分字 + Noto Sans TC
    LAYOUT: 左上比分與壘包、右上直播狀態、左下戰況、底部座位列；手機自動堆疊 */
 :root{color-scheme:dark;--bg:#070b16;--ink:#eef2f8;--muted:#9aa6bd;--glass:rgba(9,14,28,.78);--line:rgba(255,255,255,.14);--a:#2f7fc4;--b:#e8743b;--live:#ff4d4d}
 :root[data-theme=light],:root[data-theme=dark]{color-scheme:dark}
@@ -173,9 +173,9 @@ body.studio #bug,body.studio #feed{display:none}#studio.fold .srow.x{display:non
   <div class="card">
     <div class="mas" id="mas"></div>
     <h1>雲端職棒</h1>
-    <p>開發版：進場就開一場新的比賽，台北捷運沙丁魚對新竹爆肝貓頭鷹。比賽中遇到換投、敬遠、盜壘，教練團會喊暫停，交給所有球迷投票決定，想投誰、怎麼投都行（故意亂投也算數）。</p>
+    <p>開發版：進場就開一場新的比賽，台北房貸帝雉對新竹爆肝貓頭鷹。比賽中遇到換投、敬遠、盜壘，教練團會喊暫停，交給所有球迷投票決定，想投誰、怎麼投都行（故意亂投也算數）。</p>
     <p id="introStatus">計算賽程中…</p>
-    <div class="pick" id="introTeam" style="display:none"><button data-t="0">我挺沙丁魚</button><button data-t="1">我挺貓頭鷹</button><button data-t="-1">中立看球</button></div>
+    <div class="pick" id="introTeam" style="display:none"><button data-t="0">我挺帝雉</button><button data-t="1">我挺貓頭鷹</button><button data-t="-1">中立看球</button></div>
     <button class="go" id="enter">進場（開聲音）</button>
     <button id="enterMute">靜音進場</button>
     <small>虛構球隊，正規 9 局，每一球都由引擎依當場種子和球迷的決定算出；任何人用同樣的種子和決定重算，結果都一樣。開發期間兩隊都由你調度；想重來就按「新的一場」。</small>
