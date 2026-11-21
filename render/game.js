@@ -879,7 +879,7 @@ function setBooth(b,T0){booth=b;VOICE.setRecorded(b.recorded);b.due(T0-BOOTH_PRI
 function commentary(T){if(!sayOn||!window.COMMENTARY_BANK)return;
   if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);window.COMMENTARY.loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)})}
   if(!booth)return;showAiTag();
-  for(const l of booth.due(T,{fast:mode!=='live'&&speed>1}))VOICE.say(l.speaker,l.text,{urgent:l.priority>=2&&l.speaker==='pbp',audio:l.audio})}
+  for(const l of booth.due(T,{fast:mode!=='live'&&speed>1}))VOICE.say(l.speaker,l.text,{urgent:l.priority>=2&&l.speaker==='pbp',audio:l.audio,cast:l.cast,aside:l.aside})}
 const sayBtn=$('say');
 /* "AI 語音" licence note (#26): shown while recorded voice can play. Styled here; a ui/ stylesheet rule for .ai-voice overrides it. */
 const aiTag=document.createElement('span');aiTag.className='ai-voice';aiTag.textContent='AI 語音';aiTag.hidden=true;
