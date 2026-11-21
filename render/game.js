@@ -282,7 +282,7 @@ function setupPost(){try{const {pass,mrt,output,normalView,screenUV,length,smoot
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
-  pp.outputColorTransform=false;pp.outputNode=FX.fxaa(renderOutput(c));return pp}catch(e){console.error('post',e);return null}}
+  pp.outputColorTransform=false;pp.outputNode=FX.fxaa(renderOutput(c));pp.scenePass=sp;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
 PP=gfxLow?null:setupPost();
 $('gfx').textContent=gfxLow?'畫質：低':'畫質：高';
@@ -1033,7 +1033,7 @@ const enter=(snd,hlWant)=>{$('intro').hidden=true;if(!LIVE_ENABLED){if(window.OP
 $('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);$('enterHl').onclick=()=>enter(true,true);
 $('enterHl').hidden=!(window.OPENING&&window.HIGHLIGHTS);
 /* ?hl=1 (#118): straight into the highlights, for a link in a post. Without a click the browser keeps the sound off: the first tap turns it on. */
-if(window.OPENING&&window.HIGHLIGHTS&&new URLSearchParams(location.search).get('hl')==='1')setTimeout(()=>{enter(true,true);
+if(window.OPENING&&window.HIGHLIGHTS&&new URLSearchParams(location.search).get('hl')==='1')window.READY.then(()=>{enter(true,true);
   const unlock=()=>{removeEventListener('pointerdown',unlock,true);removeEventListener('keydown',unlock,true);if(ac&&ac.state!=='running')ac.resume()};
   addEventListener('pointerdown',unlock,true);addEventListener('keydown',unlock,true);setTimeout(()=>{if(!ac||ac.state!=='running')note('點一下畫面開聲音')},HL_CARD_S*1000)});
 
@@ -1119,8 +1119,23 @@ function setTier(n){gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tie
   PP=gfxTier>=2||gfxLow?null:(PP||setupPost());
   const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;blobShadows.forEach(m=>m.visible=!sh);
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
-  scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}})}
+  scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
+  if(warmStarted)warmUp()}/* a drop in play rebuilds every material: compile it off the frame instead of freezing the tab (#125) */
 let envOn=true;
+/* ---------- cold start (#125) ----------
+   On a first visit the first frame built and compiled every material in one go: a frozen tab for seconds, right when the visitor presses enter.
+   Now the loop runs without drawing while compileAsync builds the whole park (it yields between objects; frustum culling is off for that call so
+   what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
+   then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
+const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk;window.READY=new Promise(ok=>readyOk=ok);setTimeout(()=>readyOk(),READY_MAX_MS);
+async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[];
+  scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
+  /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one */
+  const sp=PP&&PP.scenePass;let p=null;
+  try{if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;p=sp.compileAsync(renderer)}else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera)}
+  catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true}
+  try{await p}catch(e){console.warn('warm-up failed',e)}
+  if(run!==warmRun)return;warming=false;fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
   if(performance.now()-tierT0>FPS_WARMUP_MS&&$('intro').hidden&&!document.hidden&&avg>FPS_BUDGET_MS&&gfxTier<TIER_MAX){setTier(gfxTier+1);tierT0=performance.now();note(`有點卡，自動降畫質（${gfxTier}/${TIER_MAX}）`)}}
 setTier(gfxTier);
@@ -1128,7 +1143,7 @@ setTier(gfxTier);
 /* ---------- loop ---------- */
 applyLayout();let lastNow=performance.now(),stKey='',outFixed=null,introVis=null;prewarmBodies();
 renderer.setAnimationLoop(()=>{
-  const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;fpsTick(dtMs);
+  const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
   if(mode==='studio')studioTick(dt);
   else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed))}
@@ -1146,7 +1161,10 @@ renderer.setAnimationLoop(()=>{
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
   updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(envOn){updateBugs(now/1000);updateBlades()}
+  if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);
+  if(readyN<READY_FRAMES&&++readyN===READY_FRAMES)readyOk();
 });
+warmUp();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 }
