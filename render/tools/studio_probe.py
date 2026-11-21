@@ -5,7 +5,7 @@ import sys,os,asyncio,mimetypes,json
 from playwright.async_api import async_playwright
 REPO,act,clip,times,expr=sys.argv[1],sys.argv[2],int(sys.argv[3]),[float(x) for x in sys.argv[4].split(',')],sys.argv[5]
 TH=os.environ.get('THREE_DIR','node_modules/three/')
-HOOK=';window.__X={batter,bat,ball,fielders,runners,BR,studioClips,ROSTERS,get game(){return game},get studio(){return studio}};'
+HOOK=';window.__X={batter,bat,ball,fielders,runners,BR,studioClips,ROSTERS,get game(){return game},get studio(){return studio},get scene(){return scene}};'
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch(executable_path='/usr/bin/google-chrome',args=['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'])
