@@ -89,6 +89,25 @@ The persona in `voices.json` says how a voice sounds, never what it says. Withou
 the request has no `Authorization` header (cloud: the proxy adds it from the environment's network
 secret); `--ping` checks access for free. Needs `ffmpeg` (or env `FFMPEG`).
 
+**Delivery context (#108).** So that lines sound like one conversation, not each starting from
+zero, every sheet row carries `ctx`, which `synth.mjs` puts before the line as context for the
+voice only (the clip must still say only its line). Context never changes the audio id, which
+stays role + tone + text, so a clip stays reusable:
+- A row that is reused in other games gets `"ctx": "neutral"`, one fixed text that fits anywhere:
+  rows that name nobody and carry no count or score of this game (generic calls, colour and fan
+  lines), and per-player introductions (game lines tagged `lineup` / `batter_up`, `pbp` lines of
+  the pregame `lineup_*` segments).
+- A row that belongs to this game only gets its real neighbours: `moment` (`pregame`, `big` when a
+  line of that event is excited or thrilled, `tense` when the tension index is at least
+  `TENSE_FROM` or a line is tense, else `routine`) and `prev`, the two lines said just before it in
+  the same moment (same event, or same pregame segment), as `[speaker name, text]`.
+
+The context is part of the manifest hash, so a clip made with other context shows as `STALE`
+(made again only with `--redo`). `--show <ids>` prints the exact request of some rows for free.
+Quality: the API returns WAV, loudness is set on it and the mp3 is encoded once, 24 kHz mono (the
+model's own rate) at LAME VBR quality 0, about 90 kbit/s: a whole game is about 18 MB, loaded clip
+by clip.
+
 After synthesis, `tools/wire-audio.mjs <script>` fills `audio` and `dur` of every line (pregame
 too) from the files in `audio/<name>/` by sheet id, and removes them when the file is gone, so the
 viewer never asks for a missing mp3. It refuses a clip whose manifest transcript does not say

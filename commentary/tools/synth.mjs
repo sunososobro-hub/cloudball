@@ -1,10 +1,16 @@
-// Synthesize commentary audio with OpenAI gpt-audio-1.5 (issue #26, gate #99).
+// Synthesize commentary audio with OpenAI gpt-audio-1.5 (issue #26, gate #99, context #108).
 // Usage: node commentary/tools/synth.mjs --trial [--redo]
 //        node commentary/tools/synth.mjs --in lines.json --out dir [--redo] [--only id,id,...]
 //        node commentary/tools/synth.mjs --ping     (free: can this machine reach the API? nothing is made)
+//        node commentary/tools/synth.mjs --in lines.json --out dir --show id,id  (free: print what would be sent)
 //   --only: make just these ids again, even when the file is there and up to date (a clip that came
 //           back far too long); every other line is left alone
-//   input json: [{role, tone, text, id?, voice?}]
+//   input json: [{role, tone, text, id?, voice?, ctx?}]
+// Context (#108): `ctx` (written by make-sheet.mjs) tells the voice where the line sits, for delivery only:
+//   "neutral" = a row reused in other games (one fixed text, so the clip fits anywhere);
+//   {moment, prev: [[name, text]], first?} = this game's row: kind of moment and the lines said just before.
+//   Only the target line is spoken; the gate below still applies. No ctx = no context (trial, older sheets).
+// Quality: the API returns WAV, loudness is fixed on it and the mp3 is encoded once (no mp3 -> mp3).
 // Gate: every clip's transcript must say the line and nothing more (tools/transcript.mjs). A clip that
 //   does not is made again, up to MAX_TRIES times; if it still fails no file is kept for that row, and
 //   the run ends with the list of failed ids and exit code 1. A clip already there whose stored
@@ -94,21 +100,65 @@ const manifestPath = join(outDir, 'manifest.json');
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};
 const saveManifest = () => writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 /* the persona says how to speak; this says what: the line, word for word */
-const SUFFIX = '以上只描述聲音、語氣和節奏，不是要你說的內容。你是台灣口音的配音員：只唸使用者給的「台詞」，一字不差，不增不減；不要開場、不要回應、不要補充或評論，唸完就停。';
+const SUFFIX = '以上只描述聲音、語氣和節奏，不是要你說的內容。你是台灣口音的配音員：只唸使用者給的「台詞」，一字不差，不增不減；「前情」只是讓你知道語氣要怎麼接，絕對不要唸出來；不要開場、不要回應、不要補充或評論，唸完就停。';
 const LOUD = 'loudnorm:I=-16:TP=-1.5:LRA=11:2pass';
-const hashOf = (r, l) => createHash('sha256').update(JSON.stringify([r.model, l.voice || r.voice, r.persona, l.tone, l.text, LOUD])).digest('hex');
-function normalize(file) {
+/* the model speaks 24 kHz: keep that rate (more adds nothing); one VBR encode at LAME's best quality */
+const SOURCE_FORMAT = 'wav', SAMPLE_RATE = 24000, MP3_QUALITY = 0;
+const ENCODE = `${SOURCE_FORMAT}>mp3:${SAMPLE_RATE}:q${MP3_QUALITY}`;
+const hashOf = (r, l) => createHash('sha256').update(JSON.stringify([r.model, l.voice || r.voice, r.persona, l.tone, l.text, LOUD, ENCODE, l.ctx ?? null])).digest('hex');
+
+/* the delivery context of one row, as plain words before the line (#108) */
+const MOMENT = {
+  pregame: '賽前節目，還沒開打，輕鬆聊天的節奏',
+  routine: '比賽中平常的一球，節奏輕鬆',
+  tense: '比賽中緊張的關頭',
+  big: '比賽中剛發生精彩的大場面',
+};
+const NEUTRAL = '前情（只供語氣參考，不要唸）：這句會用在很多場比賽，前後句每場不同，所以不提供。把它當成轉播進行中、接著前面對話自然說出的一句，不要像節目重新開場。';
+function contextOf(ctx) {
+  if (!ctx) return '';
+  if (ctx === 'neutral') return NEUTRAL + '\n';
+  const out = [`前情（只供語氣參考，不要唸）：${MOMENT[ctx.moment] || MOMENT.routine}。`];
+  if (ctx.first) out.push('這是整個節目的第一句。');
+  else if (ctx.prev?.length) {
+    out.push('同一段裡剛剛說過：');
+    for (const [who, text] of ctx.prev) out.push(`${who}：「${text}」`);
+    out.push('你接著說，語氣和音量要接得上，像同一段對話的下一句，不是重新開始。');
+  } else out.push('這是這個場面的第一句，但轉播一直在進行，不要像重新開場。');
+  return out.join('\n') + '\n';
+}
+
+/* raw API audio (wav) -> loudness-normalised mp3, encoded once */
+function normalize(src, file) {
   const tmp = file + '.norm.mp3';
-  const p1 = spawnSync(FFMPEG, ['-hide_banner', '-nostats', '-i', file, '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json', '-f', 'null', '-'], { encoding: 'utf8', windowsHide: true });
+  const p1 = spawnSync(FFMPEG, ['-hide_banner', '-nostats', '-i', src, '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json', '-f', 'null', '-'], { encoding: 'utf8', windowsHide: true });
   const m = (p1.stderr || '').match(/\{[^{}]*"input_i"[^{}]*\}/);
   if (!m) throw new Error('loudnorm pass1 failed');
   const d = JSON.parse(m[0]);
   const af = `loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=${d.input_i}:measured_TP=${d.input_tp}:measured_LRA=${d.input_lra}:measured_thresh=${d.input_thresh}:offset=${d.target_offset}:linear=true`;
-  const p2 = spawnSync(FFMPEG, ['-hide_banner', '-y', '-i', file, '-af', af, '-ar', '24000', '-c:a', 'libmp3lame', '-q:a', '2', tmp], { encoding: 'utf8', windowsHide: true });
+  const p2 = spawnSync(FFMPEG, ['-hide_banner', '-y', '-i', src, '-af', af, '-ar', String(SAMPLE_RATE), '-ac', '1', '-c:a', 'libmp3lame', '-q:a', String(MP3_QUALITY), tmp], { encoding: 'utf8', windowsHide: true });
   if (p2.status !== 0) throw new Error('loudnorm pass2 failed');
   renameSync(tmp, file);
 }
 const drop = (f) => { if (existsSync(f)) unlinkSync(f); };
+
+const requestOf = (r, l) => ({
+  model: r.model,
+  modalities: ['text', 'audio'],
+  audio: { voice: l.voice || r.voice, format: SOURCE_FORMAT },
+  messages: [
+    { role: 'system', content: r.persona + SUFFIX },
+    { role: 'user', content: `${contextOf(l.ctx)}語氣：${l.tone}\n台詞：${l.text}` },
+  ],
+});
+if (opt('--show')) {
+  for (const id of opt('--show').split(',')) {
+    const l = lines.find(x => x.id === id.trim());
+    if (!l) { console.error(`--show: ${id} is not in ${inFile}`); process.exit(2); }
+    console.log(`--- ${l.id}\n${JSON.stringify(requestOf(roles[l.role], l), null, 2)}`);
+  }
+  process.exit(0);
+}
 
 const tot = { textIn: 0, textOut: 0, audioOut: 0, audioIn: 0 };
 const counts = { made: 0, skipped: 0, stale: 0, retried: 0, failed: 0 };
@@ -117,15 +167,7 @@ const counter = {};
 
 /* one request; returns { audio, transcript } or { error } */
 async function speak(r, l) {
-  const body = {
-    model: r.model,
-    modalities: ['text', 'audio'],
-    audio: { voice: l.voice || r.voice, format: 'mp3' },
-    messages: [
-      { role: 'system', content: r.persona + SUFFIX },
-      { role: 'user', content: `語氣：${l.tone}\n台詞：${l.text}` },
-    ],
-  };
+  const body = requestOf(r, l);
   const res = await call('/chat/completions', { method: 'POST', body: JSON.stringify(body) });
   if (!res.ok) {
     const problem = accessProblem(res.status);
@@ -148,7 +190,7 @@ for (const l of lines) {
   counter[l.role] = (counter[l.role] || 0) + 1;
   const id = l.id || `${l.role}_${String(counter[l.role]).padStart(2, '0')}`;
   if (only && !only.has(id)) continue;
-  const file = join(outDir, `${id}.mp3`), tmp = join(outDir, `${id}.try.mp3`);
+  const file = join(outDir, `${id}.mp3`), tmp = join(outDir, `${id}.try.mp3`), raw = join(outDir, `${id}.raw.${SOURCE_FORMAT}`);
   const h = hashOf(r, l);
   const prev = manifest[id];
   const prevOk = existsSync(file) && prev && sameWords(prev.transcript, l.text);
@@ -161,8 +203,8 @@ for (const l of lines) {
   for (let t = 1; t <= MAX_TRIES && !done; t++) {
     const got = await speak(r, l);
     if (got.error) { console.error(`FAIL   ${id} try ${t}: ${got.error}`); continue; }
-    writeFileSync(tmp, got.audio);
-    try { normalize(tmp); } catch (e) { drop(tmp); console.error(`FAIL   ${id} try ${t}: ${e.message}`); continue; }
+    writeFileSync(raw, got.audio);
+    try { normalize(raw, tmp); } catch (e) { drop(tmp); console.error(`FAIL   ${id} try ${t}: ${e.message}`); continue; } finally { drop(raw); }
     if (!sameWords(got.transcript, l.text)) {
       drop(tmp); counts.retried++;
       console.log(`WRONG  ${id} try ${t}: said "${got.transcript.trim()}"`);

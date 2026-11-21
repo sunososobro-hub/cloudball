@@ -91,7 +91,7 @@ export function basesAfter(stream, i) {
 /* Emotion tag for a line, from the tension at its moment and what happened. Script writing
  * and the synthesis sheet use these names. */
 export const EMOTIONS = ['calm', 'excited', 'tense', 'thrilled', 'disappointed', 'amused'];
-const TENSE_FROM = 55, EXCITED_FROM = 25;
+export const TENSE_FROM = 55, EXCITED_FROM = 25;
 export function emotionFor(tension, { big = false, letdown = false, joke = false } = {}) {
   if (joke) return 'amused';
   if (letdown) return 'disappointed';
