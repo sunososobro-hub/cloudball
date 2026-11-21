@@ -2,6 +2,7 @@
  * was written for a game after it was simulated. Static files only. */
 export { createBooth, draftFromBank, validateScript, validateBank, SPEAKERS } from './player.js';
 export { createVoice } from './voice.js';
+export { tensionTrack, tensionOf, emotionFor, EMOTIONS, TENSION_MAX } from './tension.js';
 
 const here = new URL('./', import.meta.url);
 let scriptIndex = null;
