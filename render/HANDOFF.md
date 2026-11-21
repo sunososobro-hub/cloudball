@@ -7,8 +7,7 @@
 - #43 HBP (PR #49: `hbpSpot`, `hbpReact`, `hbpBall`, act `hbp`); plate pose (PR #69: C_HIGH_*, BAT_REST, act `hiball`).
 - #43 item 4 overlaps at the plate (fix/43-overlap): scorers peel off to their dugout (`peelAt`, also drawn in later events),
   C and plate ump stand after contact and re-crouch before the play ends, ump steps aside (`placeUmp`), walk arc in front. Act `homeplay`.
-- #101 (fix/101): recorded game = no browser voice (`sayHello` waits for the script, `setBooth` -> `VOICE.setRecorded`), crowd `talkDuck`, "AI 語音" tag.
-- #70 (fix/70): booth lines pass `cast` (fan_f voice) and `aside` to `VOICE.say`.
+- #101 (fix/101): recorded game = no browser voice (`sayHello` waits for the script, `setBooth` -> `VOICE.setRecorded`), crowd `talkDuck`, "AI 語音" tag; #70 (fix/70): `cast`/`aside` passed to `VOICE.say`.
 
 ## Next
 - #43 items 2, 3, 5 (HBP thud: `wip/43-hbp-pickup`), #42, #105 (tools), then #57/#73.
