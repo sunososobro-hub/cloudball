@@ -135,10 +135,6 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
   m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
 /* #150: code-generated surface detail (no download). genTex(size, w, h, fn) fills a canvas pixel by pixel: fn(u, v) -> [r, g, b] in 0..1.
    srgb = colour map; otherwise data (normal / roughness). Cached by key. */
-/* #162: PARK_SHADERS = the shader side of #150 (noise on the outer ground and the stand concrete, painted-steel maps, pillowed pad normals).
-   Off until it is measured cheap: those extra programs made the first draw after the warm-up (the tab freeze before 「進場」 wakes) longer.
-   The canvas-only detail (chalk scuffs, pad seams, fascia lamps, ribs, seat tint) stays on. */
-const PARK_SHADERS=false;
 const GEN={};
 function genTex(key,w,h,fn,srgb){if(GEN[key])return GEN[key];const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d'),im=g.createImageData(w,h),d=im.data;
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){const p=fn((x+.5)/w,(y+.5)/h,x,y),i=(y*w+x)*4;d[i]=p[0]*255;d[i+1]=p[1]*255;d[i+2]=p[2]*255;d[i+3]=255}
@@ -148,10 +144,10 @@ const vnoise=(x,y,k,p)=>{/* tileable value noise, period p cells */const xi=Math
   H=(a,b)=>hashG(((a%p)+p)%p,((b%p)+p)%p,k),a=H(xi,yi),b=H(xi+1,yi),c=H(xi,yi+1),e=H(xi+1,yi+1);return a+(b-a)*sx+(c-a)*sy+(a-b-c+e)*sx*sy};
 /* Painted steel (light masts, scoreboard frame, backstop posts): grey with drip streaks and chips; same image is the roughness map (G) */
 const PAINT_PX=128,PAINT_STREAK=.12,PAINT_CHIP=.94;
-const paintTex=()=>!PARK_SHADERS?null:genTex('paint',PAINT_PX,PAINT_PX,(u,v)=>{const s=vnoise(u*24,v*3,21,24)*PAINT_STREAK,n=vnoise(u*16,v*16,22,16)*.08,chip=vnoise(u*40,v*40,23,40)>PAINT_CHIP?.25:0,k=.86-s-n-chip;return[k,k,k]},1);
+const paintTex=()=>genTex('paint',PAINT_PX,PAINT_PX,(u,v)=>{const s=vnoise(u*24,v*3,21,24)*PAINT_STREAK,n=vnoise(u*16,v*16,22,16)*.08,chip=vnoise(u*40,v*40,23,40)>PAINT_CHIP?.25:0,k=.86-s-n-chip;return[k,k,k]},1);
 /* Ground outside the park: the grass texture's light and shade on the dark outer colour, so it is not one flat sheet */
 const OUTER_TILE=7,OUTER_BIG=.02;
-const outerMat=!PARK_SHADERS?new THREE.MeshStandardMaterial({color:LC(0x1a2018),roughness:1}):(()=>{const {texture,positionWorld,mx_fractal_noise_float:fn,vec3,dot,color,clamp:tc}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:1});const w=positionWorld.xz;
+const outerMat=(()=>{const {texture,positionWorld,mx_fractal_noise_float:fn,vec3,dot,color,clamp:tc}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:1});const w=positionWorld.xz;
   const k=dot(texture(tex('grass_c',1),w.div(OUTER_TILE)).rgb,vec3(.2126,.7152,.0722)).div(.118).add(fn(vec3(w.mul(OUTER_BIG),0),3,2,.5).mul(.35));
   m.colorNode=color(LC(0x1a2018)).mul(tc(k,.5,1.6));return m})();
 const outer=new THREE.Mesh(new THREE.PlaneGeometry(500,500),outerMat);outer.rotation.x=-Math.PI/2;outer.position.set(0,-.03,-55);scene.add(outer);
@@ -171,7 +167,7 @@ const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.P
 {const hp=(u,v)=>{const e=x=>{const a=Math.min(x,1-x);return a>PAD_EDGE?1:Math.sin(a/PAD_EDGE*Math.PI/2)};return e(u)*Math.min(1,v/PAD_TOP>1?1:Math.sin(v/PAD_TOP*Math.PI/2))},D=1/64;
  const padN=genTex('padN',32,64,(u,v)=>{const dx=(hp(u+D,v)-hp(u-D,v))*PAD_BULGE*D*8,dy=(hp(u,v+D)-hp(u,v-D))*PAD_BULGE*D*8,l=Math.hypot(dx,dy,1);return[.5-dx/l/2,.5+dy/l/2,.5+.5/l]});
  padN.repeat.set(PAD_BOARDS*PAD_PER_BOARD*AD_REPEAT,1);
- if(PARK_SHADERS)for(const o of scene.children)if(o.geometry===fence.geometry){o.material.normalMap=padN;o.material.normalScale.set(1,1);o.material.roughness=.6}}
+ for(const o of scene.children)if(o.geometry===fence.geometry){o.material.normalMap=padN;o.material.normalScale.set(1,1);o.material.roughness=.6}}
 /* #150 round 2: fence top and foul poles are painted steel (streaks, chips) instead of flat unlit yellow; YELLOW_GLOW keeps them reading at night */
 const YELLOW_GLOW=.35,yellowPaint=new THREE.MeshStandardMaterial({color:0xf2c230,roughness:.55,metalness:.2,map:paintTex(),roughnessMap:paintTex(),emissive:0xf2c230,emissiveIntensity:YELLOW_GLOW,side:THREE.DoubleSide});
 const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),yellowPaint);fenceTop.position.y=3;scene.add(fenceTop);
@@ -192,7 +188,7 @@ const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;con
 const STAIN_F=.12,STAIN_K=.22,STREAK_XZ=1.4,STREAK_Y=.07,STREAK_K=.14;
 const standMat=(()=>{const {triplanarTexture,texture,positionWorld,normalWorld,float,dot,vec3,clamp:tc,color,mx_fractal_noise_float:fn}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.9});
   const p=positionWorld,wear=float(1).sub(tc(fn(p.mul(STAIN_F),3,2,.5).add(.15),0,1).mul(STAIN_K)).sub(tc(fn(vec3(p.x.mul(STREAK_XZ),p.y.mul(STREAK_Y),p.z.mul(STREAK_XZ)),2,2,.5),0,1).mul(STREAK_K));
-  const t=triplanarTexture(texture(tex('concrete_c',1)),null,null,float(.35),positionWorld,normalWorld);m.colorNode=color(LC(0x2a3246)).mul(tc(dot(t.rgb,vec3(.2126,.7152,.0722)).div(.31),.6,1.4)).mul(PARK_SHADERS?wear:1);
+  const t=triplanarTexture(texture(tex('concrete_c',1)),null,null,float(.35),positionWorld,normalWorld);m.colorNode=color(LC(0x2a3246)).mul(tc(dot(t.rgb,vec3(.2126,.7152,.0722)).div(.31),.6,1.4)).mul(wear);
   const o=triplanarTexture(texture(tex('concrete_orm')),null,null,float(.35),positionWorld,normalWorld);m.roughnessNode=o.g;return m})(),seatMat=new THREE.MeshStandardMaterial({color:LC(0x16365c),roughness:.6,metalness:.3,map:paintTex(),roughnessMap:paintTex()});const fans=[];/* front rail: painted steel (#150 round 2) */
 /* #33 scale, real stadium figures: seat width ~.5 m (was .82), row depth .9 m and rise .55 m (~31 deg rake, a steep lower bowl).
    Foul-line stands 16 m off the line and the backstop 24 m behind the plate are already in the real range (MLB backstop >= 18 m). */
