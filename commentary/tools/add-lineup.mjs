@@ -15,7 +15,7 @@ import { simGame, TEAMS, ROSTERS } from '../../engine/index.js';
 import { validateScript } from '../player.js';
 
 const SRC = 'lineup', INTRO_SRC = 'batter_up';
-const STARTERS_DELAY_SEC = 17;   /* the half inning starts at about 18 s; the line must finish before the first call */
+const STARTERS_DELAY_SEC = 20;   /* after the booth opening (it ends at about 19 s); the first live call comes at about 21 s */
 const INTRO_DELAY_SEC = 0.1;     /* after the first pitch, as the bank's batter_up lines */
 const CLEAR_BEFORE_SEC = 4, CLEAR_AFTER_SEC = 6;   /* same room around hand-written lines as add-intros.mjs */
 const POSITION = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野手', CF: '中外野手', RF: '右外野手', DH: '指定打擊' };
