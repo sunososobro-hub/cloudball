@@ -371,7 +371,9 @@ const ballSh=new THREE.Mesh(GEO.shadow,shadowMat);ballSh.rotation.x=-Math.PI/2;b
 function pathPos(from,to,dist){let d=dist;for(let b=from;b<to;b++){const [x1,z1]=BASES[b],[x2,z2]=BASES[b+1],L=27.43;if(d<=L){const t=d/L;return[lerp(x1,x2,t),lerp(z1,z2,t),false]}d-=L}const [x,z]=BASES[to];return[x,z,true]}
 function face(f,x,z){f.g.rotation.y=Math.atan2(x,z)}
 function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.px,z-f.pz)/Math.max(dt,1e-3);f.px=x;f.pz=z;
-  const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8;return sp}
+  const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8;
+  /* f.mix: limb angles of the motion this run grows out of (the pitcher's follow-through), faded out by f.mix.k */
+  const m=f.mix;if(m&&m.k>0){f.legs[0].rotation.x=lerp(sw,m.l0,m.k);f.legs[1].rotation.x=lerp(-sw,m.l1,m.k);f.arms[0].rotation.x=lerp(-sw*.8,m.a0,m.k);f.arms[1].rotation.x=lerp(sw*.8,m.a1,m.k)}return sp}
 /* Batter: before the first pitch of each plate appearance he walks from the on-deck circle into the box; if the PA ends without him running (strikeout) he walks back to the dugout, no more popping in and out */
 const BAT_BOX=[-.9,.15],BAT_FROM=[-7,2.6],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY=[-14,6],BAT_AWAY_AT=ARRIVE+.9,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7,BAT_LEAVE_BLEND=4;
 function batterWalk(e,u){
@@ -399,7 +401,7 @@ const PK={
   a0:[[0,0],[.4,0],[.95,-1.1],[1.25,-1.5],[1.6,-.8],[2,-.9],[3,0]],
   a1:[[0,0],[.4,0],[.95,-1.1],[1.25,1.5],[1.4,2.6],[1.6,3.5],[1.9,4.9],[2.5,6.28]],
   dz:[[0,0],[.95,0],[1.4,.85],[3.2,.85],[4.6,0]]};
-const PITCH_SH_Y=.57,PITCH_ARM=.62;
+const PITCH_SH_Y=.57,PITCH_ARM=.62,P_RUN_BLEND=.4;
 /* Release point (closed form, same model as the proxy joints). Right-handed = inner x mirror, so world x flips sign; skinned figure scaled by k */
 const pitchTipAt=(u,px,pz)=>{const P=fielders.P,sg=P.mirrored?-1:1,k=P.k||1,L=kf(u,PK.lean),th=kf(u,PK.a1),y=kf(u,PK.yaw),lz=PITCH_SH_Y*Math.sin(L)-PITCH_ARM*Math.sin(th);return[px+sg*k*(.3*Math.cos(y)+lz*Math.sin(y)),k*(.95+PITCH_SH_Y*Math.cos(L)-PITCH_ARM*Math.cos(th)),pz+kf(u,PK.dz)+k*(-.3*Math.sin(y)+lz*Math.cos(y))]};
 function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,PK.a1),bx=P.g.position.x,bz=P.g.position.z;
@@ -413,7 +415,7 @@ function arc(p0,p1,peak,t){return[lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)+peak*4
    On a ground ball to first, if a normal transfer would arrive after the batter, compress it (down to XFER_RUSH), so the picture never shows an out before the ball gets there */
 const CHASE_VMIN=5,CHASE_VMAX=9;
 const CHEST=[0,.32,.34],G_SX=-BAT_SHOULDER_X,T_SX=BAT_SHOULDER_X;
-const resetPose=f=>{const R=f.rig;f.auto=true;if(f.bend){f.bend.elbow[0]=f.bend.elbow[1]=0}armsDown(R);R.l0.rotation.set(0,0,0);R.l1.rotation.set(0,0,0);R.l0.scale.y=R.l1.scale.y=1;R.up.rotation.set(0,0,0);R.hg.rotation.set(0,0,0);R.hips.rotation.set(0,0,0);f.g.position.y=0};
+const resetPose=f=>{const R=f.rig;f.auto=true;f.mix=null;if(f.bend){f.bend.elbow[0]=f.bend.elbow[1]=0}armsDown(R);R.l0.rotation.set(0,0,0);R.l1.rotation.set(0,0,0);R.l0.scale.y=R.l1.scale.y=1;R.up.rotation.set(0,0,0);R.hg.rotation.set(0,0,0);R.hips.rotation.set(0,0,0);f.g.position.y=0};
 /* Reach the glove to world point w; bend at waist and knees for low balls */
 function reachGlove(f,w){f.auto=false;const R=f.rig,low=w[1]<.7;if(low)crouch(f,R,clamp((.7-w[1])/.5,0,1),.5,.3,.7,.3);aimWorld(R,R.a0,G_SX,w[0],w[1],w[2]);aimArm(R.a1,T_SX,CHEST[0]+.05,CHEST[1]-.1,CHEST[2])}
 /* Throw receiver: reach 0->1 raises the glove to chest height, slightly forward; hold 0->1 brings the throwing hand over to take the ball after the catch */
@@ -535,7 +537,12 @@ function poseScene(e,u,dt){
   const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm)};
   if(e.k!=='P'){for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK')standRunner(i,0,s.b[i]);return s}
   /* pitch */
-  const pp=pitchPose(u),tip=pp.tip;if(e.r==='inplay'&&e.play.fielder==='P'&&u>=ARRIVE)P.pos=[P.pos[0],P.pos[1]+kf(u,PK.dz)];
+  const pp=pitchPose(u),tip=pp.tip;
+  /* A pitcher who fields the ball or covers first starts from where his delivery stride left him at contact (not from the rubber, which
+     was a ~1 m jump), and his limbs and trunk grow out of the follow-through into the run over P_RUN_BLEND s (P.mix, read by animate) */
+  if(e.r==='inplay'&&(e.play.fielder==='P'||e.plan.CV.key==='P')&&u>=ARRIVE){const k=1-ease(sat01((u-ARRIVE-FIELD_REACT)/P_RUN_BLEND));
+    P.pos=[P.pos[0],P.pos[1]+kf(ARRIVE,PK.dz)];P.noAnim=false;PR.up.rotation.x*=k;PR.up.rotation.y*=k;PR.hg.rotation.y*=k;
+    P.mix={k,l0:P.legs[0].rotation.x,l1:P.legs[1].rotation.x,a0:P.arms[0].rotation.x,a1:wrapA(P.arms[1].rotation.x)}}
   const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],mitt=[e.zx,plate[1],MITT_Z],bunt=e.r==='inplay'&&e.play.bunt;
   const moving=new Set((e.moves||[]).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n))standRunner(i,u,n)}
@@ -840,6 +847,7 @@ const STUDIO_ACTS=[
   ['接球','pu','接殺・內野高飛',e=>pl(e,p=>p.type==='PU'&&p.res==='out')],
   ['傳球','gb','傳球・滾地傳一壘',e=>pl(e,p=>p.type==='GB'&&p.res==='out'&&!p.dp)],
   ['傳球','dp','傳球・雙殺',e=>pl(e,p=>p.dp)],
+  ['傳球','dp3','雙殺・3-6-3 投手補一壘',e=>pl(e,p=>p.dp&&p.fielder==='1B')],
   ['傳球','relay','傳球・外野安打傳回',e=>pl(e,p=>(p.res==='1B'||p.res==='2B')&&p.type!=='GB')],
   ['傳球','E','守備失誤',e=>pl(e,p=>p.res==='E')],
   ['跑壘','1B','跑壘・一壘安打',e=>pl(e,p=>p.res==='1B')],
