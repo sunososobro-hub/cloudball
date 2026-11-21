@@ -42,7 +42,22 @@ how long everything takes. An out is recorded only through `rules/outs.js`:
 If the ball cannot be there in time the runner is safe: a double-play try becomes a fielder's
 choice, a slow roller becomes an infield hit. A throw is never released to a base before the
 receiver is standing on it. The out's time is the moment the ball is held on the base, never
-earlier.
+earlier. A ball that beats the runner by less than `CLOSE_PLAY_MARGIN` is no out: the tie goes
+to the runner, and every out can be proven again from the millisecond-rounded stream.
+
+A fielder who waits to tag stands beside the lane of the runner sliding in, never in it
+(`SECOND_TAG_OFF`, `THIRD_TAG_OFF`, `HOME_TAG_SPOT`). The referee measures it on every tag play.
+
+## A plate appearance
+
+Each pitch is drawn from the count. `ZONE_BY_COUNT[balls][strikes]` (times the pitcher's
+control) is the chance of a strike-zone pitch: pitchers come into the zone when behind and
+work off the plate when ahead. `SWING_ZONE_BY_COUNT` and `SWING_CHASE_BY_COUNT` (the latter
+divided by the batter's eye) are the chance of a swing: batters take early and on 3-0, and
+protect with two strikes. Contact, foul or in play, and the batted ball follow from the
+ratings. On a fly out a runner on third may tag and score (`SAC_FLY_P`) and a runner on second
+may tag and take an open third (`TAG_2ND_TO_3RD_P`); the throw goes to the lead runner and
+arrives after him.
 
 ## Output
 
@@ -89,6 +104,21 @@ under Node and recorded with their seed and engine commit in `cloudball-league`.
 
 ## Tuning
 
-`node tests/replay/run.mjs` prints league-wide rates (runs/game, K%, BB%, AVG, OBP, SLG, BABIP,
-HR/game). Tune the constants against real baseball, bump `ENGINE_VERSION`, put the new numbers
-in the pull request.
+The reference league is the MLB 2025 regular season. `node tests/replay/run.mjs` plays every
+team against every other team, prints the league-wide rates and fails when the default sample
+leaves the tolerance around the reference (`REFERENCE` in that file). To re-tune: change
+`constants.js`, measure on far more games than the default (`GAMES=20000 SEED=100001`, the
+1000-game sample moves runs/game by about +-0.3 on its own), bump `ENGINE_VERSION`, put the
+before and after numbers in the pull request.
+
+| Per game, both teams | MLB 2025 | engine 0.4.0 (48,000 games) |
+| --- | --- | --- |
+| runs | 8.89 | 8.65 |
+| AVG / OBP / SLG | .245 / .315 / .404 | .247 / .317 / .404 |
+| K% / BB% / HBP% | 22.2 / 8.4 / 1.05 | 22.2 / 8.3 / 1.06 |
+| HR / 2B / 3B | 2.33 / 3.19 / 0.26 | 2.36 / 3.23 / 0.25 |
+| pitches per PA, zone%, swing%, whiff% | 3.88, 50.7, 47.8, 25.3 | 3.82, 50.7, 47.7, 24.7 |
+
+Not modelled yet, which is why the same batting line scores about 0.25 runs a game less than
+the reference and sacrifice flies are low (0.34 a game against 0.54): wild pitches, passed
+balls, balks, steals of third, advancing on throws and errors, runners thrown out on the bases.

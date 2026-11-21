@@ -8,4 +8,6 @@ events and never feeds back into the engine. No AI or paid service is called whi
 - `lines.json`: fallback bank, call-and-response pairs with slots.
 - `player.js`: picks the line for each moment (pure, runs under Node). `voice.js`: plays a
   pre-rendered audio file when a line has one, otherwise the browser's speechSynthesis.
+- `tension.js`: tension index, 0 to 100 per stream event, a pure causal function of the stream;
+  `emotionFor()` turns it into a line's emotion tag. Check: `node commentary/tension.check.mjs`.
 - `scripts/`: per-game scripts and their index. `audio/`: pre-rendered voice files.

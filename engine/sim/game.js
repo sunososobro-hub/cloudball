@@ -137,8 +137,8 @@ export function simGame(seed, decisions, opts) {
       st.sbAsked = false;
       /* ---- defence: intentional walk? ---- */
       if ((st.b[1] || st.b[2]) && !st.b[0] && st.outs < K.OUTS_PER_HALF - 1 && st.inn >= K.IBB_MIN_INNING && bat.pow > K.IBB_MIN_POWER && !st.ibbAsked && R() < K.IBB_CONSIDER_P) {
-        st.ibbAsked = true; const close = Math.abs(st.sc[0] - st.sc[1]) <= K.IBB_CLOSE_RUNS;
-        const pick = vote(def, 'I', COPY.askIbb(bat), [['ibb', COPY.optIbb()], ['pitch', COPY.optPitch()]], close ? 'ibb' : 'pitch');
+        st.ibbAsked = true; const close = Math.abs(st.sc[0] - st.sc[1]) <= K.IBB_CLOSE_RUNS, late = st.inn >= K.IBB_COACH_MIN_INNING;
+        const pick = vote(def, 'I', COPY.askIbb(bat), [['ibb', COPY.optIbb()], ['pitch', COPY.optPitch()]], close && late ? 'ibb' : 'pitch');
         if (pick === 'ibb') {
           const s0 = snap(), nb = st.b.slice(); nb[0] = bat.name; st.b = nb; bs.bb++; ps.bb++; endPA(); st.ibbAsked = false;
           const e = { t, k: 'P', r: 'ibb', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0: [0, 0], c1: [0, 0], inZ: false, zx: K.IBB_PITCH_SPOT[0], zy: K.IBB_PITCH_SPOT[1], line, pline, s0,
@@ -158,7 +158,7 @@ export function simGame(seed, decisions, opts) {
       while (!paDone) {
         const s0 = snap(), c0 = [balls, strikes]; st.pc[def]++;
         const going = st.steal && st.b[0] && !st.b[1] && st.outs < K.OUTS_PER_HALF - 1; st.steal = false;
-        const inZ = bunt || R() < Math.min(K.ZONE_P_MAX, K.ZONE_P_BASE * pit.ctrl);
+        const inZ = bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX);
         const zx = inZ ? (R() - K.HALF) * 2 * K.ZONE_HALF_WIDTH : (R() < K.HALF ? -1 : 1) * (K.MISS_X_MIN + R() * K.MISS_X_SPAN);
         const zy = inZ ? K.ZONE_Y_MIN + R() * K.ZONE_Y_SPAN : (R() < K.HALF ? K.MISS_LOW_Y - R() * K.MISS_LOW_SPAN : K.MISS_HIGH_Y + R() * K.MISS_HIGH_SPAN);
         const pq = look(), PT = K.PITCH_TYPES.find(p => pq < p[1]);
@@ -168,10 +168,7 @@ export function simGame(seed, decisions, opts) {
         /* ---- what happens to the pitch ---- */
         if (bunt) { e.swing = true; e.r = 'inplay'; }
         else {
-          let sw = inZ ? K.SWING_IN_ZONE : K.SWING_CHASE / bat.eye;
-          if (strikes === K.STRIKES_FOR_OUT - 1) sw += inZ ? K.SWING_2K_IN_ZONE : K.SWING_2K_CHASE;
-          if (balls === K.BALLS_FOR_WALK - 1 && strikes < K.STRIKES_FOR_OUT - 1) sw *= K.SWING_3B_FACTOR;
-          if (balls === K.BALLS_FOR_WALK - 1 && strikes === 0) sw *= K.SWING_30_FACTOR;
+          const sw = inZ ? K.SWING_ZONE_BY_COUNT[balls][strikes] : K.SWING_CHASE_BY_COUNT[balls][strikes] / bat.eye;
           if (R() < Math.min(K.SWING_MAX, sw)) {
             e.swing = true;
             const contact = Math.min(K.CONTACT_MAX, (inZ ? K.CONTACT_IN_ZONE : K.CONTACT_CHASE) * bat.con / pit.stuff);
@@ -294,11 +291,15 @@ export function simGame(seed, decisions, opts) {
             }
           } else {
             /* caught in the air */
-            const nb = B.slice(); moves = [[0, 1, name]]; let tagUp = null;
-            if (st.outs < K.OUTS_PER_HALF - 1 && type === 'FB' && B[2] && R() < K.SAC_FLY_P) { tagUp = { from: 3, to: HOME }; moves.push([3, HOME, B[2]]); runs++; nb[2] = null; }
+            const nb = B.slice(); moves = [[0, 1, name]]; let tagUp = null, sacFly = false, toThird = null;
+            const canTag = st.outs < K.OUTS_PER_HALF - 1 && type === 'FB';
+            if (canTag && B[2] && R() < K.SAC_FLY_P) { tagUp = { from: 3, to: HOME }; sacFly = true; moves.push([3, HOME, B[2]]); runs++; nb[2] = null; }
+            /* the runner on second tags and takes third if it is open; the throw goes to the lead runner */
+            if (canTag && B[1] && !nb[2] && R() < K.TAG_2ND_TO_3RD_P) { tagUp = tagUp || { from: 2, to: 3 }; toThird = B[1]; moves.push([2, 3, B[1]]); nb[2] = B[1]; nb[1] = null; }
             const fly = resolveFly(ctx, tagUp); plan = fly.plan; outs = fly.outs; st.b = nb;
-            if (tagUp) { result = 'sac_fly'; desc = COPY.sacFly(name, B[2]); bs.ab--; }   /* a sacrifice fly is not an at-bat */
+            if (sacFly) { result = 'sac_fly'; desc = COPY.sacFly(name, B[2]); bs.ab--; }   /* a sacrifice fly is not an at-bat */
             else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
+            if (toThird) desc += COPY.tagToThird(toThird);
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);
           rbi = res === 'E' || play.dp ? 0 : runs;

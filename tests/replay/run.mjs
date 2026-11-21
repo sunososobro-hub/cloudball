@@ -9,14 +9,17 @@
  *   - the score differs from the runs recorded in the stream
  *   - two runs of the same seed differ (determinism)
  *   - engine/ touches the DOM, three.js, wall-clock time, unseeded randomness or the viewer code
+ *   - a count table of the engine does not cover every count, or holds something that is not a probability
+ *   - the league-wide rates of the default sample drift away from the reference league (REFERENCE below)
+ *   - a fielder waits to tag in the lane of the runner sliding into his base
  *
- * It also prints league-wide rates so the engine can be tuned against real baseball.
- * Usage: node tests/replay/run.mjs            (GAMES=200 node ... for a quicker run) */
+ * Every team plays every other team, home and away. The league-wide rates are printed for tuning.
+ * Usage: node tests/replay/run.mjs            (GAMES=200 node ... for a quicker run, rates not checked) */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { simGame, boxFromStream, aggregate, fielderStart, BASES, ENGINE_VERSION } from '../../engine/index.js';
+import { simGame, boxFromStream, aggregate, fielderStart, BASES, ENGINE_VERSION, TEAMS, ZONE_BY_COUNT, SWING_ZONE_BY_COUNT, SWING_CHASE_BY_COUNT, BALLS_FOR_WALK, STRIKES_FOR_OUT } from '../../engine/index.js';
 
 const GAMES = Number(process.env.GAMES || 1000);
 const FIRST_SEED = Number(process.env.SEED || 1);
@@ -28,10 +31,30 @@ const MAX_THROW = 46;         /* m/s: nobody throws harder than this */
 const EPS = 2e-3;             /* stream times are rounded to the millisecond */
 const REGULATION = 9, MAX_INNINGS = 15, LINEUP = 9;
 const SPOT_SLACK = 1.5;       /* a covering fielder stands within this distance of the bag */
+const TAG_LANE_CLEAR = 0.3;   /* a fielder waiting to tag stands at least this far beside the arriving runner's lane */
+
+/* Reference league: MLB 2025 regular season (2,430 games; league totals from Baseball Savant, runs and
+ * intentional walks from the league pitching line). GIDP and steals: MLB 2026 through early August.
+ * Per-game numbers count both teams. The default sample has to stay within the tolerance, which is about
+ * three standard errors of a 1000-game sample plus a little room for the model. Tighten, never loosen. */
+const RATE_SAMPLE_MIN = 1000;
+const REFERENCE = [   /* [aggregate() key, label, reference, tolerance, decimals, shown as a percentage] */
+  ['runsPerGame', 'runs/game', 8.89, 0.7, 2], ['kPct', 'K%', 0.222, 0.01, 1, true], ['bbPct', 'BB%', 0.084, 0.008, 1, true], ['hbpPct', 'HBP%', 0.0105, 0.003, 2, true],
+  ['avg', 'AVG', 0.245, 0.008, 3], ['obp', 'OBP', 0.315, 0.009, 3], ['slg', 'SLG', 0.404, 0.014, 3], ['babip', 'BABIP', 0.29, 0.009, 3],
+  ['hrPerGame', 'HR/game', 2.33, 0.25, 2], ['doublesPerGame', '2B/game', 3.19, 0.35, 2], ['triplesPerGame', '3B/game', 0.26, 0.12, 2],
+  ['gidpPerGame', 'GIDP/game', 1.29, 0.25, 2], ['ibbPerGame', 'IBB/game', 0.23, 0.12, 2], ['sbPerGame', 'SB/game', 1.36, 0.3, 2], ['csPerGame', 'CS/game', 0.41, 0.15, 2],
+  ['pitchesPerPa', 'pitches/PA', 3.88, 0.12, 2], ['zonePct', 'zone', 0.507, 0.015, 1, true], ['swingPct', 'swing', 0.478, 0.015, 1, true],
+  ['zoneSwingPct', 'zone swing', 0.668, 0.015, 1, true], ['chasePct', 'chase', 0.282, 0.015, 1, true], ['whiffPct', 'whiff', 0.253, 0.015, 1, true],
+];
 
 const failures = [];
 const fail = (seed, msg) => { if (failures.length < 40) failures.push(`seed ${seed}: ${msg}`); else if (failures.length === 40) failures.push('... more failures suppressed'); };
 const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+/* distance from point p to the segment a-b */
+const segDist = (p, a, b) => {
+  const vx = b[0] - a[0], vz = b[1] - a[1], k = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vz) / (vx * vx + vz * vz)));
+  return d2(p, [a[0] + vx * k, a[1] + vz * k]);
+};
 
 /* ---------- static check: the engine is pure ---------- */
 function checkPurity() {
@@ -42,6 +65,14 @@ function checkPurity() {
     const src = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     if (file.endsWith('season.js')) continue;   /* CLI tool: reads process.argv, prints a report */
     for (const [re, what] of banned) if (re.test(src)) fail('static', `${path.relative(ROOT, file)}: ${what}`);
+  }
+}
+
+/* ---------- static check: the count tables cover every count ---------- */
+function checkTables() {
+  for (const [name, table] of Object.entries({ ZONE_BY_COUNT, SWING_ZONE_BY_COUNT, SWING_CHASE_BY_COUNT })) {
+    if (table.length !== BALLS_FOR_WALK || table.some(row => row.length !== STRIKES_FOR_OUT)) fail('static', `${name} must have ${BALLS_FOR_WALK} rows of ${STRIKES_FOR_OUT} (one cell per count)`);
+    if (table.flat().some(p => !(p >= 0 && p <= 1))) fail('static', `${name} holds a value that is not a probability`);
   }
 }
 
@@ -212,21 +243,32 @@ function checkGame(seed, g) {
     const mine = g.stats[k].reduce((a, b) => ({ ab: a.ab + b.ab, h: a.h + b.h, k: a.k + b.k, bb: a.bb + b.bb, hr: a.hr + b.hr }), { ab: 0, h: 0, k: 0, bb: 0, hr: 0 }), T = box.team[k];
     if (mine.ab !== T.ab || mine.h !== T.h || mine.k !== T.k || mine.hr !== T.hr || mine.bb !== T.bb + T.hbp) bad(`team ${k} batting totals differ between engine and stream`);
   }
+  /* ---- a tag is taken beside the runner's lane, not in it (frames: the spot is not in the stream) ---- */
+  for (const e of g.ev) {
+    const plan = e.plan, cover = plan && plan.CV;
+    if (!cover || !cover.key || cover.base == null) continue;
+    if (!(plan.steal || plan.tagPlay || plan.actions.some(a => a.a === 'tag'))) continue;
+    const clear = segDist(cover.spot, BASES[cover.base - 1], BASES[cover.base]);
+    if (clear < TAG_LANE_CLEAR) bad(`${cover.key} waits to tag ${clear.toFixed(2)} m from the lane into base ${cover.base} (at least ${TAG_LANE_CLEAR} m)`);
+  }
   if (g.ev.length && g.ev[g.ev.length - 1].k !== 'END') bad('frame list does not end with END');
   return box;
 }
 
 /* ---------- run ---------- */
 checkPurity();
+checkTables();
 const boxes = [], outReasons = {}, results = {};
 const digest = createHash('sha256');
 const started = process.hrtime.bigint();
+/* every team plays every other team, home and away, so the rates are the league's and not one matchup's */
+const PAIRINGS = TEAMS.flatMap((_, away) => TEAMS.map((_, home) => [away, home])).filter(([away, home]) => away !== home);
 for (let n = 0; n < GAMES; n++) {
-  const seed = FIRST_SEED + n;
+  const seed = FIRST_SEED + n, opts = { teams: PAIRINGS[n % PAIRINGS.length] };
   let g;
-  try { g = simGame(seed, {}); } catch (err) { fail(seed, `engine threw: ${err.message}`); continue; }
+  try { g = simGame(seed, {}, opts); } catch (err) { fail(seed, `engine threw: ${err.message}`); continue; }
   const json = JSON.stringify(g.stream);
-  try { if (JSON.stringify(simGame(seed, {}).stream) !== json) fail(seed, 'not deterministic: two runs differ'); } catch (err) { fail(seed, `second run threw: ${err.message}`); }
+  try { if (JSON.stringify(simGame(seed, {}, opts).stream) !== json) fail(seed, 'not deterministic: two runs differ'); } catch (err) { fail(seed, `second run threw: ${err.message}`); }
   digest.update(json);
   const box = checkGame(seed, g);
   if (box) boxes.push(box);
@@ -236,10 +278,18 @@ const ms = Number(process.hrtime.bigint() - started) / 1e6;
 
 const A = aggregate(boxes), f3 = x => x.toFixed(3).replace(/^0/, ''), pct = x => (x * 100).toFixed(1) + '%';
 const totalOuts = Object.values(outReasons).reduce((a, b) => a + b, 0);
-console.log(`engine ${ENGINE_VERSION}: ${GAMES} games (seeds ${FIRST_SEED}..${FIRST_SEED + GAMES - 1}) in ${(ms / 1000).toFixed(1)} s`);
+console.log(`engine ${ENGINE_VERSION}: ${GAMES} games (seeds ${FIRST_SEED}..${FIRST_SEED + GAMES - 1}, ${PAIRINGS.length} pairings of ${TEAMS.length} teams) in ${(ms / 1000).toFixed(1)} s`);
 console.log(`stream digest ${digest.digest('hex').slice(0, 16)}`);
 console.log(`runs/game ${A.runsPerGame.toFixed(2)}   K% ${pct(A.kPct)}   BB% ${pct(A.bbPct)}   AVG ${f3(A.avg)}   OBP ${f3(A.obp)}   SLG ${f3(A.slg)}   BABIP ${f3(A.babip)}`);
 console.log(`HR/game ${A.hrPerGame.toFixed(2)}   2B/game ${A.doublesPerGame.toFixed(2)}   3B/game ${A.triplesPerGame.toFixed(2)}   GIDP/game ${A.gidpPerGame.toFixed(2)}   HBP% ${pct(A.hbpPct)}   PA/game ${A.paPerGame.toFixed(1)}   pitches/game ${A.pitchesPerGame.toFixed(0)}   innings/game ${A.inningsPerGame.toFixed(2)}`);
+console.log(`SF/game ${A.sfPerGame.toFixed(2)}   SH/game ${A.shPerGame.toFixed(2)}   IBB/game ${A.ibbPerGame.toFixed(2)}   SB/game ${A.sbPerGame.toFixed(2)}   CS/game ${A.csPerGame.toFixed(2)}   SB% ${pct(A.sbPct)}   ROE/game ${A.roePerGame.toFixed(2)}   H/game ${A.hitsPerGame.toFixed(2)}`);
+console.log(`pitches/PA ${A.pitchesPerPa.toFixed(2)}   zone ${pct(A.zonePct)}   swing ${pct(A.swingPct)}   zone swing ${pct(A.zoneSwingPct)}   chase ${pct(A.chasePct)}   whiff ${pct(A.whiffPct)}   zone contact ${pct(A.zoneContactPct)}   chase contact ${pct(A.chaseContactPct)}`);
+/* ---------- the league stays close to real baseball ---------- */
+const show = (x, digits, percent) => percent ? pct(x) : digits === 3 ? f3(x) : x.toFixed(digits);
+if (GAMES >= RATE_SAMPLE_MIN) {
+  for (const [key, label, ref, tol, digits, percent] of REFERENCE) if (!(Math.abs(A[key] - ref) <= tol)) fail('league', `${label} is ${show(A[key], digits, percent)}, reference ${show(ref, digits, percent)} (tolerance ${show(tol, digits, percent)})`);
+  console.log(`rates within tolerance of the reference league on ${REFERENCE.length} measures`);
+} else console.log(`rates not checked against the reference league: fewer than ${RATE_SAMPLE_MIN} games`);
 console.log(`outs ${totalOuts}: ` + Object.entries(outReasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', '));
 console.log('plate appearances: ' + Object.entries(results).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', '));
 if (failures.length) { console.error(`\nFAILED: ${failures.length} problem(s)`); for (const f of failures) console.error('  ' + f); process.exit(1); }

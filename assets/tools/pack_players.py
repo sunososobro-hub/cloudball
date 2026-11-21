@@ -1,6 +1,6 @@
-"""把 4 個 player_<體型>.gltf.json 合成一個 assets/players.bin：共用拓撲/骨架/權重，
-基準體型(normal)位置 + 其他體型的位移量(int16)，之後在瀏覽器可任意混合體型。
-用法：python3 pack_players.py <assets 資料夾>"""
+"""Merge the 4 player_<build>.gltf.json files into one assets/players.bin: shared topology/skeleton/weights,
+base build (normal) positions + int16 offsets for the other builds, so the browser can blend builds freely.
+Usage: python3 pack_players.py <assets folder>"""
 import sys, json, base64, struct, numpy as np
 A = sys.argv[1]; KINDS = ['normal', 'slim', 'power', 'heavy']
 def load(k):
@@ -14,7 +14,7 @@ g0, b0 = load('normal'); prim = g0['meshes'][0]['primitives']
 P0 = acc(g0, b0, prim[0]['attributes']['POSITION']).astype(np.float64)
 JI = acc(g0, b0, prim[0]['attributes']['JOINTS_0']).astype(np.uint8)
 W = acc(g0, b0, prim[0]['attributes']['WEIGHTS_0'])
-# 權重量化到 u8，和保持 255
+# Quantise weights to u8, keeping the sum at 255
 Wq = np.floor(W * 255 + .5).astype(np.int32); Wq[:, 0] += 255 - Wq.sum(1); Wq = Wq.clip(0, 255).astype(np.uint8)
 idx, groups = [], []
 for p in prim:
@@ -36,5 +36,5 @@ out = bytearray(b'YDPL') + struct.pack('<I', len(hj)) + hj
 for arr in [Pq, *deltas, JI, Wq, idx]: out += arr.tobytes(); 
 import base64 as B64
 open(f'{A}/players.b64.txt', 'w').write(B64.b64encode(bytes(out)).decode()); print('players.b64.txt', len(out), 'bytes raw')
-# 驗證還原誤差
+# Check the reconstruction error
 print('pos err', np.abs(lo + Pq * PS - P0).max(), 'delta err', DS / 2)
