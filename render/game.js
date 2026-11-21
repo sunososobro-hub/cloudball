@@ -855,24 +855,38 @@ function clap(t,v){const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=a
 function crack(v){if(!on())return;const t=ac.currentTime,s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noiseBuf;f.type='bandpass';f.frequency.value=2400;f.Q.value=.8;g.gain.setValueAtTime(1.6*v,t);g.gain.exponentialRampToValueAtTime(.001,t+.09);s.connect(f).connect(g).connect(ac.destination);s.start(t,1,.1)}
 function pop(){if(!on())return;drum(ac.currentTime,420,.22)}
 let excite=0,drumOn=false;
-function roar(level){excite=level>1?1:.6;if(!on())return;const t=ac.currentTime;cGain.gain.cancelScheduledValues(t);cGain.gain.setTargetAtTime(level>1?1.1:.6,t,.08);cFilt.frequency.setTargetAtTime(2600,t,.1)}
+function roar(level){excite=level>1?1:.6;if(!on())return;const t=ac.currentTime;cGain.gain.cancelScheduledValues(t);cGain.gain.setTargetAtTime((level>1?1.1:.6)*talkDuck,t,.08);cFilt.frequency.setTargetAtTime(2600,t,.1)}
 function updateAudio(playing){if(!on())return;const t=ac.currentTime;
-  cGain.gain.setTargetAtTime(.1+excite*.5,t,.5);cFilt.frequency.setTargetAtTime(650+excite*1600,t,.5);
+  cGain.gain.setTargetAtTime((.1+excite*.5)*talkDuck,t,.5);cFilt.frequency.setTargetAtTime(650+excite*1600,t,.5);
   if(!playing){nextBeat=t+.1;return}
   if(!drumOn){nextBeat=t+.1;return}
   const st=60/BPM/2;while(nextBeat<t+.2){const k=step%8;if([0,2,4,5,6].includes(k))drum(nextBeat,95,.09);if(k===2||k===6)clap(nextBeat,.035);nextBeat+=st;step++}}
 
 /* ---------- commentary: two voices from commentary/ (scripted after the game is simulated; no AI call while watching) ---------- */
-const VOICE=window.COMMENTARY.createVoice(),WHO=['pbp','color'];let sayOn=false,booth=null,boothFor=null;
+/* Never two voices in one game (#96, #101): once the script is known, a game with recorded voice never uses the browser voice.
+ * Spoken hellos (welcome on enter, "播報開啟") wait until then, are dropped for a recorded game, and by stopTalk (mode change, booth off). */
+const BOOTH_PRIME=1;/* BOOTH_PRIME s: lines due up to this long before the script started loading still play (the recorded hello is at t 0, a slow first frame must not skip it) */
+let talkDuck=1;/* crowd bed multiplier, CROWD_DUCK while somebody in the booth talks */
+const VOICE=window.COMMENTARY.createVoice({onTalk:talk=>{talkDuck=talk?window.COMMENTARY.CROWD_DUCK:1}}),WHO=['pbp','color'];
+let sayOn=false,booth=null,boothFor=null,hello=null;
 function say(who,text,urgent){if(sayOn)VOICE.say(WHO[who]||who,text,{urgent:!!urgent})}
 function makeBooth(script){const g=game;return window.COMMENTARY.createBooth({stream:g.stream,seed:g.seed,bank:window.COMMENTARY_BANK,script,teams:g.teams.map(i=>TEAMS[i]),describe:x=>g.ev[x.f].desc})}
+function showAiTag(){const v=!(sayOn&&booth&&booth.recorded);if(aiTag.hidden!==v)aiTag.hidden=v}
+/* lines: [[who,text],...] said by the browser voice only if this game turns out to have no recorded voice */
+function sayHello(lines){if(boothFor===game&&booth){if(!booth.recorded)for(const [w,t] of lines)say(w,t)}else hello=lines}
+function setBooth(b,T0){booth=b;VOICE.setRecorded(b.recorded);b.due(T0-BOOTH_PRIME);showAiTag();
+  const h=hello;hello=null;if(h&&!b.recorded)for(const [w,t] of h)say(w,t)}
 function commentary(T){if(!sayOn||!window.COMMENTARY_BANK)return;
-  if(boothFor!==game){const g=boothFor=game;booth=makeBooth(null);window.COMMENTARY.loadScript(g.seed).then(sc=>{if(sc&&boothFor===g)booth=makeBooth(sc)})}
+  if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);window.COMMENTARY.loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)})}
+  if(!booth)return;showAiTag();
   for(const l of booth.due(T,{fast:mode!=='live'&&speed>1}))VOICE.say(l.speaker,l.text,{urgent:l.priority>=2&&l.speaker==='pbp',audio:l.audio})}
 const sayBtn=$('say');
+/* "AI 語音" licence note (#26): shown while recorded voice can play. Styled here; a ui/ stylesheet rule for .ai-voice overrides it. */
+const aiTag=document.createElement('span');aiTag.className='ai-voice';aiTag.textContent='AI 語音';aiTag.hidden=true;
+aiTag.style.cssText='grid-column:1/-1;text-align:center;font-size:11px;color:var(--muted);letter-spacing:.08em';sayBtn.after(aiTag);
 if(!VOICE.available){sayBtn.disabled=true;sayBtn.textContent='不支援播報'}
 setTeam(myTeam);
-sayBtn.onclick=()=>{sayOn=!sayOn;sayBtn.setAttribute('aria-pressed',sayOn);if(sayOn){if(!VOICE.hasMandarin())note('這台裝置找不到國語語音，會用系統預設中文');say(0,'播報開啟')}else stopTalk()};
+sayBtn.onclick=()=>{sayOn=!sayOn;sayBtn.setAttribute('aria-pressed',sayOn);if(sayOn){if(!VOICE.hasMandarin()&&!(booth&&booth.recorded))note('這台裝置找不到國語語音，會用系統預設中文');sayHello([[0,'播報開啟']])}else stopTalk()};
 /* ---------- camera & controls ---------- */
 let seat=3,yawOff=0,pitchOff=0,zoomed=false;
 const look=(sx,sy,sz,tx,ty,tz)=>[Math.atan2(-(tx-sx),-(tz-sz)),Math.atan2(ty-sy,Math.hypot(tx-sx,tz-sz))];
@@ -930,7 +944,7 @@ cv.addEventListener('pointermove',e=>{if(!drag)return;const k=(zoomed||SEATS[sea
 const endDrag=()=>{drag=null;cv.style.cursor='grab'};cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
 function note(t){const n=$('note');n.textContent=t;n.style.display='block';clearTimeout(note.t);note.t=setTimeout(()=>n.style.display='none',4500)}
 /* live / replay */
-function stopTalk(){VOICE.stop()}
+function stopTalk(){VOICE.stop();aiTag.hidden=true;hello=null}
 $('mode').onclick=()=>{stopTalk();if(mode==='live'){mode='replay';const T=(Date.now()-gameStart)/1000;replayT=T>game.dur?0:Math.max(0,T-90);$('mode').textContent='回到直播';$('spd').hidden=false;note(T>game.dur?'從頭重播這一場':'倒退 90 秒重播')}
   else{mode='live';loadGame(liveStart());$('mode').textContent='看重播';$('spd').hidden=true}cues.clear();voteKey=''};
 const LIVE_ENABLED=false;
@@ -948,7 +962,7 @@ function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart
   if(mode==='replay')return{cls:'',txt:`重播中（${fmtT(gameStart)} 場）`,sub:`${speed}× 速度・不影響直播`};
   if(T<game.dur)return{cls:'live',txt:'直播中',sub:`${fmtT(gameStart)} 開打・下一場 ${fmtT(next)}`};
   const left=Math.max(0,Math.floor((next-now)/1000));return{cls:'',txt:`下一場 ${fmtT(next)} 開打`,sub:`倒數 ${Math.floor(left/60)} 分 ${left%60} 秒・可按「看重播」回顧上一場`}}
-const enter=snd=>{$('intro').hidden=true;if(!LIVE_ENABLED){if(window.OPENING)startOpening();else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');say(0,'歡迎來到雲端職棒');say(1,'今晚一起來看球')}}};
+const enter=snd=>{$('intro').hidden=true;if(!LIVE_ENABLED){if(window.OPENING)startOpening();else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');sayHello([[0,'歡迎來到雲端職棒'],[1,'今晚一起來看球']])}}};
 $('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);
 
 
