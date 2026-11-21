@@ -46,6 +46,7 @@ The key is the game's seed as an unsigned decimal integer.
 | `lines[].text` | yes | What is said. Also the text read by the browser voice when there is no audio. |
 | `lines[].delay` | no | Seconds after the event before the line is due. Default 0. |
 | `lines[].audio` | no | Pre-rendered audio file, path relative to `commentary/`. Played when present; if it is missing or fails to load, the browser's speechSynthesis reads `text`. |
+| `lines[].emotion` | no | Delivery tag for voice synthesis: one of `EMOTIONS` in `tension.js` (`calm`, `excited`, `tense`, `thrilled`, `disappointed`, `amused`). The viewer ignores it. |
 | `lines[].priority` | no | `2` = also spoken when the viewer fast-forwards. Default 0. |
 | `lines[].aside` | no | `true` for the lines of a fan moment: the voice drops them, still queued, when a new play-by-play call comes. `fan` lines are asides by default. |
 | `lines[].cast` | no | Voice of a `fan` line (`fan` or `fan_f`); filled from the guest when missing. |
