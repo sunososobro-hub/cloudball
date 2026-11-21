@@ -767,7 +767,9 @@ const inningLabel=s=>`${s.inn} 局${s.half?'下':'上'}`;
 let hudKey='',feedKey='';
 function setDots(el,n){el.querySelectorAll('i').forEach((d,i)=>d.classList.toggle('on',i<n))}
 const dotRows=document.querySelectorAll('.sit .dots');
-function bugPlace(){const bar=document.querySelector('.bar'),bug=$('bug');if(!bar||!bug)return;const bh=20;if(!L.bug)bug.style.bottom=bh+'px';const top=bh+bug.offsetHeight+8;if(!L.feed)$('feed').style.bottom=top+'px';$('vote').style.bottom=top+'px'}
+/* the scorebug sits above the player bar (#47) while that is shown; bottom is in the bug's own zoomed pixels */
+function bugPlace(){const bar=document.querySelector('.bar'),bug=$('bug');if(!bar||!bug)return;const pl=$('player'),z=parseFloat(getComputedStyle(bug).zoom)||1;
+  const bh=pl&&!pl.hidden?Math.round((pl.offsetHeight+parseFloat(getComputedStyle(pl).bottom)+8)/z):20;if(!L.bug)bug.style.bottom=bh+'px';const top=bh+bug.offsetHeight+8;if(!L.feed)$('feed').style.bottom=top+'px';$('vote').style.bottom=top+'px'}
 addEventListener('resize',bugPlace);
 /* ---------- Layout editor: every UI element can be dragged and scaled; saved in this browser ---------- */
 const LAYOUT_KEY='zu_layout',EDIT_ELS=[['bug','A1','比分面板'],['feed','A2','戰況列'],['who','A3','左上狀態'],['gear','A4','設定鈕'],['tag','A5','版本標'],['report','A6','回報鈕']];
@@ -879,7 +881,7 @@ function setBooth(b,T0){booth=b;VOICE.setRecorded(b.recorded);b.due(T0-BOOTH_PRI
 function commentary(T){if(!sayOn||!window.COMMENTARY_BANK)return;
   if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);window.COMMENTARY.loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)})}
   if(!booth)return;showAiTag();
-  for(const l of booth.due(T,{fast:mode!=='live'&&speed>1}))VOICE.say(l.speaker,l.text,{urgent:l.priority>=2&&l.speaker==='pbp',audio:l.audio,cast:l.cast,aside:l.aside})}
+  for(const l of booth.due(T,{fast:mode!=='live'&&speed>1}))if(seekGame!==game||l.at>=seekFloor)VOICE.say(l.speaker,l.text,{urgent:l.priority>=2&&l.speaker==='pbp',audio:l.audio,cast:l.cast,aside:l.aside})}
 const sayBtn=$('say');
 /* "AI 語音" licence note (#26): shown while recorded voice can play. Styled here; a ui/ stylesheet rule for .ai-voice overrides it. */
 const aiTag=document.createElement('span');aiTag.className='ai-voice';aiTag.textContent='AI 語音';aiTag.hidden=true;
@@ -951,10 +953,49 @@ const LIVE_ENABLED=false;
 function startPractice(){stopTalk();mode='practice';gameStart=Date.now();seedCur=(Math.random()*4294967296)>>>0;decisions={};myVotes={};resolving.clear();regen();lastIdx=-1;cues.clear();replayT=0;voteKey='';subscribeGame();
   $('seedTag').textContent=`開發版・種子 #${seedCur.toString(16)}`;$('spd').hidden=false;if(LIVE_ENABLED)$('mode').hidden=false;$('mode').textContent='回到直播'}
 /* The frozen first game (league/preseason/opening.json, loaded by index.html): the recorded stream is played from the top, nothing is simulated. */
-function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();
+function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();
   $('seedTag').textContent=`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
 $('practice').onclick=()=>{startPractice();note('新的一場：兩隊都由你調度，暫停時速度會自動回到 1×')};
 $('spd').onclick=e=>{speed=speed===1?4:speed===4?16:1;e.currentTarget.textContent=speed+'×'};
+/* ---------- player bar (#47): play / pause, elapsed / total, a mark at every half inning, click or drag to move. Frozen game only (mode 'opening').
+ * A jump lands on the start of the nearest play. Pictures are posed from (event, time), so nothing is replayed: the scorebug, feed and
+ * cue keys are reset, the voice is stopped and the booth re-primed, and only lines bound at or after the landing frame are said (seekFloor).
+ * Every jump fires a 'cloudball:seek' event on window ({from, to} seconds; a drag also fires one when it starts, {drag: true, to: null}) for ui/stats.js (#117). Markup in index.html, styles in ui/player.css. */
+const SEEK_EPS=1e-3,PL_KEY_STEP=1;/* SEEK_EPS s: re-prime the booth just before the landing time, so a line due exactly there is said; PL_KEY_STEP: plays per arrow key */
+let paused=false,scrubbing=false,plFresh=false,seekFloor=0,seekGame=null,plFor=null,plStarts=[0],plLast='';
+const plEl=$('player'),plTrack=$('plTrack'),plTip=$('plTip'),plPlay=$('plPlay');
+const fmtClock=x=>{x=Math.max(0,Math.floor(x));const h=Math.floor(x/3600),m=Math.floor(x/60)%60,sx=String(x%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${sx}`:`${m}:${sx}`};
+const halfTag=e=>e.k==='PRE'?'賽前':e.k==='END'?'終':`${e.s0.half?'▼':'▲'}${e.s0.inn}`;
+/* starts of every play (plus 0, the pregame) and one mark at the first pitch of each half inning */
+function plBuild(){plFor=game;plStarts=[0];const marks=[];let k='';
+  for(const e of game.ev){if(e.k!=='P')continue;plStarts.push(e.t);const h=e.s0.inn+'|'+e.s0.half;if(h!==k){k=h;marks.push(e)}}
+  $('plMarks').innerHTML=marks.map(e=>`<i class="${e.s0.half?'bot':'top'}" style="left:${(e.t/game.dur*100).toFixed(3)}%"${e.s0.half?'':` data-inn="${e.s0.inn}"`}></i>`).join('');
+  plTrack.setAttribute('aria-valuemax',Math.round(game.dur));$('plTime').style.minWidth=`${2*fmtClock(game.dur).length+3}ch`/* the track must not change width as the clock grows */}
+function plNear(T){const a=plStarts;let lo=0,hi=a.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(a[m]<=T)lo=m;else hi=m-1}return lo<a.length-1&&a[lo+1]-T<T-a[lo]?lo+1:lo}
+const plSnap=T=>plStarts[plNear(clamp(T,0,game.dur))];
+function seekTo(T){const from=replayT,t=plSnap(T);replayT=t;plFresh=true;lastIdx=-1;cues.clear();bugKey=hudKey=feedKey='';
+  VOICE.stop();hello=null;const ei=findIdx(t),st=game.stream||[];let j=0;while(j<st.length&&st[j].f<ei)j++;seekFloor=j;seekGame=game;
+  if(booth&&boothFor===game)booth.due(t-SEEK_EPS);
+  dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from,to:t}}))}
+function plSetPaused(v){paused=v;if(v)VOICE.stop();plLast=''}
+function plReset(){paused=scrubbing=false;seekFloor=0;seekGame=null;plFor=null;plLast=''}
+const plAt=x=>{const r=plTrack.getBoundingClientRect();return clamp((x-r.left)/Math.max(1,r.width),0,1)*game.dur};
+function plShowTip(t){const e=game.ev[findIdx(t)];plTip.textContent=`${halfTag(e)}・${fmtClock(t)}`;plTip.style.left=(t/game.dur*100)+'%';plTip.hidden=false}
+plPlay.onclick=()=>{if(mode!=='opening')return;if(replayT>=game.dur){seekTo(0);plSetPaused(false)}else plSetPaused(!paused)};
+plTrack.addEventListener('pointerdown',ev=>{if(mode!=='opening'||ev.button>0)return;ev.preventDefault();plTrack.setPointerCapture(ev.pointerId);scrubbing=true;plEl.classList.add('drag');VOICE.stop();dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from:replayT,to:null,drag:true}}));
+  replayT=plSnap(plAt(ev.clientX));plShowTip(replayT)});
+plTrack.addEventListener('pointermove',ev=>{if(mode!=='opening')return;if(scrubbing)replayT=plSnap(plAt(ev.clientX));plShowTip(scrubbing?replayT:plSnap(plAt(ev.clientX)))});
+const plEnd=ev=>{if(!scrubbing)return;scrubbing=false;plEl.classList.remove('drag');plTip.hidden=true;seekTo(plAt(ev.clientX))};
+plTrack.addEventListener('pointerup',plEnd);plTrack.addEventListener('pointercancel',ev=>{if(!scrubbing)return;scrubbing=false;plEl.classList.remove('drag');plTip.hidden=true;seekTo(replayT)});
+plTrack.addEventListener('pointerleave',()=>{if(!scrubbing)plTip.hidden=true});
+plTrack.addEventListener('keydown',ev=>{if(mode!=='opening')return;const i=plNear(replayT),go={ArrowLeft:i-PL_KEY_STEP,ArrowRight:i+PL_KEY_STEP,Home:0,End:plStarts.length-1}[ev.key];
+  if(go===undefined)return;ev.preventDefault();seekTo(plStarts[clamp(go,0,plStarts.length-1)])});
+addEventListener('keydown',ev=>{if(mode!=='opening'||ev.key!==' '||!$('intro').hidden||ev.target.closest('button,input,select,textarea,[role=slider]'))return;ev.preventDefault();plPlay.click()});
+/* per frame: show the bar in the frozen game only, move the fill / handle, labels only when they change */
+function plUpdate(){const vis=mode==='opening'&&$('intro').hidden;if(plEl.hidden===vis){plEl.hidden=!vis;bugPlace()}if(!vis)return;if(plFor!==game)plBuild();
+  const t=clamp(replayT,0,game.dur),end=t>=game.dur,k=[Math.floor(t),paused,end].join('|');plEl.style.setProperty('--p',(t/game.dur).toFixed(5));
+  if(k===plLast)return;plLast=k;$('plTime').textContent=`${fmtClock(t)} / ${fmtClock(game.dur)}`;plTrack.setAttribute('aria-valuenow',Math.floor(t));plTrack.setAttribute('aria-valuetext',`${halfTag(game.ev[findIdx(t)])} ${fmtClock(t)}`);
+  const stop=paused||end;plPlay.textContent=stop?'▶':'❚❚';plPlay.setAttribute('aria-label',end?'從頭看':stop?'播放':'暫停')}
 function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart+CYCLE*1000;
   if(mode==='studio')return{cls:'',txt:'動作片場',sub:studio?`${studio.e.desc||''}・${studio.spd}×`:''};
   if(mode==='opening')return{cls:'',txt:'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
@@ -1059,14 +1100,15 @@ renderer.setAnimationLoop(()=>{
   const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;fpsTick(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
   if(mode==='studio')studioTick(dt);
-  else if(mode!=='live'){const vv=findVote(Math.max(0,replayT));replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed))}
+  else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed))}
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
   curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
   const s=poseScene(e,u,dt,i);
+  if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
   for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});if(!ump.noAnim)animate(ump,dt);
-  hud(e,u,s);if(mode!=='studio')commentary(T);renderVote(voteEv,T);
+  hud(e,u,s);if(mode!=='studio'&&!scrubbing)commentary(T);renderVote(voteEv,T);plUpdate();
   {const iv=!$('intro').hidden;if(iv!==introVis){introVis=iv;$('bug').style.visibility=iv?'hidden':''}}/* Hide the scorebug on the intro screen */
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
