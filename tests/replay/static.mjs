@@ -31,7 +31,7 @@ while (queue.length) {
   for (const ref of refsOf(file, src)) queue.push(ref);
 }
 /* files the scripts load by name at run time */
-for (const f of ['assets/players.b64.txt', 'commentary/lines.json', 'commentary/scripts/index.json', ...['grass', 'dirt', 'concrete', 'leather'].flatMap(n => ['c', 'n', 'orm'].map(s => `assets/tex/${n}_${s}.jpg`)), 'assets/tex/fabric_n.jpg', 'assets/tex/fabric_orm.jpg'])
+for (const f of ['assets/players.b64.txt', 'commentary/lines.json', 'commentary/scripts/index.json', 'league/preseason/opening.json', ...['grass', 'dirt', 'concrete', 'leather'].flatMap(n => ['c', 'n', 'orm'].map(s => `assets/tex/${n}_${s}.jpg`)), 'assets/tex/fabric_n.jpg', 'assets/tex/fabric_orm.jpg'])
   if (!existsSync(path.join(ROOT, f))) problems.push(`missing file: ${f}`);
 for (const f of ['commentary/lines.json', 'commentary/scripts/index.json']) { try { JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { problems.push(`${f} is not valid JSON`); } }
 const wf = path.join(ROOT, '.github/workflows');
@@ -39,7 +39,7 @@ if (existsSync(wf)) for (const f of readdirSync(wf)) if (!['ci.yml', 'merge-gate
 const rules = readFileSync(path.join(ROOT, '.agent/rules.md'), 'utf8').split('\n').length - 1;
 if (rules > 50) problems.push(`.agent/rules.md has ${rules} lines (cap is 50)`);
 if (readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8').trimEnd().split('\n').length !== 3) problems.push('CLAUDE.md must be exactly 3 lines');
-for (const check of ['tests/names.check.mjs', 'tests/staff.check.mjs']) {
+for (const check of ['tests/names.check.mjs', 'tests/staff.check.mjs', 'tests/opening.check.mjs', 'tests/site.check.mjs']) {
   const res = spawnSync(process.execPath, [path.join(ROOT, check)], { encoding: 'utf8' });
   process.stdout.write(res.stdout || ''); process.stderr.write(res.stderr || '');
   if (res.status !== 0) problems.push(`${check} failed (exit ${res.status === null ? 'killed by ' + res.signal : res.status})`);

@@ -1,20 +1,20 @@
 # ui / root files: HANDOFF (2026-11-21)
-
-Agent: the interface window. Covers `ui/` and root files only. The roster window owns `league/` and `tests/`; `tests/replay/run.mjs` is engine.
+Agent: the interface window: `ui/` and root files (#47 round 1 also touched `league/`, `tests/`, a few lines of `render/game.js`).
 
 ## Done
-- #60, #25, #29, #58 merged (rename, entry screen, tension checks, matchup poster).
-- #53 part 1: PR from `feat/53` (`guide.html`, `ui/guide.*`: teams, 72 players on a 20-80 grade; staff block hidden until `league/staff.js`).
-- #89 viewing counts: PR from `feat/89`. `ui/stats.js` (DOM observer + sendBeacon), `functions/api/v.js` (Analytics Engine binding `VIEWS`, dataset `cloudball_views`), `ui/stats-report.mjs` (prints the table). No hook in `render/game.js`: it reads `#enter/#enterMute`, `#snd[aria-pressed]`, `#bin`, `#spd`, `#seedTag`; if those ids or texts change, fix `ui/stats.js`.
+- #60 rename, #25 entry screen, #58 poster, #53 part 1 (guide page), #89 viewing counts (PR #91).
+- #47 round 1 (branch `feat/47`): `league/tools/record.mjs 704 --write` made `league/preseason/opening.json` (crew + both staffs inside);
+  index.html loads it into `window.OPENING`; enter starts it from the top (`startOpening` in `render/game.js`, mode `opening`, no votes).
+  `ui/site.js` decides dev/production by host; development tools carry class `dev-only`. Guards: `tests/opening.check.mjs`, `tests/site.check.mjs`.
+- Guide page staff block fixed (`staffOf`, `ROLES`, umpire `years`).
 
 ## Next
-- #53 part 2: box score of the frozen game, after #47 has merged (`boxFromStream` on `league/preseason/opening.json`).
-- When #52 merges: check the staff block in a browser. `ui/guide.js` GUESSES the shape (`STAFF` per team as array or by team id, `UMPIRES` list, fields `name/num/line`); fix it to the real one.
-- Then #47 and #55 (only when the roster window has no open PR; say so on the issue first).
-- #4 move HUD/voting code out of `render/game.js`: NOT started; needs the render agent idle on it.
+- #47 round 2 / #55: 21:00 synchronized showing + countdown (A3), YouTube-style progress bar (jump = start of a play, state from `s0`/`s1`), viewing-count flag for the two kinds of showing. Pregame segments come from #55's `league/` timeline module.
+- #53 part 2: box score block from `boxFromStream` on `opening.json`.
+- #4 HUD/voting out of `render/game.js`: not started (needs the render agent idle on that file).
 
 ## Traps
-- `render/game.js` still fills `#mas` and writes `#introStatus` / `#status`; they stay hidden in `index.html` on purpose.
-- The poster reads `TEAMS[0]` (left) vs `TEAMS[1]` (right) like `render/game.js`.
-- `static.mjs` follows the entry-screen link into `guide.html`. The staff file is imported through a variable so a missing file does not fail it; keep it that way.
-- Grades: 50 + (rating - 1) * 100, step 5, clamped 20-80. `avg` in players.js is a placeholder and is not shown.
+- `render/game.js` hooks of #47 (all `mode==='opening'`): `subscribeGame` early return, `findVote` returns null, no `resolveVote`, `startOpening`, `statusText`, `enter`.
+- Re-recording is a remaster: `--remaster` plus the pin `FROZEN` in `tests/opening.check.mjs`. JSON turns `Infinity` into null; use `league/recording.js` to read or write the game.
+- New development control? Give it class `dev-only` and add its id to `DEV_ONLY_IDS` in `tests/site.check.mjs`.
+- `#introStatus` stays hidden on purpose. The scorebug footer still says 「開發版」 on production (owner's call).

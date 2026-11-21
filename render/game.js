@@ -18,7 +18,7 @@ const DEC_KEY=/^[PSI]\d+$/;
 function regen(){game=simGame(seedCur,decisions)}
 function loadGame(gs){gameStart=gs;seedCur=seedOf(gs);decisions={};myVotes={};regen();$('seedTag').textContent=`引擎 ${ENGINE_VERSION}・種子 #${seedCur.toString(16)}`;lastIdx=-1;subscribeGame()}
 function subscribeGame(){if(unsubDec)unsubDec();if(unsubVotes)unsubVotes();unsubDec=unsubVotes=null;voteDocs=[];
-  if(!DB||mode==='practice')return;const key=String(gameStart);
+  if(!DB||mode==='practice'||mode==='opening')return;const key=String(gameStart);
   try{unsubDec=DB.doc('decisions/g'+key).onSnapshot(snap=>{const d=snap.exists?snap.data():{},nd={};for(const k in d)if(DEC_KEY.test(k)&&typeof d[k]==='string')nd[k]=d[k];
       if(JSON.stringify(nd)!==JSON.stringify(decisions)){decisions=nd;regen()}},()=>{});
     unsubVotes=DB.collection('votes').where('g','==',key).onSnapshot(snap=>{voteDocs=snap.docs.map(x=>x.data())},()=>{})}catch(e){}}
@@ -40,7 +40,7 @@ async function castVote(e,v){if(!e||e.k!=='VOTE')return;myVotes[e.id]=v;voteKey=
   else note('這個畫面沒有登入，票不會被計入（練習場可以自己玩）')}
 /* Voting never pauses: the window opens VOTE_WINDOW s before the decision point while play goes on; at the decision point the result is applied */
 let voteEv=null;
-function findVote(T){const ev=game.ev;for(let i=Math.max(0,findIdx(T)-1);i<ev.length&&ev[i].t-VOTE_WINDOW<=T;i++)if(ev[i].k==='VOTE'&&T<ev[i].t+3)return ev[i];return null}
+function findVote(T){if(mode==='opening')return null;/* the frozen game never opens a vote */const ev=game.ev;for(let i=Math.max(0,findIdx(T)-1);i<ev.length&&ev[i].t-VOTE_WINDOW<=T;i++)if(ev[i].k==='VOTE'&&T<ev[i].t+3)return ev[i];return null}
 let voteKey='';const voteLabel=(e,v)=>(e.opts.find(o=>o[0]===v)||[,''])[1];
 function renderVote(e,T){const vp=$('vote');if(e)bugPlace();if(!e){if(!vp.hidden){vp.hidden=true;voteKey=''}return}
   const u=T-(e.t-VOTE_WINDOW),W=VOTE_WINDOW,left=Math.max(0,Math.ceil(W-u)),open=u<W&&(mode==='practice'||mode==='live');
@@ -936,15 +936,19 @@ $('mode').onclick=()=>{stopTalk();if(mode==='live'){mode='replay';const T=(Date.
 const LIVE_ENABLED=false;
 function startPractice(){stopTalk();mode='practice';gameStart=Date.now();seedCur=(Math.random()*4294967296)>>>0;decisions={};myVotes={};resolving.clear();regen();lastIdx=-1;cues.clear();replayT=0;voteKey='';subscribeGame();
   $('seedTag').textContent=`開發版・種子 #${seedCur.toString(16)}`;$('spd').hidden=false;if(LIVE_ENABLED)$('mode').hidden=false;$('mode').textContent='回到直播'}
+/* The frozen first game (league/preseason/opening.json, loaded by index.html): the recorded stream is played from the top, nothing is simulated. */
+function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();
+  $('seedTag').textContent=`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
 $('practice').onclick=()=>{startPractice();note('新的一場：兩隊都由你調度，暫停時速度會自動回到 1×')};
 $('spd').onclick=e=>{speed=speed===1?4:speed===4?16:1;e.currentTarget.textContent=speed+'×'};
 function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart+CYCLE*1000;
   if(mode==='studio')return{cls:'',txt:'動作片場',sub:studio?`${studio.e.desc||''}・${studio.spd}×`:''};
-  if(mode==='practice')return{cls:'',txt:'開發模式',sub:`${speed}× 速度・兩隊都由你調度`};
+  if(mode==='opening')return{cls:'',txt:'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
+  if(mode==='practice')return{cls:'',txt:window.SITE&&window.SITE.dev?'開發模式':'季前熱身賽',sub:window.SITE&&window.SITE.dev?`${speed}× 速度・兩隊都由你調度`:''};
   if(mode==='replay')return{cls:'',txt:`重播中（${fmtT(gameStart)} 場）`,sub:`${speed}× 速度・不影響直播`};
   if(T<game.dur)return{cls:'live',txt:'直播中',sub:`${fmtT(gameStart)} 開打・下一場 ${fmtT(next)}`};
   const left=Math.max(0,Math.floor((next-now)/1000));return{cls:'',txt:`下一場 ${fmtT(next)} 開打`,sub:`倒數 ${Math.floor(left/60)} 分 ${left%60} 秒・可按「看重播」回顧上一場`}}
-const enter=snd=>{$('intro').hidden=true;if(!LIVE_ENABLED)startPractice();if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');say(0,'歡迎來到雲端職棒');say(1,'今晚一起來看球')}}};
+const enter=snd=>{$('intro').hidden=true;if(!LIVE_ENABLED){if(window.OPENING)startOpening();else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');say(0,'歡迎來到雲端職棒');say(1,'今晚一起來看球')}}};
 $('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);
 
 
@@ -1044,7 +1048,7 @@ renderer.setAnimationLoop(()=>{
   else if(mode!=='live'){const vv=findVote(Math.max(0,replayT));replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed))}
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
-  curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio')resolveVote(e);
+  curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
   const s=poseScene(e,u,dt,i);
   for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});if(!ump.noAnim)animate(ump,dt);
