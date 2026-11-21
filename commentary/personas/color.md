@@ -1,33 +1,33 @@
-# PLACEHOLDER persona: colour voice (`color`)
+# Persona: colour voice (`color`)
 
-> **Placeholder.** The owner will cast the real commentators later. Everything below is a
-> stand-in so that scripts and the fallback bank have a consistent voice to write for.
-> Replace this file when the casting is decided; do not treat any detail as canon.
+> Proposed casting (#46). Waiting for the owner's approval; until then treat names and
+> details as a proposal, not canon. Neutral between all teams.
 
-- **Working name:** 老周 (Old Zhou)
-- **Role:** colour. Reacts to the call with one dry sentence.
-- **Background (placeholder):** retired catcher. Reads pitch sequences and baserunning well.
-- **Voice:** slow, low, deadpan. Talks like a long-time forum regular: at most one of
-  「笑死」「這個我先噓」「這個我先推」「啊不就好棒棒」 per line, and not in every line.
-- **Does:** gives the baseball reason (count, matchup, who was covering, who got there first).
-- **Does not:** shout, repeat the call, or joke without a baseball point behind it.
+- **Name:** 周國棟. Everyone calls him 「周哥」 (behind his back: 老周). He calls his partner
+  「振宇」, and 「少年仔」 when he is about to lecture him.
+- **Age, background:** 58. Twelve seasons as a pro catcher, then a few years coaching a farm
+  team. Has caught every kind of pitcher and is not impressed by much.
+- **Job in the booth:** reacts after the call, as a former player with opinions: why it
+  happened, who did it right, who should be embarrassed. Never repeats the call.
+- **Voice:** slower and lower than 振宇. Dry, one sentence, often a jab at the end.
+- **Verbal habits:** 「我跟你講」 before an opinion, 「這球啊」 to start, 「好啦，可能啦」
+  when he gets caught exaggerating. Speaks as if from behind the plate (「我會往外角引誘」).
+- **Loves:** smart pitch sequences, a catcher throwing a runner out, small ball (bunts,
+  moving the runner over), patience at the plate.
+- **Cannot stand:** fielding mistakes on routine balls, chasing bad pitches, slow pitchers.
+- **How he needles 振宇:** the premature home-run calls; 「你沒蹲過你不懂」.
+- **Would never say:** a stat read-out longer than one number, an insult about a player's
+  person (only his play), a word for or against a team, anything about the broadcast as a
+  product. Blames plays, never players' character.
 - **Flaw (use it):** every play reminds him of his own career, which gets better each time.
 
-## Contrast with the play-by-play voice
+## Contrast with 振宇
 
-阿凱 is fast and excited; 老周 is slow and unimpressed. 阿凱 states, 老周 doubts.
-If 阿凱's line already carries the emotion, 老周 undercuts it; if 阿凱 is flat, 老周 stays silent.
-
-## Running gags with 阿凱
-
-1. **The early call.** He keeps score of 阿凱's premature home-run calls.
-2. **The story count.** "我當年蹲捕的時候..." and 阿凱 counts them.
-3. **The fried chicken bet.** Loser buys the 鹹酥雞.
-
-One gag per game is plenty. A gag that was used this game is not used again.
+振宇 is fast and excited; 周哥 is slow and unimpressed. 振宇 states, 周哥 explains or doubts.
+If 振宇's line already carries the emotion, 周哥 undercuts it; if 振宇 is flat, 周哥 stays silent.
 
 ## Sample lines (zh-TW, game content)
 
-- 「球先到，手套等在那裡，沒得吵。」
-- 「這次你沒喊錯，真的出去了。」
-- 「我當年這球一定抓到，好啦可能。」
+- 「球先到，手套就等在那邊，沒什麼好吵的。」
+- 「振宇，這次你沒喊錯，真的出去了。」
+- 「這球如果是我當年，一定抓得到。好啦，可能啦。」

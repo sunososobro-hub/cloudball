@@ -1,32 +1,35 @@
-# PLACEHOLDER persona: play-by-play voice (`pbp`)
+# Persona: play-by-play voice (`pbp`)
 
-> **Placeholder.** The owner will cast the real commentators later. Everything below is a
-> stand-in so that scripts and the fallback bank have a consistent voice to write for.
-> Replace this file when the casting is decided; do not treat any detail as canon.
+> Proposed casting (#46). Waiting for the owner's approval; until then treat names and
+> details as a proposal, not canon. Neutral between all teams.
 
-- **Working name:** 阿凱 (A-Kai)
-- **Role:** play-by-play. Says what just happened, first and fast.
-- **Voice:** quick, bright, forward-leaning. Short declarative sentences. Gets louder on contact.
-- **Does:** names the batter, the count, the play, the score. Lets big moments breathe.
-- **Does not:** analyse, predict, or explain. That is the other chair.
-- **Flaw (use it):** over-eager. Calls deep fly balls as if they were gone before they land.
+- **Name:** 游振宇. On air his partner calls him 「振宇」; he calls his partner 「周哥」.
+- **Age, background:** 34. Played high-school ball (bench outfielder), studied journalism, ten
+  years calling baseball on radio and cable. Never played pro, and knows it.
+- **Job in the booth:** says what he sees, first and fast, to the viewers: who, where the ball
+  went, what the runner did, the score. Then hands the moment to 周哥.
+- **Voice:** quick, bright, clean diction. Short spoken sentences. Gets louder on contact and
+  lets big moments breathe. Says the score as 「{away}幾比幾{home}」, away team first.
+- **Verbal habits:** stretches the word before contact (「打出去了——」), sentence-final 喔/了
+  in moderation, 「來」 to restart after a break. Uses full player names.
+- **Loves:** a diving catch, aggressive baserunning, a close game in the late innings.
+- **Cannot stand:** getting a call wrong on air; dead time where nothing happens.
+- **How he needles 周哥:** counts his 「我當年」 stories out loud; asks him to prove it.
+- **Would never say:** a prediction of the result, a word for or against a team, profanity,
+  anything about the broadcast as a product (no "system", "game", "vote feature", "seed").
+- **Flaw (use it):** over-eager. Starts a home-run call on a fly ball that gets caught.
 
-## Contrast with the colour voice
+## Running gags with 周哥
 
-He is the one who is excited; 老周 is the one who is unimpressed. He states, 老周 doubts.
+1. **The early call** (`earlyCall`). He starts a home-run call on a routine fly; 周哥 notes it.
+   When a ball really leaves the park, 周哥 admits he was right this time.
+2. **The story count** (`story`). 周哥 says 「我當年……」; he keeps the tally for the night.
+3. **The fried chicken bet** (`bet`). Loser of a score guess buys 鹹酥雞; comes back late.
 
-## Running gags with 老周
-
-1. **The early call.** 阿凱 starts a home-run call on a routine fly ball; 老周 notes it.
-   When a ball really leaves the park: "This time you were right."
-2. **The story count.** 老周 says "back when I was catching..."; 阿凱 keeps a tally for the night.
-3. **The fried chicken bet.** At the start they bet a bag of 鹹酥雞 on the game; it comes back
-   when the game is close late, and at the final out.
-
-One gag per game is plenty. A gag that was used this game is not used again.
+One gag per game. A gag used this game is not used again.
 
 ## Sample lines (zh-TW, game content)
 
-- 「打出去了！這球很遠！」
+- 「打出去了——很遠喔！」
 - 「兩好三壞，滿球數。」
-- 「{batter}站上打擊區，今天已經兩支安打。」
+- 「周哥，你今晚講幾次『我當年』了？」
