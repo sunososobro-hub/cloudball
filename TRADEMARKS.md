@@ -10,14 +10,12 @@ wherever they appear (code, data, text, images, audio):
 - The team names, their logos and mascots:
   - 台北房貸帝雉 (帝雉)
   - 新竹爆肝貓頭鷹 (貓頭鷹)
-  - 高雄角頭猴老大 (猴老大)
+  - 高雄煞氣獼猴 (獼猴); the former name 高雄角頭猴老大 (猴老大) is also reserved
   - 台東宿醉山羌 (山羌)
 - The player names and their characterisation.
 - The commentators 游振宇 and 周國棟, and the fans 吳俊毅(房貸哥), 黃柏睿(爆肝仔),
   鄭金水(煞氣伯), 林語彤(宿醉妹): names, nicknames, persona descriptions, catchphrases
   and written dialogue.
-
-(If the Kaohsiung team is renamed 煞氣獼猴, that name is reserved as well.)
 
 ## What you may do
 
