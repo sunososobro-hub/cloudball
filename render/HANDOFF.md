@@ -12,7 +12,7 @@
   (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). dp3 shot: no jump. Fielder whose home spot is within BAG_CROWD_R of the covered base waits off the bag until the coverer leaves (`rtF`).
 
 ## Next
-- #5: #24, #39 merged; PR #40 left (dev merged in). `rtF` wait only probed, not screenshotted (dp3, t 6-10 s). Then #36, #33.
+- #5 done (#40 merged; `rtF` wait follow-up PR, dp3 clip 0 shot at 6-10 s: 1B waits off the bag, passes P ~2 m apart). Then #36, #33.
 ## Traps
 - Engine's second-base tag spot is in the runner's lane (issue #35): runner slides through the SS until the engine moves it.
 - Batter-local frame: +z faces the plate, +x faces the pitcher. No left-handed bunt in the studio seed bank yet.
