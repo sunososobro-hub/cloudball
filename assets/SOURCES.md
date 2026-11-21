@@ -16,6 +16,9 @@ licensed file exists yet. Scripts in `tools/` are code (MIT). Earlier versions p
 | `logos/<team id>_128.webp`, `logos/<team id>_512.webp` | Team marks generated and chosen by the repository owner (raster images, delivered as white-background PNGs, 2026-11-21); cut out and resized by `tools/make_logos.py` | **Not CC0.** Owner's team marks, not licensed (rule 18) |
 | `players.b64.txt` | Derived from MakeHuman base mesh, targets and default rig (CC0, see MakeHuman `LICENSE.ASSETS.md`) by `tools/build_players.py`, `tools/glb2gltf.py`, `tools/pack_players.py` | CC0 |
 
+Code-generated surfaces (no file, drawn at load by `render/game.js`, MIT code): wall pads (seams, scuffs, pillowed normal map), painted steel,
+concrete stains and streaks (shader noise), and the outer ground (re-uses `tex/grass_c.jpg`). Added download: 0 bytes.
+
 `players.b64.txt` is a base64 text copy of a packed binary (shared indices/skeleton/weights,
 one base body plus slim/power/heavy offsets). Rebuild: run `tools/build_players.py` against a
 MakeHuman checkout, `tools/glb2gltf.py` on each output, then `tools/pack_players.py`.
