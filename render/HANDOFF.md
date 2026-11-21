@@ -9,10 +9,11 @@
   shows the ball; safe = late swipe at arrive+TAG_LATE_SWEEP. Glove on the runner's lane. Studio acts `sbout`, `tagfc` (400 seeds).
 
 - #5 pitcher cover (feat/5-cover, stacked on feat/5-tag): fielding/covering pitcher starts from the stride at contact
-  (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). Probed on studio act `dp3`: no jump.
+  (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). dp3 screenshotted: no jump.
+  Fielder whose home spot is within BAG_CROWD_R of the covered base waits off the bag until the coverer leaves (`rtF`).
 
 ## Next
-- #5 is done once PRs #24, #39 and the cover PR merge (in that order). Not yet screenshotted: `dp3` pitcher run (only probed).
+- #5: #24, #39 merged; PR #40 left (dev merged in). `rtF` wait only probed, not screenshotted (dp3, t 6-10 s). Then #36, #33.
 ## Traps
 - Engine's second-base tag spot is in the runner's lane (issue #35): runner slides through the SS until the engine moves it.
 - Batter-local frame: +z faces the plate, +x faces the pitcher. No left-handed bunt in the studio seed bank yet.
