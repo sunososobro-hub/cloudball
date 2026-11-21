@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.0';
+export const ENGINE_VERSION = '0.4.1';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -188,7 +188,10 @@ export const PIVOT_SPEED = 7;
 export const COVER_NEAR = 0.3;            /* already on the spot if closer than this */
 export const BAG_FOOT = 0.12;             /* a covering fielder's foot is this far from the bag centre */
 export const RELAY_SPOT_OFF = [0.55, 0.45];
-export const THIRD_TAG_OFF = 0.3;
+export const THIRD_TAG_OFF = 0.3;            /* tag spot at third: this far from the bag on both axes, inside the diamond */
+/* Tag spot at second, [x, z] from the bag: beside the first-to-second lane on the third-base side,
+ * so the runner slides past the fielder and not through him. */
+export const SECOND_TAG_OFF = [-0.3, 0.3];
 export const HOME_TAG_SPOT = [0.75, -0.55];
 export const SOLO_SETUP = 0.15;           /* fielder gathers himself before running to the bag */
 export const SOLO_HOLD = 0.9;

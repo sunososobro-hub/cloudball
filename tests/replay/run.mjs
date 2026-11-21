@@ -11,6 +11,7 @@
  *   - engine/ touches the DOM, three.js, wall-clock time, unseeded randomness or the viewer code
  *   - a count table of the engine does not cover every count, or holds something that is not a probability
  *   - the league-wide rates of the default sample drift away from the reference league (REFERENCE below)
+ *   - a fielder waits to tag in the lane of the runner sliding into his base
  *
  * Every team plays every other team, home and away. The league-wide rates are printed for tuning.
  * Usage: node tests/replay/run.mjs            (GAMES=200 node ... for a quicker run, rates not checked) */
@@ -30,6 +31,7 @@ const MAX_THROW = 46;         /* m/s: nobody throws harder than this */
 const EPS = 2e-3;             /* stream times are rounded to the millisecond */
 const REGULATION = 9, MAX_INNINGS = 15, LINEUP = 9;
 const SPOT_SLACK = 1.5;       /* a covering fielder stands within this distance of the bag */
+const TAG_LANE_CLEAR = 0.3;   /* a fielder waiting to tag stands at least this far beside the arriving runner's lane */
 
 /* Reference league: MLB 2025 regular season (2,430 games; league totals from Baseball Savant, runs and
  * intentional walks from the league pitching line). GIDP and steals: MLB 2026 through early August.
@@ -48,6 +50,11 @@ const REFERENCE = [   /* [aggregate() key, label, reference, tolerance, decimals
 const failures = [];
 const fail = (seed, msg) => { if (failures.length < 40) failures.push(`seed ${seed}: ${msg}`); else if (failures.length === 40) failures.push('... more failures suppressed'); };
 const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+/* distance from point p to the segment a-b */
+const segDist = (p, a, b) => {
+  const vx = b[0] - a[0], vz = b[1] - a[1], k = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vz) / (vx * vx + vz * vz)));
+  return d2(p, [a[0] + vx * k, a[1] + vz * k]);
+};
 
 /* ---------- static check: the engine is pure ---------- */
 function checkPurity() {
@@ -235,6 +242,14 @@ function checkGame(seed, g) {
     for (let i = 0; i < g.final.ls[k].length; i++) if ((g.final.ls[k][i] || 0) !== (box.line[k][i] || 0)) bad(`inning ${i + 1}: line score ${g.final.ls[k][i]} vs ${box.line[k][i]} runs recorded`);
     const mine = g.stats[k].reduce((a, b) => ({ ab: a.ab + b.ab, h: a.h + b.h, k: a.k + b.k, bb: a.bb + b.bb, hr: a.hr + b.hr }), { ab: 0, h: 0, k: 0, bb: 0, hr: 0 }), T = box.team[k];
     if (mine.ab !== T.ab || mine.h !== T.h || mine.k !== T.k || mine.hr !== T.hr || mine.bb !== T.bb + T.hbp) bad(`team ${k} batting totals differ between engine and stream`);
+  }
+  /* ---- a tag is taken beside the runner's lane, not in it (frames: the spot is not in the stream) ---- */
+  for (const e of g.ev) {
+    const plan = e.plan, cover = plan && plan.CV;
+    if (!cover || !cover.key || cover.base == null) continue;
+    if (!(plan.steal || plan.tagPlay || plan.actions.some(a => a.a === 'tag'))) continue;
+    const clear = segDist(cover.spot, BASES[cover.base - 1], BASES[cover.base]);
+    if (clear < TAG_LANE_CLEAR) bad(`${cover.key} waits to tag ${clear.toFixed(2)} m from the lane into base ${cover.base} (at least ${TAG_LANE_CLEAR} m)`);
   }
   if (g.ev.length && g.ev[g.ev.length - 1].k !== 'END') bad('frame list does not end with END');
   return box;
