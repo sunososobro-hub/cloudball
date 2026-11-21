@@ -16,6 +16,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { simGame, TEAMS } from '../../engine/index.js';
+import { OPENING_ROSTERS } from '../../league/preseason/rosters-opening.js';
 import { createBooth, draftFromBank, validateScript, validateBank, SPEAKERS } from '../../commentary/player.js';
 
 const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../commentary');
@@ -82,8 +83,10 @@ for (let seed = 1; seed <= GAMES; seed++) {
 }
 
 const index = JSON.parse(readFileSync(path.join(DIR, 'scripts/index.json'), 'utf8')).scripts || {};
+/* the demonstration game was recorded against the rosters of its day (#169): its script is checked against that game */
+const openingSeed = JSON.parse(readFileSync(path.join(DIR, '../league/preseason/opening.json'), 'utf8')).seed;
 for (const [seed, file] of Object.entries(index)) {
-  const script = JSON.parse(readFileSync(path.join(DIR, 'scripts', file), 'utf8')), g = simGame(Number(seed), {});
+  const script = JSON.parse(readFileSync(path.join(DIR, 'scripts', file), 'utf8')), g = simGame(Number(seed), {}, Number(seed) === openingSeed ? { rosters: OPENING_ROSTERS } : {});
   for (const e of validateScript(script, g.stream)) bad(`script ${file}: ${e}`);
 }
 

@@ -7,6 +7,11 @@ Hand-run tools for league data. Nothing here runs at game time.
   `--staff [--write]` does the same for `../staff.js` (`STAFF_SEED`, player full names taken, a coach
   never shares a given name with a player of his team).
   Deterministic (`NAME_SEED`); `drawNames(people, {taken})` is exported for staff and umpires.
+- `abilities.mjs` (#169): redraws the factory abilities of `../players.js` (right-skewed ratings, one star
+  of its own kind per team, two or three good players, one hole, league rates and bio best ratings kept, every
+  team between 45 and 55 % over all pairings by Monte Carlo). `node league/tools/abilities.mjs` prints the
+  draw, `--write` rewrites only the ability, `avg` and `body` fields. Deterministic (`ABILITY_SEED`, then the
+  first balanced seed after it). The demonstration game keeps `../preseason/rosters-opening.js`.
 - `blocklist.txt`: full names of real athletes, one per line; `#` lines are section headers.
   No league person may carry one of these names. `tests/names.check.mjs` enforces it.
 
