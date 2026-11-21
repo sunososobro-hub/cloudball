@@ -4,8 +4,7 @@ Agent: the interface window. Covers `ui/` and root files only. The roster window
 
 ## Done
 - #60, #25, #29, #58 merged (rename, entry screen, tension checks, matchup poster).
-- #53 part 1: PR from `feat/53`. `guide.html` + `ui/guide.js` + `ui/guide.css`; one small link on the entry screen. Teams, all 72 players on a 20-80 grade, empty career-stats note. Staff/umpire block is in but hidden until `league/staff.js` exists.
-
+- #53 part 1 merged-ready (`guide.html`, `ui/guide.*`: teams, 72 players on a 20-80 grade; staff block hidden until `league/staff.js`).
 - #89 viewing counts: PR from `feat/89`. `ui/stats.js` (DOM observer + sendBeacon), `functions/api/v.js` (Analytics Engine binding `VIEWS`, dataset `cloudball_views`), `ui/stats-report.mjs` (prints the table). No hook in `render/game.js`: it reads `#enter/#enterMute`, `#snd[aria-pressed]`, `#bin`, `#spd`, `#seedTag`; if those ids or texts change, fix `ui/stats.js`.
 
 ## Next
