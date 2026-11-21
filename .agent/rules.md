@@ -4,13 +4,15 @@
 1. Work on `fix/N` or `feat/N` (N = issue number). Every PR targets `dev`.
 2. `main` only receives `release/vX.Y.Z` PRs. Never push to `main` or `dev` directly.
 3. Protected paths: `engine/`, `.agent/`, `.github/`. A PR touching them needs a PR comment
-   `Opus review: PASS <full head sha>` from the repo owner account before merge.
+   `Opus review: PASS <full head sha>` from the repo owner account before merge. Pre-season
+   (`PRESEASON` in `merge-gate.yml`): suspended by the owner; back on opening day.
 4. Everything else merges as soon as the `test` check is green.
 5. Never wait or poll for CI inside a session. Check once, then hand back.
 
 ## Area lock
 6. One top-level folder = one agent at a time. Claim the folder in the issue before starting.
 7. Stay inside your folder. Need a change elsewhere? Open an issue for that folder's agent.
+   Keep `<folder>/HANDOFF.md` (max 20 lines: done, next, known traps); update it before you stop.
 8. Root files (`index.html`, `README.md`, `LICENSE`, `CLAUDE.md`) count as the `ui/` area.
 
 ## Architecture

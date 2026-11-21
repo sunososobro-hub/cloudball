@@ -27,6 +27,8 @@ jobs:
         with:
           script: |
             const PROTECTED = ['engine/', '.agent/', '.github/'];
+            // Owner decision 2026-11-21: no review round before opening day. Set to false on opening day.
+            const PRESEASON = true;
             const { owner, repo } = context.repo;
             const number = context.eventName === 'pull_request' ? context.payload.pull_request.number : context.payload.issue.number;
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
@@ -34,6 +36,9 @@ jobs:
             const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number, per_page: 100 });
             const touched = files.flatMap(f => [f.filename, f.previous_filename || '']).filter(n => PROTECTED.some(p => n.startsWith(p)));
             let ok = touched.length === 0, why = 'no protected path touched';
+            if (!ok && PRESEASON) {
+              ok = true; why = `pre-season: review suspended by owner (${touched[0]})`;
+            }
             if (!ok) {
               const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
               const pass = /^\s*Opus review: PASS ([0-9a-f]{40})\s*$/m;
