@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>雲端職棒</title>
+<script src="ui/site.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -103,6 +104,8 @@ body.studio #bug,body.studio #feed{display:none}#studio.fold .srow.x{display:non
 @media(orientation:landscape) and (max-height:520px){#studio{zoom:.75;bottom:4px;width:min(640px,calc(100vw - 16px))}}
 @media(max-width:700px) and (orientation:portrait){#studio{zoom:.85}}
 [hidden]{display:none!important}
+/* Development tools: shown on the dev site and localhost only (ui/site.js sets data-site; tests/site.check.mjs guards the list). */
+html[data-site="production"] .dev-only{display:none!important}
 body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo){visibility:hidden!important}
 @media(max-width:700px){#vote{bottom:146px}#sb{flex-direction:column;gap:6px;right:max(12px,env(safe-area-inset-right))}.sit{border-left:0;padding-left:0;grid-template-columns:auto auto auto auto;grid-auto-flow:column}.sit .inn{grid-column:auto;grid-row:auto}.bases{grid-row:auto;grid-column:auto;width:38px;height:38px;transform:scale(.85)}
 #who{top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:auto;max-width:56vw;padding:6px 10px}#matchup{display:none}#pinfo{top:calc(max(12px,env(safe-area-inset-top)) + 214px);max-width:64vw}#feed{bottom:208px;max-width:calc(100vw - 24px);font-size:13px}#vr:disabled{display:none}#feed li:nth-child(n+3){display:none}#tag{display:none}button{font-size:14px;padding:0 10px}}
@@ -134,12 +137,12 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
   <div id="matchup"></div>
 </div>
 <ul id="feed"></ul>
-<div id="tag">開發版，成績不列入正史<br><span id="seedTag"></span></div>
+<div id="tag"><span class="dev-only">開發版，</span>成績不列入正史<br class="dev-only"><span id="seedTag" class="dev-only"></span></div>
 <div id="big"></div>
 <div id="note" class="panel"></div>
 <div id="vote" class="panel" hidden></div>
 <button id="gear" aria-label="設定">⚙ 設定</button>
-<button id="report" title="複製這一刻給 Claude">🐞 回報</button>
+<button id="report" class="dev-only" title="複製這一刻給 Claude">🐞 回報</button>
 <button id="land" aria-label="全螢幕橫向">⛶ 橫向</button>
 <div class="bar collapsed" id="bar">
   <h4>鏡頭</h4>
@@ -167,15 +170,15 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
   </div>
   <h4>比賽</h4>
   <div class="seg g2">
-    <button id="practice">新的一場</button>
-    <button id="studioBtn">🎬 動作片場</button>
-    <button id="spd" hidden>1×</button>
-    <button id="mode" hidden class="wide">看重播</button>
+    <button id="practice" class="dev-only">新的一場</button>
+    <button id="studioBtn" class="dev-only">🎬 動作片場</button>
+    <button id="spd" class="dev-only" hidden>1×</button>
+    <button id="mode" hidden class="wide dev-only">看重播</button>
     <button id="team" class="wide" style="display:none">選邊站</button>
   </div>
 </div>
 <div id="lu" class="panel" hidden></div>
-<div id="studio" class="panel" hidden>
+<div id="studio" class="panel dev-only" hidden>
   <div class="srow x"><b>🎬 動作片場</b><select id="stAct"></select><button id="stPrev" aria-label="上一個例子">◀</button><span id="stIdx"></span><button id="stNext" aria-label="下一個例子">▶</button></div>
   <div class="srow"><button id="stFold" aria-label="收合片場面板" title="收合／展開">▾</button><button id="stPlay">暫停</button><input id="stScrub" type="range" min="0" max="1000" value="0"><span id="stT">0.00s</span></div>
   <div class="srow x"><button id="stSpd">1×</button><button id="stLoop" aria-pressed="true">循環</button><button id="stStep">+0.05s</button><button id="stExit">離開片場</button></div>
@@ -227,6 +230,8 @@ try{window.PL=await import('./render/players.js');try{await window.PL.loadPlayer
 /* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
 window.ENGINE=await import('./engine/index.js');
+/* The frozen first game: played instead of a live simulation. Missing or broken file: window.OPENING stays null and the page falls back to a live game. */
+window.OPENING=await fetch('league/preseason/opening.json').then(r=>r.ok?r.text():null).then(t=>t?import('./league/recording.js').then(m=>m.parseRecording(t)):null).catch(e=>{console.warn('frozen game failed to load',e);return null});
 window.COMMENTARY=await import('./commentary/index.js');try{window.COMMENTARY_BANK=await window.COMMENTARY.loadBank()}catch(e){console.warn('commentary bank failed to load; the booth stays silent',e);window.COMMENTARY_BANK=null}
 await load('render/game.js');
 for(const id of ['enter','enterMute'])document.getElementById(id).disabled=false;

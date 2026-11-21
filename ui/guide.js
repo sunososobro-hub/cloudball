@@ -36,24 +36,22 @@ TEAMS.forEach((T,i)=>{
   s.appendChild(el('p','empty','生涯成績：尚無。季前熱身賽不列入正史，正式開季後才會有數字。'));
   main.appendChild(s)});
 
-/* Staff and umpires: hidden unless league/staff.js loads and holds what we can read. No placeholder names, no error on screen. */
-const asList=x=>Array.isArray(x)?x:(x&&typeof x==='object'?Object.values(x):[]);
+/* Staff and umpires: hidden unless league/staff.js loads and holds what we can read. No placeholder names, no error on screen.
+ * staff.js exports STAFF as one flat list (team, role), staffOf(team), ROLES (Chinese label per role) and UMPIRES (with years). */
 const isPerson=x=>x&&typeof x==='object'&&typeof x.name==='string'&&x.name;
-function crewList(items){const ul=el('ul','crew');for(const x of items){const li=el('li');li.append(el('b',null,`${x.num!=null?'#'+x.num+' ':''}${x.name}`));
-  const tag=[x.title,x.role,x.post,x.base].find(t=>typeof t==='string');if(tag)li.append(` ${tag}`);
+function crewList(items,tagOf){const ul=el('ul','crew');for(const x of items){const li=el('li');li.append(el('b',null,`${x.num!=null?'#'+x.num+' ':''}${x.name}`));
+  const tag=tagOf(x);if(tag)li.append(` ${tag}`);
   if(typeof x.line==='string'&&x.line){li.appendChild(el('span','line',x.line))}ul.appendChild(li)}return ul}
 /* The path sits in a variable on purpose: the file is optional, so tests/replay/static.mjs must not demand it. */
 const STAFF_FILE='../league/staff.js';
 try{
   const S=await import(STAFF_FILE);
-  const host=document.getElementById('staff'),blocks=[];
-  const umps=asList(S.UMPIRES||S.umpires).filter(isPerson);
-  const staff=S.STAFF||S.staff||S.COACHES||S.coaches;
-  TEAMS.forEach((T,i)=>{
-    const raw=Array.isArray(staff)?staff[i]:(staff&&(staff[T.id]));
-    const list=asList(raw).filter(isPerson);
+  const host=document.getElementById('staff'),blocks=[],roles=S.ROLES||{};
+  TEAMS.forEach(T=>{
+    const list=(typeof S.staffOf==='function'?S.staffOf(T.id):[]).filter(isPerson);
     if(!list.length)return;
-    const sec=el('section','team');sec.style.setProperty('--tc',T.css);sec.append(el('h3',null,`${T.short}教練團`),crewList(list));blocks.push(sec)});
-  if(umps.length){const sec=el('section','team');sec.append(el('h3',null,'聯盟裁判'),crewList(umps));blocks.push(sec)}
+    const sec=el('section','team');sec.style.setProperty('--tc',T.css);sec.append(el('h3',null,`${T.short}教練團`),crewList(list,x=>roles[x.role]||''));blocks.push(sec)});
+  const umps=(Array.isArray(S.UMPIRES)?S.UMPIRES:[]).filter(isPerson);
+  if(umps.length){const sec=el('section','team');sec.append(el('h3',null,'聯盟裁判'),crewList(umps,x=>Number.isFinite(x.years)?`資歷 ${x.years} 年`:''));blocks.push(sec)}
   if(blocks.length){host.append(el('h2',null,'教練團與裁判'),...blocks);host.hidden=false}
 }catch(e){/* no staff file yet: the block stays hidden */}

@@ -8,7 +8,7 @@
 
 ## Next
 1. After #52 merges: open short issues for render (#42: use staff/umpire ids and numbers) and
-   commentary (names instead of "the coach"); #47 recorder stores crew + both staffs.
+   commentary (names instead of "the coach"); #47 recorder (`tools/record.mjs`, `recording.js`, `preseason/opening.json`) is done.
 2. #71 (tests): fan guest lines checks, plus booth names through `names.check.mjs`.
 3. #54 `league/bios.js`, keyed by player id. Then #37 (tests README).
 
