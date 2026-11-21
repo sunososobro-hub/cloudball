@@ -2,7 +2,8 @@
  * - the file matches its own hash and its own header (seed, engine, crew, both coaching staffs);
  * - the file matches FROZEN below: re-recording is a deliberate remaster that edits this pin in the same PR
  *   (state "remaster" in the PR title), never a side effect of regenerating;
- * - while the engine still carries the recorded ENGINE_VERSION, simulating the seed again gives the same game;
+ * - while the engine still carries the recorded ENGINE_VERSION, simulating the seed again against the frozen rosters of that day
+ *   (league/preseason/rosters-opening.js, so a redraw of league/players.js (#169) does not touch the recording) gives the same game;
  * - the codec round-trips (Infinity survives) and the loader refuses a different format.
  * Usage: node tests/opening.check.mjs */
 import { readFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { simGame, ENGINE_VERSION } from '../engine/index.js';
 import { TEAMS } from '../league/teams.js';
+import { OPENING_ROSTERS } from '../league/preseason/rosters-opening.js';
 import { staffOf, crewFor } from '../league/staff.js';
 import { RECORDING_FORMAT, INF_TAG, encodeGame, decodeGame, parseRecording } from '../league/recording.js';
 import { sha256 } from '../league/tools/record.mjs';
@@ -40,7 +42,7 @@ else {
   for (const id of rec.teams) { const s = rec.staff[id]; if (!Array.isArray(s) || s.length !== staffOf(id).length || s.some(x => x.team !== id)) bad(`staff of ${id} is missing or wrong`); }
   /* Same engine version as recorded: the seed still simulates to the very same game. A different version is fine (the recording is the point). */
   if (ENGINE_VERSION === rec.engine) {
-    if (encodeGame(simGame(rec.seed, {})) !== encodeGame(g)) bad(`engine ${ENGINE_VERSION} no longer reproduces seed ${rec.seed}: the engine changed behaviour without a version bump`);
+    if (encodeGame(simGame(rec.seed, {}, { rosters: OPENING_ROSTERS })) !== encodeGame(g)) bad(`engine ${ENGINE_VERSION} no longer reproduces seed ${rec.seed}: the engine changed behaviour without a version bump`);
   } else console.log(`note: engine is ${ENGINE_VERSION}, recording is ${rec.engine} (frozen on purpose)`);
 }
 const inf = decodeGame(encodeGame({ a: [1, { ts: Infinity }] }));
