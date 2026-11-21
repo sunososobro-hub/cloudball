@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { simGame, TEAMS } from '../../engine/index.js';
-import { draftFromBank, validateScript } from '../player.js';
+import { draftFromBank, validateScript, formatScript } from '../player.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = 'batter_up';
@@ -44,8 +44,7 @@ const errs = validateScript(next, stream);
 if (errs.length) { console.error(errs.join('\n')); process.exit(1); }
 
 /* same layout as the hand-written file: one line per entry */
-const head = JSON.stringify({ ...next, lines: undefined }).slice(0, -1).replace(/,?$/, '');
-const out = head + ',"lines":[\n' + merged.map(l => JSON.stringify(l)).join(',\n') + '\n]}\n';
+const out = formatScript(next);
 console.log(`${own.length} hand-written lines kept, ${intros.length} batter intros ${intros.length ? 'merged' : 'none fit'}`);
 if (flag === '--check') process.exit(out === raw ? 0 : 1);
 writeFileSync(file, out);

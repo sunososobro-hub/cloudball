@@ -42,9 +42,8 @@ const fanRole = `fan_${script.guest}`;
 const roleOf = s => (s === 'fan' ? fanRole : s);
 
 const errs = [];
-const pregame = (script.pregame && script.pregame.segments) || [];
 const all = [
-  ...pregame.flatMap(seg => (seg.lines || []).map(l => ({ ...l, part: 'pregame', seg: seg.id }))),
+  ...(script.pregame || []).map(l => ({ ...l, part: 'pregame' })),
   ...script.lines.map(l => ({ ...l, part: 'game' })),
 ];
 const rows = new Map();
