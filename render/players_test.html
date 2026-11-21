@@ -6,11 +6,11 @@
 <title>球員骨架測試</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* VOICE: 片場測試台，安靜、工具感
-   IDEA: 球隊更衣室的體型對照板
-   PICTURE: 四個體型站一排，套現有 keyframe
-   COLOUR and TYPE: 夜場深藍底、照明白、沙丁魚青；Barlow Condensed + Noto Sans TC
-   LAYOUT: 上方控制列、全幅 3D、下方時間軸 */
+/* VOICE: a quiet, tool-like test bench for the action studio
+   IDEA: a locker-room build comparison board
+   PICTURE: the four builds standing in a row, driven by the existing keyframes
+   COLOUR and TYPE: night-game navy background, floodlight white, sardine teal; Barlow Condensed + Noto Sans TC
+   LAYOUT: control bar on top, full-width 3D, timeline at the bottom */
 :root{color-scheme:dark;--bg:#0a1020;--ink:#eef2f8;--muted:#9aa6bd;--line:rgba(255,255,255,.16);--a:#2f9fd4}
 *{box-sizing:border-box;min-width:0}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans TC',system-ui,sans-serif;overflow:hidden}
@@ -61,7 +61,7 @@ import { makePlayer, makeBat, BUILDS, loadPlayerAssets } from './players.js';
 const $ = id => document.getElementById(id), Q = new URLSearchParams(location.search);
 const lerp = (a, b, t) => a + (b - a) * t, sat01 = t => Math.max(0, Math.min(1, t)), ease = t => t * t * (3 - 2 * t);
 
-/* ---- 從 src/page.html 原封搬過來的 keyframe 與姿勢函數（只把 PR/BR/CR 換成 f.rig） ---- */
+/* ---- Keyframes and pose functions copied verbatim from src/page.html (only PR/BR/CR replaced with f.rig) ---- */
 const RELEASE = 1.6, ARRIVE = 2.05;
 const kf = (u, K) => { const n = K.length; if (u <= K[0][0]) return K[0][1]; if (u >= K[n - 1][0]) return K[n - 1][1]; let i = 1; while (u > K[i][0]) i++;
   const [t0, v0] = K[i - 1], [t1, v1] = K[i], h = t1 - t0, s = (u - t0) / h, m = j => j <= 0 || j >= n - 1 ? 0 : (K[j + 1][1] - K[j - 1][1]) / (K[j + 1][0] - K[j - 1][0]), m0 = m(i - 1) * h, m1 = m(i) * h, s2 = s * s, s3 = s2 * s;
@@ -103,7 +103,7 @@ function aimWorld(R, arm, sx, wx, wy, wz) { R.up.updateWorldMatrix(true, false);
 function runPose(f, u) { const sp = 7.5; f.ph = u * sp * 2.4; const sw = Math.sin(f.ph) * Math.min(1, sp / 6) * .9;
   f.legs[0].rotation.x = sw; f.legs[1].rotation.x = -sw; f.arms[0].rotation.x = -sw * .8; f.arms[1].rotation.x = sw * .8; f.g.position.y = Math.abs(Math.sin(f.ph)) * .05 }
 
-/* ---- 場景 ---- */
+/* ---- Scene ---- */
 const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: Q.has('webgl') });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping;
 $('stage').appendChild(renderer.domElement);
@@ -143,7 +143,7 @@ function pose(u) {
     reset(f); const x = XS[i]; f.g.position.set(x, 0, 0); f.g.rotation.y = 0; balls[i].visible = tips[i].visible = false;
     if (mode === 'pitch') {
       pitchPose(f, u);
-      const tip = pitchTipAt(u, 0, 0), m = f.mirrored ? -1 : 1, w = [x + m * tip[0] * f.k, tip[1] * f.k, tip[2] * f.k];   /* 舊公式（鏡射後 x 反號、按身高縮放） */
+      const tip = pitchTipAt(u, 0, 0), m = f.mirrored ? -1 : 1, w = [x + m * tip[0] * f.k, tip[1] * f.k, tip[2] * f.k];   /* Old formula (x flips sign when mirrored, scaled by height) */
       tips[i].position.set(...w); tips[i].visible = u < RELEASE + .05;
       f.handWorld(1, _h); if (Math.abs(u - RELEASE) < .02) maxTipErr = Math.max(maxTipErr, _h.distanceTo(tips[i].position));
       balls[i].visible = true;
@@ -166,7 +166,7 @@ $('u').oninput = e => { u = +e.target.value; playing = false; $('play').setAttri
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix() }
 addEventListener('resize', resize);
 
-await renderer.init(); if (!Q.has('blocky')) { try { await loadPlayerAssets('../assets/') } catch (e) { console.warn('glb 載入失敗，改用程式生成版', e) } } resize(); setMode(mode);
+await renderer.init(); if (!Q.has('blocky')) { try { await loadPlayerAssets('../assets/') } catch (e) { console.warn('glb load failed, using the code-generated players', e) } } resize(); setMode(mode);
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
@@ -176,7 +176,7 @@ function frame(now) {
   $('info').textContent = `${renderer.backend.isWebGPUBackend ? 'WebGPU' : 'WebGL'}・${throwsL ? '左投' : '右投'}・紅點 = 舊 pitchTipAt 出手點`;
 }
 renderer.setAnimationLoop(frame);
-/* 給無頭測試用 */
+/* For headless tests */
 window.T = { setMode, pose: v => { u = v; pose(v) }, render: () => { renderer.render(scene, cam); placeLabels() }, players: () => players, cam, ctl, setHand: L => { throwsL = L; build() }, stop: () => { playing = false }, tipErr: () => maxTipErr,
   handWorld: (i, a) => players[i].handWorld(a).toArray() };
 window.__ready = true;

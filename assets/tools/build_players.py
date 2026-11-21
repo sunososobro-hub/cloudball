@@ -1,38 +1,38 @@
-"""把 MakeHuman（CC0 素材）的人體轉成雲端職棒用的 glb：16 根骨頭、球衣/褲子/襪子/鞋/皮膚/頭髮/眼睛分材質。
-用法：python3 build_players.py <makehuman repo 路徑> <輸出資料夾>，再對每個 glb 跑 python3 glb2gltf.py in.glb out.gltf.json（artifact 不能放 .glb）
-素材授權：MakeHuman base mesh、targets、default rig/weights 皆為 CC0（見 repo 的 LICENSE.ASSETS.md）。
-sparse clone 要包含 makehuman/data/3dobjs、rigs、targets/macrodetails、targets/stomach、targets/torso。"""
+"""Convert a MakeHuman (CC0 assets) body into a cloudball glb: 16 bones, separate materials for jersey/pants/socks/shoes/skin/hair/eyes.
+Usage: python3 build_players.py <makehuman repo path> <output folder>, then run python3 glb2gltf.py in.glb out.gltf.json on each glb (artifacts cannot hold .glb)
+Asset licence: the MakeHuman base mesh, targets and default rig/weights are all CC0 (see LICENSE.ASSETS.md in that repo).
+A sparse clone must include makehuman/data/3dobjs, rigs, targets/macrodetails, targets/stomach, targets/torso."""
 import sys, json, struct, re, numpy as np
 
 MH, OUT = sys.argv[1], sys.argv[2]
 D = MH + '/makehuman/data/'
-REF_H = 1.86            # 未縮放人體的頭頂高度（跟 players.js 一致）
+REF_H = 1.86            # Top-of-head height of the unscaled body (matches players.js)
 JERSEY_PUFF, PANTS_PUFF = .02, .018
-HEAVY_W, HEAVY_BELLY, HEAVY_DEPTH = 1.6, .9, .5          # 重砲體型的外插權重
-# 握拳（球棒/球都握得住的鬆拳）：每根手指三節的彎曲角（弧度）；拇指另算
+HEAVY_W, HEAVY_BELLY, HEAVY_DEPTH = 1.6, .9, .5          # Extrapolated weight for the heavy build
+# Fist (loose enough to hold a bat or ball): bend angle (rad) for each of the three finger segments; the thumb is separate
 GRIP_CURL = [1.2, 1.45, .75]
-THUMB_CURL = [0, .7, .9]          # 第一節用「轉向食指」取代；二三節往小指方向彎
-THUMB_OUT = .018                   # 拇指壓在食指外側多遠（m）
-PALM_OFF = .012                    # 掌心表面離掌骨多遠（m）
-MH_UNIT = .1                       # MakeHuman 原始座標 1 單位 = 0.1 m
-GRIP_HOLE = .5                     # 握點 = 掌心與彎下來的指節中間（0=掌心、1=指節）
-# 衣服邊界（m，縮放前的人體座標，neck 關節為原點）
-NECK_BACK, NECK_TILT = .012, .3    # 後領比 neck 關節高多少、前低後高的斜率（每 m 的 z）
-VNECK_DEPTH, VNECK_W = .045, .075  # 前襟 V 字深、半寬
-SLEEVE_T = .45                     # 袖口在上臂的比例
-BELT_H = .04                       # 皮帶寬
-HEM_T = .52                        # 褲管下緣：腳踝→膝蓋的比例
-# 褲襠/下腹拉平（棒球褲前面是平的）
+THUMB_CURL = [0, .7, .9]          # First segment is replaced by 'turn toward the index finger'; segments 2 and 3 bend toward the little finger
+THUMB_OUT = .018                   # How far (m) the thumb sits outside the index finger
+PALM_OFF = .012                    # Palm surface offset from the metacarpals (m)
+MH_UNIT = .1                       # MakeHuman raw units: 1 unit = 0.1 m
+GRIP_HOLE = .5                     # Grip point = between the palm and the curled knuckles (0 = palm, 1 = knuckles)
+# Clothing boundaries (m, unscaled body coordinates, neck joint at the origin)
+NECK_BACK, NECK_TILT = .012, .3    # How much higher the back of the collar is than the neck joint, and the low-front/high-back slope (z per m)
+VNECK_DEPTH, VNECK_W = .045, .075  # Front V-neck depth and half-width
+SLEEVE_T = .45                     # Sleeve cuff position as a fraction of the upper arm
+BELT_H = .04                       # Belt width
+HEM_T = .52                        # Pant-leg hem: fraction from ankle to knee
+# Flatten the crotch / lower belly (baseball pants are flat in front)
 CROTCH_Y0, CROTCH_Y1, CROTCH_X = .84, 1.06, .13
-CROTCH_ZMAX, CROTCH_KEEP = .095, .25   # 前面最多凸到 z 多少；超過的部分留幾成
-CROSS_Y0, CROSS_Y1, CROSS_X, CROSS_BACK, CROSS_UP = .74, .95, .085, .05, .04   # 兩腿中間的褲襠往後縮、往上提
-CLOTH_SMOOTH_ITERS, CLOTH_SMOOTH_K = 30, .6   # 衣服區抹平肌肉線條（拉普拉斯平滑）   # 衣服離皮膚多遠（m，縮放前）
+CROTCH_ZMAX, CROTCH_KEEP = .095, .25   # Max forward bulge in z; fraction of the excess kept
+CROSS_Y0, CROSS_Y1, CROSS_X, CROSS_BACK, CROSS_UP = .74, .95, .085, .05, .04   # Pull the crotch between the legs back and up
+CLOTH_SMOOTH_ITERS, CLOTH_SMOOTH_K = 30, .6   # Smooth out muscle lines in clothed areas (Laplacian smoothing)   # Cloth offset from the skin (m, unscaled)
 
-# 我們的 16 根骨頭（順序 = players.js 的 B）
+# Our 16 bones (order = B in players.js)
 BONES = ['root', 'pelvis', 'spine', 'neck', 'shL', 'elL', 'handL', 'shR', 'elR', 'handR', 'thL', 'knL', 'ftL', 'thR', 'knR', 'ftR']
 PARENT = [-1, 0, 0, 2, 2, 4, 5, 2, 7, 8, 0, 10, 11, 0, 13, 14]
 BI = {n: i for i, n in enumerate(BONES)}
-# MakeHuman 的 .R = 人物右手 = -x = 我們的 arms[0]（L 索引）
+# MakeHuman .R = the figure's right hand = -x = our arms[0] (L index)
 SIDE = {'R': 'L', 'L': 'R'}
 
 def map_bone(n):
@@ -65,11 +65,11 @@ def load_target(name):
 V0, F, G = load_obj(D + '3dobjs/base.obj')
 SK = json.load(open(D + 'rigs/default.mhskel')); WT = json.load(open(D + 'rigs/default_weights.mhw'))['weights']
 
-BUILDS = {   # 體型：MakeHuman 巨集 target 權重
+BUILDS = {   # Builds: MakeHuman macro target weights
     'slim':   {'universal-male-young-averagemuscle-minweight': .7, 'universal-male-young-averagemuscle-averageweight': .3},
     'normal': {'universal-male-young-averagemuscle-averageweight': .6, 'universal-male-young-maxmuscle-averageweight': .4},
     'power':  {'universal-male-young-maxmuscle-averageweight': .6, 'universal-male-young-maxmuscle-maxweight': .4},
-    # 重砲：權重超過 1 = 往外推（MakeHuman target 是線性位移，可以外插），再加肚子與軀幹厚度
+    # Heavy: weights above 1 push outward (MakeHuman targets are linear offsets, so they extrapolate), plus extra belly and torso depth
     'heavy':  {'universal-male-young-averagemuscle-maxweight': HEAVY_W, 'universal-male-young-maxmuscle-maxweight': .3,
                'stomach/stomach-pregnant-incr': HEAVY_BELLY, 'torso/torso-scale-depth-incr': HEAVY_DEPTH},
 }
@@ -87,17 +87,17 @@ def rot_between(a, b):
     return rot(ax, np.arctan2(np.linalg.norm(ax), np.dot(a, b)))
 
 def curl_fingers(V):
-    """把手指彎成鬆拳（線性蒙皮，用 MakeHuman 自己的手指骨與權重）。回傳新頂點與兩手的握點。"""
+    """Curl the fingers into a loose fist (linear skinning, using MakeHuman's own finger bones and weights). Returns the new vertices and the grip point of each hand."""
     V = V.copy(); grips = {}
     for sd in ('R', 'L'):
         hd = lambda b: jpos(V, f'{b}.{sd}____head'); tl = lambda b: jpos(V, f'{b}.{sd}____tail')
         k = hd('finger5-1') - hd('finger2-1'); d3 = tl('finger3-1') - hd('finger3-1')
         c = np.cross(k, d3); c /= np.linalg.norm(c)
         kc = np.mean([hd(f'finger{i}-1') for i in range(2, 6)], 0)
-        n = c * np.sign(np.dot(tl('finger1-3') - kc, c))          # 掌心方向（拇指那側）
-        G = {}                                                   # 骨頭 → (R, t)：p' = R p + t
+        n = c * np.sign(np.dot(tl('finger1-3') - kc, c))          # Palm direction (thumb side)
+        G = {}                                                   # Bone -> (R, t): p' = R p + t
         pip = []
-        # 食指彎完後的中節位置（拇指要壓在這裡）
+        # Middle segment of the index finger after bending (the thumb presses here)
         h1, h2 = hd('finger2-1'), hd('finger2-2'); R1 = rot(np.cross(tl('finger2-1') - h1, n), GRIP_CURL[0])
         pip_idx = R1 @ (h2 - h1) + h1
         R2 = rot(np.cross(tl('finger2-2') - h2, n), GRIP_CURL[1]); pip_idx = (pip_idx + R1 @ (R2 @ (tl('finger2-2') - h2)) + pip_idx) / 2
@@ -106,14 +106,14 @@ def curl_fingers(V):
             for sg in range(1, 4):
                 b = f'finger{fi}-{sg}'; h, t_ = hd(b), tl(b)
                 ang = (THUMB_CURL if fi == 1 else GRIP_CURL)[sg - 1]
-                R = rot(np.cross(t_ - h, k if fi == 1 else n), ang)   # 拇指往小指方向彎、其他手指往掌心彎
-                if fi == 1 and sg == 1:                          # 拇指先整根轉向食指中節（對掌），再彎
+                R = rot(np.cross(t_ - h, k if fi == 1 else n), ang)   # The thumb bends toward the little finger, the other fingers toward the palm
+                if fi == 1 and sg == 1:                          # Thumb first rotates as a whole toward the index middle segment (opposition), then bends
                     tip = tl('finger1-3') - h; tgt = pip_idx + n * THUMB_OUT / MH_UNIT - h
                     R = rot_between(tip, tgt) if np.linalg.norm(np.cross(tip, tgt)) > 1e-9 else np.eye(3)
-                Rl, tl_ = R, h - R @ h                           # 繞 h 轉
+                Rl, tl_ = R, h - R @ h                           # Rotate about h
                 Rp, tp = Rp @ Rl, Rp @ tl_ + tp
                 G[f'{b}.{sd}'] = (Rp.copy(), tp.copy())
-                if fi > 1 and sg == 2: pip.append(Rp @ h + tp)   # 彎完後的第二指節位置
+                if fi > 1 and sg == 2: pip.append(Rp @ h + tp)   # Second knuckle position after bending
         V0_ = V.copy(); acc = np.zeros_like(V); wsum = np.zeros(len(V))
         for b, (R, t) in G.items():
             for vi, w in WT.get(b, []):
@@ -132,7 +132,7 @@ def build(kind):
     body = [k for k, g in enumerate(G) if g == 'body']
     used = sorted({i for k in body for i in F[k]}); remap = {o: n for n, o in enumerate(used)}
     P = V[used]
-    # 對齊：腳底 y=0、頭頂 = REF_H、x/z 置中
+    # Align: soles at y=0, top of head = REF_H, centred in x/z
     lo, hi = P[:, 1].min(), P[:, 1].max(); s = REF_H / (hi - lo)
     ctr = np.array([0, lo, 0.]); ctr[[0, 2]] = 0
     T = lambda p: (p - ctr) * s
@@ -147,20 +147,20 @@ def build(kind):
         J['toe' + us] = jn('toe3-1.' + mh)
     J['eyeL'] = T(jpos(V, 'joint-r-eye')) if 'joint-r-eye' in SK['joints'] else jn('eye.R')
     J['eyeR'] = T(jpos(V, 'joint-l-eye')) if 'joint-l-eye' in SK['joints'] else jn('eye.L')
-    # 權重彙整到 16 根骨頭
+    # Collapse weights onto the 16 bones
     n = len(used); W = np.zeros((n, len(BONES)))
     for b, lst in WT.items():
         k = BI[map_bone(b)]
         for vi, w in lst:
             if vi in remap: W[remap[vi], k] += w
     W[W.sum(1) == 0, BI['spine']] = 1
-    # 面分材質：jersey 0, pants 1, skin 2, dark 3, sock 4, hair 5
-    # 邊界用「頂點上的連續函數」決定（面取平均），之後把邊界上的頂點貼齊函數 = 0 的線，就不會有鋸齒
+    # Material per face: jersey 0, pants 1, skin 2, dark 3, sock 4, hair 5
+    # Boundaries come from a continuous per-vertex function (averaged per face); boundary vertices are then snapped to the zero line of that function, so edges are not jagged
     fc = [[remap[i] for i in F[k]] for k in body]
     dom = W.argmax(1)
     beltY = J['pelvis'][1] + .07
     NK = J['neck']
-    def neckline(x, z):   # 領口高度：後高前低＋前面 V 字
+    def neckline(x, z):   # Collar height: high at the back, low at the front, plus the front V
         v = np.clip(1 - np.abs(x) / VNECK_W, 0, 1); v = v * v * (3 - 2 * v)
         return NK[1] + NECK_BACK - NECK_TILT * (z - NK[2]) - VNECK_DEPTH * v * (z > NK[2])
     def sleeve_t(p, side):
@@ -179,14 +179,14 @@ def build(kind):
             elif np.mean(Pf[:, 1] - neckline(Pf[:, 0], Pf[:, 2])) < 0: m = 0
             else:
                 m = 2
-                if b == 'neck' and c[1] > NK[1] + .17 and c[2] < J['eyeL'][2] - .07: m = 5   # 後腦勺頭髮（帽子下會露出來）
+                if b == 'neck' and c[1] > NK[1] + .17 and c[2] < J['eyeL'][2] - .07: m = 5   # Hair at the back of the head (shows below the cap)
         else: m = 2
         mat.append(m)
     vm = {}
     for f, m in zip(fc, mat):
         for i in f: vm.setdefault(i, set()).add(m)
     def snap(Q, which):
-        """把材質交界的頂點貼到邊界線上。which: 'skin'（領口/袖口/褲管）或 'cloth'（皮帶，平滑後再貼一次）"""
+        """Snap vertices on material borders onto the boundary line. which: 'skin' (collar/cuffs/pant legs) or 'cloth' (belt, snapped again after smoothing)"""
         for i, ms in vm.items():
             if len(ms) < 2: continue
             p = Q[i]
@@ -196,10 +196,10 @@ def build(kind):
                     sd = 'L' if p[0] < 0 else 'R'; sh, el = J['sh' + sd], J['el' + sd]
                     p += (SLEEVE_T - sleeve_t(p, sd)) * (el - sh)
             elif which == 'skin' and ms >= {1, 4}: p[1] = hemY('L' if p[0] < 0 else 'R')
-            elif 3 in ms and ms & {0, 1} and p[1] > .8:   # 皮帶上下緣：貼到比較近的那條
+            elif 3 in ms and ms & {0, 1} and p[1] > .8:   # Belt top/bottom edge: snap to whichever is closer
                 p[1] = beltY if abs(p[1] - beltY) < abs(p[1] - beltY - BELT_H) else beltY + BELT_H
     snap(P, 'skin'); snap(P, 'cloth')
-    # 法線，衣服往外推
+    # Normals; cloth is pushed outward
     N = np.zeros_like(P)
     for f in fc:
         for t in ((0, 1, 2), (0, 2, 3)) if len(f) == 4 else ((0, 1, 2),):
@@ -210,7 +210,7 @@ def build(kind):
     for f, m in zip(fc, mat):
         amt = JERSEY_PUFF if m == 0 else PANTS_PUFF if m in (1, 3) and P[f, 1].mean() > .5 else 0
         for i in f: puff[i] = max(puff[i], amt)
-    # 衣服區平滑：跟皮膚交界的頂點不動，避免縫線裂開
+    # Smooth clothed areas: vertices on the skin border stay fixed so seams do not split
     cloth = np.array([i in vm and vm[i] <= {0, 1, 3} and vm[i] & {0, 1} != set() and P[i, 1] > .45 for i in range(n)])
     nb = [set() for _ in range(n)]
     for f in fc:
@@ -219,7 +219,7 @@ def build(kind):
     for _ in range(CLOTH_SMOOTH_ITERS):
         avg = np.array([Ps[nbl[i]].mean(0) for i in ci]); Ps[ci] = Ps[ci] * (1 - CLOTH_SMOOTH_K) + avg * CLOTH_SMOOTH_K
     snap(Ps, 'cloth')
-    # 褲襠/下腹拉平
+    # Flatten the crotch / lower belly
     for i in range(n):
         if not (i in vm and vm[i] <= {1, 3}): continue
         x, y, z = Ps[i]
@@ -231,7 +231,7 @@ def build(kind):
             wy = np.sin(np.pi * (y - CROSS_Y0) / (CROSS_Y1 - CROSS_Y0)); w = wx * wy * min(1, (z + .02) / .04)
             Ps[i, 2] -= w * CROSS_BACK; Ps[i, 1] += w * CROSS_UP
     P2 = Ps + N * puff[:, None]
-    # 眼睛：自己生的小球（白眼＋黑眼珠），掛在 neck 骨
+    # Eyes: small generated spheres (white + dark pupil), attached to the neck bone
     extraP, extraW, extraF = [], [], {6: [], 7: []}
     def sphere(c, r, m):
         base = n + len(extraP); R_, S_ = 6, 8
@@ -248,11 +248,11 @@ def build(kind):
     allN = np.vstack([N, np.zeros((len(extraP), 3))])
     if extraP:
         for k in range(n, len(allP)): v = allP[k] - (J['eyeL'] if allP[k][0] < 0 else J['eyeR']); allN[k] = v / (np.linalg.norm(v) + 1e-9)
-    # 前四大權重
+    # Top four weights
     Wall = np.vstack([W, np.zeros((len(extraP), len(BONES)))])
     for k, b in enumerate(extraW): Wall[n + k, b] = 1
     idx = np.argsort(-Wall, 1)[:, :4]; wv = np.take_along_axis(Wall, idx, 1); wv /= wv.sum(1, keepdims=True)
-    # 三角化（各材質一個 primitive）
+    # Triangulate (one primitive per material)
     prims = {m: [] for m in range(8)}
     for f, m in zip(fc + extraF[6] + extraF[7], mat + [6] * len(extraF[6]) + [7] * len(extraF[7])):
         prims[m] += [f[0], f[1], f[2]] + ([f[0], f[2], f[3]] if len(f) == 4 else [])
@@ -275,7 +275,7 @@ def write_glb(path, P, N, JI, WV, prims, J, kind):
         if not ix: continue
         ia = add(np.array(ix, 'u2' if len(P) < 65536 else 'u4'), 34963, 5123 if len(P) < 65536 else 5125, 'SCALAR')
         P_.append({'attributes': {'POSITION': pa, 'NORMAL': na, 'JOINTS_0': ja, 'WEIGHTS_0': wa}, 'indices': ia, 'material': m})
-    # 骨頭節點（位置＝關節點，旋轉為單位）
+    # Bone nodes (position = joint point, identity rotation)
     nodes = [{'name': 'body', 'mesh': 0, 'skin': 0}]
     for i, b in enumerate(BONES):
         p = J[b] - (J[BONES[PARENT[i]]] if PARENT[i] >= 0 else 0)

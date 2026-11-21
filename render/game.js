@@ -38,7 +38,7 @@ async function castVote(e,v){if(!e||e.k!=='VOTE')return;myVotes[e.id]=v;voteKey=
   if(mode==='practice')return;
   if(DB&&UID){try{await DB.doc('votes/'+UID).set({g:String(gameStart),id:e.id,c:v,team:e.team})}catch(err){note('投票沒送出去：你可能只有檢視權限，請分享者把你設成「參與者」')}}
   else note('這個畫面沒有登入，票不會被計入（練習場可以自己玩）')}
-/* 投票不暫停：窗口在「決定時刻」前 VOTE_WINDOW 秒開啟，比賽照常進行；決定時刻到了就套用結果 */
+/* Voting never pauses: the window opens VOTE_WINDOW s before the decision point while play goes on; at the decision point the result is applied */
 let voteEv=null;
 function findVote(T){const ev=game.ev;for(let i=Math.max(0,findIdx(T)-1);i<ev.length&&ev[i].t-VOTE_WINDOW<=T;i++)if(ev[i].k==='VOTE'&&T<ev[i].t+3)return ev[i];return null}
 let voteKey='';const voteLabel=(e,v)=>(e.opts.find(o=>o[0]===v)||[,''])[1];
@@ -66,11 +66,11 @@ const renderer=window.RENDERER;
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
 const LC=h=>new THREE.Color(h);
-/* CC0 貼圖（ambientCG）：assets/tex/<名>_c/_n/_orm.jpg；orm＝R:AO G:粗糙度 */
+/* CC0 textures (ambientCG): assets/tex/<name>_c/_n/_orm.jpg; orm = R:AO G:roughness */
 const TXL=new THREE.TextureLoader(),TX={};
-function tex(name,srgb){if(TX[name])return TX[name];const t=TXL.load('assets/tex/'+name+'.jpg');t.wrapS=t.wrapT=THREE.RepeatWrapping;if(srgb)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return TX[name]=t}/* r152+ 色彩管理：hex 視為 sRGB，自動轉線性 */
+function tex(name,srgb){if(TX[name])return TX[name];const t=TXL.load('assets/tex/'+name+'.jpg');t.wrapS=t.wrapT=THREE.RepeatWrapping;if(srgb)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return TX[name]=t}/* r152+ colour management: hex is treated as sRGB and converted to linear */
 $('stage').appendChild(renderer.domElement);
-const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* 夜間球場薄霧：遠景漸淡，拉出景深 */
+const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* Thin night-stadium haze: the distance fades out, adding depth */
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,800);camera.rotation.order='YXZ';
 const rig=new THREE.Group();rig.add(camera);scene.add(rig);
 scene.add(new THREE.HemisphereLight(LC(0x9fb4e6),LC(0x2a3a24),0.22*Math.PI));
@@ -106,9 +106,9 @@ let FIELD_PIX=null;
 const isGrassAt=(x,z)=>{const F=FIELD_PIX;if(!F)return false;const px=Math.round(F.X(x)),py=Math.round(F.Y(z));if(px<0||py<0||px>=F.w||py>=F.h)return false;const i=(py*F.w+px)*4;return F.d[i+1]-F.d[i]>18};
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {texture,positionWorld,mx_fractal_noise_float:fn,vec2,vec3,float,clamp:tc,mix,smoothstep,uv,dot,normalMap}=TSL;
   const map=fieldTex(),m=new THREE.MeshStandardNodeMaterial({roughness:.95,metalness:0});const base=texture(map,uv()),w=positionWorld.xz;
-  const isGrass=smoothstep(.02,.12,base.g.sub(base.r));/* 球場圖：綠多於紅＝草 */
-  const LUM=vec3(.2126,.7152,.0722),GR_MEAN=.118,DR_MEAN=.147;/* 貼圖平均亮度（線性） */
-  /* 兩種尺度取樣，降低重複感 */
+  const isGrass=smoothstep(.02,.12,base.g.sub(base.r));/* Field map: more green than red = grass */
+  const LUM=vec3(.2126,.7152,.0722),GR_MEAN=.118,DR_MEAN=.147;/* Mean texture luminance (linear) */
+  /* Sample at two scales to reduce visible tiling */
   const gUV=w.div(2.6),gUV2=w.div(9.1).add(vec2(.37,.71)),dUV=w.div(3.2),dUV2=w.div(11.3).add(vec2(.13,.52));
   const gC=mix(texture(tex('grass_c',1),gUV),texture(tex('grass_c',1),gUV2),.35),dC=mix(texture(tex('dirt_c',1),dUV),texture(tex('dirt_c',1),dUV2),.35);
   const gK=dot(gC.rgb,LUM).div(GR_MEAN),dK=dot(dC.rgb,LUM).div(DR_MEAN);
@@ -118,16 +118,16 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
   const nG=texture(tex('grass_n'),gUV),nD=texture(tex('dirt_n'),dUV);
   m.normalNode=normalMap(mix(nD,nG,isGrass),vec2(mix(float(1.2),float(.8),isGrass)));
   const oG=texture(tex('grass_orm'),gUV),oD=texture(tex('dirt_orm'),dUV);const orm=mix(oD,oG,isGrass);
-  m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* 草土要很霧面：太亮滑會在逆光反出一大片白 */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
+  m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
 const outer=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({color:LC(0x1a2018),roughness:1}));outer.rotation.x=-Math.PI/2;outer.position.set(0,-.03,-55);scene.add(outer);
 const adC=document.createElement('canvas');adC.width=2048;adC.height=96;{const g=adC.getContext('2d');const ads=[['雲端職棒','#1d4d2a','#f2c230'],['雲端看台','#14304f','#ffffff'],['台北沙丁魚','#2fb5a8','#06231f'],['CLOUD BASEBALL','#1d4d2a','#ffffff'],['新竹貓頭鷹','#b04fc8','#ffffff'],['每兩小時一場','#14304f','#f2c230']];
   ads.forEach(([t,bg,fg],i)=>{const w=2048/ads.length;g.fillStyle=bg;g.fillRect(i*w,0,w,96);g.fillStyle=fg;g.textAlign='center';g.textBaseline='middle';let fs=54;do{g.font=`700 ${fs}px "Noto Sans TC",sans-serif`;fs-=2}while(g.measureText(t).width>w-40&&fs>20);g.fillText(t,i*w+w/2,50);g.fillStyle='rgba(0,0,0,.35)';g.fillRect(i*w+w-3,0,3,96)})}
 const adTex=new THREE.CanvasTexture(adC);adTex.colorSpace=THREE.SRGBColorSpace;adTex.wrapS=THREE.RepeatWrapping;adTex.repeat.set(-4,1);
 const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.position.y=1.5;scene.add(fence);
-{const bt=adTex.clone();bt.repeat.set(4,1);bt.needsUpdate=true;const fm=fence.material.clone();fm.map=bt;fm.emissiveMap=bt;fm.side=THREE.FrontSide;fence.material.side=THREE.BackSide;const fb=new THREE.Mesh(fence.geometry,fm);fb.position.y=1.5;scene.add(fb)}/* 牆背面另一張不鏡射的廣告，外野看台看過來字不再反 */
+{const bt=adTex.clone();bt.repeat.set(4,1);bt.needsUpdate=true;const fm=fence.material.clone();fm.map=bt;fm.emissiveMap=bt;fm.side=THREE.FrontSide;fence.material.side=THREE.BackSide;const fb=new THREE.Mesh(fence.geometry,fm);fb.position.y=1.5;scene.add(fb)}/* A second, unmirrored ad on the back of the wall, so text reads correctly from the outfield stands */
 const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshBasicMaterial({color:0xf2c230,side:THREE.DoubleSide}));fenceTop.position.y=3;scene.add(fenceTop);
 for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),new THREE.MeshBasicMaterial({color:0xf2c230}));p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);scene.add(p)}
-/* 後擋網：貼圖網（5cm 菱形網目，mipmap 遠看自然淡成薄紗）＋上緣鋼索與立柱 */
+/* Backstop: textured net (5 cm diamond mesh; mipmaps fade it to a thin veil at distance) plus top cable and posts */
 const NET_W=40,NET_H=9,NET_Z=20,NET_CELL=.05,NET_OPACITY=.55;
 const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.strokeStyle='rgba(220,226,235,.85)';g.lineWidth=3;
   g.beginPath();g.moveTo(0,0);g.lineTo(64,64);g.moveTo(64,0);g.lineTo(0,64);g.stroke();
@@ -174,22 +174,22 @@ function updateCrowd(now,ex,batTeam,live){
   crowd.instanceMatrix.needsUpdate=true;heads.instanceMatrix.needsUpdate=true;
 }
 /* light towers + sky */
-const TOWER_I=.16*Math.PI,BEAM_K=.025;/* 光束只留一點點，鏡頭穿過也不會一片白 */
+const TOWER_I=.16*Math.PI,BEAM_K=.025;/* Keep only a hint of light beam, so the camera passing through it does not white out */
 const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(5,4.8,4.4),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.7,metalness:.3});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
 const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
 const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,color,positionView,length,smoothstep}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
-  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(BEAM_K).mul(smoothstep(45,130,length(positionView))),1);return m})();/* 鏡頭附近淡出，避免人在光束裡一片白 */
+  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(BEAM_K).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
 for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.position.set(x,23,z);scene.add(m);
   const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
   const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),dir=lamp.clone().sub(tgt),L=dir.length();
   const beam=new THREE.Mesh(new THREE.ConeGeometry(L*.32,L,32,1,true),beamMat);beam.position.copy(lamp.clone().add(tgt).multiplyScalar(.5));beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());scene.add(beam);
-  /* 燈塔投光：打出亮區與暗角（不投影，省效能；主影子仍由 key 燈負責） */
+  /* Light-tower spots: lit areas and dark corners (no shadows, for performance; the key light still casts the main shadow) */
   const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,.42,.75,0);spot.position.copy(lamp);spot.target.position.copy(tgt);scene.add(spot,spot.target)}
 const sg=new THREE.BufferGeometry(),sp=[];for(let i=0;i<600;i++){const a=Math.random()*6.28,e=.15+Math.random()*1.2;sp.push(Math.cos(a)*Math.cos(e)*420,Math.sin(e)*420,Math.sin(a)*Math.cos(e)*420)}
 sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xaab8d8,size:1.1,fog:false,sizeAttenuation:true})));
-/* 燈下飛蟲：每座燈塔前方一團小光點，繞著亂飛（純裝飾，跟比賽無關） */
+/* Bugs under the lights: a cloud of small dots in front of each tower, flying around (pure decoration, unrelated to the game) */
 const BUG_PER=70,BUG_R=5,BUG_SIZE=.18,LAMPS=[[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]];
 const bugs=(()=>{const n=LAMPS.length*BUG_PER,pos=new Float32Array(n*3),seed=[];let r=7;const rnd=()=>(r=(r*16807)%2147483647)/2147483647;
   for(let i=0;i<n;i++){const [x,z]=LAMPS[Math.floor(i/BUG_PER)],to=new THREE.Vector3(-x,-46,-45-z).normalize();seed.push({c:[x+to.x*4,46+to.y*4,z+to.z*4],a:rnd()*6.28,b:rnd()*6.28,w1:.6+rnd()*1.4,w2:.5+rnd()*1.2,r:.5+rnd()*BUG_R,h:rnd()})}
@@ -199,9 +199,9 @@ const bugs=(()=>{const n=LAMPS.length*BUG_PER,pos=new Float32Array(n*3),seed=[];
 function updateBugs(t){const {pos,seed}=bugs;for(let i=0;i<seed.length;i++){const q=seed[i],a=q.a+t*q.w1,b=q.b+t*q.w2;
   pos[i*3]=q.c[0]+Math.cos(a)*q.r+Math.sin(t*7+i)*.15;pos[i*3+1]=q.c[1]+Math.sin(b)*q.r*.6;pos[i*3+2]=q.c[2]+Math.sin(a)*q.r*Math.cos(b)}
   bugs.pts.geometry.attributes.position.needsUpdate=true}
-/* 近景草葉：鏡頭看的地方（離鏡頭 < BLADE_SHOW m）放一片草葉，位置用世界格子雜湊，移動時不會抖。只長在球場圖的草地上 */
+/* Close-up grass blades: blades only where the camera looks (closer than BLADE_SHOW m), placed by a world-grid hash so they do not jitter as the camera moves. Grass areas of the field map only */
 const BLADE_N=16000,BLADE_R=6,BLADE_SHOW=15,BLADE_CELL=.08,BLADE_SNAP=1;
-const blades=(()=>{const geo=new THREE.BufferGeometry(),w=.006;geo.setAttribute('position',new THREE.Float32BufferAttribute([-w,0,0,w,0,0,0,1,.15,w,0,0,-w,0,0,0,1,.15],3));geo.setAttribute('normal',new THREE.Float32BufferAttribute([0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0],3));/* 正反兩片、法線都朝上（DoubleSide 背面法線會翻下去變黑） *//* 法線朝上：跟地面同樣受光，不會一根根黑掉 */
+const blades=(()=>{const geo=new THREE.BufferGeometry(),w=.006;geo.setAttribute('position',new THREE.Float32BufferAttribute([-w,0,0,w,0,0,0,1,.15,w,0,0,-w,0,0,0,1,.15],3));geo.setAttribute('normal',new THREE.Float32BufferAttribute([0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0],3));/* Two faces, both normals pointing up (with DoubleSide the back normal flips down and goes black) *//* Normals point up: lit like the ground, so individual blades do not turn black */
   const m=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.85});
   const im=new THREE.InstancedMesh(geo,m,BLADE_N);im.count=0;im.frustumCulled=false;im.receiveShadow=true;im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(BLADE_N*3),3);scene.add(im);return{im,key:''}})();
 const _bm=new THREE.Matrix4(),_bqq=new THREE.Quaternion(),_bs=new THREE.Vector3(),_bp=new THREE.Vector3(),_be=new THREE.Euler(),_bc=new THREE.Color(),_ray=new THREE.Vector3();
@@ -218,7 +218,7 @@ function updateBlades(){const cp=camera.getWorldPosition(_cw),dir=camera.getWorl
     im.setMatrixAt(n,_bm.compose(_bp,_bqq,_bs));const v=.8+hash2(i,j,k+13)*.45;im.setColorAt(n,_bc.setRGB(.085*v,.26*v,.055*v));n++}
   im.count=n;im.instanceMatrix.needsUpdate=true;im.instanceColor.needsUpdate=true}
 
-/* ---------- 後製：AO（接觸陰影）＋泛光＋暗角＋FXAA；WebGL 退路或手機用輕量版 ---------- */
+/* ---------- Post-processing: AO (contact shadows) + bloom + vignette + FXAA; lightweight version for the WebGL fallback or phones ---------- */
 const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend))&&!/Mobi|Android/i.test(navigator.userAgent);
 let PP=null;
 function setupPost(){try{const {pass,mrt,output,normalView,screenUV,length,smoothstep,mix,float,renderOutput,vec4}=TSL;
@@ -235,7 +235,7 @@ $('gfx').textContent=gfxLow?'畫質：低':'畫質：高';
 $('gfx').onclick=()=>{gfxLow=!gfxLow;try{localStorage.setItem('zu_gfx',gfxLow?'low':'high')}catch(e){}PP=gfxLow?null:(PP||setupPost());if(typeof setTier==='function'){setTier(gfxLow?2:(IS_MOBILE?1:0));tierT0=performance.now()}$('gfx').textContent=gfxLow?'畫質：低':'畫質：高';note(gfxLow?'畫質低：關掉後製，比較順':'畫質高：開後製光影')};
 {const on=(()=>{try{return localStorage.getItem('zu_gl')==='1'}catch(e){return false}})();$('compat').setAttribute('aria-pressed',on);
  $('compat').onclick=()=>{try{localStorage.setItem('zu_gl',on?'0':'1')}catch(e){}note(on?'關閉相容模式，重新載入…':'改用相容模式（WebGL），重新載入…');setTimeout(()=>location.reload(),800)}}
-/* ---------- 隊徽吉祥物（原創，純 SVG） ---------- */
+/* ---------- Team mascot logos (original, pure SVG) ---------- */
 const LOGOS={
  '沙丁魚':`<svg viewBox="0 0 64 64"><path d="M6 32 L18 22 L18 42Z" fill="#1f8f85"/><path d="M14 32 Q16 14 38 15 Q58 17 60 32 Q58 47 38 49 Q16 50 14 32Z" fill="#2fb5a8"/><path d="M16 36 Q30 46 58 36 Q56 47 38 49 Q18 50 16 36Z" fill="#cfeee9"/><path d="M28 15 L34 7 L40 15Z" fill="#1f8f85"/><rect x="24" y="24" width="7" height="6" rx="1.5" fill="#fff6c9"/><rect x="33" y="24" width="7" height="6" rx="1.5" fill="#fff6c9"/><circle cx="51" cy="28" r="4" fill="#fff"/><circle cx="52" cy="28" r="2" fill="#14161c"/><path d="M57 36 Q52 39 47 37" stroke="#14161c" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`,
  '貓頭鷹':`<svg viewBox="0 0 64 64"><path d="M10 20 L18 6 L27 15 Q32 13 37 15 L46 6 L54 20 Q58 42 47 55 Q32 63 17 55 Q6 42 10 20Z" fill="#b04fc8"/><path d="M20 46 Q32 58 44 46 Q40 54 32 56 Q24 54 20 46Z" fill="#e6b8f2"/><circle cx="23" cy="29" r="10.5" fill="#3a1646"/><circle cx="41" cy="29" r="10.5" fill="#3a1646"/><circle cx="23" cy="28" r="8.5" fill="#fff"/><circle cx="41" cy="28" r="8.5" fill="#fff"/><circle cx="24" cy="29" r="4" fill="#14161c"/><circle cx="40" cy="29" r="4" fill="#14161c"/><path d="M29 35 L35 35 L32 42Z" fill="#f2c230"/><path d="M16 50 Q12 44 14 38M48 50 Q52 44 50 38" stroke="#8a3aa0" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>`};
@@ -260,8 +260,8 @@ GEO.torso.scale(1,1,.62);GEO.hips.scale(1,1,.7);
 const SM=(h,r=.6)=>new THREE.MeshStandardMaterial({color:LC(h),roughness:r});
 const skin=SM(0xc99572,.7),pants=SM(0xeeeeee,.75),dark=SM(0x1a1a1e,.5),leather=SM(0x8a5a2b,.6),shadowMat=new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.35,depthWrite:false});
 const matDef=SM(0xffffff,.55),matOff=SM(0xffffff,.55),matUmp=SM(0x111318,.7);
-{const n=tex('fabric_n'),r=tex('fabric_orm');n.repeat.set(5,5);r.repeat.set(5,5);/* 布料貼圖只給球衣褲用，直接設重複 */
- for(const m of [matDef,matOff,matUmp,pants]){m.normalMap=n;m.normalScale.set(.6,.6);m.roughnessMap=r;m.roughness=1;/* 粗糙度圖在 G 通道 */}}
+{const n=tex('fabric_n'),r=tex('fabric_orm');n.repeat.set(5,5);r.repeat.set(5,5);/* Fabric texture is only used for jerseys and pants, so set the repeat directly */
+ for(const m of [matDef,matOff,matUmp,pants]){m.normalMap=n;m.normalScale.set(.6,.6);m.roughnessMap=r;m.roughness=1;/* Roughness is in the G channel */}}
 {const c=tex('leather_c',1),n=tex('leather_n');leather.map=c;leather.color.setHex(0xb08060);leather.normalMap=n;leather.roughness=.5}
 /* jersey numbers: one shared material per number, drawn once on a canvas */
 const NUM_GEO=new THREE.PlaneGeometry(.26,.26),NUM_Y=1.3,NUM_Z=-.228,NUM_PX=128,NUM_FONT_PX=92,NUM_STROKE_PX=10,numMats=new Map();
@@ -283,17 +283,17 @@ function figureBlocky(m,pm=pants,glove=false){
   for(const o of [torso,a0,a1,nm]){up.add(o);o.position.y-=.95}
   const hg=new THREE.Group();hg.position.y=.7;up.add(hg);for(const o of [neck,head,cap,brim]){hg.add(o);o.position.y-=1.65}
   hips.scale.set(1.08,1,1.08);f.rig={up,hips,hg,l0,l1,a0,a1};return f}
-/* 骨架人：players.js（MakeHuman CC0 體型＋16 骨），代理關節介面跟積木人一樣，舊 keyframe 照用。
-   role:'batter' 不做內層鏡射；其餘預設右投（內層鏡射，arms[1] 是右手）。換人時 setBuild(體型,身高)、投手 setThrows */
+/* Skinned players: players.js (MakeHuman CC0 bodies + 16 bones) with the same proxy-joint interface as the block figures, so the old keyframes still work.
+   role:'batter' skips the inner mirror; everyone else defaults to right-handed (inner mirror, arms[1] is the right hand). On a substitution call setBuild(build, height), and setThrows for pitchers */
 function figure(m,pm=pants,glove=false,o={}){
   if(!window.PL)return figureBlocky(m,pm,glove);
   const f=PL.makePlayer({jersey:m,pants:pm,sock:m,skin,glove,head:o.head||'cap',role:o.role,throws:'R',parent:scene});
   if(f.glove)f.glove.traverse(x=>{if(x.isMesh)x.material=leather});
   return f}
 const BODY_OF=(team,name)=>{const R=ROSTERS[team];return R.bat.find(x=>x.name===name)||R.pit.find(x=>x.name===name)};
-/* 體型權重取到 .25 一格：幾何快取才不會每個人一份 */
+/* Body-type weights are snapped to .25 steps so the geometry cache is not one entry per player */
 const qBody=b=>{const o={};for(const k in b){const v=Math.round(b[k]*4)/4;if(v)o[k]=v}return o};
-/* 預熱：開場前把兩隊每個人的體型幾何＋帽子/頭盔先算好（閒置時一個一個來），比賽中換人才不會卡一下 */
+/* Prewarm: before first pitch, build every player's body geometry plus cap/helmet for both teams (one at a time while idle), so a substitution does not stutter mid-game */
 function prewarmBodies(){if(!window.PL)return;const dummies=[PL.makePlayer({head:'cap'}),PL.makePlayer({head:'helmet',role:'batter'})],list=[];
   for(const t of [0,1])for(const p of [...ROSTERS[t].bat,...ROSTERS[t].pit])if(p.body)list.push(p);
   const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(qBody(p.body),p.ht)}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
@@ -305,7 +305,7 @@ const batter=figure(matOff,pants,false,{role:'batter',head:'helmet'});
 /* batter rig: hips/legs stay put, upper body (torso+arms+head) twists, arms aim at the bat grip */
 /* split a figure into hips/legs + a twistable upper body (torso, arms, number, head group) */
 function rigUpper(f){return f.rig}
-/* 護面罩（捕手、主審）：掛在頭部掛點，深色鋼條＋護墊。捕手另戴頭盔 */
+/* Face mask (catcher, plate umpire): attached to the head socket, dark steel bars plus padding. The catcher also wears a helmet */
 function addMask(f){if(!f.sockets||!f.sockets.head)return;const g=new THREE.Group(),steel=SM(0x1d2026,.45),pad=SM(0x2b2b30,.8),bar=(w,y,z,rx)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,.012,.012),steel);m.position.set(0,y,z);m.rotation.x=rx||0;g.add(m)};
   bar(.19,.01,.115);bar(.2,-.045,.122);bar(.17,-.1,.118);bar(.12,-.15,.1,-.4);
   for(const x of [-.095,-.03,.03,.095]){const m=new THREE.Mesh(new THREE.BoxGeometry(.012,.19,.012),steel);m.position.set(x,-.065,.112-Math.abs(x)*.25);m.rotation.y=-x*2.2;g.add(m)}
@@ -318,12 +318,12 @@ const bat=window.PL?PL.makeBat(0xc9a06a):new THREE.Mesh(new THREE.CylinderGeomet
 /* batting keyframes: S stance, L load (stride + hands back), C contact, F follow-through. Frame: batter-local, +z faces the plate, +x faces the pitcher */
 const BK={yaw:[-.15,-.45,.75,1.7],lean:[.12,.16,.2,.1],hx:[-.2,-.3,-.05,.35],hy:[.55,.62,.38,.65],hz:[.3,.22,.56,.35],
   bx:[-.3,-.5,-.55,.4],by:[.95,.85,.12,.7],bz:[.12,.1,.82,.55],stride:[.2,.3,.42,.4],back:[-.2,-.2,-.25,-.32],head:[1.1,1.15,.6,.2]};
-/* 打完球（界外/沒揮/揮空）留在打擊區時，球棒放下來休息，下一球前再舉起 */
+/* When the batter stays in the box after a pitch (foul, take, swing and miss), the bat comes down to rest and goes back up before the next pitch */
 const BAT_REST={yaw:-.1,hx:-.1,hy:.5,hz:.35,bx:.15,by:-.85,bz:.5},BAT_REST_AT=1.4,BAT_REST_DUR=.6,BAT_UNREST_DUR=.5;
 const BAT_LOAD_LEAD=.9,BAT_LOAD_DUR=.6,BAT_SWING_LEAD=.22,BAT_SWING_DUR=.3,BAT_FT_DELAY=.06,BAT_FT_DUR=.3,BAT_ARM_LEN=.6,BAT_SHOULDER_X=.3,BAT_SHOULDER_Y=.57;
 const _bv=new THREE.Vector3(),_bq=new THREE.Quaternion(),_dn=new THREE.Vector3(0,-1,0),_up=new THREE.Vector3(0,1,0),sat01=t=>Math.max(0,Math.min(1,t)),ease=t=>t*t*(3-2*t);
 function aimArm(a,sx,tx,ty,tz){_bv.set(tx-sx,ty-BAT_SHOULDER_Y,tz);const d=_bv.length();_bq.setFromUnitVectors(_dn,_bv.normalize());a.quaternion.copy(_bq);a.scale.y=Math.max(ARM_S_MIN,Math.min(1.2,d/BAT_ARM_LEN))}
-/* 骨架人：手臂代理縮短＝彎手肘，手才會真的落在目標上；積木人縮太短會變短棍，維持 .85 */
+/* Skinned players: shortening the arm proxy = bending the elbow, so the hand really lands on the target; on block figures too short looks like a stub, so keep .85 */
 const ARM_S_MIN=window.PL?.3:.85;
 function poseBatter(e,u){
   const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
@@ -334,11 +334,11 @@ function poseBatter(e,u){
   BR.l0.rotation.z=K('back');BR.l1.rotation.z=lerp(lerp(BK.stride[0],BK.stride[1],ld),BK.stride[2],sw);
   const gx=lerp(K('hx'),BAT_REST.hx,rw),gy=lerp(K('hy'),BAT_REST.hy,rw),gz=lerp(K('hz'),BAT_REST.hz,rw);batPivot.position.set(gx,gy,gz);
   _bv.set(lerp(K('bx'),BAT_REST.bx,rw),lerp(K('by',dyC),BAT_REST.by,rw),lerp(K('bz'),BAT_REST.bz,rw)).normalize();batPivot.quaternion.setFromUnitVectors(_up,_bv);
-  /* 兩手分開握：下手（arms[1]，右打的左手）在握把，上手（arms[0]）往棒頭方向 BAT_HAND_GAP */
+  /* Hands apart on the bat: bottom hand (arms[1], a right-handed batter's left hand) on the handle, top hand (arms[0]) BAT_HAND_GAP toward the barrel */
   aimArm(BR.a0,-BAT_SHOULDER_X,gx+_bv.x*BAT_HAND_GAP,gy+_bv.y*BAT_HAND_GAP,gz+_bv.z*BAT_HAND_GAP);aimArm(BR.a1,BAT_SHOULDER_X,gx,gy,gz)}
 const BAT_HAND_GAP=.09;
 const runners=[0,1,2,3].map(()=>figure(matOff,pants,false,{head:'helmet'}));
-/* 傳球：球速 THROW_V m/s（約 120 km/h，含出手前的握球轉換），飛行時間 = 距離 / 球速；越遠弧度越高但很平 */
+/* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
 const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
 const ZONE_W=.43,ZONE_LO=.55,ZONE_HI=1.1,ZONE_Z=0;
@@ -350,7 +350,7 @@ function pathPos(from,to,dist){let d=dist;for(let b=from;b<to;b++){const [x1,z1]
 function face(f,x,z){f.g.rotation.y=Math.atan2(x,z)}
 function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.px,z-f.pz)/Math.max(dt,1e-3);f.px=x;f.pz=z;
   const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8;return sp}
-/* 打者：每個打席的第一球前從待打區走進打擊區；打席結束沒跑壘（三振）就走回休息區，不再瞬間出現/消失 */
+/* Batter: before the first pitch of each plate appearance he walks from the on-deck circle into the box; if the PA ends without him running (strikeout) he walks back to the dugout, no more popping in and out */
 const BAT_BOX=[-.9,.15],BAT_FROM=[-7,2.6],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY=[-14,6],BAT_AWAY_AT=ARRIVE+.9,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7;
 function batterWalk(e,u){
   let x=BAT_BOX[0],z=BAT_BOX[1],yaw=Math.PI/2,sw=0;
@@ -361,7 +361,7 @@ function batterWalk(e,u){
     const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,dx=BAT_AWAY[0]-BAT_BOX[0],dz=BAT_AWAY[1]-BAT_BOX[1],L=Math.hypot(dx,dz),t=(u-at)*(e.r==='inplay'?BAT_AWAY_SPEED_HIT:BAT_AWAY_SPEED)/L;
     if(t>=1)batter.g.visible=false;
     x=lerp(BAT_BOX[0],BAT_AWAY[0],Math.min(t,1));z=lerp(BAT_BOX[1],BAT_AWAY[1],Math.min(t,1));yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP}
-  const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';/* 左打＝整個人左右鏡射 */
+  const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';/* Left-handed batter = the whole figure mirrored left/right */
   batter.g.scale.x=lf?-1:1;ump.g.position.x=lf?-.3:.3;
   batter.g.position.set(lf?-x:x,0,z);batter.g.rotation.y=lf?-yaw:yaw;batter.legs[0].rotation.x=sw;batter.legs[1].rotation.x=-sw}
 
@@ -378,7 +378,7 @@ const PK={
   a1:[[0,0],[.4,0],[.95,-1.1],[1.25,1.5],[1.4,2.6],[1.6,3.5],[1.9,4.9],[2.5,6.28]],
   dz:[[0,0],[.95,0],[1.4,.85],[3.2,.85],[4.6,0]]};
 const PITCH_SH_Y=.57,PITCH_ARM=.62;
-/* 出手點（解析解，跟代理關節同一套）。右投＝內層 x 鏡射 → 世界 x 反號；骨架人整體縮放 k */
+/* Release point (closed form, same model as the proxy joints). Right-handed = inner x mirror, so world x flips sign; skinned figure scaled by k */
 const pitchTipAt=(u,px,pz)=>{const P=fielders.P,sg=P.mirrored?-1:1,k=P.k||1,L=kf(u,PK.lean),th=kf(u,PK.a1),y=kf(u,PK.yaw),lz=PITCH_SH_Y*Math.sin(L)-PITCH_ARM*Math.sin(th);return[px+sg*k*(.3*Math.cos(y)+lz*Math.sin(y)),k*(.95+PITCH_SH_Y*Math.cos(L)-PITCH_ARM*Math.cos(th)),pz+kf(u,PK.dz)+k*(-.3*Math.sin(y)+lz*Math.cos(y))]};
 function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,PK.a1),bx=P.g.position.x,bz=P.g.position.z;
   PR.up.rotation.set(L,y,0);PR.hg.rotation.y=-y*.9;P.legs[0].rotation.x=kf(u,PK.l0);P.legs[1].rotation.x=kf(u,PK.l1);P.arms[0].rotation.x=kf(u,PK.a0);P.arms[1].rotation.x=th;
@@ -386,19 +386,19 @@ function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,
   return{tip:pitchTipAt(u,bx,bz),rel:pitchTipAt(RELEASE,bx,bz)}}
 function arc(p0,p1,peak,t){return[lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)+peak*4*t*(1-t),lerp(p0[2],p1[2],t)]}
 
-/* ---------- 守備：接球／換手／傳球（片場可逐格看） ---------- */
-/* 傳球球速依臂力與距離（m/s）：短傳 25–30、內野 34–40、外野 36–43；轉傳（接到→出手）0.6–1.2 秒。
-   滾地球刺殺一壘時，若照常轉傳會比打者晚到，就壓縮轉傳（最快 XFER_RUSH），畫面上才不會「球還沒到就出局」 */
+/* ---------- Fielding: catch / transfer / throw (frame-steppable in the studio) ---------- */
+/* Throw speed by arm strength and distance (m/s): short toss 25-30, infield 34-40, outfield 36-43; transfer (catch to release) 0.6-1.2 s.
+   On a ground ball to first, if a normal transfer would arrive after the batter, compress it (down to XFER_RUSH), so the picture never shows an out before the ball gets there */
 const CHASE_VMIN=5,CHASE_VMAX=9;
 const CHEST=[0,.32,.34],G_SX=-BAT_SHOULDER_X,T_SX=BAT_SHOULDER_X;
 const resetPose=f=>{const R=f.rig;f.auto=true;if(f.bend){f.bend.elbow[0]=f.bend.elbow[1]=0}armsDown(R);R.l0.rotation.set(0,0,0);R.l1.rotation.set(0,0,0);R.l0.scale.y=R.l1.scale.y=1;R.up.rotation.set(0,0,0);R.hg.rotation.set(0,0,0);R.hips.rotation.set(0,0,0);f.g.position.y=0};
-/* 手套伸向世界座標 w；低球就彎腰屈膝 */
+/* Reach the glove to world point w; bend at waist and knees for low balls */
 function reachGlove(f,w){f.auto=false;const R=f.rig,low=w[1]<.7;if(low)crouch(f,R,clamp((.7-w[1])/.5,0,1),.5,.3,.7,.3);aimWorld(R,R.a0,G_SX,w[0],w[1],w[2]);aimArm(R.a1,T_SX,CHEST[0]+.05,CHEST[1]-.1,CHEST[2])}
-/* 傳球接收者：reach 0→1 手套舉到胸前偏前；hold 0→1 接到後投球手過來拿球 */
+/* Throw receiver: reach 0->1 raises the glove to chest height, slightly forward; hold 0->1 brings the throwing hand over to take the ball after the catch */
 function gloveTo(f,reach,hold){f.auto=false;const R=f.rig;aimArm(R.a0,G_SX,-.05,lerp(.1,.42,reach),lerp(.25,.55,reach));
   if(hold==null)return;aimArm(R.a0,G_SX,-.05,lerp(.42,CHEST[1],hold),lerp(.55,CHEST[2],hold));aimArm(R.a1,T_SX,lerp(.25,.05,hold),lerp(-.3,CHEST[1],hold),lerp(.1,CHEST[2],hold))}
-/* 接到後 t 秒：0–45% 換手（雙手收到胸前、另一手拿球），之後舉臂、跨步、出手、收尾 */
-/* 傳球手（投球手）手的目標點，up-local（肩在 x .3、y .57）：胸前 → 拉到耳後（手肘自然彎）→ 頭側前方出手 → 收到對側腰。不再整條手臂繞一圈 */
+/* t seconds after the catch: 0-45% transfer (both hands to the chest, other hand takes the ball), then arm up, stride, release, follow-through */
+/* Target point of the throwing hand, up-local (shoulder at x .3, y .57): chest -> back past the ear (elbow naturally bent) -> release in front of the head -> finish at the opposite hip. No more full-arm windmill */
 const THR_HAND=[[0,[.05,.3,.34]],[.45,[.42,.62,-.18]],[.8,[.38,.86,-.12]],[1,[.22,.9,.42]]],THR_HAND_FT=[[0,[.22,.9,.42]],[.18,[.02,.35,.55]],[.45,[-.22,.02,.4]],[1,[-.15,-.05,.3]]];
 const THR_YAW=[[0,0],[.5,.55],[.85,.6],[1,-.25]],THR_YAW_FT=[[0,-.25],[.3,-.55],[1,-.2]];
 const kv=(t,K)=>{if(t<=K[0][0])return K[0][1];for(let i=1;i<K.length;i++)if(t<=K[i][0]){const a=K[i-1],b=K[i],s=ease((t-a[0])/(b[0]-a[0]));return a[1].map((v,j)=>lerp(v,b[1][j],s))}return K[K.length-1][1]};
@@ -407,19 +407,19 @@ function throwPose(f,t,xfer,tgt){f.auto=false;const R=f.rig,x0=xfer*.45;
   const w=sat01((t-x0)/(xfer-x0)),ft=t-xfer,ftn=sat01(ft/THROW_FT_DUR),hp=ft<0?kv(w,THR_HAND):kv(ftn,THR_HAND_FT);
   R.up.rotation.set(ft<0?-.05*w:lerp(.05,.4,ease(sat01(ft/.2)))*(1-ease(sat01((ft-.5)/.5))),ft<0?kf(w,THR_YAW):kf(ftn,THR_YAW_FT),0);
   aimArm(R.a1,T_SX,hp[0],hp[1],hp[2]);
-  /* 手套手：舉起指向目標，出手時收回胸前 */
+  /* Glove hand: raised to point at the target, tucked back to the chest on release */
   const gp=ft<0?[-.35,lerp(.35,.6,ease(w)),lerp(.35,.55,ease(w))]:[lerp(-.35,-.12,ease(sat01(ft/.25))),lerp(.6,.25,ease(sat01(ft/.25))),lerp(.55,.3,ease(sat01(ft/.25)))];aimArm(R.a0,G_SX,gp[0],gp[1],gp[2]);
   const st=ft<0?ease(sat01((w-.3)/.7)):1-ease(sat01((ft-.5)/.5));R.l0.rotation.x=-.45*st;R.l1.rotation.x=.3*st}
 const THROW_FT_DUR=1.2;
-/* 出手點：把人暫時擺到「接球站位、面向目標、出手那一刻」量投球手，量完還原。每個事件快取一次 */
+/* Release point: temporarily pose the player at the catch spot, facing the target, at the moment of release, measure the throwing hand, then restore. Cached once per event */
 const relCache=new Map();
 function throwRelease(e,f,at,xfer,tgt){const key=e.t+':'+xfer;let r=relCache.get(key);if(r)return r;
   const R=f.rig,o=[f.g.position.clone(),f.g.quaternion.clone(),...[R.up,R.hips,R.hg,R.l0,R.l1,R.a0,R.a1].flatMap(x=>[x.quaternion.clone(),x.scale.clone()])];
   resetPose(f);f.g.position.set(at[0],0,at[1]);face(f,tgt[0]-at[0],tgt[2]-at[1]);throwPose(f,xfer,xfer,tgt);const q=f.handWorld(1);r=[q.x,q.y,q.z];
   f.g.position.copy(o[0]);f.g.quaternion.copy(o[1]);[R.up,R.hips,R.hg,R.l0,R.l1,R.a0,R.a1].forEach((x,i)=>{x.quaternion.copy(o[2+2*i]);x.scale.copy(o[3+2*i])});
   if(relCache.size>200)relCache.clear();relCache.set(key,r);return r}
-/* 打擊球軌跡：結果（落點、滯空時間）由模擬先決定，這裡反解初速，用帶空氣阻力的積分（Cd≈.33，係數為推論值）畫出來：
-   上升較陡、下墜較直，跟拋物線不同。每個事件解一次、存成取樣表 */
+/* Batted-ball path: the simulation already decided the outcome (landing point, hang time); here we solve back for the launch velocity and draw it with a drag integration (Cd ~ .33, an assumed coefficient):
+   steeper rise and straighter fall than a parabola. Solved once per event and stored as a sample table */
 const AIR_K=1.2*.33*Math.PI*.0366*.0366/(2*.145),GRAV=9.81,FLY_DT=1/120,flyCache=new Map();
 function flyPath(e,p0,p1,T){const key=e.t;let tab=flyCache.get(key);
   if(!tab){const n=Math.max(2,Math.ceil(T/FLY_DT)),h=T/n,sim=v=>{const P=p0.slice(),V=v.slice(),out=[P.slice()];for(let i=0;i<n;i++){const sp=Math.hypot(...V);for(let k=0;k<3;k++)V[k]+=h*(-AIR_K*sp*V[k]-(k===1?GRAV:0));for(let k=0;k<3;k++)P[k]+=h*V[k];out.push(P.slice())}return out};
@@ -452,7 +452,7 @@ const curPit=[0,0],numOf=(t,name)=>{const b=ROSTERS[t].bat.find(x=>x.name===name
 function applyNums(e,off,def){const R=ROSTERS[def];if(e.pit&&e.pit[0]!==undefined)curPit[e.pit[0]]=e.pit[1];
   for(const k of FIELDER_KEYS){const b=k==='P'?R.pit[curPit[def]]:R.bat.find(x=>x.pos===k);setNum(fielders[k],b?b.num:undefined);dress(fielders[k],b);if(k==='P')fielders.P.setThrows(b&&b.throws||'R')}
   const bb=e.k==='P'&&e.bat?ROSTERS[e.bat[0]].bat[e.bat[1]]:null;setNum(batter,bb?bb.num:undefined);if(bb)dress(batter,bb)}
-/* 滑壘姿勢（腳先滑）：k 0→1；身體往後倒、前腳伸直、後腳彎、雙手往上，重心壓低 */
+/* Slide pose (feet first): k 0->1; torso leans back, lead leg straight, trail leg bent, arms up, centre of mass low */
 const SLIDE_HOLD=.6,SLIDE_UP=.45;
 function slidePose(f,k){const R=f.rig;f.noAnim=true;f.auto=false;R.up.rotation.set(lerp(0,-1.05,k),0,0);R.hips.rotation.set(lerp(0,-.5,k),0,0);
   R.l0.rotation.set(lerp(0,-1.4,k),0,0);R.l1.rotation.set(lerp(0,-.75,k),0,lerp(0,.25,k));if(f.bend){f.bend.knee[0]=0;f.bend.knee[1]=1.5*k}
@@ -524,31 +524,31 @@ function poseScene(e,u,dt){
     const tgt=[CV.spot[0],1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
     const BAG=[BASES[1][0],BASES[1][1]],DB=Math.hypot(BAG[0]-cx,BAG[1]-cz),soloAt=PL.soloAt;
     const t0=solo?Infinity:PL.t0,TT=PL.TT,rt=PL.rt,a1=dp?PL.a1:t0+TT,t1=dp?PL.t1:a1,arrive=PL.arrive;
-    if(u2>0){const tc=catchT-FIELD_REACT,cc=tc<=0?1:tc<RUN_ACCEL?.5*tc*tc/RUN_ACCEL:.5*RUN_ACCEL+(tc-RUN_ACCEL),vCh=clamp(D/cc,CHASE_VMIN,CHASE_VMAX);/* 追球速度：剛好在接球那刻到位（上限 9 m/s） */
+    if(u2>0){const tc=catchT-FIELD_REACT,cc=tc<=0?1:tc<RUN_ACCEL?.5*tc*tc/RUN_ACCEL:.5*RUN_ACCEL+(tc-RUN_ACCEL),vCh=clamp(D/cc,CHASE_VMIN,CHASE_VMAX);/* Chase speed: arrive exactly at the catch moment (capped at 9 m/s) */
       const k=D<.5?1:clamp(runDist(u2-FIELD_REACT,vCh)/D,0,1),kk=hr?Math.min(k,.5):k,tx=lerp(f.pos[0],cx,kk),tz=lerp(f.pos[1],cz,kk);
       if(CV.key){const c=fielders[CV.key],D2=Math.hypot(CV.spot[0]-c.pos[0],CV.spot[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u2-FIELD_REACT-COVER_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u2-(arrive+2.2),COVER_SPEED)/D2,0,1);
         c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),c.pos[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),c.pos[1],bk));
         if(tagPlay&&CV.key==='C'){resetPose(c);c.g.position.y=0}
         const fromX=dp?PVspot[0]:cx,fromZ=dp?PVspot[1]:cz;if(bk===0&&u2>arrive-TT-(dp?TT2:0)-.2){face(c,fromX-c.g.position.x,fromZ-c.g.position.z);c.noAnim=true;
-          /* 接傳球：手套迎球，接到後另一手去拿球 */
+          /* Receiving a throw: glove meets the ball, then the other hand takes it */
           const reach=ease(sat01((u2-(arrive-.45))/.3)),hold=sat01((u2-arrive)/.25);
-          if(tagPlay&&u2>=arrive){const tg=ease(sat01((u2-arrive)/.2))*(1-ease(sat01((u2-arrive-1.2)/.4)));crouch(c,c.rig,tg,.6,.35,.6,.3);face(c,-.6-c.g.position.x,-.6-c.g.position.z);if(tg>.05)aimWorld(c.rig,c.rig.a0,G_SX,-.15,lerp(.9,.12,tg),-.15);aimArm(c.rig.a1,T_SX,.1,lerp(.3,-.1,tg),.3)}/* 接到球蹲下用手套去觸殺滑進來的跑者 */
+          if(tagPlay&&u2>=arrive){const tg=ease(sat01((u2-arrive)/.2))*(1-ease(sat01((u2-arrive-1.2)/.4)));crouch(c,c.rig,tg,.6,.35,.6,.3);face(c,-.6-c.g.position.x,-.6-c.g.position.z);if(tg>.05)aimWorld(c.rig,c.rig.a0,G_SX,-.15,lerp(.9,.12,tg),-.15);aimArm(c.rig.a1,T_SX,.1,lerp(.3,-.1,tg),.3)}/* After the catch, crouch and tag the sliding runner with the glove */
           else gloveTo(c,lerp(.45,1,reach),u2<arrive?null:hold)}
         else face(c,p.lx-c.g.position.x,p.lz-c.g.position.z)}
       if(dp){const D3=Math.hypot(PVspot[0]-pv.pos[0],PVspot[1]-pv.pos[1]),kp=D3<.3?1:clamp(runDist(u2-FIELD_REACT,PIVOT_SPEED)/D3,0,1),bp2=D3<.3?0:clamp(runDist(u2-(t1+1.5),6.5)/D3,0,1);
         pv.g.position.set(lerp(lerp(pv.pos[0],PVspot[0],kp),pv.pos[0],bp2),0,lerp(lerp(pv.pos[1],PVspot[1],kp),pv.pos[1],bp2));
         if(bp2===0&&u2>a1-.6){pv.noAnim=true;if(u2<a1){face(pv,cx-pv.g.position.x,cz-pv.g.position.z);gloveTo(pv,ease(sat01((u2-(a1-.45))/.3)),null)}
           else{face(pv,tgt[0]-pv.g.position.x,tgt[2]-pv.g.position.z);throwPose(pv,u2-a1,PIVOT_XFER,tgt)}}else if(kp<1)face(pv,PVspot[0]-pv.g.position.x,PVspot[1]-pv.g.position.z)}
-      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.pos[0]-sx0,f.pos[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rt,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.pos[0],back),0,lerp(sz0,f.pos[1],back));/* 回守位：從他最後站的地方走回去 */
+      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.pos[0]-sx0,f.pos[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rt,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.pos[0],back),0,lerp(sz0,f.pos[1],back));/* Back to position: walk back from wherever he last stood */
       if(solo&&u2>catchT+.15&&back===0){const k2=DB<.3?1:clamp(runDist(u2-catchT-.15,6.5)/DB,0,1);f.g.position.set(lerp(tx,BAG[0],k2),0,lerp(tz,BAG[1],k2));if(k2<1){face(f,BAG[0]-cx,BAG[1]-cz);f.noAnim=false}}
       const fx=f.g.position.x,fz=f.g.position.z;
       if(back>0&&back<1)face(f,f.pos[0]-sx0,f.pos[1]-sz0);
-      else if(!hr&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* 接到球 → 轉身對傳球目標 */
+      else if(!hr&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
       else face(f,-p.lx,-p.lz);
-      /* 接球動作：最後 .35 秒手套伸向來球；接到後雙手收到胸前換手；再舉臂傳出 */
+      /* Catch motion: glove reaches toward the ball in the last .35 s; after the catch both hands come to the chest for the transfer; then arm up and throw */
       if(!hr&&back===0&&u2>catchT-.35){f.noAnim=true;const low=p.type==='GB'||hit;
         if(u2<catchT+.12){const bpos=ballAt(u2+.04);reachGlove(f,bpos||[fx,low?.25:1.6,fz])}
-        else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* 踩壘時手套舉著球 */
+        else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* Glove raised holding the ball while touching the base */
         else throwPose(f,u2-catchT,TH.xfer,tgtF)}}
     if(u2>0&&u2<T)bp=p.type==='GB'?arc([0,1,.3],land,p.peak,u2/T):flyPath(e,[0,1,.3],land,T)(u2);
     else if(u2>=T&&!hr){
@@ -556,7 +556,7 @@ function poseScene(e,u,dt){
       else{const fx=f.g.position.x,fz=f.g.position.z,c=CV.key&&fielders[CV.key];
         if(u2<catchT)bp=hit?[rollEnd[0],.15,rollEnd[2]]:[p.lx,.15,p.lz];
         else if(solo&&u2>=catchT){if(u2<rt+.3){const q=f.handWorld(0);bp=[q.x,q.y,q.z]}}
-        else if(u2>=catchT&&u2<t0){const q=f.handWorld(u2-catchT<TH.xfer*.45?0:1);bp=[q.x,q.y,q.z]}/* 先在手套，換手後在投球手 */
+        else if(u2>=catchT&&u2<t0){const q=f.handWorld(u2-catchT<TH.xfer*.45?0:1);bp=[q.x,q.y,q.z]}/* In the glove first, in the throwing hand after the transfer */
         else if(u2>=t0&&u2<a1){const rel=throwRelease(e,f,[cx,cz],TH.xfer,tgtF);bp=arc(rel,tgtF,Math.min(3,TD*THROW_ARC*(32/TH.v)),(u2-t0)/TT)}
         else if(dp&&u2<t1){const q=pv.handWorld(u2-a1<PIVOT_XFER*.45?0:1);bp=[q.x,q.y,q.z]}
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,Math.min(3,TD2*THROW_ARC*(32/V2)),(u2-t1)/TT2)}
@@ -581,7 +581,7 @@ function setDots(el,n){el.querySelectorAll('i').forEach((d,i)=>d.classList.toggl
 const dotRows=document.querySelectorAll('.sit .dots');
 function bugPlace(){const bar=document.querySelector('.bar'),bug=$('bug');if(!bar||!bug)return;const bh=20;if(!L.bug)bug.style.bottom=bh+'px';const top=bh+bug.offsetHeight+8;if(!L.feed)$('feed').style.bottom=top+'px';$('vote').style.bottom=top+'px'}
 addEventListener('resize',bugPlace);
-/* ---------- 編輯版面：每個介面元件都能拖、能縮放，存在這個瀏覽器 ---------- */
+/* ---------- Layout editor: every UI element can be dragged and scaled; saved in this browser ---------- */
 const LAYOUT_KEY='zu_layout',EDIT_ELS=[['bug','A1','比分面板'],['feed','A2','戰況列'],['who','A3','左上狀態'],['gear','A4','設定鈕'],['tag','A5','版本標'],['report','A6','回報鈕']];
 let L={},editing=false,selId='bug',ed=null;
 try{const v=JSON.parse(localStorage.getItem(LAYOUT_KEY)||'{}');for(const k in v){const o=v[k];if(EDIT_ELS.some(x=>x[0]===k)&&o&&isFinite(o.x)&&isFinite(o.y)&&isFinite(o.s))L[k]={x:o.x,y:o.y,s:clamp(o.s,.5,2)}}}catch(e){}
@@ -689,7 +689,7 @@ sayBtn.onclick=()=>{sayOn=!sayOn;sayBtn.setAttribute('aria-pressed',sayOn);if(sa
 let seat=3,yawOff=0,pitchOff=0,zoomed=false;
 const look=(sx,sy,sz,tx,ty,tz)=>[Math.atan2(-(tx-sx),-(tz-sz)),Math.atan2(ty-sy,Math.hypot(tx-sx,tz-sz))];
 let shotNow=-1,autoSeat=-1,hitPrev=false;
-/* 擊出後的轉播鏡頭：本壘後方高處看全場，視線在場中央與球之間慢慢移 */
+/* Broadcast camera after contact: high behind home plate looking at the whole field, aim drifting slowly between the field centre and the ball */
 const HITCAM={x:0,y:8,z:11,fov:62,mid:[0,0,-26]};
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
@@ -702,7 +702,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   const cs=hit?HITCAM:s,py=cs.y+(cs.cam?0:1.25);rig.position.set(cs.x,py,cs.z);
   if(hit!==hitPrev){hitPrev=hit;if(hit)FOLLOW_T.set(...HITCAM.mid);else FOLLOW_T.set(s.tx,s.ty,s.tz);camera.fov=hit?HITCAM.fov:s.fov;camera.updateProjectionMatrix()}
   let tx=s.tx,ty=s.ty,tz=s.tz,bf=s.fov;
-  /* 轉播鏡頭（auto）：平常固定長焦對本壘；球打出去（界外/界內）後自己跟球，球消失後慢慢搖回本壘 */
+  /* Broadcast camera (auto): normally a fixed long lens on home plate; once the ball is hit (fair or foul) it follows the ball, then pans slowly back to home after the ball is gone */
   const trk=s.auto&&curEvent&&curEvent.k==='P'&&(curEvent.r==='inplay'||curEvent.r==='foul')&&curU>=ARRIVE&&ball.visible;
   if(s.auto&&autoSeat!==seat)FOLLOW_T.set(s.tx,s.ty,s.tz);autoSeat=s.auto?seat:-1;
   if(s.follow||s.auto){const want=s.follow?(ball.visible?ball.position:_fw.set(0,1.3,-9)):(trk?_fw.set(HITCAM.mid[0],HITCAM.mid[1],HITCAM.mid[2]).lerp(ball.position,.35):_fw.set(s.tx,s.ty,s.tz)),k=Math.min(1,dt*(ball.visible&&(s.follow||trk)?7:s.auto?4:2.5));FOLLOW_T.lerp(want,k);tx=FOLLOW_T.x;ty=FOLLOW_T.y;tz=FOLLOW_T.z;
@@ -712,7 +712,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(editing)return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
-/* 手機橫向：全螢幕＋鎖橫向（Android Chrome 可以；iPhone Safari 不支援鎖方向，就提示自己轉） */
+/* Phone landscape: fullscreen + orientation lock (works on Android Chrome; iPhone Safari cannot lock orientation, so tell the user to rotate) */
 async function goLandscape(){const d=document,inFs=d.fullscreenElement||d.webkitFullscreenElement;
   if(inFs){try{screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock()}catch(e){}(d.exitFullscreen||d.webkitExitFullscreen).call(d);$('land').textContent='⛶ 橫向';return}
   let ok=false;try{const el=d.documentElement;await (el.requestFullscreen||el.webkitRequestFullscreen).call(el);await screen.orientation.lock('landscape');ok=true;$('land').textContent='⤢ 離開'}catch(e){}
@@ -721,7 +721,7 @@ $('land').onclick=goLandscape;
 {const mq=matchMedia('(pointer:coarse) and (orientation:portrait)');let told=false;try{told=localStorage.getItem('zu_landHint')==='1'}catch(e){}
  if(mq.matches&&!told)setTimeout(()=>{note('手機轉橫看，畫面比較大（右上「⛶ 橫向」）');try{localStorage.setItem('zu_landHint','1')}catch(e){}},2500)}
 addEventListener('orientationchange',()=>setTimeout(()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);bugPlace()},300));
-/* 片場面板收合：只留播放鍵和時間軸，畫面少擋一點（記在 zu_stFold） */
+/* Collapse the studio panel: keep only play and the timeline so it covers less of the view (stored in zu_stFold) */
 {let fold=false;try{fold=localStorage.getItem('zu_stFold')==='1'}catch(e){}const setFold=v=>{fold=v;$('studio').classList.toggle('fold',v);$('stFold').textContent=v?'▴':'▾';try{localStorage.setItem('zu_stFold',v?'1':'0')}catch(e){}};setFold(fold);$('stFold').onclick=()=>setFold(!fold)}
 $('report').onclick=async()=>{const code=`#BUG fps=${fpsAvg.toFixed(0)} tier=${gfxTier} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
   try{await navigator.clipboard.writeText(code);note('已複製，貼給 Claude 就能重現這一刻')}catch(err){prompt('複製這行貼給 Claude：',code)}};
@@ -757,7 +757,7 @@ const enter=snd=>{$('intro').hidden=true;if(!LIVE_ENABLED)startPractice();if(snd
 $('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);
 
 
-/* ---------- 動作片場：挑一種動作，從固定種子庫找例子，單獨循環播放 ---------- */
+/* ---------- Action studio: pick one kind of action, find examples in a fixed seed bank, loop it on its own ---------- */
 const isL=e=>e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';
 const pl=(e,f)=>e.k==='P'&&e.play&&f(e.play);
 const K3=e=>/三振/.test(e.desc||'');
@@ -819,9 +819,9 @@ function studioTick(dt){if(!studio)return;if(studio.play){replayT+=dt*studio.spd
   const u=replayT-studio.t0;$('stT').textContent=u.toFixed(2)+'s';if(document.activeElement!==$('stScrub'))$('stScrub').value=Math.round(1000*u/(studio.t1-studio.t0))}
 addEventListener('keydown',e=>{if(!studio||e.target.tagName==='SELECT')return;if(e.key===' '){e.preventDefault();$('stPlay').click()}else if(e.key==='ArrowRight'){replayT=Math.min(studio.t1,replayT+.05);studio.play=false;$('stPlay').textContent='播放'}else if(e.key==='ArrowLeft'){replayT=Math.max(studio.t0,replayT-.05);studio.play=false;$('stPlay').textContent='播放'}});
 
-/* ---------- 自動畫質（目標：手機橫向穩 60fps、換人不掉幀） ----------
-   0 全開（桌機）→ 1 手機起點：解析度 1.25×、影子貼圖 1024 → 2 解析度 1×、關後製/草葉/飛蟲 → 3 關即時影子，人改用腳下圓影。
-   每 FPS_WIN 幀平均超過 FPS_BUDGET_MS 就降一級（只降不升，避免忽高忽低）；選了等級會記在 zu_tier，下次直接從那級開始 */
+/* ---------- Auto quality (target: steady 60 fps on a phone in landscape, no dropped frames on substitutions) ----------
+   0 everything on (desktop) -> 1 phone start: 1.25x resolution, 1024 shadow map -> 2 1x resolution, no post/grass blades/bugs -> 3 no realtime shadows, round blob shadows under players.
+   Drop one tier whenever the average over FPS_WIN frames exceeds FPS_BUDGET_MS (down only, never up, to avoid flip-flopping); a chosen tier is saved in zu_tier and used as the start next time */
 const IS_MOBILE=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches,FPS_WIN=90,FPS_BUDGET_MS=19,FPS_WARMUP_MS=4000,TIER_MAX=3;
 let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{const t=+localStorage.getItem('zu_tier');if(t>gfxTier&&t<=TIER_MAX)gfxTier=t}catch(e){}
 const blobShadows=[...Object.values(fielders),batter,ump,...runners].map(f=>{const m=new THREE.Mesh(GEO.shadow,shadowMat);m.rotation.x=-Math.PI/2;m.position.y=.02;m.scale.setScalar(.8);m.visible=false;f.g.add(m);return m});
@@ -851,7 +851,7 @@ renderer.setAnimationLoop(()=>{
   const s=poseScene(e,u,dt);
   for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});
   hud(e,u,s);if(mode!=='studio')commentary(T);renderVote(voteEv,T);
-  {const iv=!$('intro').hidden;if(iv!==introVis){introVis=iv;$('bug').style.visibility=iv?'hidden':''}}/* 進場畫面不顯示計分條 */
+  {const iv=!$('intro').hidden;if(iv!==introVis){introVis=iv;$('bug').style.visibility=iv?'hidden':''}}/* Hide the scorebug on the intro screen */
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
