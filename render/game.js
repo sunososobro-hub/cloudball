@@ -2,7 +2,7 @@
 
 
 /* Everything about the game itself (rules, outcomes, timings of plays) comes from engine/. This file only draws it. */
-const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,
+const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,
   runDist,runTime,leadAt,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t;
@@ -485,6 +485,22 @@ function slidePose(f,k){const R=f.rig;f.noAnim=true;f.auto=false;R.up.rotation.s
   R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1;R.a0.rotation.set(lerp(0,-2.5,k),0,lerp(0,-.3,k));R.a1.rotation.set(lerp(0,-2.2,k),0,lerp(0,.3,k));R.hg.rotation.set(lerp(0,.6,k),0,0);
   f.g.position.y=-SLIDE_DROP*k*(f.k||1)}
 const SLIDE_DROP=.62;
+/* Steal: the catcher pops out of his crouch while moving the ball to his throwing hand, steps toward the bag and throws at the engine's
+   release time (plan.t0). When plan.t0 is later than catch + CATCHER_POP (safe steals: the engine times the ball to arrive after the
+   runner), he comes up with the ball at his chest, holds it, and starts the arm action CATCHER_POP*(1-XFER_HAND_SWAP) before release.
+   Then he watches the play standing and sinks back into the crouch before the next pitch. Returns the release point for the ball */
+const C_STEP=.45,C_RISE=.6,C_RECROUCH=.7,XFER_HAND_SWAP=.45,MITT_REST_Y=.7;
+function catcherThrow(e,u,S,sp){const C=fielders.C,catchAt=ARRIVE+CATCH_SNAP,xfer=Math.min(CATCHER_POP,S.t0-catchAt),hold=S.t0-catchAt-xfer,tgt=[sp[0],1.2,sp[1]];
+  const [hx,hz]=C.pos,dx=sp[0]-hx,dz=sp[1]-hz,L=Math.hypot(dx,dz),at=[hx+dx/L*C_STEP,hz+dz/L*C_STEP],rel=throwRelease(e,C,at,xfer,tgt);
+  /* Motion clock: transfer, hold at the end of the transfer, then the throw */
+  const x0=xfer*XFER_HAND_SWAP,t=u-catchAt,tt=t<x0?t:t<x0+hold?x0:t-hold,r={rel,tgt,xfer,xferT:tt};
+  if(t<0)return r;
+  const step=ease(sat01(tt/xfer)),back=e.d?ease(sat01((u-(e.d-C_RECROUCH))/C_RECROUCH)):0,c=Math.max(1-ease(sat01(t/(xfer*C_RISE))),back);
+  resetPose(C);C.noAnim=true;C.g.position.set(lerp(hx,at[0],step*(1-back)),0,lerp(hz,at[1],step*(1-back)));face(C,dx,dz);
+  if(c>0)crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
+  if(back>0){aimWorld(CR,CR.a0,-BAT_SHOULDER_X,0,MITT_REST_Y,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,0,MITT_REST_Y-.15,MITT_Z+.2)}
+  else if(u-S.t0<THROW_FT_DUR)throwPose(C,tt,xfer,tgt);
+  return r}
 function poseScene(e,u,dt){
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
   matDef.color.setHex(TEAMS[defT].color);matOff.color.setHex(TEAMS[off].color);
@@ -521,8 +537,9 @@ function poseScene(e,u,dt){
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
     c.g.position.set(lerp(lerp(c.pos[0],sp[0],kc),c.pos[0],bk),0,lerp(lerp(c.pos[1],sp[1],kc),c.pos[1],bk));
     if(bk===0&&u>S.t0-.2){face(c,-c.g.position.x,-c.g.position.z);c.noAnim=true;gloveTo(c,lerp(.45,1,ease(sat01((u-(S.arrive-.45))/.3))),u<S.arrive?null:sat01((u-S.arrive)/.25))}
-    if(u>=ARRIVE+CATCH_SNAP&&u<S.t0){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}
-    else if(u>=S.t0&&u<S.arrive)bp=arc(mitt,[sp[0],1.2,sp[1]],Math.min(3,S.TD*THROW_ARC*(32/S.v)),(u-S.t0)/S.TT);
+    const C=fielders.C,ct=catcherThrow(e,u,S,sp);
+    if(u>=ARRIVE+CATCH_SNAP&&u<S.t0){const q=C.handWorld(ct.xferT<ct.xfer*XFER_HAND_SWAP?0:1);bp=[q.x,q.y,q.z]}
+    else if(u>=S.t0&&u<S.arrive)bp=arc(ct.rel,ct.tgt,Math.min(3,S.TD*THROW_ARC*(32/S.v)),(u-S.t0)/S.TT);
     else if(u>=S.arrive&&u<S.arrive+2.5){const q=c.handWorld(0);bp=[q.x,q.y,q.z]}
     else if(u>=S.arrive+2.5)bp=null}
   /* runner moves: when each runner starts, slides and arrives is decided by the engine (4th element of a move) */

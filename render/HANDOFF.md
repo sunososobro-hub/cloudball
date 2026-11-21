@@ -7,8 +7,10 @@
   sweet spot on the pitch line; the pitch ends on the bat and the bunted ball starts there (`buntContact`). Bunter rises out of
   the crouch as he runs. Batter-runner now leaves from the box, not plate center (`BAT_LEAVE_BLEND`), for every ball in play.
 
-## Next in #5
-- (a) steal: catcher pops up and throws with `throwPose` (xfer = plan.t0 - (ARRIVE+CATCH_SNAP)), ball from `throwRelease`.
+- #5 steal (PR #24, stacked on #22): `catcherThrow` pops him up, transfers, holds at the chest when plan.t0 is late (issue #23),
+  steps toward the bag, throws at plan.t0 from `throwRelease`, sinks back into the crouch over the last 0.7 s of the event.
+
+## Next in #5 (one PR each, base dev; branch off feat/5-steal. Remote feat/5 is a stale WIP, ignore it)
 - (b) tag pose helper (crouch, glove low on the runner's side of the bag) for steal receiver and FC tags (`plan.actions` a:'tag').
 - (c) pitcher ~1 m jump covering first on 3-6-3: cover position ignores the delivery stride `kf(u,PK.dz)`.
 
