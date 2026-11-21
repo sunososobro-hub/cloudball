@@ -10,6 +10,7 @@
  *      filled from the game so far. The draft is deterministic for a given seed.
  * No network, no AI call, no DOM: this module runs under plain Node. */
 import { mulberry32 } from '../engine/rng.js';
+import { staffOf, crewFor, umpire } from '../league/staff.js';
 
 export const SPEAKERS = ['pbp', 'color', 'fan'];   /* play-by-play voice, colour voice, the home team's fan guest */
 const SEEK_GAP = 6;                                /* a jump in playback time longer than this is a seek, not playback */
@@ -25,8 +26,24 @@ const FAN_SIDES = new Set(['up', 'down', 'any']);
 const BAT_GAIN = new Set(['run_scores', 'home_run', 'single', 'infield_single', 'bunt_single', 'double', 'triple', 'walk', 'intentional_walk', 'hit_by_pitch', 'error', 'sac_fly']);
 const BAT_LOSS = new Set(['strikeout', 'groundout', 'flyout', 'lineout', 'popout', 'double_play', 'fielders_choice']);
 
+/* ---------- the people besides the players (league/staff.js) ---------- */
+const COMPOUND_SURNAMES = ['歐陽', '司馬', '上官', '諸葛', '張簡', '范姜'];
+const surname = name => COMPOUND_SURNAMES.find(c => name.startsWith(c)) || name.slice(0, 1);
+const COACH_TITLE = '教練';   /* on air a coach is surname + title: 「廖教練」 */
+const coachOf = (team, role) => (team && staffOf(team.id).find(s => s.role === role)) || null;
+const onAir = s => (s ? surname(s.name) + COACH_TITLE : '');
+/* how the booth names tonight's people; the crew comes from the game seed, like the picture's */
+function peopleOf(teams, seed) {
+  const plate = umpire(crewFor(seed).plate);
+  return {
+    team: [0, 1].map(i => ({ manager: coachOf(teams[i], 'manager'), pitching: coachOf(teams[i], 'pitching') })),
+    plate,
+  };
+}
+
 /* ---------- what the booth remembers about the game so far ---------- */
-function createMemory(teams) {
+function createMemory(teams, seed = 0) {
+  const people = peopleOf(teams, seed);
   const m = { inning: 1, half: 0, score: [0, 0], outs: 0, batters: {}, pitchers: {}, halfRuns: [[], []], frameRuns: 0, frame: -1, strikes: 0, balls: 0, last: {} };
   const batter = n => m.batters[n] || (m.batters[n] = { pa: 0, ab: 0, h: 0, k: 0, hr: 0, prev: null });
   const pitcher = n => m.pitchers[n] || (m.pitchers[n] = { k: 0, pitches: 0 });
@@ -62,6 +79,10 @@ function createMemory(teams) {
       batterPa: b.pa || 0, batterAb: b.ab || 0, batterHits: b.h || 0, batterKToday: b.k || 0, batterHrToday: b.hr || 0,
       batterPrev: PREV_LABEL[last] || '', hasPrev: last ? 1 : 0,
       pitcherK: p ? pitcher(p).k : 0, pitchCount: p ? pitcher(p).pitches : 0,
+      /* staff of the team in {team} (on a pitching change: the team making it), the home manager, the plate umpire */
+      manager: onAir(people.team[bat].manager), pitchingCoach: onAir(people.team[bat].pitching), homeManager: onAir(people.team[1].manager),
+      managerName: people.team[bat].manager ? people.team[bat].manager.name : '', managerLine: people.team[bat].manager ? people.team[bat].manager.line : '',
+      plateUmp: people.plate ? people.plate.name : '', plateUmpLine: people.plate ? people.plate.line : '',
     };
   };
   return m;
@@ -115,11 +136,19 @@ const matches = (when, slots) => !when || Object.entries(when).every(([k, c]) =>
  * once: spoken at most once per game. */
 const gagAllows = (e, g) => (!e.gag || g.chosen === null || g.chosen === e.gag) && (e.needs || []).every(f => g.flags.has(f)) && !(e.once && g.used.has(e));
 
-/* Problems in the fallback bank's gag wiring (empty array = fine). */
+/* Every slot the booth can fill (the fan guest's lines also have {guest}). */
+const NO_TEAM = { id: '', short: '' };
+export const SLOTS = new Set(Object.keys(createMemory([NO_TEAM, NO_TEAM]).slots({}, '')));
+const FAN_SLOTS = new Set([...SLOTS, 'guest']);
+const slotErrs = (where, text, known) => [...(text || '').matchAll(/\{(\w+)\}/g)].filter(m => !known.has(m[1])).map(m => `${where}: unknown slot {${m[1]}}`);
+
+/* Problems in the fallback bank's slots and gag wiring (empty array = fine). */
 export function validateBank(bank) {
   const errs = [], sets = new Map(), all = [];
   for (const [name, T] of Object.entries(bank.triggers || {})) for (const e of T.exchanges || []) {
     all.push([name, e]);
+    for (const t of [e.call, e.response, ...(e.alt || [])]) errs.push(...slotErrs(name, t, SLOTS));
+    for (const k of Object.keys(e.when || {})) if (!SLOTS.has(k)) errs.push(`${name}: condition on unknown slot "${k}"`);
     if ((e.sets || e.needs) && !e.gag) errs.push(`${name}: a line with sets/needs must name its gag`);
     if (e.alt !== undefined) {
       /* other wordings of the same response, said in turn: same slots, so any of them fits the moment */
@@ -142,14 +171,15 @@ export function validateBank(bank) {
     if (!FAN_SIDES.has(e.side)) errs.push(`${where}: side must be up, down or any`);
     if (e.guest && !(bank.guests || {})[e.guest]) errs.push(`${where}: unknown guest "${e.guest}"`);
     if (!Array.isArray(e.lines) || !e.lines.some(l => l[0] === 'fan')) errs.push(`${where}: needs at least one fan line`);
-    for (const l of e.lines || []) if (!SPEAKERS.includes(l[0]) || typeof l[1] !== 'string' || !l[1].trim()) errs.push(`${where}: bad line ${JSON.stringify(l)}`);
+    for (const l of e.lines || []) if (!SPEAKERS.includes(l[0]) || typeof l[1] !== 'string' || !l[1].trim()) errs.push(`${where}: bad line ${JSON.stringify(l)}`); else errs.push(...slotErrs(where, l[1], FAN_SLOTS));
+    for (const k of Object.keys(e.when || {})) if (!FAN_SLOTS.has(k)) errs.push(`${where}: condition on unknown slot "${k}"`);
   });
   return errs;
 }
 
 /* Draft a whole game's lines from the fallback bank. Same stream + same seed = same draft. */
 export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => '' }) {
-  const rng = mulberry32((seed ^ 0xc0ffee) >>> 0), mem = createMemory(teams), rules = bank.rules || {}, lines = [], recent = [];
+  const rng = mulberry32((seed ^ 0xc0ffee) >>> 0), mem = createMemory(teams, seed), rules = bank.rules || {}, lines = [], recent = [];
   const gags = { chosen: null, flags: new Set(), used: new Set() };   /* the one running gag of this game and how far it has got */
   const turns = new Map();   /* how often each exchange was said: its response and "alt" wordings are said in turn */
   /* the fan guest has his own random stream, so his picks never shift what the other two pick */

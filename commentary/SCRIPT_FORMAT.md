@@ -141,6 +141,13 @@ spot, deterministically for a given seed.
   `{batterKToday}` `{batterHits}` `{batterAb}` `{batterHrToday}` `{batterPrev}` (his previous
   plate appearance), this pitcher today: `{pitcherK}` `{pitchCount}`, and the callback to the
   previous inning: `{lastInningRuns}` (what this team scored the last time it batted).
+- People slots (`league/staff.js`): `{manager}` `{pitchingCoach}` of the team in `{team}` (on a
+  pitching change, the team making it) and `{homeManager}`, said on air as surname + 教練
+  (「廖教練」); `{plateUmp}` (full name, crew from `crewFor(seed)`). Character lines:
+  `{managerName}` + `{managerLine}`, `{plateUmp}` + `{plateUmpLine}`: only in `once` lines with a
+  narrow `when`, so they come up now and then, never as a gag. `validateBank()` rejects any slot
+  the player does not fill (`SLOTS` in `player.js`); exchanges also need them in `KNOWN_SLOTS`
+  of `tests/replay/commentary.mjs` (tests owner).
 - **Sometimes nobody talks.** Every trigger has a `silence` probability, and after the booth
   has spoken, routine triggers stay quiet for `rules.minGapSec` seconds. Silence is part of the
   broadcast; do not tune it to zero.
