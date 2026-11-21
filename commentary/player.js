@@ -48,6 +48,8 @@ function createMemory(teams) {
   /* slot values for a line bound to event x (called after apply(x)) */
   m.slots = (x, desc) => {
     const who = x.batter || m.last.batter, team = x.team != null ? x.team : m.last.team, b = who ? batter(who) : {}, p = x.pitcher || m.last.pitcher;
+    /* "the previous plate appearance": on a pitch the batter is mid-PA, so it is the last finished one (now); after a PA ends it is the one before it (prev) */
+    const last = x.type === 'pitch' ? b.now : b.prev;
     const lead = m.score[0] > m.score[1] ? 0 : m.score[1] > m.score[0] ? 1 : -1, bat = team == null ? m.half : team;
     return {
       desc: desc || '', batter: who || '', pitcher: p || '', runner: x.runner || '',
@@ -58,7 +60,7 @@ function createMemory(teams) {
       /* callback to the previous inning: what this team did the last time it batted */
       lastInningRuns: m.inning > 1 ? (m.halfRuns[bat][m.inning - 2] || 0) : 0, hadLastInning: m.inning > 1 ? 1 : 0,
       batterPa: b.pa || 0, batterAb: b.ab || 0, batterHits: b.h || 0, batterKToday: b.k || 0, batterHrToday: b.hr || 0,
-      batterPrev: PREV_LABEL[b.prev] || '', hasPrev: b.prev ? 1 : 0,
+      batterPrev: PREV_LABEL[last] || '', hasPrev: last ? 1 : 0,
       pitcherK: p ? pitcher(p).k : 0, pitchCount: p ? pitcher(p).pitches : 0,
     };
   };
