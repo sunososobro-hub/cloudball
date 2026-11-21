@@ -626,6 +626,7 @@ function catcherThrow(e,u,S,sp){const C=fielders.C,catchAt=ARRIVE+CATCH_SNAP,xfe
   if(back>0){aimWorld(CR,CR.a0,-BAT_SHOULDER_X,0,MITT_REST_Y,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,0,MITT_REST_Y-.15,MITT_Z+.2)}
   else if(u-S.t0<THROW_FT_DUR)throwPose(C,tt,xfer,tgt);
   return r}
+const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 function poseScene(e,u,dt,ei){
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
   matDef.color.setHex(TEAMS[defT].color);matOff.color.setHex(TEAMS[off].color);
@@ -664,7 +665,7 @@ function poseScene(e,u,dt,ei){
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
   else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
-    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-3.4)/.9)}}
+    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
@@ -953,7 +954,7 @@ const LIVE_ENABLED=false;
 function startPractice(){stopTalk();mode='practice';gameStart=Date.now();seedCur=(Math.random()*4294967296)>>>0;decisions={};myVotes={};resolving.clear();regen();lastIdx=-1;cues.clear();replayT=0;voteKey='';subscribeGame();
   $('seedTag').textContent=`開發版・種子 #${seedCur.toString(16)}`;$('spd').hidden=false;if(LIVE_ENABLED)$('mode').hidden=false;$('mode').textContent='回到直播'}
 /* The frozen first game (league/preseason/opening.json, loaded by index.html): the recorded stream is played from the top, nothing is simulated. */
-function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();
+function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();cpLoad(game);
   $('seedTag').textContent=`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
 $('practice').onclick=()=>{startPractice();note('新的一場：兩隊都由你調度，暫停時速度會自動回到 1×')};
 $('spd').onclick=e=>{speed=speed===1?4:speed===4?16:1;e.currentTarget.textContent=speed+'×'};
@@ -969,8 +970,8 @@ const halfTag=e=>e.k==='PRE'?'賽前':e.k==='END'?'終':`${e.s0.half?'▼':'▲'
 /* starts of every play (plus 0, the pregame) and one mark at the first pitch of each half inning */
 function plBuild(){plFor=game;plStarts=[0];const marks=[];let k='';
   for(const e of game.ev){if(e.k!=='P')continue;plStarts.push(e.t);const h=e.s0.inn+'|'+e.s0.half;if(h!==k){k=h;marks.push(e)}}
-  $('plMarks').innerHTML=marks.map(e=>`<i class="${e.s0.half?'bot':'top'}" style="left:${(e.t/game.dur*100).toFixed(3)}%"${e.s0.half?'':` data-inn="${e.s0.inn}"`}></i>`).join('');
-  plTrack.setAttribute('aria-valuemax',Math.round(game.dur));$('plTime').style.minWidth=`${2*fmtClock(game.dur).length+3}ch`/* the track must not change width as the clock grows */}
+  $('plMarks').innerHTML=marks.map(e=>`<i class="${e.s0.half?'bot':'top'}" style="left:${(cpView(e.t)/cpDur()*100).toFixed(3)}%"${e.s0.half?'':` data-inn="${e.s0.inn}"`}></i>`).join('');
+  plTrack.setAttribute('aria-valuemax',Math.round(cpDur()));$('plTime').style.minWidth=`${2*fmtClock(cpDur()).length+3}ch`/* the track must not change width as the clock grows */}
 function plNear(T){const a=plStarts;let lo=0,hi=a.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(a[m]<=T)lo=m;else hi=m-1}return lo<a.length-1&&a[lo+1]-T<T-a[lo]?lo+1:lo}
 const plSnap=T=>plStarts[plNear(clamp(T,0,game.dur))];
 /* floorEv (highlights, #118): land exactly on T, not on a play start, and say only lines bound to event floorEv or later */
@@ -980,8 +981,8 @@ function seekTo(T,floorEv){const from=replayT,t=floorEv==null?plSnap(T):clamp(T,
   dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from,to:t}}))}
 function plSetPaused(v){paused=v;if(v)VOICE.stop();plLast=''}
 function plReset(){paused=scrubbing=false;seekFloor=0;seekGame=null;plFor=null;plLast='';hlStop()}
-const plAt=x=>{const r=plTrack.getBoundingClientRect();return clamp((x-r.left)/Math.max(1,r.width),0,1)*game.dur};
-function plShowTip(t){const e=game.ev[findIdx(t)];plTip.textContent=`${halfTag(e)}・${fmtClock(t)}`;plTip.style.left=(t/game.dur*100)+'%';plTip.hidden=false}
+const plAt=x=>{const r=plTrack.getBoundingClientRect();return cpGame(clamp((x-r.left)/Math.max(1,r.width),0,1)*cpDur())};
+function plShowTip(t){const e=game.ev[findIdx(t)];plTip.textContent=`${halfTag(e)}・${fmtClock(cpView(t))}`;plTip.style.left=(cpView(t)/cpDur()*100)+'%';plTip.hidden=false}
 plPlay.onclick=()=>{if(mode!=='opening'||hl&&(hl.done||!hl.segs))return;if(replayT>=game.dur){seekTo(0);plSetPaused(false)}else plSetPaused(!paused)};
 plTrack.addEventListener('pointerdown',ev=>{if(mode!=='opening'||ev.button>0)return;ev.preventDefault();plTrack.setPointerCapture(ev.pointerId);scrubbing=true;plEl.classList.add('drag');VOICE.stop();dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from:replayT,to:null,drag:true}}));
   replayT=plSnap(plAt(ev.clientX));plShowTip(replayT)});
@@ -994,9 +995,50 @@ plTrack.addEventListener('keydown',ev=>{if(mode!=='opening')return;const i=plNea
 addEventListener('keydown',ev=>{if(mode!=='opening'||ev.key!==' '||!$('intro').hidden||ev.target.closest('button,input,select,textarea,[role=slider]'))return;ev.preventDefault();plPlay.click()});
 /* per frame: show the bar in the frozen game only, move the fill / handle, labels only when they change */
 function plUpdate(){const vis=mode==='opening'&&!hl&&$('intro').hidden;/* the highlights reel has no bar: it is its own showing */if(plEl.hidden===vis){plEl.hidden=!vis;bugPlace()}if(!vis)return;if(plFor!==game)plBuild();
-  const t=clamp(replayT,0,game.dur),end=t>=game.dur,k=[Math.floor(t),paused,end].join('|');plEl.style.setProperty('--p',(t/game.dur).toFixed(5));
-  if(k===plLast)return;plLast=k;$('plTime').textContent=`${fmtClock(t)} / ${fmtClock(game.dur)}`;plTrack.setAttribute('aria-valuenow',Math.floor(t));plTrack.setAttribute('aria-valuetext',`${halfTag(game.ev[findIdx(t)])} ${fmtClock(t)}`);
+  const t=clamp(replayT,0,game.dur),end=t>=game.dur,v=cpView(t),vd=cpDur(),k=[Math.floor(v),paused,end].join('|');plEl.style.setProperty('--p',(v/vd).toFixed(5));
+  if(k===plLast)return;plLast=k;$('plTime').textContent=`${fmtClock(v)} / ${fmtClock(vd)}`;plTrack.setAttribute('aria-valuenow',Math.floor(v));plTrack.setAttribute('aria-valuetext',`${halfTag(game.ev[findIdx(t)])} ${fmtClock(v)}`);
   const stop=paused||end;plPlay.textContent=stop?'▶':'❚❚';plPlay.setAttribute('aria-label',end?'從頭看':stop?'播放':'暫停')}
+/* ---------- compact showing (#126): the recorded game without its dead air. render/compact.js (pure) shortens every stretch where
+ * nothing on the field moves and the booth is quiet to a named minimum; this part says when the figures of each event stop moving
+ * (cpEvents) and carries the clock across the cuts. replayT stays game time everywhere (poses, booth, highlights, seeks, 'cloudball:seek');
+ * only the bar shows view time (cpView / cpGame / cpDur). A seek that lands inside a cut plays it in real time (the highlights lead).
+ * On by default; on the dev site the 「緊湊／原速」 button in the settings bar (zu_realTime) or ?rt=1 shows real time for review. */
+const PK_END=Math.max(...Object.values(PK).map(K=>K[K.length-1][0]));
+/* a pitch not put in play is still from here on: delivery and walk back to the rubber, return throw, strike call, bat to the shoulder,
+   runners back from their lead, mitt back to rest */
+const PITCH_STILL=Math.max(PK_END,BALL_BACK_AT+BALL_BACK_DUR,ARRIVE+CALL_HOLD+CALL_DOWN,ARRIVE+BAT_REST_AT+BAT_REST_DUR,
+  ARRIVE+window.ENGINE.LEAD_BACK_AT+window.ENGINE.LEAD_BACK_DUR,ARRIVE+CATCH_SNAP+MITT_HOLD+MITT_BACK);
+const CP_RUNNER_SETTLE=.6+SLIDE_HOLD+SLIDE_UP,CP_PEEL_STEP=.05,CP_PEEL_MAX=30;/* after a runner arrives (vanish / get up from a slide); peel search step and cap */
+const cpHere=document.currentScript&&document.currentScript.src;
+const COMPACT=import(new URL('compact.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).catch(err=>{console.warn('compact showing off',err);return null});
+function peelLen(team,tl){for(let t=0;t<CP_PEEL_MAX;t+=CP_PEEL_STEP)if(!peelAt(team,tl,t))return t;return CP_PEEL_MAX}
+const jogEnd=(from,t0)=>t0+Math.max(...FIELDER_KEYS.map(k=>jogRank(k)*JOG_GAP+Math.hypot(fielders[k].home[0]-from[0],fielders[k].home[1]-from[1])/JOG_SPEED));
+/* [{t, d, head, tail, kind}] for render/compact.js: nothing moves in [0, head) and [tail, d) of each event (event-local s). A ball in play,
+   a steal and a hit batsman are never cut (their motion depends on the whole plan). Scorers of earlier plays still peeling off to their
+   dugout (drawn until PEEL_LOOK s after their play) keep any event they cross moving. */
+function cpEvents(g){const ev=g.ev;
+  return ev.map((e,i)=>{const off=e.s0?e.s0.half:0;let pe=0,head=0,tail=e.d;
+    for(let j=i-1;j>=0&&e.t-ev[j].t<PEEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
+      for(const [,to,,tl] of q.moves||[])if(to===4)pe=Math.max(pe,Math.min(q.t+PEEL_LOOK,q.t+tl.arriveT+peelLen(off,tl))-e.t)}
+    if(e.k==='VOTE'||e.k==='CHG'){head=e.d;tail=0}
+    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=jogEnd(dugout(off),BRK_ON_AT)}
+    else if(e.k==='PRE')tail=jogEnd([dugout(1-off)[0],INTRO_Z],0);
+    else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
+      if(e.pa&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+Math.hypot(BAT_AWAY[0]-BAT_BOX[0],BAT_AWAY[1]-BAT_BOX[1])/BAT_AWAY_SPEED);/* strikeout: he walks off */
+      for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE))}/* walk: runners trot on */
+    if(pe>0){head=0;tail=Math.max(tail,pe)}
+    return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch'}})}
+let cpClock=null,cpFor=null,cpReal=false;
+try{cpReal=!!(window.SITE&&window.SITE.dev)&&(localStorage.getItem('zu_realTime')==='1'||new URLSearchParams(location.search).get('rt')==='1')}catch(e){}
+/* the cuts need the booth's line times, so they are known once the script has loaded (a second or so; real time until then) */
+function cpLoad(g){cpFor=g;cpClock=null;plFor=null;
+  Promise.all([COMPACT,window.COMMENTARY.loadScript(g.seed).catch(()=>null)]).then(([C,sc])=>{if(!C||cpFor!==g||game!==g)return;let ls=[];try{ls=makeBooth(sc).lines}catch(err){console.warn('compact: no booth lines',err)}
+    cpClock=C.compactClock(C.compactCuts(cpEvents(g),ls),g.dur);plFor=null;plLast=''})}
+const cpOn=()=>mode==='opening'&&!!cpClock&&cpFor===game&&!cpReal;
+const cpView=T=>cpOn()?cpClock.toView(T):T,cpGame=v=>cpOn()?cpClock.toGame(v):v,cpDur=()=>cpOn()?cpClock.dur:game.dur;
+if(window.SITE&&window.SITE.dev){const b=document.createElement('button');b.id='realTime';b.className='dev-only';b.title='重播的時間軸：緊湊（剪掉沒人動、沒人講話的空檔）或原速';
+  const lab=()=>{b.textContent=cpReal?'原速重播':'緊湊重播';b.setAttribute('aria-pressed',String(!cpReal))};lab();
+  b.onclick=()=>{cpReal=!cpReal;try{localStorage.setItem('zu_realTime',cpReal?'1':'0')}catch(e){}lab();plFor=null;plLast='';note(cpReal?'原速：照比賽的真實時間播':'緊湊：剪掉沒人動、沒人講話的空檔')};$('spd').after(b)}
 /* ---------- highlights showing (#118): the scoring plays and the last out of the frozen game, back to back, with the bar's seek.
  * The list comes from render/highlights.js (window.HIGHLIGHTS, pure, from the recorded stream and the booth's lines). In: the
  * 「看精華」 button of the entry screen or ?hl=1. A short card (inning and score before the play) after every jump; after the last
@@ -1146,7 +1188,7 @@ renderer.setAnimationLoop(()=>{
   const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
   if(mode==='studio')studioTick(dt);
-  else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed))}
+  else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));const prev=replayT;replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed));if(cpOn())replayT=cpClock.step(prev,replayT)}
   hlTick();
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
