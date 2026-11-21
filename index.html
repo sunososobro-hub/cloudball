@@ -67,6 +67,7 @@ body.edit #bug,body.edit #feed,body.edit #who,body.edit #gear,body.edit #tag{cur
 .seg{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
 button{font:inherit;font-size:15px;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--glass);color:var(--ink);cursor:pointer;white-space:nowrap}
 button[aria-pressed=true]{background:var(--ink);color:#0a0f1f}
+#gfx,#compat{white-space:normal;line-height:1.25;padding-top:5px;padding-bottom:5px}#gfx small{display:block;font-size:11px;color:var(--muted)}
 button:disabled{opacity:.45;cursor:not-allowed}
 button:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
 #tag{position:fixed;right:max(12px,env(safe-area-inset-right));top:calc(max(12px,env(safe-area-inset-top)) + 54px);font-size:12px;color:var(--muted);text-align:right;max-width:46vw}
@@ -160,8 +161,8 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
     <button id="zone" aria-pressed="true">好球帶</button>
     <button id="hist" aria-pressed="false">戰況紀錄</button>
     <button id="lineup" class="wide">先發名單</button>
-    <button id="gfx">畫質：高</button>
-    <button id="compat" aria-pressed="false">相容模式</button>
+    <button id="gfx" title="卡卡的就選順暢">畫面：精緻<small>卡卡的就選順暢</small></button>
+    <button id="compat" aria-pressed="false">畫面怪怪的？點這裡</button>
     <button id="editUI" class="wide">編輯版面（自己拖面板）</button>
   </div>
   <h4>聲音</h4>
