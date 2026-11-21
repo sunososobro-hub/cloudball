@@ -553,14 +553,14 @@ function poseBattery(e,u){
   const call=isP&&(e.r==='cstr'||e.r==='sstr')?ease(sat01((u-(ARRIVE+CALL_DELAY))/CALL_UP))*(1-ease(sat01((u-(ARRIVE+CALL_HOLD))/CALL_DOWN))):0,cu=(set?1:0)*(1-CALL_STAND*call)*(1-up);
   crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.hg.rotation.x=-UMP_HEAD_UP*cu;ump.noAnim=set&&up<1;
   if(set&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up);aimArm(UR.a0,-BAT_SHOULDER_X,h(-.25,0,-BAT_SHOULDER_X),h(.1,1),h(.45,2));aimArm(UR.a1,BAT_SHOULDER_X,h(lerp(.25,.45,call),0,BAT_SHOULDER_X),h(lerp(.1,1.3,call),1),h(lerp(.45,.05,call),2))}else armsDown(UR)}
-/* Plate umpire's spot: behind the catcher on the side away from the batter. On a ball in play with a runner coming home he walks out of the
-   runners' way to UMP_GIVE (behind the plate, on the side away from the batting team's dugout, where scorers peel off), stays until
-   UMP_HOLD s after the last runner reaches home, and is back on his spot before he crouches again at the end of the play */
+/* Plate umpire's spot: behind the catcher on the side away from the batter. On a ball in play he comes out from behind the standing catcher
+   (who would hide him from the centre-field camera) and out of the runners' way to UMP_GIVE (behind the plate, on the side away from the
+   batting team's dugout, where scorers peel off), stays until UMP_HOLD s after the last runner reaches home, and is back on his spot
+   before he crouches again at the end of the play */
 const UMP_X=.3,UMP_Z=2.6,UMP_GIVE=[2,2.1],UMP_GO_AT=PLATE_UP_AT+PLATE_UP_DUR,UMP_HOLD=1.5,UMP_WALK=2.2,UMP_BACK_PAD=PLATE_DOWN_AT+.2;
 function placeUmp(e,u){const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',hx=lf?-UMP_X:UMP_X;let x=hx,z=UMP_Z,yaw=Math.PI;
-  const homes=e.r==='inplay'?(e.moves||[]).filter(m=>m[1]===4).map(m=>m[3].arriveT):[];
-  if(homes.length){const last=Math.max(...homes),gx=-Math.sign(dugout(e.s0.half)[0])*UMP_GIVE[0],gz=UMP_GIVE[1],tw=Math.hypot(gx-hx,gz-UMP_Z)/UMP_WALK,t0=ARRIVE+UMP_GO_AT,
-      end=e.d||last+UMP_HOLD+tw+UMP_BACK_PAD,tb=Math.max(t0+tw,Math.min(last+UMP_HOLD,end-tw-UMP_BACK_PAD)),go=ease(sat01((u-t0)/tw)),bk=ease(sat01((u-tb)/tw));
+  if(e.r==='inplay'){const last=Math.max(-Infinity,...(e.moves||[]).filter(m=>m[1]===4).map(m=>m[3].arriveT)),gx=-Math.sign(dugout(e.s0.half)[0])*UMP_GIVE[0],gz=UMP_GIVE[1],tw=Math.hypot(gx-hx,gz-UMP_Z)/UMP_WALK,t0=ARRIVE+UMP_GO_AT,
+      end=e.d||Math.max(t0,last)+UMP_HOLD+2*tw+UMP_BACK_PAD,tb=Math.max(t0+tw,Math.min(last>-Infinity?last+UMP_HOLD:Infinity,end-tw-UMP_BACK_PAD)),go=ease(sat01((u-t0)/tw)),bk=ease(sat01((u-tb)/tw));
     x=lerp(lerp(hx,gx,go),hx,bk);z=lerp(lerp(UMP_Z,gz,go),UMP_Z,bk);
     if(go>0&&go<1)yaw=Math.atan2(gx-hx,gz-UMP_Z);else if(bk>0&&bk<1)yaw=Math.atan2(hx-gx,UMP_Z-gz);else if(go>=1&&bk===0)yaw=Math.atan2(-x,-z)}
   ump.g.position.x=x;ump.g.position.z=z;ump.g.rotation.y=yaw;if(ump.noAnim){ump.px=x;ump.pz=z}}
