@@ -219,16 +219,6 @@
     "transcript": "主隊貓頭鷹，先發球員上場守備。",
     "transcriptMatch": true
   },
-  "color-2dcd3737c4": {
-    "hash": "928b0ba130cdcfabb593818f57ade6ae8c5591c1152185ef11b3a861578ee54f",
-    "role": "color",
-    "model": "gpt-audio-1.5",
-    "voice": "echo",
-    "tone": "平穩清楚，正常播報",
-    "text": "二十一歲就先發，球威不輸許子豪。年輕人啦，第一局先把緊張投掉就好。",
-    "transcript": "二十一歲就先發，球威不輸許子豪。年輕人啦，第一局先把緊張投掉就好，不然以後要投掉的還多著呢。",
-    "transcriptMatch": false
-  },
   "color-cf5ad1d052": {
     "hash": "53b15da9cc7d9287d4507eec3e65bf80e98811bd6459ea501669723ad76b6210",
     "role": "color",
@@ -419,16 +409,6 @@
     "transcript": "一局上打完，帝雉1比0貓頭鷹。",
     "transcriptMatch": true
   },
-  "color-4f49145609": {
-    "hash": "73ec2d39c6786e8a403cf945dc41959b47fc590dc554742dd3e87e1784f83d67",
-    "role": "color",
-    "model": "gpt-audio-1.5",
-    "voice": "echo",
-    "tone": "覺得好笑，帶點調侃",
-    "text": "明凱，這種飛球你也喊得像要出場。",
-    "transcript": "明凱，這種飛球你也喊得像要出場，真是有點搞笑，還以為自己是主角呢。",
-    "transcriptMatch": false
-  },
   "color-dcbde0f4f3": {
     "hash": "4fe4b924a0a39d245a4b639f1ede28c5c31e380981bfe7505a462efec02b76a0",
     "role": "color",
@@ -438,15 +418,5 @@
     "text": "明凱，這次你沒喊錯，真的出去了。",
     "transcript": "明凱，這次你沒喊錯，真的出去了。\n\n",
     "transcriptMatch": true
-  },
-  "color-08ccb2ddb3": {
-    "hash": "312dab15666ee958f14a35373a23fd8982d3bc0c84558ac2a601ceb1903aaef7",
-    "role": "color",
-    "model": "gpt-audio-1.5",
-    "voice": "echo",
-    "tone": "覺得好笑，帶點調侃",
-    "text": "被打成這樣只掉一分，投手該請三壘手吃宵夜。",
-    "transcript": "被打成這樣只掉一分，投手該請三壘手吃宵夜，呵，便宜他了。",
-    "transcriptMatch": false
   }
 }
