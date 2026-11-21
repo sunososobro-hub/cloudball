@@ -34,6 +34,13 @@ while (queue.length) {
 for (const f of ['assets/players.b64.txt', 'commentary/lines.json', 'commentary/scripts/index.json', 'league/preseason/opening.json', ...['grass', 'dirt', 'concrete', 'leather'].flatMap(n => ['c', 'n', 'orm'].map(s => `assets/tex/${n}_${s}.jpg`)), 'assets/tex/fabric_n.jpg', 'assets/tex/fabric_orm.jpg'])
   if (!existsSync(path.join(ROOT, f))) problems.push(`missing file: ${f}`);
 for (const f of ['commentary/lines.json', 'commentary/scripts/index.json']) { try { JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { problems.push(`${f} is not valid JSON`); } }
+/* #162: in every page the import map comes before the first modulepreload, preload and module script (a module linked
+ * before the map exists fails on its bare "three/..." imports and stays failed for the real import) */
+for (const f of ['index.html', 'render/players_test.html']) {
+  const src = readFileSync(path.join(ROOT, f), 'utf8'), at = re => { const m = src.search(re); return m < 0 ? Infinity : m; };
+  const map = at(/<script\s+type=["']importmap["']/), first = Math.min(at(/<link[^>]*rel=["'](?:modulepreload|preload)["']/), at(/<script\s+type=["']module["']/));
+  if (first < Infinity && !(map < first)) problems.push(`${f}: the import map must come before every modulepreload, preload and module script`);
+}
 const wf = path.join(ROOT, '.github/workflows');
 if (existsSync(wf)) for (const f of readdirSync(wf)) if (!['ci.yml', 'merge-gate.yml'].includes(f)) problems.push(`.github/workflows/${f} is not allowed (only ci.yml and merge-gate.yml)`);
 const rules = readFileSync(path.join(ROOT, '.agent/rules.md'), 'utf8').split('\n').length - 1;

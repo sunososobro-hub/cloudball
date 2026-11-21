@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- #162: the import map must come before every modulepreload, preload and module script (a preloaded module linked before it fails on "three/webgpu" and stays failed) -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <title>雲端職棒</title>
 <script src="ui/site.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,7 +26,8 @@
 <!-- #133: the entry progress bar is static, so it is on screen from the first paint of a cold visit; BOOT counts the real load stages,
      then render/game.js takes the same element over for the park compile (BOOT.share of the bar is loading, the rest is compiling) -->
 <script>
-window.BOOT={share:.5,n:0,N:11,own:false,step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
+/* #162: fail() = a load the page cannot start without broke: say so in plain words instead of 「準備球場中…」 forever */
+window.BOOT={share:.5,n:0,N:11,own:false,failed:false,fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
 </script>
 <style>
 #warmBar{position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none;opacity:0;animation:wbIn .2s .3s forwards}
@@ -238,7 +241,6 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
     <small><a class="guide" href="guide.html">球隊與球員介紹</a></small>
   </div>
 </div>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script src="ui/stats.js" defer></script>
 <script type="module">
 /* The intro line comes straight from league/ and does not wait for three.js. */
@@ -266,13 +268,14 @@ const pThree=st(import('three/webgpu')),pTsl=st(import('three/tsl')),
   pHl=st(import('./render/highlights.js')).catch(e=>{console.warn('highlights failed to load',e);return null}),
   /* 骨架球員(render/players.js)：先載 assets/players.b64.txt；載不到就用程式生成的骨架人（一樣的關節介面） */
   pPl=st(import('./render/players.js')).then(PL=>st(PL.loadPlayerAssets('assets/')).catch(e=>console.warn('players 素材載入失敗，改用程式生成人體',e)).then(()=>PL)).catch(e=>{console.error('players.js 載入失敗',e);return null});
-const THREE=await pThree,TSL=await pTsl,[{bloom},{ao},{fxaa}]=await pFx;
+const halt=e=>{B.fail(e);return new Promise(()=>{})};/* #162: a failed must-have load stops here with the failure line */
+const [THREE,TSL,[{bloom},{ao},{fxaa}]]=await Promise.all([pThree,pTsl,pFx]).catch(halt);
 window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
 const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await st(R.init())}catch(e){console.error(e)}window.RENDERER=R;
 /* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
-window.PL=await pPl;window.ENGINE=await pEngine;window.OPENING=await pOpening;window.COMMENTARY=await pComm;window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
-await load('render/game.js');
+window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
+await load('render/game.js').catch(halt);
 /* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
 await window.READY;document.getElementById('enter').textContent='進場（開聲音）';
 for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;
