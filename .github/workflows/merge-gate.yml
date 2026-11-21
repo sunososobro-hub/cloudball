@@ -1,0 +1,53 @@
+# A pull request that touches a protected path (engine/, .agent/, .github/) may only merge
+# after the repository owner has commented, on that pull request:
+#
+#     Opus review: PASS <full sha of the PR head>
+#
+# The result is published as the commit status "merge-gate" on the PR head, so it is updated
+# both when commits are pushed and when the comment is posted. Comment-triggered runs use the
+# copy of this file on the default branch.
+name: merge-gate
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created, edited, deleted]
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  statuses: write
+jobs:
+  gate:
+    if: github.event_name == 'pull_request' || github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const PROTECTED = ['engine/', '.agent/', '.github/'];
+            const { owner, repo } = context.repo;
+            const number = context.eventName === 'pull_request' ? context.payload.pull_request.number : context.payload.issue.number;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            const sha = pr.head.sha;
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number, per_page: 100 });
+            const touched = files.flatMap(f => [f.filename, f.previous_filename || '']).filter(n => PROTECTED.some(p => n.startsWith(p)));
+            let ok = touched.length === 0, why = 'no protected path touched';
+            if (!ok) {
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
+              const pass = /^\s*Opus review: PASS ([0-9a-f]{40})\s*$/m;
+              ok = comments.some(c => {
+                const byOwner = c.user && (c.user.login === owner || c.author_association === 'OWNER');
+                const m = pass.exec(c.body || '');
+                return byOwner && m && m[1] === sha;
+              });
+              why = ok ? `owner review PASS for ${sha.slice(0, 12)}` : `protected path touched (${touched[0]}); needs owner comment "Opus review: PASS ${sha}"`;
+            }
+            core.info(why);
+            try {
+              await github.rest.repos.createCommitStatus({ owner, repo, sha, state: ok ? 'success' : 'failure', context: 'merge-gate', description: why.slice(0, 140) });
+            } catch (err) {
+              core.warning(`could not publish the merge-gate status (read-only token on a fork?): ${err.message}`);
+            }
+            if (!ok) core.setFailed(why);
