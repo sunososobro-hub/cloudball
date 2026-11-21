@@ -42,6 +42,7 @@
 21. All repo text is English (code, comments, docs, commits). Chinese only as game content
     (team names, player names, commentary lines, on-screen copy).
 22. No build step: plain static files that run from any static server.
-23. Run `node tests/replay/run.mjs` before every push; put its numbers in the PR body.
+23. Run the three `node tests/replay/*.mjs` checks before every push; put the
+    `run.mjs` numbers in the PR body.
 24. Official game records live in `cloudball-league` (append-only). Pre-season games are
     never written there.

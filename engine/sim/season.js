@@ -1,5 +1,10 @@
-/* 零號雲端職棒 season simulator: 4 teams, two halves x 30 games, best-of-7 finals, aging between seasons */
-const {simGame,ROSTERS,TEAMS}=require('./sim.js');
+/* Season simulator (development tool): 4 teams, two halves x 30 nights, best-of-7 finals, aging
+ * between seasons. Usage: node engine/sim/season.js [seasons]. The report is printed in the
+ * league's language (game content). Official seasons will not age players here: ability comes
+ * from the factory settings plus the ledger. */
+import { simGame } from './game.js';
+import { TEAMS } from '../../league/teams.js';
+import { ROSTERS } from '../../league/players.js';
 const N_TEAMS=4,HALF_NIGHTS=30,ROTATION=5,QUAL_PA_PER_G=3.1,QUAL_IP_PER_G=1.0;
 const MATCHINGS=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]];
 const hash=(...a)=>a.reduce((h,x)=>Math.imul(h^(x>>>0),2654435761)>>>0,0x9e3779b9);
@@ -29,7 +34,7 @@ function runSeason(season,rosters){
 }
 /* aging: young players grow toward potential, peak ~27-30, decline after 31 */
 function ageRosters(rosters,season){
-  const R=require('./sim.js');const rnd=(()=>{let a=hash(season,99);return()=>{a=Math.imul(a^a>>>15,a|1)+0x6D2B79F5>>>0;return a/4294967296}})();
+  const rnd=(()=>{let a=hash(season,99);return()=>{a=Math.imul(a^a>>>15,a|1)+0x6D2B79F5>>>0;return a/4294967296}})();
   const grow=age=>age<=23?.05:age<=26?.025:age<=30?0:age<=33?-.03:-.06;
   const out=clone(rosters),log=[];
   out.forEach((r,ti)=>{for(const p of [...r.bat,...r.pit]){p.age++;const g=grow(p.age)*(p.pot)+ (rnd()-.5)*.03;

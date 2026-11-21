@@ -4,6 +4,10 @@ A baseball league that only exists in the browser. Games are simulated by a dete
 engine and shown as a 3D night-game broadcast: stadium, players, scorebug, two commentators,
 fan votes on a few manager decisions.
 
+Only the engine decides what happens. The 3D view, the commentary and the UI replay the
+engine's event stream; none of them can change a result or a statistic. No AI or other paid
+service is called while you watch.
+
 ## Status: pre-season (warm-up)
 
 The league has not started. What you see now are **pre-season games**: each one is computed
@@ -23,11 +27,16 @@ Opening `index.html` straight from disk does not work (textures and modules need
 The page loads three.js from a CDN, so it needs internet. WebGPU is used when available;
 the settings panel has a compatibility (WebGL) switch.
 
-Headless checks (plain Node, no browser):
+Headless checks (plain Node, no browser, no dependencies):
 
 ```sh
-node tests/replay/run.mjs
+node tests/replay/run.mjs          # 1000 full games: rules, outs, scores, determinism + league rates
+node tests/replay/commentary.mjs   # commentary bank and scripts
+node tests/replay/static.mjs       # no missing files, scripts parse
 ```
+
+Deployment is Cloudflare Pages connected to this repository (no build command, output
+directory `/`). There is no deploy workflow.
 
 ## Layout
 

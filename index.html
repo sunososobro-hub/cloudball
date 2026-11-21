@@ -152,8 +152,6 @@ body.studio #bug,body.studio #feed{display:none}#studio.fold .srow.x{display:non
   <div class="seg g2">
     <button id="snd" aria-pressed="false">音效</button>
     <button id="say" aria-pressed="false">播報</button>
-    <button id="accent" class="wide" hidden>口音：台灣</button>
-    <button id="bantAI" class="wide" hidden aria-pressed="false">AI 球評閒聊：關（開了會用你的 Claude 額度）</button>
   </div>
   <h4>比賽</h4>
   <div class="seg g2">
@@ -193,9 +191,11 @@ window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
 const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await R.init()}catch(e){console.error(e)}window.RENDERER=R;
 /* 骨架球員(render/players.js)：先載 assets/players.b64.txt；載不到就用程式生成的骨架人（一樣的關節介面） */
 try{window.PL=await import('./render/players.js');try{await window.PL.loadPlayerAssets('assets/')}catch(e){console.warn('players 素材載入失敗，改用程式生成人體',e)}}catch(e){console.error('players.js 載入失敗',e);window.PL=null}
-/* Game logic (engine/) loads first as a classic script, then the 3D/UI code (render/game.js). */
+/* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
-await load('engine/sim/sim.js');await load('render/game.js');
+window.ENGINE=await import('./engine/index.js');
+window.COMMENTARY=await import('./commentary/index.js');try{window.COMMENTARY_BANK=await window.COMMENTARY.loadBank()}catch(e){console.warn('commentary bank failed to load; the booth stays silent',e);window.COMMENTARY_BANK=null}
+await load('render/game.js');
 </script>
 </body>
 </html>

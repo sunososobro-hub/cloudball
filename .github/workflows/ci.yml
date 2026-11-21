@@ -5,6 +5,9 @@ on:
     branches: [dev, main]
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -14,9 +17,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Syntax check
-        run: |
-          set -e
-          for f in $(git ls-files 'engine/**/*.js' 'engine/**/*.mjs' 'render/*.js' 'ui/**/*.js' 'commentary/**/*.js' 'tests/**/*.mjs'); do node --check "$f"; done
-      - name: Headless game suite
+      - name: Static site check (no missing files, scripts parse)
+        run: node tests/replay/static.mjs
+      - name: Headless game suite (1000 full games)
         run: node tests/replay/run.mjs
+      - name: Commentary checks
+        run: node tests/replay/commentary.mjs
