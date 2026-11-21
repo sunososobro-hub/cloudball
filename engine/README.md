@@ -45,6 +45,9 @@ receiver is standing on it. The out's time is the moment the ball is held on the
 earlier. A ball that beats the runner by less than `CLOSE_PLAY_MARGIN` is no out: the tie goes
 to the runner, and every out can be proven again from the millisecond-rounded stream.
 
+A fielder who waits to tag stands beside the lane of the runner sliding in, never in it
+(`SECOND_TAG_OFF`, `THIRD_TAG_OFF`, `HOME_TAG_SPOT`). The referee measures it on every tag play.
+
 ## A plate appearance
 
 Each pitch is drawn from the count. `ZONE_BY_COUNT[balls][strikes]` (times the pitcher's
