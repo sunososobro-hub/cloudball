@@ -53,6 +53,22 @@ try {
   if (wired.lines[2].audio || wired.lines[2].dur) bad('a removed file is still wired');
   if (readFileSync(path.join(DIR, 'scripts', file), 'utf8') !== original) bad('the real script was written by the check');
 
+  /* gate (#99): with a synth manifest, a clip whose transcript adds words is refused; a reading difference is not */
+  writeFileSync(path.join(audio, `${idb}.mp3`), fakeMp3(1.2));
+  const said = { [ida]: { transcript: `${a.text.replace(/[，。！？]/g, ' ')}\n` }, [idb]: { transcript: `${b.text}這樣講連你阿嬤都聽得懂。` } };
+  writeFileSync(path.join(audio, 'manifest.json'), JSON.stringify(said));
+  const kept = readFileSync(copy, 'utf8');
+  r = run([copy, '--dir', audio]);
+  if (r.status === 0) bad('a clip that adds words to its line is wired');
+  if (readFileSync(copy, 'utf8') !== kept) bad('the script was written although a clip was refused');
+  said[idb].transcript = b.text.replace(/[，。！？]/g, '');
+  writeFileSync(path.join(audio, 'manifest.json'), JSON.stringify(said));
+  if (run([copy, '--dir', audio]).status !== 0) bad('clips that say their line (punctuation aside) are refused');
+  if (!JSON.parse(readFileSync(copy, 'utf8')).lines[2].audio) bad('a clip that says its line is not wired');
+  const { sameWords } = await import('./tools/transcript.mjs');
+  for (const [said2, line, same] of [['背號五十九', '背號59', true], ['一比零', '1比0', true], ['兩出局。', '二出局', true], ['好的，我來準備囉！第一棒。', '第一棒', false]])
+    if (sameWords(said2, line) !== same) bad(`transcript "${said2}" vs line "${line}" should be ${same ? 'the same' : 'different'}`);
+
   /* 3: the whole frozen game recorded, every other line without a file */
   const g = simGame(Number(seed), {}), teams = g.teams.map(i => TEAMS[i]), bank = JSON.parse(readFileSync(path.join(DIR, 'lines.json'), 'utf8'));
   const rec = { ...script, lines: script.lines.map((l, n) => (n % 7 === 3 ? l : { ...l, audio: `audio/${name}/${n}.mp3`, dur: 1 + (n % 5) * 0.9 })) };
@@ -69,7 +85,10 @@ try {
     prev = l;
   }
   for (const l of booth.plan) if (l.speaker === 'pbp' && (l.priority || 0) >= 2 && l.audio && l.drop) bad(`priority-2 call dropped: ${l.text}`);
-  const plain = createBooth({ stream: g.stream, seed: g.seed, bank, script, teams, describe: x => g.ev[x.f].desc });
+  /* the real script may already be wired: take every file away for the "no recorded audio" case */
+  const bare = ({ audio: _a, dur: _d, ...l }) => l;
+  const silent = { ...script, ...(script.pregame ? { pregame: script.pregame.map(bare) } : {}), lines: script.lines.map(bare) };
+  const plain = createBooth({ stream: g.stream, seed: g.seed, bank, script: silent, teams, describe: x => g.ev[x.f].desc });
   if (plain.recorded || plain.plan) bad('a script without audio is timed as recorded');
   const dropped = booth.plan.filter(l => l.drop && l.drop !== 'no audio').length;
   if (!errs.length) console.log(`OK: scripts match their audio folders, wiring adds and clears files, recorded timing holds (${booth.lines.length} spoken, ${dropped} dropped for room in the test game).`);

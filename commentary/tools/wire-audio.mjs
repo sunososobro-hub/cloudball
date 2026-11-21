@@ -5,6 +5,8 @@
  *   file there   -> `audio` = "audio/<name>/<id>.mp3" and `dur` = its length in seconds
  *   no file      -> `audio` and `dur` are removed, so the viewer never asks for a missing mp3
  * A game whose script has any recorded line is played with recorded voice only (player.js).
+ * Gate (#99): when the folder has the synth manifest, a file whose transcript does not say its line
+ * (tools/transcript.mjs), or that has no manifest entry, is refused: nothing is written, exit 1.
  *
  * Usage: node commentary/tools/wire-audio.mjs commentary/scripts/<name>.json [--check] [--report [N]] [--dir <folder>]
  *   --check       write nothing; exit 1 if the script and the folder disagree
@@ -16,6 +18,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lineId } from './line-id.mjs';
+import { sameWords } from './transcript.mjs';
 import { mp3Duration } from './mp3-duration.mjs';
 import { formatScript, planRecorded, estimateDur } from '../player.js';
 
@@ -33,12 +36,20 @@ const name = path.basename(file, '.json');
 const rel = `audio/${name}`, dir = args.includes('--dir') ? args[args.indexOf('--dir') + 1] : path.join(ROOT, rel);
 const files = new Set(dir && existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.mp3')) : []);
 const before = readFileSync(file, 'utf8'), script = JSON.parse(before);
+const manifestPath = path.join(dir, 'manifest.json');
+const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null;
+const refused = [];
 
 const used = new Set();
 let wired = 0;
 const wire = l => {
   const id = lineId(l, script.guest), f = `${id}.mp3`, { audio, dur, ...rest } = l;
   if (!files.has(f)) return rest;
+  const m = manifest && manifest[id];
+  if (manifest && (!m || !sameWords(m.transcript, l.text))) {
+    refused.push(m ? `${id}: says "${String(m.transcript).trim()}" for "${l.text}"` : `${id}: no entry in manifest.json`);
+    return rest;
+  }
   used.add(f); wired++;
   return { ...rest, audio: `${rel}/${f}`, dur: Number(mp3Duration(path.join(dir, f)).toFixed(DUR_DECIMALS)) };
 };
@@ -46,6 +57,10 @@ const out = { ...script, ...(script.pregame ? { pregame: script.pregame.map(wire
 const text = formatScript(out);
 const total = script.lines.length + (script.pregame || []).length;
 console.log(`${wired} of ${total} lines have a recorded file in commentary/${rel}/ (${files.size} mp3 there)`);
+if (refused.length) {
+  console.error(`refused: these clips do not say their line (re-record them with synth.mjs, or delete the file):\n  ${[...new Set(refused)].join('\n  ')}`);
+  process.exit(1);
+}
 const orphans = [...files].filter(f => !used.has(f));
 if (orphans.length) console.log(`mp3 no line uses (stale or orphaned):\n  ${orphans.join('\n  ')}`);
 
