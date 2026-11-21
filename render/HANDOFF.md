@@ -10,7 +10,7 @@
 - #5 steal (PR #24, stacked on #22): `catcherThrow` pops him up, transfers, holds at the chest when plan.t0 is late (issue #23),
   steps toward the bag, throws at plan.t0 from `throwRelease`, sinks back into the crouch over the last 0.7 s of the event.
 
-## Next in #5 (one PR each, branch off the latest #5 branch, base dev)
+## Next in #5 (one PR each, base dev; branch off feat/5-steal. Remote feat/5 is a stale WIP, ignore it)
 - (b) tag pose helper (crouch, glove low on the runner's side of the bag) for steal receiver and FC tags (`plan.actions` a:'tag').
 - (c) pitcher ~1 m jump covering first on 3-6-3: cover position ignores the delivery stride `kf(u,PK.dz)`.
 
