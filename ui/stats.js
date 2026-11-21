@@ -23,14 +23,30 @@
     const $ = x => document.getElementById(x);
     const seedNow = () => { const m = /#([0-9a-f]+)\s*$/.exec(($('seedTag') || {}).textContent || ''); seed = m ? m[1] : seed; return seed; };
     const studio = () => document.body.classList.contains('studio');
-    /* the inning shown in the scorebug: "▲3" / "▼9" or "終" at the end */
+    /* the inning shown in the scorebug: "▲3" / "▼9" or "終" at the end.
+     * Only innings reached by playing count (#117): a jump on the player bar (event 'cloudball:seek' from render/game.js) lands
+     * wherever it lands and that inning is not sent; a drag is ignored while the handle is held; "game_end" only when the last
+     * inning was reached by playing. prev = last inning seen (0 before the first, null right after a jump), live = the position
+     * now was reached by playing. */
+    let prev = 0, live = true, dragging = false, shown = '', jumpTimer = 0;
+    const inningOf = () => { const m = /(\d+)/.exec(($('bin') || {}).textContent || ''); return m ? +m[1] : null; };
     const look = () => {
-      if (!entered || studio()) return;
-      seedNow();
+      if (!entered || studio() || dragging) return;
+      const was = shown; shown = seedNow();
+      if (was && shown !== was) { prev = 0; live = true; }   /* a new game (random game in the dev tools) starts the count over */
       const t = ($('bin') || {}).textContent || '';
-      if (t === '終') { send('game_end', 0, 'game_end:' + seed); return; }
-      const m = /(\d+)/.exec(t); if (m) send('inning', +m[1], 'inning:' + seed + ':' + m[1]);
+      if (t === '終') { if (live && prev) send('game_end', 0, 'game_end:' + seed); return; }
+      const n = inningOf(); if (n === null) return;
+      if (prev === null) { live = false; prev = n; return; }  /* the inning a jump landed in */
+      if (n === prev + 1) { live = true; send('inning', n, 'inning:' + seed + ':' + n); }
+      else if (n !== prev) live = false;                      /* any other change is a jump or a restart, not playing */
+      prev = n;
     };
+    addEventListener('cloudball:seek', ev => {
+      dragging = !!(ev.detail && ev.detail.drag); prev = null; clearTimeout(jumpTimer);
+      /* a jump inside the same inning changes nothing in the scorebug; learn the landing inning shortly after instead */
+      jumpTimer = setTimeout(() => { if (prev === null && !dragging) { const n = inningOf(); if (n !== null) { prev = n; live = false; } } }, 600);
+    });
     const watch = (el, opt, fn) => { if (el) new MutationObserver(fn).observe(el, opt); };
 
     document.addEventListener('click', ev => {
