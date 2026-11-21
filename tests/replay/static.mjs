@@ -1,6 +1,7 @@
 /* Static site check (plain Node): every local file the page, the modules and the stylesheets
  * refer to exists, every script parses, and the workflow folder holds only the two allowed files.
- * It also runs tests/names.check.mjs (league name rules) as a child process, so CI covers it.
+ * It also runs tests/names.check.mjs (league name rules) and tests/staff.check.mjs (league staff
+ * rules) as child processes, so CI covers them.
  * Usage: node tests/replay/static.mjs */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -30,7 +31,7 @@ while (queue.length) {
   for (const ref of refsOf(file, src)) queue.push(ref);
 }
 /* files the scripts load by name at run time */
-for (const f of ['assets/players.b64.txt', 'commentary/lines.json', 'commentary/scripts/index.json', ...['grass', 'dirt', 'concrete', 'leather'].flatMap(n => ['c', 'n', 'orm'].map(s => `assets/tex/${n}_${s}.jpg`)), 'assets/tex/fabric_n.jpg', 'assets/tex/fabric_orm.jpg'])
+for (const f of ['assets/players.b64.txt', 'commentary/lines.json', 'commentary/scripts/index.json', 'league/preseason/opening.json', ...['grass', 'dirt', 'concrete', 'leather'].flatMap(n => ['c', 'n', 'orm'].map(s => `assets/tex/${n}_${s}.jpg`)), 'assets/tex/fabric_n.jpg', 'assets/tex/fabric_orm.jpg'])
   if (!existsSync(path.join(ROOT, f))) problems.push(`missing file: ${f}`);
 for (const f of ['commentary/lines.json', 'commentary/scripts/index.json']) { try { JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { problems.push(`${f} is not valid JSON`); } }
 const wf = path.join(ROOT, '.github/workflows');
@@ -38,9 +39,11 @@ if (existsSync(wf)) for (const f of readdirSync(wf)) if (!['ci.yml', 'merge-gate
 const rules = readFileSync(path.join(ROOT, '.agent/rules.md'), 'utf8').split('\n').length - 1;
 if (rules > 50) problems.push(`.agent/rules.md has ${rules} lines (cap is 50)`);
 if (readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8').trimEnd().split('\n').length !== 3) problems.push('CLAUDE.md must be exactly 3 lines');
-const names = spawnSync(process.execPath, [path.join(ROOT, 'tests/names.check.mjs')], { encoding: 'utf8' });
-process.stdout.write(names.stdout || ''); process.stderr.write(names.stderr || '');
-if (names.status !== 0) problems.push(`tests/names.check.mjs failed (exit ${names.status === null ? 'killed by ' + names.signal : names.status})`);
+for (const check of ['tests/names.check.mjs', 'tests/staff.check.mjs', 'tests/opening.check.mjs', 'tests/site.check.mjs']) {
+  const res = spawnSync(process.execPath, [path.join(ROOT, check)], { encoding: 'utf8' });
+  process.stdout.write(res.stdout || ''); process.stderr.write(res.stderr || '');
+  if (res.status !== 0) problems.push(`${check} failed (exit ${res.status === null ? 'killed by ' + res.signal : res.status})`);
+}
 
 console.log(`${seen.size} files reachable from the page checked`);
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }

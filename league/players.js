@@ -1,4 +1,4 @@
-/* Factory settings: every player as created. Data only (CC0).
+/* Factory settings: every player as created. Data format and stats: CC0. Player names and identities are reserved (not licensed); forks use their own names.
  * Current ability = these values + the official ledger (cloudball-league). Do not edit a
  * player here once official games exist; changes to ability belong in the ledger.
  *

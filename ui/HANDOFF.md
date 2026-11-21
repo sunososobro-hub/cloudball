@@ -1,18 +1,20 @@
 # ui / root files: HANDOFF (2026-11-21)
-
-Agent: the interface window. Covers `ui/` and root files only. The roster window owns `league/` and `tests/` (split on #58); `tests/replay/run.mjs` is engine.
+Agent: the interface window: `ui/` and root files (#47 round 1 also touched `league/`, `tests/`, a few lines of `render/game.js`).
 
 ## Done
-- #60 Kaohsiung team renamed to 高雄煞氣獼猴 (short 獼猴), branch `fix/60`. Only `league/teams.js` held the old name; no leftovers in `commentary/` or `render/`.
-- #25 entry screen cleanup: PR #30 (title, one league-driven match line, two buttons, one footnote; HUD hidden on intro; no loading text).
-- #29 tension checks in CI: PR #31 (spawned from `tests/replay/commentary.mjs`).
+- #60 rename, #25 entry screen, #58 poster, #53 part 1 (guide page), #89 viewing counts (PR #91).
+- #47 round 1 (branch `feat/47`): `league/tools/record.mjs 704 --write` made `league/preseason/opening.json` (crew + both staffs inside);
+  index.html loads it into `window.OPENING`; enter starts it from the top (`startOpening` in `render/game.js`, mode `opening`, no votes).
+  `ui/site.js` decides dev/production by host; development tools carry class `dev-only`. Guards: `tests/opening.check.mjs`, `tests/site.check.mjs`.
+- Guide page staff block fixed (`staffOf`, `ROLES`, umpire `years`).
 
 ## Next
-- Manager order (#58): #58 entry-screen matchup poster, then #53 guide page. #47 and #55 start only when the roster window has no open PR; say so on the issue first.
-- #4 move HUD/voting code out of `render/game.js` into `ui/`: NOT started. It edits `render/`, so it needs the render agent to be idle on `render/game.js` first (area lock).
-- After #30 merges, look at the entry screen in a real browser (the CDN is blocked in the agent sandbox, so the game never booted there): logos, buttons enabling, HUD back after entering.
+- #47 round 2 / #55: 21:00 synchronized showing + countdown (A3), YouTube-style progress bar (jump = start of a play, state from `s0`/`s1`), viewing-count flag for the two kinds of showing. Pregame segments come from #55's `league/` timeline module.
+- #53 part 2: box score block from `boxFromStream` on `opening.json`.
+- #4 HUD/voting out of `render/game.js`: not started (needs the render agent idle on that file).
 
 ## Traps
-- `index.html` intro text: `render/game.js` still writes `#introStatus` and `#status`; they are hidden/empty on purpose, do not show them again.
-- The match line reads `TEAMS[0]` vs `TEAMS[1]` like `render/game.js` does; keep them in step.
-- `render/players_test.html` still has an old team name (render area).
+- `render/game.js` hooks of #47 (all `mode==='opening'`): `subscribeGame` early return, `findVote` returns null, no `resolveVote`, `startOpening`, `statusText`, `enter`.
+- Re-recording is a remaster: `--remaster` plus the pin `FROZEN` in `tests/opening.check.mjs`. JSON turns `Infinity` into null; use `league/recording.js` to read or write the game.
+- New development control? Give it class `dev-only` and add its id to `DEV_ONLY_IDS` in `tests/site.check.mjs`.
+- `#introStatus` stays hidden on purpose. The scorebug footer still says 「開發版」 on production (owner's call).

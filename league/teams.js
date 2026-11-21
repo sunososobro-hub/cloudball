@@ -1,4 +1,4 @@
-/* Factory settings: the teams. Data only (CC0). Team names and logos are not licensed, see README. */
+/* Factory settings: the teams. Data format and stats: CC0. Team names, player names and identities are reserved (not licensed), see README. */
 export const TEAMS = [
   { id: "pheasants", name: "台北房貸帝雉", short: "帝雉", color: 0x2fb5a8, css: "#2fb5a8" },
   { id: "owls", name: "新竹爆肝貓頭鷹", short: "貓頭鷹", color: 0xb04fc8, css: "#b04fc8" },

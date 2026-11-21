@@ -1,4 +1,4 @@
-# cloudball (雲端職棒, Cloud Pro Baseball)
+# cloudball (雲端職棒™, Cloud Pro Baseball™)
 
 A baseball league that only exists in the browser. Games are simulated by a deterministic
 engine and shown as a 3D night-game broadcast: stadium, players, scorebug, two commentators,
@@ -43,11 +43,11 @@ directory `/`). There is no deploy workflow.
 | Path | What lives there |
 | --- | --- |
 | `engine/` | Pure game logic: `rules/`, `sim/`, `stats/`. No DOM, no three.js. |
-| `league/` | Factory settings: teams and players (data, CC0). |
+| `league/` | Factory settings: teams and players (data format and stats CC0; names and identities reserved). |
 | `render/` | 3D: field, players, animation, cameras. |
 | `ui/` | Scorebug/HUD, landscape mode, voting. |
 | `commentary/` | The two commentators: personas, script format, fallback lines. |
-| `assets/` | CC0 models and textures only. |
+| `assets/` | Third-party CC0 models and textures (sources listed); owner-original art will be CC BY 4.0; logos reserved. |
 | `tests/replay/` | Headless whole-game checks. |
 | `.agent/rules.md` | The rules every contributor (human or agent) follows. |
 
@@ -67,8 +67,23 @@ nothing else. Pre-season games are never written there.
 ## Licenses, and what they do not cover
 
 - Code: MIT (`LICENSE`).
-- `assets/` and `league/` data: CC0 1.0 (`assets/LICENSE`, `league/LICENSE`).
-- **Not covered by either license: the league name (雲端職棒 / Cloud Pro Baseball), the team
-  names, and the team logos and mascots.** You are welcome to fork the engine and the data
-  and run your own league: that is a *parallel universe*. You may not present a fork as the
-  original league or its teams. Give your universe its own names and marks.
+- `assets/`: third-party CC0 assets (ambientCG textures, MakeHuman-derived player mesh) stay
+  CC0 1.0 with sources in `assets/SOURCES.md` (`assets/LICENSE`). The owner's own original 3D
+  models, textures and art, from 2026-11-21, are CC BY 4.0, attributed as "cloudball
+  (https://github.com/sunososobro-hub/cloudball)". None exists in `assets/` yet; the team logos
+  are reserved, see below.
+- `league/`: the data format and numeric/stat structure are CC0 1.0 (`league/LICENSE`). Player
+  names and identities/personas are not licensed, like team names; public forks must replace them.
+- **Reserved (not licensed): names, logos, mascots and characters** (league, teams, players,
+  commentators, fans). Public forks must replace them; see [TRADEMARKS.md](TRADEMARKS.md).
+- Versions already published under CC0 before this change remain CC0 for those versions (a CC0
+  grant cannot be revoked). The terms above apply from 2026-11-21.
+- Commentary audio (`commentary/audio/`): CC BY 4.0 (`commentary/audio/LICENSE`). Attribute as
+  "Voices from cloudball (https://github.com/sunososobro-hub/cloudball). AI-generated with
+  OpenAI gpt-audio-1.5, not human recordings." The voices are AI-generated (OpenAI
+  gpt-audio-1.5). The site must show an "AI 語音" label wherever this audio plays (OpenAI usage
+  policy disclosure).
+
+## Anonymous viewing counts
+
+The site counts how people watch, without knowing who they are: a random id made for each page load (never stored in a cookie or in the browser), the milestone reached (entered, sound on, inning, game end, fast-forward, leaving), the game seed, and the seconds watched. No IP address, user agent or account is stored by us. Code: `ui/stats.js`, `functions/api/v.js`, `ui/stats-report.mjs`.
