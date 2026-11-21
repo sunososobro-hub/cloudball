@@ -11,7 +11,7 @@ export const OUT = Object.freeze({
   TAG: 'tag',
 });
 
-import { STRIKES_FOR_OUT } from '../constants.js';
+import { STRIKES_FOR_OUT, CLOSE_PLAY_MARGIN } from '../constants.js';
 
 const need = (cond, msg) => { if (!cond) throw new Error('illegal out: ' + msg); };
 const isTime = x => typeof x === 'number' && Number.isFinite(x);
@@ -46,7 +46,7 @@ export function forceOut({ runner, from, base, fielder, forced, ballAt, touchAt,
   need(forced, `runner ${runner} is not forced to base ${base}`);
   need(isTime(ballAt) && isTime(touchAt) && isTime(runnerAt), 'missing times');
   const at = Math.max(ballAt, touchAt);   /* the out exists only once the ball is held ON the base */
-  need(at < runnerAt, `ball reaches base ${base} at ${at.toFixed(2)}, runner at ${runnerAt.toFixed(2)}`);
+  need(beats(ballAt, touchAt, runnerAt), `ball reaches base ${base} at ${at.toFixed(3)}, runner at ${runnerAt.toFixed(3)}`);
   return { reason: OUT.FORCE, runner, from, base, fielder, ballAt, touchAt, runnerAt, at };
 }
 
@@ -54,9 +54,11 @@ export function forceOut({ runner, from, base, fielder, forced, ballAt, touchAt,
 export function tagOut({ runner, from, base, fielder, ballAt, fielderAt, runnerAt }) {
   need(fielder, `nobody is there to tag at base ${base}`);
   need(isTime(ballAt) && isTime(fielderAt) && isTime(runnerAt), 'missing times');
-  need(ballAt < runnerAt && fielderAt < runnerAt, `no ball in the glove at base ${base} before the runner arrives`);
+  need(beats(ballAt, fielderAt, runnerAt), `no ball in the glove at base ${base} before the runner arrives`);
   return { reason: OUT.TAG, runner, from, base, fielder, ballAt, fielderAt, runnerAt, at: runnerAt };
 }
 
-/* Non-throwing checks, for callers that decide between "out" and "safe". */
-export const beats = (ballAt, touchAt, runnerAt) => Math.max(ballAt, touchAt) < runnerAt;
+/* Does the ball, held by a fielder who is there, beat the runner? The only test for a force or a tag,
+ * used by the constructors above and by callers that decide between "out" and "safe".
+ * A play closer than CLOSE_PLAY_MARGIN goes to the runner. */
+export function beats(ballAt, touchAt, runnerAt) { return Math.max(ballAt, touchAt) < runnerAt - CLOSE_PLAY_MARGIN; }
