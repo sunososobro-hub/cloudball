@@ -13,7 +13,6 @@
 
 ## Next
 - #5 is done once PRs #24, #39 and the cover PR merge (in that order). Not yet screenshotted: `dp3` pitcher run (only probed).
-
 ## Traps
 - Engine's second-base tag spot is in the runner's lane (issue #35): runner slides through the SS until the engine moves it.
 - Batter-local frame: +z faces the plate, +x faces the pitcher. No left-handed bunt in the studio seed bank yet.
