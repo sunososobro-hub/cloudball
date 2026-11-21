@@ -818,5 +818,2695 @@
     "text": "第七棒，游擊手林家銘。",
     "transcript": "第七棒，游擊手林家銘",
     "transcriptMatch": true
+  },
+  "pbp-93a4f2b911": {
+    "hash": "777b0352efd9e8378c128a7238a48be802572c3f076a5c53a3a732c53e33fb6f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "二局上，林家銘右外野深遠飛球，落地！二壘安打。",
+    "transcript": "二局上，林家銘右外野深遠飛球，落地！二壘安打。",
+    "transcriptMatch": true
+  },
+  "pbp-eae3ccdd96": {
+    "hash": "f23b4bcb0d416002b60b08bb01ceee53bb4a1d5d4171f8e12832b20edeb0cc04",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第八棒，捕手陳柏翰。",
+    "transcript": "第八棒，捕手陳柏翰。",
+    "transcriptMatch": true
+  },
+  "pbp-202fcb1531": {
+    "hash": "5ccc6593d5f0f73d1a6620bdbc263ec8f1fad1e2b148470e5795abdda1530a50",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳柏翰揮空三振，一出局。",
+    "transcript": "陳柏翰揮空三振，一出局",
+    "transcriptMatch": true
+  },
+  "color-1f3d95e41a": {
+    "hash": "70ab8f14f0f22722540ce04b735fa23cc50534edb7371817b6ddb2aaf14ba736",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "這球啊，變速球，打者棒子早就出去了。",
+    "transcript": "這球啊，變速球，打者棒子早就出去了。",
+    "transcriptMatch": true
+  },
+  "pbp-b09a2cd2ff": {
+    "hash": "bb97fdc80613a83dfa16dde09d3ea2a27df4f6f45302ac7ffa9e9feef41a6293",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第九棒，一壘手王俊廷。",
+    "transcript": "第九棒，一壘手王俊廷。",
+    "transcriptMatch": true
+  },
+  "pbp-ca4d5644ff": {
+    "hash": "c199a5c2a0c37c017324ccdba07de5defef9f9bbd5aca4c960eadf3a3852b9e1",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "王俊廷纏到第六球，還是揮空，連續兩個三振。",
+    "transcript": "王俊廷纏到第六球，還是揮空，連續兩個三振。",
+    "transcriptMatch": true
+  },
+  "color-19187a7d29": {
+    "hash": "8c390436c5aa85d51831fa5b25b227d34523db47010d9659cf348bcb61eb44ea",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "連兩個三振，二壘上的跑者開始覺得孤單了。",
+    "transcript": "連兩個三振，二壘上的跑者開始覺得孤單了。",
+    "transcriptMatch": true
+  },
+  "pbp-248ee3ae65": {
+    "hash": "883a9c4d5184181aba3d16f377a2fc18c00de9e00a029f9fd3d53d96e83b5f2b",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "劉立偉，上個打席滾地出局。",
+    "transcript": "劉立偉，上個打席滾地出局",
+    "transcriptMatch": true
+  },
+  "color-39d7cb318c": {
+    "hash": "d1f1fdb577792b6f4f654145f462b67e7efbcd55b60701c858c5972b478c8034",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "看他這次怎麼調整。",
+    "transcript": "看他這次怎麼調整",
+    "transcriptMatch": true
+  },
+  "pbp-9205542936": {
+    "hash": "1144d3ca75a6847658497eeca46cc23fc1078acc8acbc4a0920dae47a302719d",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "劉立偉也揮空！連續三個三振，林家銘站在二壘沒動過。",
+    "transcript": "劉立偉也揮空！連續三個三振，林家銘站在二壘沒動過。",
+    "transcriptMatch": true
+  },
+  "color-4d93519258": {
+    "hash": "48e2651ab106476df5ec8948eaaf4e6d4118d4a6cffb2f6a98c4fc4e43afc8ca",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "無人出局二壘有人，連推進都沒有，蹲捕的最爽就是這種局。",
+    "transcript": "無人出局二壘有人，連推進都沒有，蹲捕的最爽就是這種局。",
+    "transcriptMatch": true
+  },
+  "fan_owls-4e4b93c924": {
+    "hash": "9b7e1da4bde669a0856e53b05585445d3203d5a43cbee6fb57dc0b3f1074c63e",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "這麼年輕！比我們公司新人還穩！",
+    "transcript": "這麼年輕！比我們公司新人還穩！",
+    "transcriptMatch": true
+  },
+  "pbp-f4a22c9403": {
+    "hash": "25d993f2fb1ce9e6150a0db0f20975c295da3e6940e923096e1fc6ad998424d9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第六棒，二壘手林柏均。",
+    "transcript": "第六棒，二壘手林柏均.",
+    "transcriptMatch": true
+  },
+  "pbp-6f4edd9cd9": {
+    "hash": "6b27f85f3c92a14953a2cfcbeeefd67c86046657465260f56f61aaab3fb68af2",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "二局下，林柏均平飛球，游擊手林家銘接殺，一出局。",
+    "transcript": "二局下，林柏均平飛球，游擊手林家銘接殺，一出局。",
+    "transcriptMatch": true
+  },
+  "pbp-432748aa1f": {
+    "hash": "fbc3c75d153c55804a8c4f9fcd8edea6d90ca589ecbb09ef1feff90d128a98a5",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第七棒，游擊手陳偉倫。",
+    "transcript": "第七棒，游擊手陳偉倫。",
+    "transcriptMatch": true
+  },
+  "pbp-75cd8a4cbc": {
+    "hash": "12a5879243b55fd57f691d362cf2e515c7bd4f3f277998ed711c33a5fdede714",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳偉倫中外野飛球，接殺，兩出局。",
+    "transcript": "陳偉倫中外野飛球，接殺，兩出局。",
+    "transcriptMatch": true
+  },
+  "pbp-340af305d3": {
+    "hash": "7b48678149023b3e40ba78c1d420803ad199256947d30f7a7295d8c133691af7",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第八棒，中外野手鄭冠勳。",
+    "transcript": "第八棒，中外野手鄭冠勳",
+    "transcriptMatch": true
+  },
+  "pbp-fb47be416a": {
+    "hash": "9bb9e0baa137f7cf489b9f0d9072ff4d3f27da324097acc35f3a4a01bc5c8bfd",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "鄭冠勳，兩好三壞。",
+    "transcript": "鄭冠勳，兩好三壞。",
+    "transcriptMatch": true
+  },
+  "color-b2962fc7c1": {
+    "hash": "ebe72be15b2815e81abff8ecb48a28f64540ef3fa115ff85156c62e8dba27fdf",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "一直纏，他在幫後面的人看球。",
+    "transcript": "一直纏，他在幫後面的人看球",
+    "transcriptMatch": true
+  },
+  "pbp-4064e9efc7": {
+    "hash": "9d9eff4c6d76a2ef819f0a7beecc5bf34d13ec41121a3977c9ae81a658588da7",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第十球，內野高飛，投手許子豪自己接，三出局。",
+    "transcript": "第十球，內野高飛，投手許子豪自己接，三出局。",
+    "transcriptMatch": true
+  },
+  "color-5c35c102a9": {
+    "hash": "6a4ab0e0b079bc006daa4ae2862d04a2fd06594b65484937dc36a505be6fb06d",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "十球換一個出局數，投手不虧，打者也不虧。",
+    "transcript": "十球換一個出局數，投手不虧，打者也不虧",
+    "transcriptMatch": true
+  },
+  "fan_owls-eb2701f577": {
+    "hash": "afad61cb2f6164ad85e4975c3207fbc4c9f9b7e92ff8fd4fc4a5654740c6346b",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "十球！我寫報告都沒這麼拖。",
+    "transcript": "十球！我寫報告都沒這麼拖。",
+    "transcriptMatch": true
+  },
+  "pbp-f2b27b5422": {
+    "hash": "85f62a30f234901574ab1638a5498f571e29e1a4ef9fc4270e151bb49477f2e2",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "兩局打完，帝雉1比0貓頭鷹。",
+    "transcript": "兩局打完，帝雉1比0貓頭鷹",
+    "transcriptMatch": true
+  },
+  "pbp-d49c6a8d67": {
+    "hash": "0a9381949bc5c53313c71638f7938a5e4c521cc7aecdbbff6667587826952df8",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "三局上，張柏豪纏了七球，左外野飛球接殺，一出局。",
+    "transcript": "三局上，張柏豪纏了七球，左外野飛球接殺，一出局",
+    "transcriptMatch": true
+  },
+  "pbp-117431aa71": {
+    "hash": "31933fa54136aab3fab9bbfebbd258de0fe274a5fae37bf6ea7cab1b072265b4",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "陳冠霖滾地球，一壘手郭彥廷傳球沒抓到人，失誤，上壘。",
+    "transcript": "陳冠霖滾地球，一壘手郭彥廷傳球沒抓到人，失誤，上壘。",
+    "transcriptMatch": true
+  },
+  "pbp-698b204b7a": {
+    "hash": "e172a3ae86f3941870709a5b0f2a1d9912ba80c3d0e5b89e5331810f7b5f2efb",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "第一球就砸到林宇軒，觸身球，一二壘有人。",
+    "transcript": "第一球就砸到林宇軒，觸身球，一二壘有人。",
+    "transcriptMatch": true
+  },
+  "color-0b02ef2d7b": {
+    "hash": "e3413d4836d15c8b6683b193cdbd69e763e1e53fe0e1034c5516aa3c4a7ace4d",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "例行滾地球沒處理好，投手心情馬上亂，我蹲那麼多年看太多了。",
+    "transcript": "例行滾地球沒處理好，投手心情馬上亂，我蹲那麼多年看太多了。",
+    "transcriptMatch": true
+  },
+  "pbp-06b8fa8085": {
+    "hash": "ac49441ecac5424c0f86bf160892cace605adf7469f87748e07f419d4de7b372",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "蕭家瑋揮空三振，兩出局。",
+    "transcript": "蕭家瑋揮空三振，兩出局。",
+    "transcriptMatch": true
+  },
+  "pbp-dcf88b4d88": {
+    "hash": "230d60457e9d11308e512398e23070864b56636e4737d0cfb52d584000e81d17",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "3局上，帝雉1比0貓頭鷹，2出局，帝雉的黃振宇上場。",
+    "transcript": "3局上，帝雉1比0貓頭鷹，2出局，帝雉的黃振宇上場。",
+    "transcriptMatch": true
+  },
+  "pbp-f6ce1c2d94": {
+    "hash": "d696c32e45e4e94fe1e20e917720a53dcaeccd1c2fab59b2d72ab55f3f415d0c",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "又是觸身球！黃振宇上一壘，這局第二個，滿壘了。",
+    "transcript": "又是觸身球！黃振宇上一壘，這局第二個，滿壘了。",
+    "transcriptMatch": true
+  },
+  "fan_owls-1324013503": {
+    "hash": "158d8ab45839d7b57ed4f9d050fdeb48d7aa0d3e5760d5350a614d61f3a7f09b",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "滿壘喔……我可以先回去加班嗎？",
+    "transcript": "滿壘喔……我可以先回去加班嗎？",
+    "transcriptMatch": true
+  },
+  "color-eef2280bd4": {
+    "hash": "321dd2d29d5d97086beb16d68aac34314fdb7ed722bad6722553d6bd562c5155",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "阿辰坐好，兩出局了，再一個就下班。",
+    "transcript": "阿辰坐好，兩出局了，再一個就下班。",
+    "transcriptMatch": true
+  },
+  "pbp-0a12750465": {
+    "hash": "c609741b5ea74e6b6597c1e24265444f3f724ce00f651f23628865c671b71082",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "黃宗翰今天已經三振了4個人，現在面對林家銘。",
+    "transcript": "黃宗翰今天已經三振了4個人，現在面對林家銘。",
+    "transcriptMatch": true
+  },
+  "pbp-983c010afe": {
+    "hash": "94f963392bb5062c5621d98944b7aa17a36cdda554de08d618d0031a1b163c04",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "又是界外，兩好兩壞。",
+    "transcript": "又是界外，兩好兩壞。",
+    "transcriptMatch": true
+  },
+  "pbp-3de4a0577e": {
+    "hash": "56eec9136ef1863a05cdd3e84fe6c82f485fbb677a361eef2193d9182af1cbee",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "指叉球進來，沒有揮！站著三振！滿壘留下三個殘壘。",
+    "transcript": "指叉球進來，沒有揮！站著三振！滿壘留下三個殘壘",
+    "transcriptMatch": true
+  },
+  "color-7e627a2919": {
+    "hash": "131896518d41a7e4da0de8fb6665fa89781bd53edebbef4104aaffe1ec06367b",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "一個失誤、兩個觸身球，還能零分下莊，投手這局是撿到的。",
+    "transcript": "一個失誤、兩個觸身球，還能零分下莊，投手這局是撿到的。“",
+    "transcriptMatch": true
+  },
+  "fan_owls-6b1da7cb9b": {
+    "hash": "32f8499b3c468255c91880d140142a07a3e8c65fa1a1f1a93e5e83217d889441",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "撿到也是我們的！",
+    "transcript": "撿到也是我們的!",
+    "transcriptMatch": true
+  },
+  "pbp-e96a3532c5": {
+    "hash": "9c2e47b9d54b9f812319b5c062e06dd9999a3595008e8c3334a639e6b846d69b",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "三局上結束，帝雉1比0貓頭鷹。",
+    "transcript": "三局上結束，帝雉1比0貓頭鷹。",
+    "transcriptMatch": true
+  },
+  "pbp-0cb8286e60": {
+    "hash": "f1e35211ce9107025668af4632da351073461a7d1ace49aa22cf460a78c7b07c",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第九棒，指定打擊潘振宇。",
+    "transcript": "第九棒，指定打擊潘振宇。",
+    "transcriptMatch": true
+  },
+  "pbp-c5a245893c": {
+    "hash": "20c0c0b19b0c661ec02de6fb41e7b0f2ddaa38c99899386c63abf501e0928ebd",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "三局下，潘振宇站著被三振，一出局。",
+    "transcript": "三局下，潘振宇站著被三振，一出局。",
+    "transcriptMatch": true
+  },
+  "color-5fd14c8a56": {
+    "hash": "2bb5f20c21d8241db4de8f7d3465ad6ebf86a2747919c46bafaf0240eeb6cc20",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "這球啊，曲球掉進來，打者連棒子都沒舉。",
+    "transcript": "這球啊，曲球掉進來，打者連棒子都沒舉。",
+    "transcriptMatch": true
+  },
+  "pbp-79dd393ea1": {
+    "hash": "97cf761c9239e8a8f01df0055f92888103f1a22f3d095886e6a3bd27f6a448b7",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "蔡俊廷，上個打席打了安打。",
+    "transcript": "蔡俊廷，上個打席打了安打。",
+    "transcriptMatch": true
+  },
+  "color-350c312767": {
+    "hash": "2834a763d412d43d995a603d3d5c838da2f85b28475e2d8137a6ac933275c80b",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "再碰一次，打者心裡比較有底了。",
+    "transcript": "再碰一次，打者心裡比較有底了",
+    "transcriptMatch": true
+  },
+  "pbp-5de471feae": {
+    "hash": "4fad5d608c0d92b400f4e03c47230d764527fffb8e4661feffbb3e6fc0da0113",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "蔡俊廷揮空三振，兩出局。",
+    "transcript": "蔡俊廷揮空三振，兩出局",
+    "transcriptMatch": true
+  },
+  "color-453ffeab6a": {
+    "hash": "00e620ed238f1ed4f5df5e1be966a1fdba04fccf98664089e803daf69fd2aa95",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "曲球跟直球差了快二十公里，打者時間點全亂。",
+    "transcript": "曲球跟直球差了快二十公里，打者時間點全亂",
+    "transcriptMatch": true
+  },
+  "pbp-1ab7458095": {
+    "hash": "52387479207f9709f15753111f7da9900e57724f0b64f94babbf7368c6ff1014",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "張家銘今天1個打數，還沒有安打。",
+    "transcript": "張家銘今天1個打數，還沒有安打。",
+    "transcriptMatch": true
+  },
+  "color-c9d891790f": {
+    "hash": "2332d3c0720a096a22c8d1231ea309b7567d4a8b11fb87b8e8c0f21b2628b5b4",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "這個打席他要把球看清楚。",
+    "transcript": "這個打席他要把球看清楚",
+    "transcriptMatch": true
+  },
+  "pbp-26b0044fd5": {
+    "hash": "4594be5dee3b37f67ae251a21408390781d7cbcd81e41f9f272373d679ac5505",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "張家銘變速球揮空！許子豪這局三個都是三振。",
+    "transcript": "張家銘變速球揮空！許子豪這局三個都是三振。",
+    "transcriptMatch": true
+  },
+  "fan_owls-b488374876": {
+    "hash": "2e2a416249cc0eb62bd25ef2e0e828a0129ebfb6e12a0bc2da516c6fe4f97bca",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "三個三振……我們是來打球還是來打卡的？",
+    "transcript": "三個三振……我們是來打球還是來打卡的？",
+    "transcriptMatch": true
+  },
+  "color-487ee6a674": {
+    "hash": "6e5ae9b8e2b0ad4bca4be80216df22ebb3e5c67cdefd6cd4748a3e7d2005e91c",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "阿辰，打卡至少還有薪水。",
+    "transcript": "阿辰，打卡至少還有薪水。",
+    "transcriptMatch": true
+  },
+  "pbp-4394b9c7d2": {
+    "hash": "608cfe9cb439281d92e7fb4444afa179f8c5396090b70896978031beca6de5aa",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "四局上第一球，打出去了——中外野！",
+    "transcript": "四局上第一球，打出去了——中外野！",
+    "transcriptMatch": true
+  },
+  "pbp-0f702c182c": {
+    "hash": "12a91b9cccf806a5b27726e807f064abbc734a7791a181607faeaddaadcb9946",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "全壘打！陳柏翰陽春砲，帝雉2比0貓頭鷹。",
+    "transcript": "全壘打！陳柏翰陽春砲，帝雉2比0貓頭鷹——",
+    "transcriptMatch": true
+  },
+  "color-d502d24842": {
+    "hash": "40165822c1313997163918cfb17dc236c674ed3d05f50556e53814af18275c95",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "第一球直球就敢出棒，捕手最懂捕手怎麼配。",
+    "transcript": "第一球直球就敢出棒，捕手最懂捕手怎麼配",
+    "transcriptMatch": true
+  },
+  "pbp-47731b51b0": {
+    "hash": "b6c56b976b743339bfe231ed35c00baedaebaeb81c70e82364cb9ece5412bd60",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "王俊廷也打第一球，中外野平飛安打。",
+    "transcript": "王俊廷也打第一球，中外野平飛安打。",
+    "transcriptMatch": true
+  },
+  "fan_owls-acdd8cb09d": {
+    "hash": "3dd22dc325dd328d1d6808a8ccd417a50f063b40f28c95c0b3490b94cee88c50",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "不要每個第一球都給他們打啦！",
+    "transcript": "不要每個第一球都給他們打啦！",
+    "transcriptMatch": true
+  },
+  "pbp-551817f10d": {
+    "hash": "71055b39538e172cf5c05039d6d1b4819b44871b55fb4270009798ce905df0c9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "劉立偉上來，帝雉上一局沒有得分。",
+    "transcript": "劉立偉上來，帝雉上一局沒有得分。",
+    "transcriptMatch": true
+  },
+  "color-e62fa0288c": {
+    "hash": "93e80e569fc412c3e95f6112e68fb5bcd292c80df951fa9763436031a1a7fa54",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "上一局掛零，這局總要有點東西了吧。",
+    "transcript": "上一局掛零，這局總要有點東西了吧。",
+    "transcriptMatch": true
+  },
+  "pbp-46dc47b836": {
+    "hash": "30f919d0f439f642da62705aa359a6ba587185227e1b687ca47cdbcc3b2f3b25",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "劉立偉一壘滾地球，一壘手自己踩壘，一出局，跑者上二壘。",
+    "transcript": "劉立偉一壘滾地球，一壘手自己踩壘，一出局，跑者上二壘",
+    "transcriptMatch": true
+  },
+  "pbp-f8bf87de17": {
+    "hash": "13b288134a5f84cc3d2f378ebd00b71cce5877ea3c0b10c1637a4e8708d37cf3",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "張柏豪三壘滾地球，傳一壘，兩出局。",
+    "transcript": "張柏豪三壘滾地球，傳一壘，兩出局。",
+    "transcriptMatch": true
+  },
+  "pbp-b739700945": {
+    "hash": "336a35afa480b7879629f6317e5c6e306b4699add3060a49f843a55ba7ed9d0b",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳冠霖今天已經轟出1發全壘打。",
+    "transcript": "陳冠霖今天已經轟出1發全壘打",
+    "transcriptMatch": true
+  },
+  "color-0d3dffb5ff": {
+    "hash": "e37ef012334d0cd3ef1de38ce6d9f03532e722a325b549f74cd21821f39a51f3",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "投手最好別投到中間。",
+    "transcript": "投手最好別投到中間。",
+    "transcriptMatch": true
+  },
+  "pbp-e0836e393b": {
+    "hash": "59e41f233595df3ca36d8c28b9fdbae79223305b9b9cb8ef440c34cc0b9a8e92",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳冠霖游擊滾地球出局。四局上，帝雉再添一分，2比0。",
+    "transcript": "陳冠霖游擊滾地球出局。四局上，帝雉再添一分，2比0。",
+    "transcriptMatch": true
+  },
+  "color-73871be981": {
+    "hash": "1102b1b6effbff7e8ebc2c3bfb308f127f2e2760e4d8548f1572f323e70fe531",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "都是陽春砲，壘上有人的時候反而打不回來。",
+    "transcript": "都是陽春砲，壘上有人的時候反而打不回來。",
+    "transcriptMatch": true
+  },
+  "pbp-49f374e683": {
+    "hash": "6cd56cf7a85a41275239cb0b85e926ab6bba9373bd79d0536a691d3700a2352a",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "郭彥廷站上打擊區。",
+    "transcript": "郭彥廷站上打擊區",
+    "transcriptMatch": true
+  },
+  "pbp-51458ca7d3": {
+    "hash": "361a9ec52edae990f92b6c5a20fd25d119763ccb45551ca6712e3c1e2e922235",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "四局下，郭彥廷游擊滾地球出局。",
+    "transcript": "四局下，郭彥廷游擊滾地球出局%。",
+    "transcriptMatch": true
+  },
+  "pbp-b4391eb010": {
+    "hash": "46387108ac43f1de282ad26d44210da80e516031d160cee241552304323a226d",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "邱子翔左外野飛球，接殺，兩出局。",
+    "transcript": "邱子翔左外野飛球，接殺，兩出局。",
+    "transcriptMatch": true
+  },
+  "pbp-272dd435f2": {
+    "hash": "d5cb706aae70543fb13b748a029fda4dda754a6eb06d91e59e532c787038d3aa",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "4局下，帝雉2比0貓頭鷹，2出局，貓頭鷹的許柏翰上場。",
+    "transcript": "4局下，帝雉2比0貓頭鷹，2出局，貓頭鷹的許柏翰上場。",
+    "transcriptMatch": true
+  },
+  "pbp-604c1a8319": {
+    "hash": "764d2b265f36b335814ddaf5525856a68d7b81140af8ff11efac02ae55a2903d",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "許柏翰指叉球揮空，三振！許子豪連續解決十一個打者。",
+    "transcript": "許柏翰指叉球揮空，三振！許子豪連續解決十一個打者。",
+    "transcriptMatch": true
+  },
+  "color-68dce0458d": {
+    "hash": "c66b7af62644817b3823f8dd2b3d7b93a1a7275c09e3e5df58b619c2a730b3f6",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "我跟你講，從一局下那個二三壘有人之後，貓頭鷹沒人上過壘。",
+    "transcript": "我跟你講，從一局下那個二三壘有人之後，貓頭鷹沒人上過壘。",
+    "transcriptMatch": true
+  },
+  "fan_owls-784de91320": {
+    "hash": "458439253eabbc343cae05aa3de9afb7faf24802ceee60d5f8e0778d409f2ca8",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "我知道，我有在算，越算越清醒。",
+    "transcript": "我知道，我有在算，越算越清醒。",
+    "transcriptMatch": true
+  },
+  "pbp-b1887d4d25": {
+    "hash": "2882fdf04094156e97efbd0691a223218a04465e33cbaf08809c560ac4781ff1",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "黃宗翰今天已經三振了5個人，現在面對林宇軒。",
+    "transcript": "黃宗翰今天已經三振了5個人，現在面對林宇軒。",
+    "transcriptMatch": true
+  },
+  "pbp-0d365d70b4": {
+    "hash": "5aac040e1f00b2ba2b4aa4e7ff0db5d9befae821361b9904602891f5d2b0a320",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "五局上，林宇軒右外野飛球接殺。",
+    "transcript": "五局上，林宇軒右外野飛球接殺。",
+    "transcriptMatch": true
+  },
+  "pbp-4e89830f91": {
+    "hash": "6b45995972fd1d6a3cd566c729a2dc8cf9ee38673c46b3ed2fafff757d340039",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "蕭家瑋游擊方向滾地安打，一出局一壘有人。",
+    "transcript": "蕭家瑋游擊方向滾地安打，一出局一壘有人。",
+    "transcriptMatch": true
+  },
+  "pbp-a9e4165a4c": {
+    "hash": "22c6ef2e84d39ae1bff484f7a3df20cb280c5c6a48dcb2c0de15b4eac322d546",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "黃振宇選到四壞球保送，一二壘有人。",
+    "transcript": "黃振宇選到四壞球保送，一二壘有人。",
+    "transcriptMatch": true
+  },
+  "fan_owls-09297c38a6": {
+    "hash": "fb75215621c5f117ea5659e8114c36d155cc0946f90c68d6cfb280d148d03f19",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "保送就是免費加班，最討厭。",
+    "transcript": "保送就是免費加班，最討厭。",
+    "transcriptMatch": true
+  },
+  "pbp-da747eabe0": {
+    "hash": "cb90b8307c10c32b4b8780040875864116097dd6e6e331568cf51aad51c867aa",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林家銘，上個打席被三振。",
+    "transcript": "林家銘，上個打席被三振。",
+    "transcriptMatch": true
+  },
+  "color-9413012765": {
+    "hash": "7ae267757b8854e2974f92757995a116113793370a90dbb6255a149d98270653",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "剛剛投手怎麼配他的，他應該記得。",
+    "transcript": "剛剛投手怎麼配他的，他應該記得",
+    "transcriptMatch": true
+  },
+  "pbp-16ee89cf79": {
+    "hash": "da402bccd9c0eb57afc89f124f2e574af938c20fbed823e0da6c3cffcdb27e5d",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林家銘右外野飛球，接殺，兩出局，跑者沒有動。",
+    "transcript": "林家銘右外野飛球，接殺，兩出局，跑者沒有動",
+    "transcriptMatch": true
+  },
+  "pbp-72dca4c0d2": {
+    "hash": "2a1ff97f277f4a03fa8068d16290b497f88413e3141b24b0de78b751bf0c25b4",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳柏翰今天2打數1安打。",
+    "transcript": "陳柏翰今天2打數1安打",
+    "transcriptMatch": true
+  },
+  "pbp-3dd77e777d": {
+    "hash": "2efc1f7d2595d49c30e9e397b009594ab27764572157749089b12cdd515abd02",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳柏翰三壘滾地球，傳一壘出局。帝雉又留下兩個殘壘。",
+    "transcript": "陳柏翰三壘滾地球，傳一壘出局。帝雉又留下兩個殘壘。",
+    "transcriptMatch": true
+  },
+  "color-9137db052d": {
+    "hash": "f473024d7a4bf5cf921285d4d9e70ea6b7283e88d41fd0a87787a07bfcf0eef0",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "殘壘一大堆，領先這一點點像在走鋼索。",
+    "transcript": "殘壘一大堆，領先這一點點像在走鋼索",
+    "transcriptMatch": true
+  },
+  "pbp-c989ffb897": {
+    "hash": "b6c4107d6bc59e0ca236807d2a04545b79332750a1955bc6a5000c341a35942b",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林柏均今天1個打數，還沒有安打。",
+    "transcript": "林柏均今天1個打數，還沒有安打。",
+    "transcriptMatch": true
+  },
+  "color-ec795c0a7b": {
+    "hash": "6b0a67e4d984b1304f1db74dea40711003769972e66b023181b1faa3c99ceceb",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "還沒開張，這次先求有，不要求好。",
+    "transcript": "還沒開張，這次先求有，不要求好。",
+    "transcriptMatch": true
+  },
+  "pbp-778753acff": {
+    "hash": "9274c9193dcb15d792de01c04382af7ee92cba47f2c310d7d389dee19f8e24c3",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "五局下，林柏均右外野方向安打！貓頭鷹終於有人上壘。",
+    "transcript": "五局下，林柏均右外野方向安打！貓頭鷹終於有人上壘。",
+    "transcriptMatch": true
+  },
+  "fan_owls-625dbe6422": {
+    "hash": "3d59c20d54cabbbdd58c41a484ebef001f873e24912e2e13e03761949c7c67ad",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "終於！我差點睡著！",
+    "transcript": "終於！我差點睡著！",
+    "transcriptMatch": true
+  },
+  "pbp-633241c54a": {
+    "hash": "92994b3d3633032298eb1bdefc63eb8f3cad506a301c215e557055a86e613b10",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "跑了！捕手陳柏翰傳二壘——觸殺出局！林柏均盜壘失敗。",
+    "transcript": "跑了！捕手陳柏翰傳二壘——觸殺出局！林柏均盜壘失敗。",
+    "transcriptMatch": true
+  },
+  "color-230bdab0d2": {
+    "hash": "f91e86e00233e6706acadce7d92f6a512167b37d93c13a5163ae0ef3a0abf9f7",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "漂亮，接到就丟，我當年也就這個速度。好啦，可能啦。",
+    "transcript": "漂亮，接到就丟，我當年也就這個速度。好啦，可能啦。",
+    "transcriptMatch": true
+  },
+  "pbp-b4977a57da": {
+    "hash": "5126befb2fd9da840dd82b51425e3df83ccf46b8dc8e3a5f31d2eb19fa91c405",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳偉倫左外野平飛安打，一出局一壘有人。",
+    "transcript": "陳偉倫左外野平飛安打，一出局一壘有人",
+    "transcriptMatch": true
+  },
+  "fan_owls-42b892d43a": {
+    "hash": "7f52e804d9235b5212aa291f29572e798936439d8d6ca4d9c0a1b81118561edd",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "剛剛不要跑，現在不就兩個人在壘上了嗎！",
+    "transcript": "剛剛不要跑，現在不就兩個人在壘上了嗎！",
+    "transcriptMatch": true
+  },
+  "color-083945b264": {
+    "hash": "8380b9e39662aa8da9b8ea2009108d0dfdd795a4e65a8554d10d0a975b51e2fe",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "阿辰，這句你留著明天跟你主管講。",
+    "transcript": "阿辰，這句你留著明天跟你主管講",
+    "transcriptMatch": true
+  },
+  "pbp-bfd81c9c5f": {
+    "hash": "ea24ac0df0e1c6a7122d8c4125d56d2ac4fbf44d5c0888148d956cd49b21a214",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "鄭冠勳三壘滾地球，傳一壘出局，陳偉倫上二壘，兩出局。",
+    "transcript": "鄭冠勳三壘滾地球，傳一壘出局，陳偉倫上二壘，兩出局。",
+    "transcriptMatch": true
+  },
+  "pbp-b901af518e": {
+    "hash": "b5eeed7ba30e5900129efaea392dd9080c0914563f353506312441024e6d1857",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "帝雉換投，先發許子豪投四又三分之二局，六次三振，接手的是王俊宇。",
+    "transcript": "帝雉換投，先發許子豪投四又三分之二局，六次三振，接手的是王俊宇。",
+    "transcriptMatch": true
+  },
+  "pbp-0ffd6e4c01": {
+    "hash": "ebee9fa2f78bb248b6c222947d6a46b8386dfb7d9292bed80d4ddcb2c3054ad0",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "5局下，帝雉2比0貓頭鷹，2出局，貓頭鷹的潘振宇上場。",
+    "transcript": "5局下，帝雉2比0貓頭鷹，2出局，貓頭鷹的潘振宇上場。",
+    "transcriptMatch": true
+  },
+  "pbp-daf1689cf0": {
+    "hash": "267944e290ce8e8326c78aad3e604921d39b2c16c681bb076180e2522e43aecb",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "潘振宇第一球就打，左外野安打！陳偉倫回來得分！帝雉2比1貓頭鷹。",
+    "transcript": "潘振宇第一球就打，左外野安打！陳偉倫回來得分！帝雉2比1貓頭鷹。",
+    "transcriptMatch": true
+  },
+  "fan_owls-5b3cc8f54c": {
+    "hash": "c9d9878d1a39fba9698b5e1343a9e70a7d665bcc06e57c683d50bb4db2099716",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "回來了！值得了！今天加班值得了！",
+    "transcript": "回來了！值得了！今天加班值得了！",
+    "transcriptMatch": true
+  },
+  "color-d81c37839b": {
+    "hash": "3e3ac22eafe6b299d0523cda4a924b9b877efdc4dda9019858414cda801c0e05",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "新投手第一球曲球，打者一點都沒猶豫。",
+    "transcript": "新投手第一球曲球，打者一點都沒猶豫",
+    "transcriptMatch": true
+  },
+  "pbp-3bdd7c72ad": {
+    "hash": "01f26ec4839a8c416beb444158787407ee4fa62b905d66f95baa4751d46f509d",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "蔡俊廷一壘滾地球出局。五局打完，帝雉2比1貓頭鷹。",
+    "transcript": "蔡俊廷一壘滾地球出局。五局打完，帝雉2比1貓頭鷹",
+    "transcriptMatch": true
+  },
+  "pbp-fdc42c7b88": {
+    "hash": "9c4f24d44429b66190ff7a59abc8fcf2d83178c4b5a5f24778f02410454b94ec",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "六局上，王俊廷二壘方向滾地安打。",
+    "transcript": "六局上，王俊廷二壘方向滾地安打。",
+    "transcriptMatch": true
+  },
+  "color-98e7c9ac26": {
+    "hash": "986bcdf600d0fe9600d346a4320b35471513115b7c6e298bc3560637ec143395",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "他今天的安打，都是打指叉球。",
+    "transcript": "他今天的安打，都是打指叉球。",
+    "transcriptMatch": true
+  },
+  "color-cdada39ea2": {
+    "hash": "76c7b4d531378522e947bb5edf32d861c121ccb3cd68efa33117829d4ac75418",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "看他這次有沒有準備。",
+    "transcript": "看他這次有沒有準備",
+    "transcriptMatch": true
+  },
+  "pbp-e17ad27c81": {
+    "hash": "942a953e1978311eea3bc2b278238592cd40e870bd225b35ae72bf563250bee5",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "劉立偉六球選到保送，無人出局一二壘有人。",
+    "transcript": "劉立偉六球選到保送，無人出局一二壘有人",
+    "transcriptMatch": true
+  },
+  "pbp-5ca6704fe5": {
+    "hash": "9d424f4e06fb22448e5b96ec0498929a1c047635f35212509cc251982088d9d8",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "貓頭鷹換投，先發黃宗翰投五局，被打兩支陽春砲，留下一二壘有人。接手的是謝柏諺。",
+    "transcript": "貓頭鷹換投，先發黃宗翰投五局，被打兩支陽春砲，留下一二壘有人。接手的是謝柏諺",
+    "transcriptMatch": true
+  },
+  "fan_owls-c879d87276": {
+    "hash": "e080b4adeec8111e556de3654c3390db6f813b61b45fd0329d906068dd1bf106",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "新投手拜託，我們才剛有點起色。",
+    "transcript": "新投手拜託，我們才剛有點起色。",
+    "transcriptMatch": true
+  },
+  "pbp-1e16e04bef": {
+    "hash": "bc55cab7c5286ec2a271e2f8ff86b261227b344abafca7f0f54f69b5e49b5cb9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "張柏豪今天3個打數，還沒有安打。",
+    "transcript": "張柏豪今天3個打數，還沒有安打。",
+    "transcriptMatch": true
+  },
+  "color-6ffb56e282": {
+    "hash": "e33634ca74bbe32f0de2168d214592803803a77205c39490ec2890cdf2b1f460",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "別急，等一顆自己要的球。",
+    "transcript": "別急，等一顆自己要的球",
+    "transcriptMatch": true
+  },
+  "pbp-4d5c19b66b": {
+    "hash": "d60ccd0a1b583e5f8db56d8b3767d832156634b21631e943a4d0d35a84344c71",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "張柏豪中外野平飛球，接殺，一出局。",
+    "transcript": "張柏豪中外野平飛球，接殺，一出局。",
+    "transcriptMatch": true
+  },
+  "pbp-2715f60afa": {
+    "hash": "af44a9823cd7cd265fa65725790fff010bc24fcf1874fe31b9d73d047bf9d315",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "陳冠霖站著不動，三振！兩出局。",
+    "transcript": "陳冠霖站著不動，三振！兩出局.",
+    "transcriptMatch": true
+  },
+  "color-12bb675e77": {
+    "hash": "ce42e867c8cc05c3d1b7e5ed94a4ac56d281c009a286eeaaf743b5898a12cda8",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "第一打席開轟，這打席站著被三振，棒球很公平。",
+    "transcript": "第一打席開轟，這打席站著被三振，棒球很公平。",
+    "transcriptMatch": true
+  },
+  "pbp-ecd25a2b39": {
+    "hash": "5732071c34cf53cfbce129bbf7a7a4f9133ca4bb404f3e0520f2bd1b637f33ed",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "林宇軒一壘滾地球，出局！無人出局一二壘有人，謝柏諺全身而退。",
+    "transcript": "林宇軒一壘滾地球，出局！無人出局一二壘有人，謝柏諺全身而退。",
+    "transcriptMatch": true
+  },
+  "color-3326b2c57f": {
+    "hash": "96e4e244265a6752ccfaa25311f659e2d70b98e35e0eb837c3d95bfa1913404d",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "年輕人接這種爛攤子，三個打者都沒讓跑者動，有膽。",
+    "transcript": "年輕人接這種爛攤子，三個打者都沒讓跑者動，有膽。",
+    "transcriptMatch": true
+  },
+  "fan_owls-4a0e552c9f": {
+    "hash": "528d9f8c7bbbf681bf783e8857b0368f1671c34120e19ee8c5868db94ddf4f55",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "這個新人可以加薪！",
+    "transcript": "這個新人可以加薪——！",
+    "transcriptMatch": true
+  },
+  "pbp-3c98f3072f": {
+    "hash": "9c6000ad0ce5dd6883cc2cd0d5b098dbe609f16c224d90255a3724e3f6f222ba",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "六局下，張家銘第一球，游擊方向安打。",
+    "transcript": "六局下，張家銘第一球，游擊方向安打。",
+    "transcriptMatch": true
+  },
+  "pbp-e260d48714": {
+    "hash": "f0cf3f4a90efe6528a9fbfcfcee3c2f60a3cff5c67fcbe80686df35efd099666",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "郭彥廷也打第一球，一壘滾地球——傳二壘、再回傳一壘，雙殺！",
+    "transcript": "郭彥廷也打第一球，一壘滾地球——傳二壘、再回傳一壘，雙殺！",
+    "transcriptMatch": true
+  },
+  "fan_owls-d4b5b7a18e": {
+    "hash": "cc6a3b936070cd8d6e0f35f6d3957bfa4c289fd169b27e5ac4f0453503551c79",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "兩球兩個出局……我連手都還沒舉起來。",
+    "transcript": "兩球兩個出局……我連手都還沒舉起來。",
+    "transcriptMatch": true
+  },
+  "color-b0d42cfd37": {
+    "hash": "d1237236bca901347df83bdd9c34578e6d350c401fcee6dbaa65b06f19f127ce",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "一壘手先傳二壘，投手還記得去補一壘，這個守備有練過。",
+    "transcript": "一壘手先傳二壘，投手還記得去補一壘，這個守備有練過",
+    "transcriptMatch": true
+  },
+  "pbp-68a523cd55": {
+    "hash": "b6b4f1a926299f47f087188c8f58b808597ec7b9ea907c462b13fed16d47d809",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "6局下，帝雉2比1貓頭鷹，2出局，貓頭鷹的邱子翔上場。",
+    "transcript": "6局下，帝雉2比1貓頭鷹，2出局，貓頭鷹的邱子翔上場。",
+    "transcriptMatch": true
+  },
+  "pbp-a747cc1117": {
+    "hash": "b05f54d8f10917b943c17470f85b6cb64e3eb7dd3ca0fa3b64ab8cbeb8f6d422",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "邱子翔揮空三振。六局打完，帝雉2比1貓頭鷹。",
+    "transcript": "邱子翔揮空三振。六局打完，帝雉2比1貓頭鷹",
+    "transcriptMatch": true
+  },
+  "pbp-5be3c2eba0": {
+    "hash": "3424eca160ba33a51a4f15389ec097a8de2a5a2a7c0c42e56cb9991ff70ede99",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "蕭家瑋上來了，今天已經2支安打。",
+    "transcript": "蕭家瑋上來了，今天已經2支安打。",
+    "transcriptMatch": true
+  },
+  "color-51b5a83f64": {
+    "hash": "1f38186a9fb996a39544eb2feb2bfe3ab343d8006060bff19f2a56c3c03ad253",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "他今天手感很燙，投手要小心喔。",
+    "transcript": "他今天手感很燙，投手要小心喔。",
+    "transcriptMatch": true
+  },
+  "pbp-9a92493fd1": {
+    "hash": "9ca751827a517cb07f368061d586449efb43088b6f807a39c481205c135fc659",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "七局上，蕭家瑋站著被三振。",
+    "transcript": "七局上，蕭家瑋站著被三振。",
+    "transcriptMatch": true
+  },
+  "pbp-b8692122d2": {
+    "hash": "444bec883beb7a1e8873df4c28d1d717250c568264dd4f97f0475ec330a93d8f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "黃振宇，上個打席選到保送。",
+    "transcript": "黃振宇，上個打席選到保送。",
+    "transcriptMatch": true
+  },
+  "pbp-ed70d1ffd9": {
+    "hash": "a8e267727d4b152b8234cbd6cb3722c2c5f48b90a8994b219102dc48c5def6cf",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "黃振宇第一球，右外野平飛安打。",
+    "transcript": "黃振宇第一球，右外野平飛安打。",
+    "transcriptMatch": true
+  },
+  "pbp-69b085362b": {
+    "hash": "d89721eadc925357a52d700d861ba2809570b8a29cb2fa75d2f4ac86d02c9a18",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林家銘上來，帝雉上一局沒有得分。",
+    "transcript": "林家銘上來，帝雉上一局沒有得分。",
+    "transcriptMatch": true
+  },
+  "color-fdcd45f92b": {
+    "hash": "048963e8800e60a488b7305188c268e218b744c5a19e382f7b11b5e1963b48d4",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "上一局空手回去，這局要想辦法上壘。",
+    "transcript": "上一局空手回去，這局要想辦法上壘",
+    "transcriptMatch": true
+  },
+  "pbp-90b3eaa916": {
+    "hash": "6f9b917fa797259ac3e674a14fda8b1f8fa62ab1d7d84380b0d4311b5a183a57",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "林家銘游擊滾地球，六四三雙殺！三出局。",
+    "transcript": "林家銘游擊滾地球，六四三雙殺！三出局。",
+    "transcriptMatch": true
+  },
+  "color-42e6e138e5": {
+    "hash": "6753a766b8f56a5cbe50cc110c82e123a6dd7eacbd1292e8cd8b9394acca483c",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "上個半局被雙殺，這個半局就雙殺回來，有在記仇喔。",
+    "transcript": "上個半局被雙殺，這個半局就雙殺回來，有在記仇喔。",
+    "transcriptMatch": true
+  },
+  "pbp-d2cff0b575": {
+    "hash": "59a7eb4960cd312523e516d2c83a225c2067206c076bf5ea226dbadb0df941a9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "許柏翰今天2個打數，還沒有安打。",
+    "transcript": "許柏翰今天2個打數，還沒有安打。",
+    "transcriptMatch": true
+  },
+  "color-08faefa1c4": {
+    "hash": "ad8249203c859558580194acdf0ded2a975899c383db5423f6a006697c398e12",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "一直沒安打，這打席不要亂追。",
+    "transcript": "一直沒安打，這打席不要亂追",
+    "transcriptMatch": true
+  },
+  "pbp-f23078e34a": {
+    "hash": "9d407ac440cf9de71d62543ee394ddcf785699ebcff0ea77d43f5ecd3f7ad7ef",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "七局下，許柏翰選到保送。",
+    "transcript": "七局下，許柏翰選到保送。",
+    "transcriptMatch": true
+  },
+  "pbp-815ab912f0": {
+    "hash": "b4d4362c24eee89aefad22077b3979ec47473ab7a9b4b9e5a1b3ceb3e99ba617",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林柏均短打，投手傳一壘出局，犧牲觸擊成功，跑者上二壘。",
+    "transcript": "林柏均短打，投手傳一壘出局，犧牲觸擊成功，跑者上二壘。",
+    "transcriptMatch": true
+  },
+  "color-d922672c49": {
+    "hash": "11da7826ec1ff0d17c6ab265838c3733fff6278e9a634be17a01f66f0530f200",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "這就對了，落後一分，一個出局數換一個壘包，我最愛看這個。",
+    "transcript": "這就對了，落後一分，一個出局數換一個壘包，我最愛看這個",
+    "transcriptMatch": true
+  },
+  "pbp-6ab019aca4": {
+    "hash": "ed7004ad20b27428c9109eab2d2ec11b0e59b665ae6876c4af5c21970b6d3a8c",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳偉倫站上打擊區。",
+    "transcript": "陳偉倫站上打擊區。",
+    "transcriptMatch": true
+  },
+  "pbp-ab44622f34": {
+    "hash": "a5e73ccef790699bedff28668a351381431914e75abccadb819de087c4934ec6",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "陳偉倫左外野平飛安打！許柏翰停在三壘，一出局一三壘有人。",
+    "transcript": "陳偉倫左外野平飛安打！許柏翰停在三壘，一出局一三壘有人。",
+    "transcriptMatch": true
+  },
+  "pbp-0b87caa6c5": {
+    "hash": "08dd4c669b5a9ccb50a406a92572134dd7e6e52b9da80e3e3dc70a603ba4148f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "帝雉再換投，左投黃柏宇上來。",
+    "transcript": "帝雉再換投，左投黃柏宇上來。",
+    "transcriptMatch": true
+  },
+  "pbp-b6e4b3821c": {
+    "hash": "c6620f2fe0c5ee7b26ab35aa25abeb04da94e2012954702853e2d1c723c7ac1a",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "鄭冠勳中外野飛球，接殺，兩出局，三壘跑者沒有回來。",
+    "transcript": "鄭冠勳中外野飛球，接殺，兩出局，三壘跑者沒有回來",
+    "transcriptMatch": true
+  },
+  "fan_owls-669f058bf1": {
+    "hash": "53f84de7d31664eb8f4b62a802d9d7a3e066f71b04c18cecb14420a0654ecf6f",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "那球可以跑啦！……好啦我不懂，但我很急。",
+    "transcript": "那球可以跑啦！……好啦我不懂，但我很急。",
+    "transcriptMatch": true
+  },
+  "color-cd1dd8760e": {
+    "hash": "04f6c4333f079d063950d0b0b301afa9b3af03e0902da5ae126901e51ca91441",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "才六十幾公尺的飛球，硬跑是送死，阿辰。",
+    "transcript": "才六十幾公尺的飛球，硬跑是送死，阿辰。",
+    "transcriptMatch": true
+  },
+  "pbp-af18034639": {
+    "hash": "2ed241f741794016f4f8000c9e63bbc1936b14d8a504935f256e56a761dede10",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "潘振宇，三個壞球，沒有好球。",
+    "transcript": "潘振宇，三個壞球，沒有好球。",
+    "transcriptMatch": true
+  },
+  "pbp-693b72a757": {
+    "hash": "db182bcfe36a0f2fd62ee9f5f129eda02564b63b38d5c84407c0e5c07a5088e6",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "追到滿球數！",
+    "transcript": "追到滿球數！",
+    "transcriptMatch": true
+  },
+  "pbp-808479e828": {
+    "hash": "160714af76204bd97bf4ef34b84a22a7ba08f62a9b51cf1f461cbffbe78a5a02",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "壞球！保送！兩出局滿壘！",
+    "transcript": "壞球！保送！兩出局滿壘！",
+    "transcriptMatch": true
+  },
+  "fan_owls-f433952060": {
+    "hash": "6ca0f9914b8bcfebd4c964032aa79ae4dbc94c9b681f7a2e152380c8be8dada8",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "滿壘了滿壘了！主管，我明天請假！",
+    "transcript": "滿壘了滿壘了！主管，我明天請假！",
+    "transcriptMatch": true
+  },
+  "pbp-546adf8b16": {
+    "hash": "bc47dbd92cf970187f5fff30ba3bd110e85a903bee670c2bea6de451c6dace32",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "7局下，帝雉2比1貓頭鷹，2出局，貓頭鷹的蔡俊廷上場。",
+    "transcript": "7局下，帝雉2比1貓頭鷹，2出局，貓頭鷹的蔡俊廷上場。",
+    "transcriptMatch": true
+  },
+  "pbp-aca24b12c1": {
+    "hash": "0f5bf7f6bb7d3f92059522dfca07962633be14d12d0ab4f37a88b307ae46fdd3",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "蔡俊廷，又是兩好三壞，滿壘滿球數。",
+    "transcript": "蔡俊廷，又是兩好三壞，滿壘滿球數。",
+    "transcriptMatch": true
+  },
+  "pbp-9a0cd06fba": {
+    "hash": "cc27ad48f879171e794d1bb1747de4dd4b14019c37af1a42bfaaec1a0ca12ffa",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "滑球偏了！四壞球！擠回來一分！2比2，貓頭鷹追平！",
+    "transcript": "滑球偏了！四壞球！擠回來一分！2比2，貓頭鷹追平！",
+    "transcriptMatch": true
+  },
+  "fan_owls-f747feed30": {
+    "hash": "e7b2dd6af7d472d6682543e9b5a0ead9c3a90ebfa97383bbd1b9c0469f5b7744",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "追平了！不用揮棒也能得分，這招我要學！",
+    "transcript": "追平了！不用揮棒也能得分，這招我要學！",
+    "transcriptMatch": true
+  },
+  "color-74d132ad24": {
+    "hash": "5279858efd525ff2f8a5a1780f1d7b9ca66deae5de51811ac8e1612ba278028c",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "連兩個滿球數都投成保送，這一分是送的。",
+    "transcript": "連兩個滿球數都投成保送，這一分是送的",
+    "transcriptMatch": true
+  },
+  "pbp-1330ad329e": {
+    "hash": "dc652554bf76a03005e1f38b87a9a65db2b2169d1626fc9830ee61e89309ba36",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "張家銘一壘滾地球出局！滿壘沒有再進帳。七局打完，2比2平手。",
+    "transcript": "張家銘一壘滾地球出局！滿壘沒有再進帳。七局打完，2比2平手。",
+    "transcriptMatch": true
+  },
+  "color-6c12ba5da2": {
+    "hash": "788b7cc4d7fe657b2f64335459d0a10ccd37f4e6437f8b000769e6338ca6e4f1",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "追平是好事，可是滿壘只靠保送拿一分，自己知道虧了。",
+    "transcript": "追平是好事，可是滿壘只靠保送拿一分，自己知道虧了",
+    "transcriptMatch": true
+  },
+  "pbp-f5a63ba9ea": {
+    "hash": "fe257d8a4999a4f21f94e72d9364625d5ded574c08cf091066f4d512dfd1ef67",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "八局上，貓頭鷹也換投，葉俊傑上場。",
+    "transcript": "八局上，貓頭鷹也換投，葉俊傑上場。",
+    "transcriptMatch": true
+  },
+  "pbp-3ec8611782": {
+    "hash": "5f065630114b75a1b83ccf5ea64e55624fa2f946b45d8ae3ba4dad45d4a70c5a",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳柏翰上來，帝雉上一局沒有得分。",
+    "transcript": "陳柏翰上來，帝雉上一局沒有得分",
+    "transcriptMatch": true
+  },
+  "color-c27a0a4497": {
+    "hash": "852eb8d0dad7b2300340a73e5f237144aca8a48e3c01ad4386ec8f98120d1c2a",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "這局打線該醒一醒了。",
+    "transcript": "這局打線該醒一醒了。",
+    "transcriptMatch": true
+  },
+  "pbp-372da7fe6c": {
+    "hash": "e37973158fbae37d9fba3807c2e1ba7c2a4b0ff7dadb7eb4aab6cbbbdf85c81f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳柏翰三壘滾地球出局。",
+    "transcript": "陳柏翰三壘滾地球出局",
+    "transcriptMatch": true
+  },
+  "pbp-3363fe5ee1": {
+    "hash": "5e12979787be905bddb51d56d65a915c41354fe4598eccbf4344d56a29328958",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "8局上，2比2平手，1出局，輪到帝雉的王俊廷。",
+    "transcript": "8局上，2比2平手，1出局，輪到帝雉的王俊廷。",
+    "transcriptMatch": true
+  },
+  "pbp-5402af5615": {
+    "hash": "3561f274af8c100df58d57de0d491485c4a706c46a2de927202b03b4d4e4ad83",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "王俊廷右外野平飛球，接殺，兩出局。",
+    "transcript": "王俊廷右外野平飛球，接殺，兩出局。",
+    "transcriptMatch": true
+  },
+  "pbp-3509301b83": {
+    "hash": "b97ea58c03abd1c7afb0db7a2d8fa54221ea8c11242bd04ea192f42461a693b0",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "劉立偉，上個打席選到保送。",
+    "transcript": "劉立偉，上個打席選到保送。",
+    "transcriptMatch": true
+  },
+  "pbp-fdbbcae5c5": {
+    "hash": "3f8ac754781c074bd9ce4d81281b2c0bccbac41879a2c8dfdb7a43b681cf4716",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "劉立偉一壘滾地球，三上三下。",
+    "transcript": "劉立偉一壘滾地球，三上三下.",
+    "transcriptMatch": true
+  },
+  "color-98fb2a0540": {
+    "hash": "24abef1bf1e236359e8b5e3fa4f9e77cf4ffd5442cb63b65a455fbf24f556068",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "十四球解決一局，乾淨。",
+    "transcript": "十四球解決一局，乾淨",
+    "transcriptMatch": true
+  },
+  "pbp-d4c19b9afc": {
+    "hash": "cb81a4b8814eea34dd9b2bf0e4364692a1e679764e7c0e6555aae5db93e2668f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "八局下，郭彥廷站著被三振，一出局。",
+    "transcript": "八局下，郭彥廷站著被三振，一出局。",
+    "transcriptMatch": true
+  },
+  "pbp-17c16a8290": {
+    "hash": "ef187f5f15fe0e7abbfbf564367384215e9372f4029c9bf24c34a44ec038c696",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "帝雉第四任投手，洪冠穎上場。",
+    "transcript": "帝雉第四任投手，洪冠穎上場。",
+    "transcriptMatch": true
+  },
+  "fan_owls-10cddd514d": {
+    "hash": "3531526fb3d6be3e713884e0d150b9fb9326fe0b9f2a4faec1192e8529299efe",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "一直換，他們是在輪班喔？",
+    "transcript": "一直換，他們是在輪班喔？",
+    "transcriptMatch": true
+  },
+  "pbp-4ee8b3fa1b": {
+    "hash": "467144ef09e10908b641a786e98975a3cab73bb943d562f21c6db30779c9cc34",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "邱子翔左外野平飛安打，一出局一壘有人。",
+    "transcript": "邱子翔左外野平飛安打，一出局一壘有人",
+    "transcriptMatch": true
+  },
+  "pbp-0ca91ab62f": {
+    "hash": "c6dc1a8e1bfaac44fd728367fccf54179b44e788a1f7cabd35cd29507289e227",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "許柏翰，今天已經被三振2次。",
+    "transcript": "許柏翰，今天已經被三振2次。",
+    "transcriptMatch": true
+  },
+  "color-8c2e404efc": {
+    "hash": "ef801b918ea53b110b2becd9fe6d04ddacc83e421873ead60f6dc5e40718c14e",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "這打席先求碰到球再說。",
+    "transcript": "這打席先求碰到球再說",
+    "transcriptMatch": true
+  },
+  "pbp-4179baf86a": {
+    "hash": "80c92c4ad01e39794aa9d7610f95baa4edda5a5188483b006ee69b55d2bb33e1",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "許柏翰內野高飛，二壘手接殺，兩出局。",
+    "transcript": "許柏翰內野高飛，二壘手接殺，兩出局。",
+    "transcriptMatch": true
+  },
+  "color-e679bff1de": {
+    "hash": "34338a4db37d81653d5e99b351063a6a548786fd981a442b5027ca366b71aecf",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "內野高飛最傷，跑者動都不能動。",
+    "transcript": "內野高飛最傷，跑者動都不能動",
+    "transcriptMatch": true
+  },
+  "pbp-276840d5eb": {
+    "hash": "3f4b68f38fb60896789b5a2f83d6f0101e250d5819a0d6a277c00370a80bbe62",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林柏均今天2打數1安打。",
+    "transcript": "林柏均今天2打數1安打",
+    "transcriptMatch": true
+  },
+  "pbp-4c80b8ce60": {
+    "hash": "eac1ac7f5d95020dd80c3298fae46bf0ef7d50050f281edbc1774610ada76369",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "林柏均選到保送，兩出局一二壘有人。",
+    "transcript": "林柏均選到保送，兩出局一二壘有人。",
+    "transcriptMatch": true
+  },
+  "fan_owls-153f8e0632": {
+    "hash": "d184c96fce73cf50b8f4ac869cd0cb646f4ad216494577de75e8ff44353ca18a",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "保送也好，我不挑。",
+    "transcript": "保送也好，我不挑.",
+    "transcriptMatch": true
+  },
+  "pbp-7319465584": {
+    "hash": "04ed651ce6454245bc6a7d9dae2c5195d81bda9be950cd6ba0d8a51d616c3e9c",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "陳偉倫平飛球——游擊手林家銘接住！三出局！",
+    "transcript": "陳偉倫平飛球——游擊手林家銘接住！三出局！",
+    "transcriptMatch": true
+  },
+  "fan_owls-d2cdbf240d": {
+    "hash": "f810a4cc20a2a1dca50866a7d5dbaa46956bf9aa875233d9bc2049577617b948",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "啊——！差一點啦！",
+    "transcript": "啊——！差一點啦！",
+    "transcriptMatch": true
+  },
+  "color-19af2f8266": {
+    "hash": "a89d23007b087de3060022b5f04fea55b575fb5c5624b9b95c28bb79419d2022",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "打得很紮實，只是飛進人家手套，棒球有時候就這麼不講理。",
+    "transcript": "打得很紮實，只是飛進人家手套，棒球有時候就這麼不講理。",
+    "transcriptMatch": true
+  },
+  "pbp-af72f88d8d": {
+    "hash": "0cd867e3924aed7ae14b0e36d600284b7e563ecf472fa33d8c5f56e96dba2166",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "八局打完，2比2。",
+    "transcript": "八局打完，2比2",
+    "transcriptMatch": true
+  },
+  "pbp-360f86e547": {
+    "hash": "bc9f47cd3c1943338b4afab14f1d2fabaa241fd4ba6d0dce9bb2a79507a6a2ab",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "張柏豪今天4個打數，還沒有安打。",
+    "transcript": "張柏豪今天4個打數，還沒有安打。",
+    "transcriptMatch": true
+  },
+  "pbp-c4a2217bfa": {
+    "hash": "1e4e2fafc432fc14a020699211bc5bf9f295a978146d15c3cdc7b43e8bb1e557",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "九局上，張柏豪揮空三振。",
+    "transcript": "九局上，張柏豪揮空三振。",
+    "transcriptMatch": true
+  },
+  "color-7b8507937c": {
+    "hash": "644c816db4b624ef78544d28223d69271ac788b1ea779bdbd24cd7297251393b",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "他已經開過轟了，投手要小心。",
+    "transcript": "他已經開過轟了，投手要小心",
+    "transcriptMatch": true
+  },
+  "pbp-a2d87e2d9a": {
+    "hash": "37b625932ea57b32b0277ee680e51371417be062c5e5185219eba571a58849db",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "陳冠霖也揮空，連續兩個三振。",
+    "transcript": "陳冠霖也揮空，連續兩個三振。",
+    "transcriptMatch": true
+  },
+  "pbp-e24d2b1a7f": {
+    "hash": "c59f920d8a5613b1b748248293bc1d36f58da9cfce5b0d6095f2dd6f0b4ec1a2",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林宇軒上來，帝雉上一局沒有得分。",
+    "transcript": "林宇軒上來，帝雉上一局沒有得分。",
+    "transcriptMatch": true
+  },
+  "color-c05828c9f0": {
+    "hash": "0712043cf16eea5b53a522617d262d3769b3d5fe2771df2d283d6dfd4003a69f",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "上一局沒動靜，這局看能不能弄點東西出來。",
+    "transcript": "上一局沒動靜，這局看能不能弄點東西出來",
+    "transcriptMatch": true
+  },
+  "pbp-04db537b12": {
+    "hash": "cefabb6c5e754bc0eb36ded6b6058ec89e8032a5c9678ef5c3941f3b52d36f39",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "林宇軒滑球揮空！葉俊傑三振掉帝雉二三四棒！",
+    "transcript": "林宇軒滑球揮空！葉俊傑三振掉帝雉二三四棒——",
+    "transcriptMatch": true
+  },
+  "color-431a468d93": {
+    "hash": "686fe954b3bb30fced8b380b6ee08a79af0c3e3edd086961d94f28debdd6b9b3",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "我跟你講，上來兩局，六個打者六個出局，這才叫後援投手。",
+    "transcript": "我跟你講，上來兩局，六個打者六個出局，這才叫後援投手。",
+    "transcriptMatch": true
+  },
+  "fan_owls-69f3984b8a": {
+    "hash": "1d930504b83b24de7f5c0b7cec0e5763916446e1b5922b3a76d136493ed1d6d5",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "這個後援可以啦！比我們部門任何人都準時下班！",
+    "transcript": "這個後援可以啦！比我們部門任何人都準時下班！",
+    "transcriptMatch": true
+  },
+  "pbp-ec0850766e": {
+    "hash": "b8dba5a879fca00ada3753ff5c5c78af8918abc6591e9588cc4bed33ccc1596f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "九局下，2比2，貓頭鷹只要一分就結束比賽。",
+    "transcript": "九局下，2比2，貓頭鷹只要一分就結束比賽。",
+    "transcriptMatch": true
+  },
+  "pbp-4d467c4b47": {
+    "hash": "8f6a664fb8c8465da47283ec6005e5a0db09e60e16bd7489beecdfb8bb53bcbb",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "鄭冠勳二壘滾地球出局，一出局。",
+    "transcript": "鄭冠勳二壘滾地球出局，一出局。",
+    "transcriptMatch": true
+  },
+  "pbp-39ba1d191e": {
+    "hash": "9563e362f52a20bd31e334da1aa488d2457d54275e061240e1276398163c56e8",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "潘振宇中外野平飛安打！一出局一壘有人。",
+    "transcript": "潘振宇中外野平飛安打！一出局一壘有人。",
+    "transcriptMatch": true
+  },
+  "fan_owls-96df901249": {
+    "hash": "48c52a9f82504ef4de56e466065f8aac9c4faf2e1d4497a0a3d2b498f2f9df73",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "回來一分我就可以回家睡覺了！拜託！",
+    "transcript": "回來一分我就可以回家睡覺了！拜託！",
+    "transcriptMatch": true
+  },
+  "pbp-573c7d0cc1": {
+    "hash": "2c9ca95869e0d05d3aa7148184e4f2105d499c72307e94ab4fedb6033030f5c9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "蔡俊廷揮空三振，兩出局。",
+    "transcript": "蔡俊廷揮空三振，兩出局.",
+    "transcriptMatch": true
+  },
+  "pbp-ad14e9f3f7": {
+    "hash": "7c5b0bf3f28d39848128c013a3390249f07ad9c4f4495a476b47df605488e1a9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "兩個界外，張家銘兩好球沒有壞球。",
+    "transcript": "兩個界外，張家銘兩好球沒有壞球。",
+    "transcriptMatch": true
+  },
+  "color-2aca4140d6": {
+    "hash": "063872aef19133d251831a4aa2b4885f5f7b63a809e4dfc26b71b5bb0e6a50dd",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "第五球了，他什麼都碰得到，就是打不進場內。",
+    "transcript": "第五球了，他什麼都碰得到，就是打不進場內",
+    "transcriptMatch": true
+  },
+  "pbp-0e7a16fc4d": {
+    "hash": "099b1dcdf3d5c87173cd8ab4cc7dd60c9425e5374c04f681adcb884106d039b9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "又是界外！第八球，兩好兩壞。",
+    "transcript": "又是界 外！第 八 球，兩 好 兩 壞。",
+    "transcriptMatch": true
+  },
+  "color-1eab4455a5": {
+    "hash": "8ee02f5f7d1c4b0526e67d06502c1321b99244b7e07f10d94463628047c365ee",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "十球了，連兩顆滑球都被他碰掉。",
+    "transcript": "十球了，連兩顆滑球都被他碰掉",
+    "transcriptMatch": true
+  },
+  "pbp-0f070a7bf7": {
+    "hash": "346f075fb7e830a940ab69d1ba19526cd2c5300f2190efabea1c892c428f933f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "壞球！第十一球，兩好三壞！",
+    "transcript": "壞球！第十一球，兩好三壞——",
+    "transcriptMatch": true
+  },
+  "pbp-59a817877b": {
+    "hash": "7784a53c8c402c0bbf473b6ffd39cfcb4d7e4b1a913e1dac2e14755dd151fa68",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "變速球——揮棒落空！三振！十二球的對決，洪冠穎贏了。九局打完2比2，進入延長賽！",
+    "transcript": "變速球——揮棒落空！三振！十二球的對決，洪冠穎贏了。九局打完2比2，進入延長賽！",
+    "transcriptMatch": true
+  },
+  "fan_owls-b732545fe9": {
+    "hash": "ced10a46e0ea5c5849f7faefc2eb2b864386191b4e8c95dbdd95ba073f951dbe",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "延長賽……球隊也要我加班就對了。",
+    "transcript": "延長賽……球隊也要我加班就對了。",
+    "transcriptMatch": true
+  },
+  "color-55f4d09f16": {
+    "hash": "9188c029de3bd99304ab4df50537f6d3c616fad69f2ad22ba5cbb2b4fed18933",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "阿辰，這種加班沒有加班費。",
+    "transcript": "阿辰，這種加班沒有加班費。",
+    "transcriptMatch": true
+  },
+  "pbp-99a5680db6": {
+    "hash": "9abf362c1e82c0b9e2c0a27d7dcfba0b8f84d414b8b7858a80fad112ae50ea9a",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "延長賽採突破僵局制，每個半局從無人出局二壘有人開始。",
+    "transcript": "延長賽採突破僵局制，每個半局從無人出局二壘有人開始。",
+    "transcriptMatch": true
+  },
+  "pbp-41c235f59b": {
+    "hash": "a334abd8543b5fd0069b3094c96260acab6ad40423acece3ee14020f8eb0125a",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "十局上，二壘放上林宇軒。",
+    "transcript": "十局上，二壘放上林宇軒",
+    "transcriptMatch": true
+  },
+  "pbp-729ff07d65": {
+    "hash": "a062541de2dc4ed3b05bd54528b3da56ad618df02bfb7b406c12cc819a1610a0",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "蕭家瑋短打——投手葉俊傑傳三壘！觸殺！林宇軒出局！打者上一壘。",
+    "transcript": "蕭家瑋短打——投手葉俊傑傳三壘！觸殺！林宇軒出局！打者上一壘。",
+    "transcriptMatch": true
+  },
+  "color-61d6d8c38d": {
+    "hash": "3bf595c4582a6629a1846abf58cbd66f41a6dab7a55ac65649b72aba213ceebd",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "這個膽子！短打敢傳三壘，慢半步就一三壘了。",
+    "transcript": "這個膽子！短打敢傳三壘，慢半步就一三壘了。",
+    "transcriptMatch": true
+  },
+  "pbp-6c9292f3f2": {
+    "hash": "93b93ea5e9029106833b7e117d98f8f709d588e5a18d2ddc206b6e5243ec97a2",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "貓頭鷹這時候換投，沈冠均上場。",
+    "transcript": "貓頭鷹這時候換投，沈冠均上場。",
+    "transcriptMatch": true
+  },
+  "fan_owls-7ebdc71c27": {
+    "hash": "841ad81b6b3af2baad24bfa85842ce16c9b1114fa8b421cdaee92d7a04b311b9",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "蛤？他剛守那麼漂亮，為什麼換？教練在想什麼？",
+    "transcript": "蛤？他剛守那麼漂亮，為什麼換？教練在想什麼？",
+    "transcriptMatch": true
+  },
+  "pbp-254dec4d0b": {
+    "hash": "7f46fba2615a0ea0691614fe88779cc948d9037d6acb110e719d85caf2b1dd8e",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "黃振宇，上個打席打了安打。",
+    "transcript": "黃振宇，上個打席打了安打。",
+    "transcriptMatch": true
+  },
+  "pbp-14d44d4c5f": {
+    "hash": "659541458aae05576adf2b21f56e85be9a8b02aa54100e1ae9f184c6935e2fa7",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "打出去了——中外野，很遠！",
+    "transcript": "打出去了——中外野，很遠！",
+    "transcriptMatch": true
+  },
+  "pbp-baee2524f1": {
+    "hash": "016aff5cbc13bdf2291d81c6219e1777f8281d7a5ac88a94984a25ea405fddae",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "全壘打！黃振宇兩分砲！帝雉4比2貓頭鷹！",
+    "transcript": "全壘打！黃振宇兩分砲！帝雉4比2貓頭鷹！",
+    "transcriptMatch": true
+  },
+  "fan_owls-f1817af113": {
+    "hash": "727d838736c520ed9748495cc5dd22e7e41f456393e75b5f502582989761df5c",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "……我就說不要換。",
+    "transcript": "……我就說不要換。",
+    "transcriptMatch": true
+  },
+  "color-14fb72ea0d": {
+    "hash": "42e879ca263802a85af75e61bb941bd99652e75bd93c3ac3fa1439153bf4b2bf",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "前一球一百四十四的直球他跟上了，這球慢曲球，剛好等到。",
+    "transcript": "前一球一百四十四的直球他跟上了，這球慢曲球，剛好等到",
+    "transcriptMatch": true
+  },
+  "pbp-52184e1d94": {
+    "hash": "9c7bf120bc824e2326036d0ece5808a308f9cc030edd6b809abb3047d480015c",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林家銘三壘滾地球出局，兩出局。",
+    "transcript": "林家銘三壘滾地球出局，兩出局。",
+    "transcriptMatch": true
+  },
+  "pbp-3929899802": {
+    "hash": "43bc197924d4fd0b7c62a8e547aa49e4f0b22116f1f8dd52e1c907871d94d86a",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "10局上，帝雉4比2貓頭鷹，2出局，帝雉的陳柏翰上場。",
+    "transcript": "10局上，帝雉4比2貓頭鷹，2出局，帝雉的陳柏翰上場",
+    "transcriptMatch": true
+  },
+  "pbp-3ac8c4b699": {
+    "hash": "8dd5476efa6e7431a358f7b3d1b14f30b1b610055326dcc1ffe7d5ad45aedadd",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "陳柏翰左外野飛球接殺。十局上，帝雉靠黃振宇的全壘打，4比2領先。",
+    "transcript": "陳柏翰左外野飛球接殺。十局上，帝雉靠黃振宇的全壘打，4比2領先。",
+    "transcriptMatch": true
+  },
+  "fan_owls-240c7a6f84": {
+    "hash": "ec88ece1d96cd95b783927336d09c10344c6f9867d3489e3d7333c7d6b6cb678",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "才落後兩分，我們公司專案落後更多。",
+    "transcript": "才落後兩分，我們公司專案落後更多。",
+    "transcriptMatch": true
+  },
+  "pbp-716c421499": {
+    "hash": "5cf7c3e26e4f004276af34e9096f4b692f8104bcaedf69d9ff395e1315f9bfd9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "十局下，二壘放上張家銘，帝雉換黃家豪上來投。",
+    "transcript": "十局下，二壘放上張家銘，帝雉換黃家豪上來投。",
+    "transcriptMatch": true
+  },
+  "pbp-0f46e40611": {
+    "hash": "d5e0a74bda27ecd14082c1a1c9dfa2958317aec0b37ff7ca7fbedbeb714fd515",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "郭彥廷三球三振！一出局，跑者還在二壘。",
+    "transcript": "郭彥廷三球三振！一出局，跑者還在二壘。",
+    "transcriptMatch": true
+  },
+  "fan_owls-246da91650": {
+    "hash": "31dbd542fc7ef22055aa736513b0fd4559e8bb4e47233d93e5b74e8f3c6e6dc7",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "三球……連掙扎都沒有。",
+    "transcript": "三球……連掙扎都沒有.",
+    "transcriptMatch": true
+  },
+  "pbp-d647331125": {
+    "hash": "5ec4800d11dde23ddb40d3f6e3eca80f8919416c7fd3944dab2fbe00b5cf7a68",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "邱子翔上來，貓頭鷹上一局沒有得分。",
+    "transcript": "邱子翔上來，貓頭鷹上一局沒有得分。",
+    "transcriptMatch": true
+  },
+  "pbp-e1d65242ad": {
+    "hash": "4738186bf28442818ec6f12f2727c69dbf922d1ae8f90367f1f3fb8a119ab4ea",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "打出去了——左外野！這球——",
+    "transcript": "打出去了——左外野！這球——",
+    "transcriptMatch": true
+  },
+  "pbp-788e5b04d7": {
+    "hash": "6564e43896ff8426772a6d2f32f03efe099b32761ec5b2bbc06f0fa14a7e9e94",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "出去了！邱子翔兩分全壘打！4比4！貓頭鷹又追平了！",
+    "transcript": "出去了——邱子翔兩分全壘打！4比4！貓頭鷹又追平了！",
+    "transcriptMatch": true
+  },
+  "fan_owls-fd4e11ecf0": {
+    "hash": "f6008ee324ad52adbd393fa71a27cef3ec0d31bf506faf80ae81b0defcf53185",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "值得了！今天加班到半夜也值得了！",
+    "transcript": "值得了！今天加班到半夜也值得了！",
+    "transcriptMatch": true
+  },
+  "color-742e71652b": {
+    "hash": "966ed8e020fbc3a4899c51a4c1554353dd250faed1cec5d82434e9214a68d815",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "兩壞一好，投手不想再壞，一百三十七的直球，邱子翔就等這個。",
+    "transcript": "兩壞一好，投手不想再壞，一百三十七的直球，邱子翔就等這個。",
+    "transcriptMatch": true
+  },
+  "pbp-3985e8fc3b": {
+    "hash": "4a8f34a211980c1447ed7aff05e562c71b9ec84bd01e950e40f0a7f8c60c3aa7",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "周哥，這次我沒有太早喊吧？",
+    "transcript": "周哥，這次我沒有太早喊吧？",
+    "transcriptMatch": true
+  },
+  "color-5415a74d30": {
+    "hash": "b34e0f7a43aab9b96d2d942455fb2945d8601391841fbe1aca534564222cf859",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "這次你喊太晚，球都快落地了。",
+    "transcript": "這次你喊太晚，球都快落地了.",
+    "transcriptMatch": true
+  },
+  "pbp-e4f67838ee": {
+    "hash": "db7c6f276625d144159603ea56b80f61dc47e6a8c2ffe8310b8f1a11794a72b5",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "許柏翰右外野飛球，接殺，兩出局。",
+    "transcript": "許柏翰右外野飛球，接殺，兩出局。",
+    "transcriptMatch": true
+  },
+  "color-ad2f047dbc": {
+    "hash": "5ee48d5ee76f595a81836db7d7906a49df37bb19a9f99bd9f686217589fe7339",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "被打全壘打之後這個打席最難投，投手穩下來了。",
+    "transcript": "被打全壘打之後這個打席最難投，投手穩下來了。",
+    "transcriptMatch": true
+  },
+  "pbp-729a1cd938": {
+    "hash": "c98e4b1f806758cf24e45e237d1035ba1e692e23e9fa7e8f2346ce5c8b097a55",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "林柏均中外野平飛安打！兩出局一壘有人。",
+    "transcript": "林柏均中外野平飛安打！兩出局一壘有人。",
+    "transcriptMatch": true
+  },
+  "pbp-35ec213f6b": {
+    "hash": "51ca2370aa71239671b323cfd77098ff3b4249ae00275c501b550cae6e0ac06e",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "陳偉倫三球三振。十局打完，4比4，還要再打。",
+    "transcript": "陳偉倫三球三振。十局打完，4比4，還要再打。",
+    "transcriptMatch": true
+  },
+  "fan_owls-ea1a99c921": {
+    "hash": "eb91cd3bc95dca55438a22b7c0eb09cce6365bec83c2ff05a93fd5ef4b9f4b6f",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "再打下去，我直接從球場去上班。",
+    "transcript": "再打下去，我直接從球場去上班.",
+    "transcriptMatch": true
+  },
+  "pbp-14e0ff1aa8": {
+    "hash": "51c2cf1db7f05825788f1659eb8e470cc7ce3ecefe07efae0a77e013ac644ccf",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "十一局上，二壘放上陳柏翰。",
+    "transcript": "十一局上，二壘放上陳柏翰。",
+    "transcriptMatch": true
+  },
+  "pbp-53c1c5c0bb": {
+    "hash": "1eeb517d0baea4ae2eb849d386f9b81c3efde8d631df29c64ce9ce858c324147",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "貓頭鷹故意保送王俊廷，一二壘有人。",
+    "transcript": "貓頭鷹故意保送王俊廷，一二壘有人。",
+    "transcriptMatch": true
+  },
+  "pbp-17eec432c4": {
+    "hash": "debc605bedf9f77cb71fe4175f0e4d5154ca023c64250a4d77586c0d775deee2",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "劉立偉第一球，內野高飛，一壘手接殺，一出局。",
+    "transcript": "劉立偉第一球，內野高飛，一壘手接殺，一出局。",
+    "transcriptMatch": true
+  },
+  "pbp-136ff4a2ec": {
+    "hash": "6f58a92cfa3875db75cb41ff71a53aac304fdc54d129355dbaa252692c8db6b7",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "張柏豪投手前滾地球——沈冠均傳給游擊手，沒有抓到人！失誤！滿壘！",
+    "transcript": "張柏豪投手前滾地球——沈冠均傳給游擊手，沒有抓到人！失誤！滿壘！",
+    "transcriptMatch": true
+  },
+  "color-9239faac0c": {
+    "hash": "de909ed900dfc9b96f578745774da48f10f1d8365f5ed560cd2ccf7c24f223c5",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "想抓雙殺太急，結果一個都沒抓到。",
+    "transcript": "想抓雙殺太急，結果一個都沒抓到。",
+    "transcriptMatch": true
+  },
+  "pbp-74261c9922": {
+    "hash": "5f702acf62cb5d92c02a63968a2c62663d78735ad5bb283f6c079557ca3d8439",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "陳冠霖右外野飛球，接殺——三壘跑者陳柏翰回來得分！高飛犧牲打，帝雉5比4貓頭鷹。",
+    "transcript": "陳冠霖右外野飛球，接殺——三壘跑者陳柏翰回來得分！高飛犧牲打，帝雉5比4貓頭鷹。",
+    "transcriptMatch": true
+  },
+  "fan_owls-748ade58b7": {
+    "hash": "55e5f10abdb9395837c3564f245e0a3ce5d6d5a422361e6a614241138fa84370",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "又是失誤……我今天白加班兩次。",
+    "transcript": "又是失誤……我今天白加班兩次。",
+    "transcriptMatch": true
+  },
+  "pbp-907d78ac5e": {
+    "hash": "e2ba3ceda617da26f202925f484fa227fe3862cbc48155c02137cad7975fcbbc",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "貓頭鷹換上左投楊冠瑋，兩出局一三壘有人。",
+    "transcript": "貓頭鷹換上左投楊冠瑋，兩出局一三壘有人",
+    "transcriptMatch": true
+  },
+  "pbp-3b3f069557": {
+    "hash": "37e206134d0ce824ed1587f94821a538783ab09c78246b4ce2c3c9c3d6814d98",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "林宇軒纏了七球，揮空三振！留下兩個殘壘。十一局上，帝雉5比4。",
+    "transcript": "林宇軒纏了七球，揮空三振！留下兩個殘壘。十一局上，帝雉5比4。",
+    "transcriptMatch": true
+  },
+  "color-fa3116fad2": {
+    "hash": "bce632f50a9afb036469749e9a34053bb3c2b2c583d36868e463dc3cfd32db21",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "故意保送、失誤、犧牲打，一支安打都沒有就拿一分，這分掉得冤。",
+    "transcript": "故意保送、失誤、犧牲打，一支安打都沒有就拿一分，這分掉得冤",
+    "transcriptMatch": true
+  },
+  "pbp-763751764e": {
+    "hash": "5755b02551e286c6b9b01bcb68f19baf2f427c8e5f21c3c85cd803264638c482",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "十一局下，二壘放上陳偉倫，貓頭鷹落後一分。",
+    "transcript": "十一局下，二壘放上陳偉倫，貓頭鷹落後一分。",
+    "transcriptMatch": true
+  },
+  "pbp-2e6ffe43d9": {
+    "hash": "aa0a94dbd03cf691c51bf194d16b9fcee1d9a88b3e87954c40fafe0b8b63bd63",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "鄭冠勳揮空三振，一出局。",
+    "transcript": "鄭冠勳揮空三振，一出局。",
+    "transcriptMatch": true
+  },
+  "pbp-9305f821f0": {
+    "hash": "ce229b6cffc755ed2fb38e2490a2dc6a1a0bde0d93fd67d66f451114d6665cf5",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "貓頭鷹上一局才拿下2分，潘振宇接著上。",
+    "transcript": "貓頭鷹上一局才拿下2分，潘振宇接著上",
+    "transcriptMatch": true
+  },
+  "color-99aaaa7266": {
+    "hash": "a578e63a88cdbd9ba8648bc56bcffc79591de1e10dd46bd3a48b5d232934cdbc",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "打線熱起來了，投手要穩住。",
+    "transcript": "打線熱起來了，投手要穩住",
+    "transcriptMatch": true
+  },
+  "pbp-c32c377f58": {
+    "hash": "9dfbcc5112bdec7ddd71e6dd56fcbf62cfe2e19147b84dffc0bfadd5f9f47fa0",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "潘振宇右外野飛球，接殺，陳偉倫起跑——上三壘！兩出局三壘有人。",
+    "transcript": "潘振宇右外野飛球，接殺，陳偉倫起跑——上三壘！兩出局三壘有人。",
+    "transcriptMatch": true
+  },
+  "color-acd9d8ece8": {
+    "hash": "906e68a91da53bcaf08648f583749c074faac630f476edd25ab51c985a42ef1d",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "右外野手一接到，他就起跑了，這個判斷漂亮。",
+    "transcript": "右外野手一接到，他就起跑了，這個判斷漂亮。",
+    "transcriptMatch": true
+  },
+  "pbp-63b74dbde2": {
+    "hash": "8565b2c4928ad80ac355d0a8c814badb26ebc2aa874c0cb0f32d1ca6ab394b9c",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "蔡俊廷，今天已經被三振2次。",
+    "transcript": "蔡俊廷，今天已經被三振2次。",
+    "transcriptMatch": true
+  },
+  "color-651a611d75": {
+    "hash": "9f8e4d188b597b463df256ede66b4bae287056e4eb3d132a631520c0a75a510a",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "今天一直被三振，揮棒要縮短一點了。",
+    "transcript": "今天一直被三振，揮棒要縮短一點了。",
+    "transcriptMatch": true
+  },
+  "pbp-e53296d917": {
+    "hash": "9be3dc80d69122a9c6444dfca284a8a9e638b480d145aaff47b7bc1f86f6a969",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "蔡俊廷，兩好三壞。",
+    "transcript": "蔡俊廷，兩好三壞。",
+    "transcriptMatch": true
+  },
+  "pbp-d42099c590": {
+    "hash": "2177fc1c37f156fcd84b7979a1879c148063952a250576c0c0d45607f32dd974",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "壞球，保送！兩出局一三壘有人。",
+    "transcript": "壞球，保送！兩出局一三壘有人.",
+    "transcriptMatch": true
+  },
+  "fan_owls-bf7dd88a0d": {
+    "hash": "45aad7883ca9d3625886304349d272c21f07382babb63e470fe789805ae46a79",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "拜託拜託拜託，我願意明天加班。",
+    "transcript": "拜託拜託拜託，我願意明天加班.",
+    "transcriptMatch": true
+  },
+  "pbp-a48578cbb8": {
+    "hash": "391472a2041803a440054f9a80d486ee5f791c9f8fcf97c811bf37214c849534",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "三壞一好，張家銘。",
+    "transcript": "三壞一好，張家銘",
+    "transcriptMatch": true
+  },
+  "pbp-aa119f89ee": {
+    "hash": "ce6cb6efea778688c51a99705c41d7a72ef05b7d0c2c6658fd2d87965430f9e1",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "打出去了，穿過內野！中外野安打！陳偉倫回來得分！5比5！又追平了！",
+    "transcript": "打出去了，穿過內野！中外野安打！陳偉倫回來得分！5比5！又追平了！",
+    "transcriptMatch": true
+  },
+  "fan_owls-4b41b2ef8b": {
+    "hash": "60629f685177d8d58e796bd7cafd770c541c4d23c4c798fc859acc881e06a9f6",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "之前那個三振，我原諒你了！",
+    "transcript": "之前那個三振，我原諒你了——！",
+    "transcriptMatch": true
+  },
+  "color-9545d9c692": {
+    "hash": "309b011f2a13222511cb7eeed2ab20742f3b1548173cbe478c809b6e2d48edeb",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "九局那個十二球三振他記到現在，這一棒是還債。",
+    "transcript": "九局那個十二球三振他記到現在，這一棒是還債。",
+    "transcriptMatch": true
+  },
+  "pbp-6338895e76": {
+    "hash": "5c1ca01ad3eaa40ae1d87924caa1d0aabb4ae7c5fec0a1626c4c37cecc5e3a23",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "郭彥廷二壘滾地球出局，一二壘沒有回來。十一局打完，5比5。",
+    "transcript": "郭彥廷二壘滾地球出局，一二壘沒有回來。十一局打完，5比5。",
+    "transcriptMatch": true
+  },
+  "color-36a9cd4935": {
+    "hash": "80202f70b33cf21bde5032a20c91081582666f84b4b4da3c39e036139a17e600",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "落後三次，追平三次，貓頭鷹今天不知道什麼叫放棄。",
+    "transcript": "落後三次，追平三次，貓頭鷹今天不知道什麼叫放棄",
+    "transcriptMatch": true
+  },
+  "pbp-f231620d8b": {
+    "hash": "607f1d7396b0ffe4ce798b42530be2c3dcabc195b9d10fabe0acd0b640467350",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "十二局上，二壘放上林宇軒。",
+    "transcript": "十二局上，二壘放上林宇軒。",
+    "transcriptMatch": true
+  },
+  "pbp-1afca8dcf7": {
+    "hash": "9ad12c0cbe962c9fef377193df302a5afb2444733097514ad89d73efa3df014d",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "蕭家瑋又是短打，這次投手傳一壘，犧牲觸擊成功，林宇軒上三壘。",
+    "transcript": "蕭家瑋又是短打，這次投手傳一壘，犧牲觸擊成功，林宇軒上三壘.",
+    "transcriptMatch": true
+  },
+  "color-0fe827468c": {
+    "hash": "fc4e31f6d3abc7bc724c5be74bfc14fc072fe505ddd035e2a7ea0f971d269fca",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "十局他短打，跑者死在三壘，這次點得夠軟，學到了。",
+    "transcript": "十局他短打，跑者死在三壘，這次點得夠軟，學到了。」",
+    "transcriptMatch": true
+  },
+  "pbp-3eed155ca3": {
+    "hash": "118a942d2c2d135e649df4742b08323168c25ca87597b9544b74ebf8b43d93b1",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "黃振宇中外野飛球，接殺，林宇軒衝回本壘——得分！帝雉6比5貓頭鷹！",
+    "transcript": "黃振宇中外野飛球，接殺，林宇軒衝回本壘——得分！帝雉6比5貓頭鷹！",
+    "transcriptMatch": true
+  },
+  "color-276cd28186": {
+    "hash": "ac5e5a9ad70822596e613ba93a57dae72f80407e42b55bfeda4b06d9cbd1b70b",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "又是黃振宇，今晚三分打點。",
+    "transcript": "又是黃振宇，今晚三分打點。",
+    "transcriptMatch": true
+  },
+  "pbp-0a3e81cfdb": {
+    "hash": "466d3cd3086759c7f7bb13564f87dfa18f497ae2d09a58efce108a58b691d7c3",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林家銘右外野飛球接殺。十二局上，帝雉6比5。",
+    "transcript": "林家銘右外野飛球接殺。十二局上，帝雉6比5。",
+    "transcriptMatch": true
+  },
+  "fan_owls-c4f0ba98e7": {
+    "hash": "af9cd96e037477ea00d00d7b083c68e459d34edfeee9703333507dec7537ab0f",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "又落後……沒關係，我們今天追三次了，再追一次。",
+    "transcript": "又落後……沒關係，我們今天追三次了，再追一次。",
+    "transcriptMatch": true
+  },
+  "pbp-cf117c8d67": {
+    "hash": "13b4f97ad3b9d27e5cbe6768e8291cf809af2413bab4eb3e1ea6397f347cfb81",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "緊張，聲音壓低、一字一字講",
+    "text": "十二局下，二壘放上郭彥廷。",
+    "transcript": "十二局下，二壘放上郭彥廷。",
+    "transcriptMatch": true
+  },
+  "pbp-b7ad2f77ad": {
+    "hash": "6f5b9cf48c92b80ec22b56bb77a5475e6a57101a66d683564789893131fc188a",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "帝雉故意保送邱子翔，不跟他對決，無人出局一二壘有人。",
+    "transcript": "帝雉故意保送邱子翔，不跟他對決，無人出局一二壘有人",
+    "transcriptMatch": true
+  },
+  "color-3c81d3ad81": {
+    "hash": "3ff7a3f82b7d2d66ded769df1e94cd40e599eb17e59d85f974ebb018974c9e39",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "十局被他打全壘打，怕了。",
+    "transcript": "十局被他打全壘打，怕了。",
+    "transcriptMatch": true
+  },
+  "pbp-c4e607eb8c": {
+    "hash": "f8c0de860108aae607697bd60b911adf8b871c0e328a767805389fbe9ef8a22d",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "許柏翰游擊滾地球——傳二壘、傳一壘，雙殺！兩出局，郭彥廷上三壘。",
+    "transcript": "許柏翰游擊滾地球——傳二壘、傳一壘，雙殺！兩出局，郭彥廷上三壘。",
+    "transcriptMatch": true
+  },
+  "fan_owls-89a0344f3e": {
+    "hash": "1c4a72fc39df925a22cfbaf30056c6031bae72cc31084177c3f8f5e9d7b0a110",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "我真的……算了。",
+    "transcript": "我真的……算了。",
+    "transcriptMatch": true
+  },
+  "color-c62cfe7250": {
+    "hash": "2b11c63a1eef0ea10f66f3a0ebe83eefc99705869a59c2a3936f07d9e0cdf7ad",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "六四三，乾淨俐落，剩一個出局數。",
+    "transcript": "六四三，乾淨俐落，剩一個出局數。",
+    "transcriptMatch": true
+  },
+  "pbp-8882b4e9c5": {
+    "hash": "c4b3dd03bbb65f13a2e60bf4dd3f6a5444b130f219c684c0555ec555171c44d0",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "林柏均左外野飛球——陳冠霖接殺！比賽結束！",
+    "transcript": "林柏均左外野飛球——陳冠霖接殺！比賽結束！",
+    "transcriptMatch": true
+  },
+  "pbp-0f0d57252b": {
+    "hash": "07cf02e5b62c9a198aece71ccebfb7c46e1646217423d4540ee93fbd9dfa719c",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "打滿十二局，台北房貸帝雉6比5，擊敗新竹爆肝貓頭鷹。",
+    "transcript": "打滿十二局，台北房貸帝雉6比5，擊敗新竹爆肝貓頭鷹。",
+    "transcriptMatch": true
+  },
+  "color-c5ff8ee751": {
+    "hash": "293d2b707a99b9bb844985b941bde5b2917fca192795be97eb9b12fa02506800",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "十二支安打輸給十支，延長賽那個失誤送掉一分，就差這一分。",
+    "transcript": "十二支安打輸給十支，延長賽那個失誤送掉一分，就差這一分。",
+    "transcriptMatch": true
+  },
+  "fan_owls-ae4fb3a8fe": {
+    "hash": "753e6015c958e51f6c5e56eefccc59cff4bd62de2d40e3d964019b4e967965c8",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "追平三次還是輸……我明天還要上班欸。好啦，下次我還來。",
+    "transcript": "追平三次還是輸……我明天還要上班欸。好啦，下次我還來。",
+    "transcriptMatch": true
+  },
+  "pbp-4eba5eb33a": {
+    "hash": "51f0af6c6a887251c7e9709ea4345de0837a1d115473913202703343b2554760",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "阿辰辛苦了，周哥辛苦了，我們下次見。",
+    "transcript": "阿辰辛苦了，周哥辛苦了，我們下次見。",
+    "transcriptMatch": true
   }
 }
