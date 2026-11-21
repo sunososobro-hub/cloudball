@@ -1,3 +1,14 @@
+NOTICE (effective 2026-11-21)
+
+CC0 1.0 below applies to the data FORMAT and the numeric/stat structure of teams.js and
+players.js (fields, ratings, lineup and pitching-staff layout). It does NOT license the
+names, logos, mascots, characters or personas of the league, teams and players: those are
+reserved, see /TRADEMARKS.md. Public forks must replace them.
+
+Versions published under CC0 before 2026-11-21 remain CC0 for those versions; a CC0 grant
+cannot be revoked.
+
+----------------------------------------------------------------------------------------
 Creative Commons Legal Code
 
 CC0 1.0 Universal
