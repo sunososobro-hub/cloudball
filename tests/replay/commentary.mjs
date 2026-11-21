@@ -6,8 +6,10 @@
  *     (so it cannot be talking about something that has not happened yet)
  *   - drafting commentary does not change the game
  *   - every registered per-game script is valid for the game it names
+ *   - the tension index checks (commentary/tension.check.mjs) pass; they run as a child process so CI covers them
  * Usage: node tests/replay/commentary.mjs */
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { simGame, TEAMS } from '../../engine/index.js';
@@ -71,5 +73,8 @@ for (const [seed, file] of Object.entries(index)) {
 
 console.log(`bank: ${Object.keys(bank.triggers).length} triggers, ${exchanges} exchanges (${paired} call-and-response)`);
 console.log(`${GAMES} games: ${(lines / GAMES).toFixed(0)} lines/game, one line every ${(seconds / lines).toFixed(0)} s on average, ${Object.keys(index).length} registered script(s)`);
+const tension = spawnSync(process.execPath, [path.join(DIR, 'tension.check.mjs')], { encoding: 'utf8', env: { ...process.env, GAMES: String(GAMES) } });
+process.stdout.write(tension.stdout || ''); process.stderr.write(tension.stderr || '');
+if (tension.status !== 0) bad(`commentary/tension.check.mjs failed (exit ${tension.status === null ? 'killed by ' + tension.signal : tension.status})`);
 if (problems.length) { console.error(`\nFAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
-console.log('OK: bank is well formed, drafts are deterministic and causal, commentary does not touch the game.');
+console.log('OK: bank is well formed, drafts are deterministic and causal, commentary does not touch the game, tension index checks pass.');
