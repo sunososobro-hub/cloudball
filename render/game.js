@@ -120,7 +120,10 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
   const oG=texture(tex('grass_orm'),gUV),oD=texture(tex('dirt_orm'),dUV);const orm=mix(oD,oG,isGrass);
   m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
 const outer=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({color:LC(0x1a2018),roughness:1}));outer.rotation.x=-Math.PI/2;outer.position.set(0,-.03,-55);scene.add(outer);
-const adC=document.createElement('canvas');adC.width=2048;adC.height=96;{const g=adC.getContext('2d');const ads=[['雲端職棒','#1d4d2a','#f2c230'],['雲端看台','#14304f','#ffffff'],['台北沙丁魚','#2fb5a8','#06231f'],['CLOUD BASEBALL','#1d4d2a','#ffffff'],['新竹貓頭鷹','#b04fc8','#ffffff'],['每兩小時一場','#14304f','#f2c230']];
+const AD_DARK_TEXT_LUM=.5;
+const adC=document.createElement('canvas');adC.width=2048;adC.height=96;{const g=adC.getContext('2d');/* league boards plus one board per team (name on the team colour; dark text on a light colour) */
+  const teamAd=T=>{const c=parseInt(T.css.slice(1),16),lum=(.2126*(c>>16)+.7152*(c>>8&255)+.0722*(c&255))/255;return[T.name,T.css,lum>AD_DARK_TEXT_LUM?'#06231f':'#ffffff']};
+  const ads=[['雲端職棒','#1d4d2a','#f2c230'],...TEAMS.slice(0,2).map(teamAd),['CLOUD BASEBALL','#1d4d2a','#ffffff'],...TEAMS.slice(2,4).map(teamAd)];
   ads.forEach(([t,bg,fg],i)=>{const w=2048/ads.length;g.fillStyle=bg;g.fillRect(i*w,0,w,96);g.fillStyle=fg;g.textAlign='center';g.textBaseline='middle';let fs=54;do{g.font=`700 ${fs}px "Noto Sans TC",sans-serif`;fs-=2}while(g.measureText(t).width>w-40&&fs>20);g.fillText(t,i*w+w/2,50);g.fillStyle='rgba(0,0,0,.35)';g.fillRect(i*w+w-3,0,3,96)})}
 const adTex=new THREE.CanvasTexture(adC);adTex.colorSpace=THREE.SRGBColorSpace;adTex.wrapS=THREE.RepeatWrapping;adTex.repeat.set(-4,1);
 const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.position.y=1.5;scene.add(fence);
@@ -235,12 +238,13 @@ $('gfx').textContent=gfxLow?'畫質：低':'畫質：高';
 $('gfx').onclick=()=>{gfxLow=!gfxLow;try{localStorage.setItem('zu_gfx',gfxLow?'low':'high')}catch(e){}PP=gfxLow?null:(PP||setupPost());if(typeof setTier==='function'){setTier(gfxLow?2:(IS_MOBILE?1:0));tierT0=performance.now()}$('gfx').textContent=gfxLow?'畫質：低':'畫質：高';note(gfxLow?'畫質低：關掉後製，比較順':'畫質高：開後製光影')};
 {const on=(()=>{try{return localStorage.getItem('zu_gl')==='1'}catch(e){return false}})();$('compat').setAttribute('aria-pressed',on);
  $('compat').onclick=()=>{try{localStorage.setItem('zu_gl',on?'0':'1')}catch(e){}note(on?'關閉相容模式，重新載入…':'改用相容模式（WebGL），重新載入…');setTimeout(()=>location.reload(),800)}}
-/* ---------- Team mascot logos (original, pure SVG) ---------- */
-const LOGOS={
- '沙丁魚':`<svg viewBox="0 0 64 64"><path d="M6 32 L18 22 L18 42Z" fill="#1f8f85"/><path d="M14 32 Q16 14 38 15 Q58 17 60 32 Q58 47 38 49 Q16 50 14 32Z" fill="#2fb5a8"/><path d="M16 36 Q30 46 58 36 Q56 47 38 49 Q18 50 16 36Z" fill="#cfeee9"/><path d="M28 15 L34 7 L40 15Z" fill="#1f8f85"/><rect x="24" y="24" width="7" height="6" rx="1.5" fill="#fff6c9"/><rect x="33" y="24" width="7" height="6" rx="1.5" fill="#fff6c9"/><circle cx="51" cy="28" r="4" fill="#fff"/><circle cx="52" cy="28" r="2" fill="#14161c"/><path d="M57 36 Q52 39 47 37" stroke="#14161c" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`,
- '貓頭鷹':`<svg viewBox="0 0 64 64"><path d="M10 20 L18 6 L27 15 Q32 13 37 15 L46 6 L54 20 Q58 42 47 55 Q32 63 17 55 Q6 42 10 20Z" fill="#b04fc8"/><path d="M20 46 Q32 58 44 46 Q40 54 32 56 Q24 54 20 46Z" fill="#e6b8f2"/><circle cx="23" cy="29" r="10.5" fill="#3a1646"/><circle cx="41" cy="29" r="10.5" fill="#3a1646"/><circle cx="23" cy="28" r="8.5" fill="#fff"/><circle cx="41" cy="28" r="8.5" fill="#fff"/><circle cx="24" cy="29" r="4" fill="#14161c"/><circle cx="40" cy="29" r="4" fill="#14161c"/><path d="M29 35 L35 35 L32 42Z" fill="#f2c230"/><path d="M16 50 Q12 44 14 38M48 50 Q52 44 50 38" stroke="#8a3aa0" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>`};
-const logoOf=i=>LOGOS[TEAMS[i].short]||'';$('mas').innerHTML=logoOf(0)+logoOf(1);
-const logoImgs={};for(const k in LOGOS){const im=new Image();im.onload=()=>{sbKey=''};im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(LOGOS[k].replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" '));logoImgs[k]=im}
+/* ---------- Team logos: the owner's own team marks, assets/logos/<team id>_<px>.webp (see assets/SOURCES.md), found by team id.
+   Replacing a logo is replacing its file (assets/tools/make_logos.py). A team without a file shows no logo, nothing breaks ---------- */
+const LOGO_DIR='assets/logos/',LOGO_PX=128,logoSrc=id=>`${LOGO_DIR}${id}_${LOGO_PX}.webp`;
+/* HTML for team i's logo: px wide, or filling its box when px is omitted */
+const logoOf=(i,px)=>{const T=TEAMS[i];if(!T||!T.id)return'';return`<img src="${logoSrc(T.id)}" alt="" draggable="false" ${px?`width="${px}" height="${px}"`:'style="width:100%;height:100%;display:block;object-fit:contain"'} onerror="this.remove()">`};
+const INTRO_LOGO_PX=84;$('mas').innerHTML=logoOf(0,INTRO_LOGO_PX)+logoOf(1,INTRO_LOGO_PX);
+const logoImgs={};for(const T of TEAMS){if(!T.id)continue;const im=new Image();im.onload=()=>{sbKey=''};im.src=logoSrc(T.id);logoImgs[T.id]=im}
 /* outfield scoreboard */
 const sbC=document.createElement('canvas');sbC.width=1024;sbC.height=400;const sbTex=new THREE.CanvasTexture(sbC);sbTex.colorSpace=THREE.SRGBColorSpace;
 const sbMesh=new THREE.Mesh(new THREE.PlaneGeometry(26,10),new THREE.MeshBasicMaterial({map:sbTex,toneMapped:false}));
@@ -250,7 +254,7 @@ const sbMesh=new THREE.Mesh(new THREE.PlaneGeometry(26,10),new THREE.MeshBasicMa
 let sbKey='';
 function drawBoard(s,txt){const k=s.sc.join()+txt;if(k===sbKey)return;sbKey=k;const g=sbC.getContext('2d');
   g.fillStyle='#05070d';g.fillRect(0,0,1024,400);g.font='600 64px "Noto Sans TC",sans-serif';g.textBaseline='middle';
-  TEAMS.slice(0,2).forEach((T,i)=>{g.fillStyle=T.css;g.fillRect(40,70+i*120,18,80);if(logoImgs[T.short]&&logoImgs[T.short].complete&&logoImgs[T.short].naturalWidth)g.drawImage(logoImgs[T.short],70,64+i*120,92,92);g.fillStyle='#fff';g.fillText(T.name,178,110+i*120);g.font='700 110px "Barlow Condensed",sans-serif';g.textAlign='right';g.fillStyle='#ffe28a';g.fillText(s.sc[i],980,112+i*120);g.textAlign='left';g.font='600 64px "Noto Sans TC",sans-serif'});
+  TEAMS.slice(0,2).forEach((T,i)=>{g.fillStyle=T.css;g.fillRect(40,70+i*120,18,80);const lg=logoImgs[T.id];if(lg&&lg.complete&&lg.naturalWidth)g.drawImage(lg,70,64+i*120,92,92);g.fillStyle='#fff';g.fillText(T.name,178,110+i*120);g.font='700 110px "Barlow Condensed",sans-serif';g.textAlign='right';g.fillStyle='#ffe28a';g.fillText(s.sc[i],980,112+i*120);g.textAlign='left';g.font='600 64px "Noto Sans TC",sans-serif'});
   g.fillStyle='#9aa6bd';g.font='500 44px "Noto Sans TC",sans-serif';g.fillText(txt,80,350);sbTex.needsUpdate=true}
 
 /* ---------- figures ---------- */
