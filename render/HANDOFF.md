@@ -1,20 +1,20 @@
 # render/ handoff (max 20 lines)
 
 ## Done
-- Tools: `tools/studio_shot.py` (contact sheets; needs `npm i three@0.186.1`, THREE_DIR; run one at a time, parallel runs time out),
-  `tools/studio_probe.py` (prints a JS expression per time, ~20 s a run). #3 comments translated (PR #12).
-- #5 bunt (PR #22): squared stance, level bat on the pitch line (`buntContact`); batter-runner leaves from the box (`BAT_LEAVE_BLEND`).
-- #5 steal (PR #24): `catcherThrow` pop-up, transfer, hold when plan.t0 is late (#23), step, throw at plan.t0, re-crouch.
-- #5 tag (feat/5-tag): `tagPose` for steal receiver, bunt-FC and tag-up plays. Out = engine `plan.actions` a:'tag' time, then
-  shows the ball; safe = late swipe at arrive+TAG_LATE_SWEEP. Glove on the runner's lane. Studio acts `sbout`, `tagfc` (400 seeds).
-
-- #5 pitcher cover (feat/5-cover, stacked on feat/5-tag): fielding/covering pitcher starts from the stride at contact
-  (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). Probed on studio act `dp3`: no jump.
+- Tools: `tools/studio_shot.py` (contact sheets, about 10 s a frame; needs `npm i three@0.186.1`, THREE_DIR; one run at a time),
+  `tools/studio_probe.py` (prints a JS expression per time, ~25 s a run; `X.batter.sockets`, `V(obj)` give world positions).
+- #5 (merged): bunt (`buntContact`), steal (`catcherThrow`), tag (`tagPose`), pitcher cover (`P.mix`).
+- #43 item 1, hit by pitch (fix/43-hbp): the pitch ends on the batter (`hbpSpot`: shoulder blade or thigh from the pitch height,
+  read off his posed body), he turns his back and jolts (`HBP`, `hbpW/J/S`), the ball drops and dies at `HBP_REST` (`dropBall`),
+  the catcher leans out, picks it up and returns it. Watched: studio 觸身球 clips 1 (low) and 4 (high), both right-handed.
 
 ## Next
-- #5 is done once PRs #24, #39 and the cover PR merge (in that order). Not yet screenshotted: `dp3` pitcher run (only probed).
+- #43 items 4, 2, 3, 5 (bunt ball floats: `dropBall` is a ready bounce-and-roll path), then #42, #36, #33.
+- Hit by pitch, not yet watched: a left-handed batter (clips 6, 8, 9, 11), the lowest pitches (clip 9), the dress-rehearsal camera.
+
 ## Traps
-- Engine's second-base tag spot is in the runner's lane (issue #35): runner slides through the SS until the engine moves it.
-- Batter-local frame: +z faces the plate, +x faces the pitcher. No left-handed bunt in the studio seed bank yet.
-- Engine sets `e.swing=true` on bunts; guard with `e.play.bunt`. Shell env does not persist: re-export THREE_DIR each call.
-- `gh` GraphQL is blocked: use `gh api repos/...` REST for issues/PRs.
+- A skinned arm with `scale.y >= 1` gets an automatic elbow bend unless `f.auto=false`: a reach then stops well short of its target.
+- `hbpSpot` poses the batter at ARRIVE to read the spot, so call it before the frame's own `poseBatter`/`batterWalk`.
+- Batter-local frame: +z faces the plate, +x faces the pitcher (the figure's left). Catcher's mitt (`arms[0]`) is on world -x.
+- Engine `e.zx` on a hit by pitch is on the far side of the plate half the time; the renderer ignores it there (uses `e.zy` only).
+- Engine sets `e.swing=true` on bunts; guard with `e.play.bunt`. Re-export THREE_DIR each call. `gh`: REST only (`gh api repos/...`).

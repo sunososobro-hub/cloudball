@@ -335,6 +335,39 @@ const ARM_S_MIN=window.PL?.3:.85;
 const BUNT={yaw:1.25,hips:.75,head:1.45,lean:.45,gap:.32},BUNT_SQUARE_LEAD=1.05,BUNT_SQUARE_DUR=.45,BUNT_GIVE=.08,BUNT_GIVE_DUR=.15;
 const BUNT_DIR=[.25,.18,1],BUNT_SWEET=.55,BUNT_SWEET_X=.42,BUNT_KNEE=.3,BUNT_KNEE_REF=.92,BUNT_KNEE_LOW=.25,BUNT_KNEE_MIN=.2,BUNT_KNEE_MAX=.4,BUNT_HAND_MIN=.6,BUNT_HAND_MAX=1.25,BUNT_RISE=.3;
 const _ugm=new THREE.Matrix4(),_ugh=new THREE.Vector3(),_ugd=new THREE.Vector3(),_ugs=new THREE.Vector3();
+/* Hit by pitch: the pitch runs in on the batter instead of crossing the plate. He picks it up late, turns his back to it (feet, hips and
+   shoulders), tucks his chin and hugs the bat in; the ball clips him at its own height on the side nearest the pitcher (hip, or shoulder
+   blade: never the head), he jolts, straightens up, and is back in his stance when the engine starts his walk to first (the move's st0).
+   The ball glances off toward the catcher, drops, bounces on the dirt and dies; the catcher picks it up and returns it to the pitcher.
+   HBP: pose targets (same frames as BK/BUNT). hbpW: how far he is turned away (0..1), hbpJ: the jolt, hbpS: the half step it knocks him */
+const HBP={body:.6,up:-1,hips:-.5,head:-.15,tuck:.45,lean:.42,knee:.1,hand:[-.05,.48,.3],bat:[-.3,.9,.25]};
+const HBP_SEE=.2,HBP_TURN_DUR=.24,HBP_JOLT_IN=.07,HBP_JOLT_OUT=.4,HBP_REC_DUR=.4,HBP_ARCH=.32,HBP_BUCKLE=.16,HBP_HEAD_SNAP=.3,HBP_SHOVE=.1,HBP_HOP=.04;
+/* Where it hits, in unscaled body metres: a pitch above HBP_Y_SPLIT takes the shoulder blade, a lower one the hip. [min, max] height, then [x toward the pitcher, z behind] */
+const HBP_Y_SPLIT=1.1,HBP_Y_HIGH=[1.2,1.36],HBP_Y_LOW=[.6,.9],HBP_BACK_X=.13,HBP_HIP=[.15,-.09],HBP_NUM_Y=1.3,HBP_PELVIS_Y=.95,HBP_FALLBACK=[.14,-.13];
+/* Ball coming off him: it pops up at HBP_VY m/s and glances toward the catcher so that it dies at HBP_REST ([toward the plate from the
+   middle of it, behind it], in his reach and clear of his knees): free fall, DROP_BOUNCES bounces that keep DROP_REST of the vertical and
+   DROP_GRIP of the horizontal speed, then a roll that friction stops at DROP_ROLL_DECEL m/s^2 */
+const HBP_VY=.5,HBP_REST=[.3,.6],GRAVITY=9.81,DROP_REST=.38,DROP_GRIP=.6,DROP_BOUNCES=3,DROP_ROLL_DECEL=2.5;
+/* Catcher, seconds after the pitch arrives: leans out and reaches for the dead ball, has it at HBP_PICK_AT+HBP_PICK_DUR, sits back, returns it */
+const HBP_PICK_AT=1.9,HBP_PICK_DUR=.45,HBP_PICK_GRAB=.12,HBP_PICK_BACK=.4,HBP_PICK_LEAN=1.1,HBP_RETURN_AT=3.1,HBP_RETURN_DUR=.9,HBP_RETURN_ARC=3,HBP_THUD=[130,.3];
+let hbpW=0,hbpJ=0,hbpS=0,hbpEv=null;const hbpPt=[0,1,0],HBP_AT_REST=60,_hbv=new THREE.Vector3();
+/* The engine's walk start for the batter-runner (seconds into the frame) */
+const hbpWalkAt=e=>{const m=(e.moves||[]).find(m=>m[0]===0);return m?m[3].st0:ARRIVE+HBP_JOLT_IN+HBP_JOLT_OUT+HBP_REC_DUR};
+function dropBall(p0,v0,t){let x=p0[0],y=p0[1],z=p0[2],vx=v0[0],vy=v0[1],vz=v0[2];
+  for(let n=0;n<=DROP_BOUNCES;n++){const tf=(vy+Math.sqrt(vy*vy+2*GRAVITY*Math.max(0,y-BALL_R)))/GRAVITY;if(t<tf)return[x+vx*t,y+vy*t-.5*GRAVITY*t*t,z+vz*t];
+    x+=vx*tf;z+=vz*tf;t-=tf;vy=(GRAVITY*tf-vy)*DROP_REST;vx*=DROP_GRIP;vz*=DROP_GRIP;y=BALL_R}
+  const sp=Math.hypot(vx,vz),tt=Math.min(t,sp/DROP_ROLL_DECEL),d=sp*tt-.5*DROP_ROLL_DECEL*tt*tt;return sp>0?[x+vx/sp*d,BALL_R,z+vz/sp*d]:[x,BALL_R,z]}
+/* World point where the pitch strikes the batter (cached per frame object): his body as it is posed when the ball gets there */
+function hbpSpot(e){if(hbpEv===e)return hbpPt;
+  poseBatter(e,ARRIVE);batterWalk(e,ARRIVE);batter.g.updateMatrixWorld(true);
+  const py=(.45+e.zy*.75)/(batter.k||1),high=py>HBP_Y_SPLIT,S=batter.sockets;
+  if(S&&high){_hbv.set(HBP_BACK_X,clamp(py,HBP_Y_HIGH[0],HBP_Y_HIGH[1])-HBP_NUM_Y,batter.numMesh.position.z);S.back.localToWorld(_hbv)}
+  else if(S){_hbv.set(HBP_HIP[0],clamp(py,HBP_Y_LOW[0],HBP_Y_LOW[1])-HBP_PELVIS_Y,HBP_HIP[1]);S.pelvis.localToWorld(_hbv)}
+  else{_hbv.set(HBP_FALLBACK[0],high?clamp(py,HBP_Y_HIGH[0],HBP_Y_HIGH[1]):clamp(py,HBP_Y_LOW[0],HBP_Y_LOW[1]),HBP_FALLBACK[1]);batter.g.localToWorld(_hbv)}
+  hbpPt[0]=_hbv.x;hbpPt[1]=_hbv.y;hbpPt[2]=_hbv.z;hbpEv=e;return hbpPt}
+/* Velocity of the ball as it leaves him at p: the horizontal speed that carries it to HBP_REST on his side of the plate (travel is linear
+   in the speed apart from the last centimetres of roll, so one unit-speed drop gives the scale) */
+const hbpV0=p=>{const T=dropBall([0,p[1],0],[0,HBP_VY,1],HBP_AT_REST)[2];return[((p[0]<0?-HBP_REST[0]:HBP_REST[0])-p[0])/T,HBP_VY,(HBP_REST[1]-p[2])/T]};
 let buntK=0,buntDrop=0;const buntPt=[0,1,.3];
 /* Convert a point (or direction) from the batter's ground frame into the upper-body frame batPivot lives in */
 function groundToUp(v,dir){batter.g.updateMatrixWorld(true);_ugm.copy(batter.g.matrixWorld).invert().multiply(BR.up.matrixWorld).invert();return dir?v.transformDirection(_ugm):v.applyMatrix4(_ugm)}
@@ -344,10 +377,14 @@ function poseBatter(e,u){
   const K=(k,c)=>{const a=BK[k];let v=lerp(a[0],a[1],ld);v=lerp(v,c===undefined?a[2]:c,sw);return lerp(v,a[3],ft)};
   const stay=!(e.pa&&e.r!=='ibb'),rw=stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
   const yaw=lerp(K('yaw'),BAT_REST.yaw,rw),py=.45+e.zy*.75,dyC=Math.max(-.7,Math.min(.2,(py-1.33)/.85));
-  const byaw=lerp(yaw,BUNT.yaw,bn);BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn),byaw,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(K('head'),BUNT.head,bn)-byaw;
+  /* hit by pitch: turned away from ARRIVE-HBP_SEE, unwound again over the last HBP_REC_DUR before his walk starts */
+  const hb=e.r==='hbp',hbRec=hb?ease(sat01((u-(hbpWalkAt(e)-HBP_REC_DUR))/HBP_REC_DUR)):0,hw=hb?ease(sat01((u-(ARRIVE-HBP_SEE))/HBP_TURN_DUR))*(1-hbRec):0,hbHigh=py/(batter.k||1)>HBP_Y_SPLIT;
+  hbpW=hw;hbpJ=hb?sat01((u-ARRIVE)/HBP_JOLT_IN)*(1-ease(sat01((u-ARRIVE-HBP_JOLT_IN)/HBP_JOLT_OUT))):0;hbpS=hb?ease(sat01((u-ARRIVE)/HBP_JOLT_IN))*(1-hbRec):0;
+  const byaw=lerp(lerp(yaw,BUNT.yaw,bn),HBP.up,hw);BR.up.rotation.set(lerp(lerp(K('lean'),BUNT.lean,bn),HBP.lean,hw)+(hbHigh?-HBP_ARCH:HBP_BUCKLE)*hbpJ,byaw,0);BR.hips.rotation.y=lerp(lerp(yaw*.6,BUNT.hips,bn),HBP.hips,hw);
+  BR.hg.rotation.y=lerp(lerp(K('head'),BUNT.head,bn)-byaw,HBP.head,hw);BR.hg.rotation.x=HBP.tuck*hw-(hbHigh?HBP_HEAD_SNAP*hbpJ:0);
   BR.l0.rotation.z=K('back');BR.l1.rotation.z=lerp(lerp(BK.stride[0],BK.stride[1],ld),BK.stride[2],sw);
   /* Knees bend with the square-around, deeper for a low pitch so the bat stays level instead of chopping down */
-  const knee=clamp(BUNT_KNEE+(BUNT_KNEE_REF-py)*BUNT_KNEE_LOW,BUNT_KNEE_MIN,BUNT_KNEE_MAX)*bn;buntK=bn;buntDrop=LEG_LEN*knee*(batter.k||1);BR.l0.scale.y=BR.l1.scale.y=1-knee;
+  const knee=clamp(BUNT_KNEE+(BUNT_KNEE_REF-py)*BUNT_KNEE_LOW,BUNT_KNEE_MIN,BUNT_KNEE_MAX)*bn+HBP.knee*hw;buntK=bn;buntDrop=LEG_LEN*knee*(batter.k||1);BR.l0.scale.y=BR.l1.scale.y=1-knee;
   let gx=lerp(K('hx'),BAT_REST.hx,rw),gy=lerp(K('hy'),BAT_REST.hy,rw),gz=lerp(K('hz'),BAT_REST.hz,rw);
   _bv.set(lerp(K('bx'),BAT_REST.bx,rw),lerp(K('by',dyC),BAT_REST.by,rw),lerp(K('bz'),BAT_REST.bz,rw)).normalize();
   if(bn>0){const give=BUNT_GIVE*ease(sat01((u-ARRIVE)/BUNT_GIVE_DUR)),L=Math.hypot(...BUNT_DIR),sl=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L'?-1:1;
@@ -356,6 +393,7 @@ function poseBatter(e,u){
     _ugh.set(sx-BUNT_SWEET*BUNT_DIR[0]/L-give,sy-BUNT_SWEET*BUNT_DIR[1]/L,sz-BUNT_SWEET*BUNT_DIR[2]/L);groundToUp(_ugh,false);
     _ugd.set(BUNT_DIR[0],BUNT_DIR[1],BUNT_DIR[2]);groundToUp(_ugd,true);
     gx=lerp(gx,_ugh.x,bn);gy=lerp(gy,_ugh.y,bn);gz=lerp(gz,_ugh.z,bn);_bv.lerp(_ugd,bn).normalize()}
+  if(hw>0){gx=lerp(gx,HBP.hand[0],hw);gy=lerp(gy,HBP.hand[1],hw);gz=lerp(gz,HBP.hand[2],hw);_bv.lerp(_ugd.set(HBP.bat[0],HBP.bat[1],HBP.bat[2]).normalize(),hw).normalize()}
   batPivot.position.set(gx,gy,gz);batPivot.quaternion.setFromUnitVectors(_up,_bv);
   const gap=lerp(BAT_HAND_GAP,BUNT.gap,bn);
   /* Hands apart on the bat: bottom hand (arms[1], a right-handed batter's left hand) on the handle, top hand (arms[0]) BAT_HAND_GAP toward the barrel */
@@ -391,7 +429,8 @@ function batterWalk(e,u){
     x=lerp(BAT_BOX[0],BAT_AWAY[0],Math.min(t,1));z=lerp(BAT_BOX[1],BAT_AWAY[1],Math.min(t,1));yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP}
   const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';/* Left-handed batter = the whole figure mirrored left/right */
   batter.g.scale.x=lf?-1:1;ump.g.position.x=lf?-.3:.3;
-  batter.g.position.set(lf?-x:x,-buntDrop,z);batter.g.rotation.y=lf?-yaw:yaw;batter.legs[0].rotation.x=sw;batter.legs[1].rotation.x=-sw}
+  yaw-=HBP.body*hbpW;z+=HBP_SHOVE*hbpS;/* hit by pitch: turns his back to the ball, and it knocks him half a step toward the catcher */
+  batter.g.position.set(lf?-x:x,HBP_HOP*hbpJ-buntDrop,z);batter.g.rotation.y=lf?-yaw:yaw;batter.legs[0].rotation.x=sw;batter.legs[1].rotation.x=-sw}
 
 /* pitching delivery: Catmull-Rom keyframes in event-local seconds. angles: limb x-rotation (neg = forward/up), arm a1 keeps increasing through the top (2π = back to hanging) */
 const kf=(u,K)=>{const n=K.length;if(u<=K[0][0])return K[0][1];if(u>=K[n-1][0])return K[n-1][1];let i=1;while(u>K[i][0])i++;
@@ -551,13 +590,22 @@ function poseScene(e,u,dt){
   const moving=new Set((e.moves||[]).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n))standRunner(i,u,n)}
   const contact=e.r==='inplay'||e.r==='foul';
+  const hbp=e.r==='hbp',hbAt=hbp?hbpSpot(e).slice():null;
   poseBatter(e,u);batterWalk(e,u);
-  const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
+  const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);if(hbp)plate.splice(0,3,...hbAt);/* a pitch that hits him ends on him, not at the plate */
   let bp=null;
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
   else if(u<ARRIVE)bp=arc(hand,plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
-  else if(!contact){ if(e.r==='hbp'){bp=u<ARRIVE+.4?arc(plate,[-0.9,.3,1],.5,(u-ARRIVE)/.4):null}
-    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3)bp=arc(mitt,hand,3,(u-3.4)/.9)}
+  else if(hbp){const v0=hbpV0(hbAt),ua=u-ARRIVE,C=fielders.C,end=dropBall(hbAt,v0,HBP_AT_REST),gi=end[0]<0?0:1,got=HBP_PICK_AT+HBP_PICK_DUR;
+    /* the catcher leans out of his crouch, reaches the dead ball with the hand on that side, sits back and returns it */
+    const rk=ease(sat01((ua-HBP_PICK_AT)/HBP_PICK_DUR))*(1-ease(sat01((ua-got)/HBP_PICK_BACK)));
+    if(rk>0){C.auto=false;CR.up.rotation.x+=HBP_PICK_LEAN*rk;aimWorld(CR,gi?CR.a1:CR.a0,gi?BAT_SHOULDER_X:-BAT_SHOULDER_X,lerp(mitt[0],end[0],rk),lerp(mitt[1],end[1],rk),lerp(mitt[2],end[2],rk))}
+    if(ua<got-HBP_PICK_GRAB)bp=dropBall(hbAt,v0,ua);
+    else{const q=C.handWorld(gi),k=ease(sat01((ua-(got-HBP_PICK_GRAB))/HBP_PICK_GRAB));
+      if(ua<HBP_RETURN_AT)bp=[lerp(end[0],q.x,k),lerp(end[1],q.y,k),lerp(end[2],q.z,k)];
+      else if(ua<HBP_RETURN_AT+HBP_RETURN_DUR)bp=arc([q.x,q.y,q.z],hand,HBP_RETURN_ARC,(ua-HBP_RETURN_AT)/HBP_RETURN_DUR)}}
+  else if(!contact){
+    if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3)bp=arc(mitt,hand,3,(u-3.4)/.9)}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
@@ -642,7 +690,8 @@ function poseScene(e,u,dt){
   /* sound cues */
   const cue=(name,at,fn)=>{const key=e.t+name;if(u>=at&&u<at+.6&&!cues.has(key)){cues.add(key);fn()}};
   if(contact)cue('crack',ARRIVE,()=>crack(bunt?BUNT_CRACK:e.r==='inplay'?1:.5));
-  else if(e.r!=='hbp')cue('pop',ARRIVE+.05,pop);
+  else if(hbp)cue('thud',ARRIVE,thud);
+  else cue('pop',ARRIVE+.05,pop);
   if(e.big)cue('roar',e.showAt,()=>roar(e.big));
   return s;
 }
@@ -739,6 +788,7 @@ function drum(t,f,v){const o=ac.createOscillator(),g=ac.createGain();o.frequency
 function clap(t,v){const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noiseBuf;f.type='highpass';f.frequency.value=1500;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+.12);s.connect(f).connect(g).connect(ac.destination);s.start(t,Math.random()*2,.15)}
 function crack(v){if(!on())return;const t=ac.currentTime,s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noiseBuf;f.type='bandpass';f.frequency.value=2400;f.Q.value=.8;g.gain.setValueAtTime(1.6*v,t);g.gain.exponentialRampToValueAtTime(.001,t+.09);s.connect(f).connect(g).connect(ac.destination);s.start(t,1,.1)}
 function pop(){if(!on())return;drum(ac.currentTime,420,.22)}
+function thud(){if(!on())return;drum(ac.currentTime,HBP_THUD[0],HBP_THUD[1])}/* ball on a body */
 let excite=0,drumOn=false;
 function roar(level){excite=level>1?1:.6;if(!on())return;const t=ac.currentTime;cGain.gain.cancelScheduledValues(t);cGain.gain.setTargetAtTime(level>1?1.1:.6,t,.08);cFilt.frequency.setTargetAtTime(2600,t,.1)}
 function updateAudio(playing){if(!on())return;const t=ac.currentTime;
