@@ -62,9 +62,14 @@ function curT(){return mode==='live'?(Date.now()-gameStart)/1000:replayT}
 function findIdx(T){const ev=game.ev;let lo=0,hi=ev.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(ev[m].t<=T)lo=m;else hi=m-1}return lo}
 
 /* ---------- renderer & scene ---------- */
+/* #132 light balance (all tiers, constants only): a night park, not a noon field. The grass used to sit in the shoulder of the tone curve
+   (193/255, 20 levels between p5 and p95) and the sky above it was lifted like dusk. Exposure down, key/fill/hemisphere down, a dark sky;
+   the tower spots aim at the infield with a soft edge, so the infield is brightest and the corners sit lower. */
+const EXPOSURE=.75,KEY_I=1.1*Math.PI,FILL_I=.25*Math.PI,HEMI_I=.12*Math.PI,HEMI_GROUND=0x141a12,KEY_SHADOW_I=.7;/* KEY_SHADOW_I: the contact shadows carry the planting now, the real shadow must not double them */
+const SKY_HORIZON=[.02,.025,.04],SKY_ZENITH=[.002,.003,.007],SKY_GLOW=[.025,.02,.012];
 const renderer=window.RENDERER;
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
-renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=EXPOSURE;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
 const LC=h=>new THREE.Color(h);
 /* CC0 textures (ambientCG): assets/tex/<name>_c/_n/_orm.jpg; orm = R:AO G:roughness */
 const TXL=new THREE.TextureLoader(),TX={};
@@ -73,13 +78,13 @@ $('stage').appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* Thin night-stadium haze: the distance fades out, adding depth */
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,800);camera.rotation.order='YXZ';
 const rig=new THREE.Group();rig.add(camera);scene.add(rig);
-scene.add(new THREE.HemisphereLight(LC(0x9fb4e6),LC(0x2a3a24),0.22*Math.PI));
-const key=new THREE.DirectionalLight(LC(0xfff1dc),1.9*Math.PI);key.position.set(-45,85,35);key.target.position.set(0,0,-38);scene.add(key,key.target);
-key.castShadow=true;Object.assign(key.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:10,far:260});key.shadow.mapSize.set(2048,2048);key.shadow.bias=-.0004;key.shadow.normalBias=.03;
-const fill=new THREE.DirectionalLight(LC(0xd6e2ff),.5*Math.PI);fill.position.set(60,55,-110);scene.add(fill);
+scene.add(new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I));
+const key=new THREE.DirectionalLight(LC(0xfff1dc),KEY_I);key.position.set(-45,85,35);key.target.position.set(0,0,-38);scene.add(key,key.target);
+key.castShadow=true;Object.assign(key.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:10,far:260});key.shadow.mapSize.set(2048,2048);key.shadow.bias=-.0004;key.shadow.normalBias=.03;key.shadow.intensity=KEY_SHADOW_I;
+const fill=new THREE.DirectionalLight(LC(0xd6e2ff),FILL_I);fill.position.set(60,55,-110);scene.add(fill);
 /* sky dome */
 {const {positionLocal,normalize,clamp:tc,mix,vec3,pow,exp,float}=TSL;const p=normalize(positionLocal),h=tc(p.y,0,1);
-  const c=mix(vec3(.11,.14,.24),vec3(.008,.012,.03),pow(h,.45)).add(vec3(.12,.1,.06).mul(exp(h.mul(-14))));
+  const c=mix(vec3(...SKY_HORIZON),vec3(...SKY_ZENITH),pow(h,.45)).add(vec3(...SKY_GLOW).mul(exp(h.mul(-14))));
   const m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,depthWrite:false,fog:false});m.colorNode=c;scene.add(new THREE.Mesh(new THREE.SphereGeometry(520,32,16),m))}
 
 /* field texture */
@@ -228,7 +233,7 @@ function updateCrowd(now,ex,batTeam,live){
   crowd.instanceMatrix.needsUpdate=true;crowdUp.instanceMatrix.needsUpdate=true;heads.instanceMatrix.needsUpdate=true;
 }
 /* light towers + sky */
-const TOWER_I=.16*Math.PI,BEAM_K=.025;/* Keep only a hint of light beam, so the camera passing through it does not white out */
+const TOWER_I=.16*Math.PI,BEAM_K=.025,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TOWER_AIM=[0,-24],TOWER_AIM_K=.1;/* Keep only a hint of light beam, so the camera passing through it does not white out */
 const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(5,4.8,4.4),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.7,metalness:.3});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
 const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
@@ -237,10 +242,10 @@ const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,
 for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.position.set(x,23,z);scene.add(m);
   const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
-  const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),dir=lamp.clone().sub(tgt),L=dir.length();
+  const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),aim=new THREE.Vector3(TOWER_AIM[0]+x*TOWER_AIM_K,0,TOWER_AIM[1]+(z-TOWER_AIM[1])*TOWER_AIM_K),dir=lamp.clone().sub(tgt),L=dir.length();
   const beam=new THREE.Mesh(new THREE.ConeGeometry(L*.32,L,32,1,true),beamMat);beam.position.copy(lamp.clone().add(tgt).multiplyScalar(.5));beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());scene.add(beam);
   /* Light-tower spots: lit areas and dark corners (no shadows, for performance; the key light still casts the main shadow) */
-  const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,.42,.75,0);spot.position.copy(lamp);spot.target.position.copy(tgt);scene.add(spot,spot.target)}
+  const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,TOWER_ANGLE,TOWER_PENUMBRA,0);spot.position.copy(lamp);spot.target.position.copy(aim);scene.add(spot,spot.target)}
 const sg=new THREE.BufferGeometry(),sp=[];for(let i=0;i<600;i++){const a=Math.random()*6.28,e=.15+Math.random()*1.2;sp.push(Math.cos(a)*Math.cos(e)*420,Math.sin(e)*420,Math.sin(a)*Math.cos(e)*420)}
 sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xaab8d8,size:1.1,fog:false,sizeAttenuation:true})));
 /* Bugs under the lights: a cloud of small dots in front of each tower, flying around (pure decoration, unrelated to the game) */
@@ -1158,16 +1163,35 @@ function studioTick(dt){if(!studio)return;if(studio.play){replayT+=dt*studio.spd
 addEventListener('keydown',e=>{if(!studio||e.target.tagName==='SELECT')return;if(e.key===' '){e.preventDefault();$('stPlay').click()}else if(e.key==='ArrowRight'){replayT=Math.min(studio.t1,replayT+.05);studio.play=false;$('stPlay').textContent='播放'}else if(e.key==='ArrowLeft'){replayT=Math.max(studio.t0,replayT-.05);studio.play=false;$('stPlay').textContent='播放'}});
 
 /* ---------- Auto quality (target: steady 60 fps on a phone in landscape, no dropped frames on substitutions) ----------
-   0 everything on (desktop) -> 1 phone start: 1.25x resolution, 1024 shadow map -> 2 1x resolution, no post/grass blades/bugs -> 3 no realtime shadows, round blob shadows under players.
+   0 everything on (desktop) -> 1 phone start: 1.25x resolution, 1024 shadow map -> 2 1x resolution, no post/grass blades/bugs -> 3 no realtime shadows (the contact shadows of #132 stay on every tier).
    Drop one tier whenever the average over FPS_WIN frames exceeds FPS_BUDGET_MS (down only, never up, to avoid flip-flopping); a chosen tier is saved in zu_tier and used as the start next time */
 const IS_MOBILE=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches,FPS_WIN=90,FPS_BUDGET_MS=19,FPS_WARMUP_MS=4000,TIER_MAX=3;
 let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{const t=+localStorage.getItem('zu_tier');if(t>gfxTier&&t<=TIER_MAX)gfxTier=t}catch(e){}
-const blobShadows=[...Object.values(fielders),batter,ump,...runners].map(f=>{const m=new THREE.Mesh(GEO.shadow,shadowMat);m.rotation.x=-Math.PI/2;m.position.y=.02;m.scale.setScalar(.8);m.visible=false;f.g.add(m);return m});
+/* ---------- contact shadows (#132) ----------
+   Every figure, on every tier (Low included), gets a soft dark patch at the feet plus a fan of six faint long shadows pointing away from the six
+   towers, as a night game shows: what keeps players from looking pasted on the grass. Two instanced meshes, no depth write, matrices set each
+   frame from the figures' positions; fan length follows the lamp height. Replaces the old tier-3 round blobs. */
+const CS_R=.3,CS_R_CROUCH=.42,CS_PATCH_A=.45,CS_FAN_OP=.12,CS_FAN_W=.5,CS_BODY_H=1.85,LAMP_H=46,CS_FAN_MIN=1.2,CS_FAN_MAX=5,CS_Y=.02,CS_TEX=64;
+const csFigs=[...Object.values(fielders),batter,ump,...runners],csBig=new Set([fielders.C,ump]);
+const csTex=draw=>{const c=document.createElement('canvas');c.width=c.height=CS_TEX;draw(c.getContext('2d'),CS_TEX);return new THREE.CanvasTexture(c)};
+const csMat=(map,opacity)=>new THREE.MeshBasicMaterial({color:0,map,opacity,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+const csPatch=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),csMat(csTex((g,n)=>{const gr=g.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);
+  gr.addColorStop(0,`rgba(0,0,0,${CS_PATCH_A})`);gr.addColorStop(.45,`rgba(0,0,0,${CS_PATCH_A*.7})`);gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)}),1),csFigs.length);
+const csFan=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2).translate(0,0,-.5),csMat(csTex((g,n)=>{/* canvas bottom = feet (v 0), fades to the tip and to both sides */
+  let gr=g.createLinearGradient(0,n,0,0);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n);
+  g.globalCompositeOperation='destination-in';gr=g.createLinearGradient(0,0,n,0);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.5,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)}),CS_FAN_OP),csFigs.length*LAMPS.length);
+[csPatch,csFan].forEach(m=>{m.frustumCulled=false;m.renderOrder=1;scene.add(m)});
+function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
+  if(!g.visible){csPatch.setMatrixAt(i,HIDE);for(let j=0;j<LAMPS.length;j++)csFan.setMatrixAt(i*LAMPS.length+j,HIDE);return}
+  const r=2*(csBig.has(f)?CS_R_CROUCH:CS_R);dummy.position.set(p.x,p.y+CS_Y,p.z);dummy.rotation.set(0,0,0);dummy.scale.set(r,1,r);dummy.updateMatrix();csPatch.setMatrixAt(i,dummy.matrix);
+  LAMPS.forEach(([lx,lz],j)=>{const dx=p.x-lx,dz=p.z-lz,d=Math.hypot(dx,dz)||1;dummy.rotation.set(0,Math.atan2(-dx/d,-dz/d),0);
+    dummy.scale.set(CS_FAN_W,1,clamp(CS_BODY_H*d/(LAMP_H-CS_BODY_H),CS_FAN_MIN,CS_FAN_MAX));dummy.updateMatrix();csFan.setMatrixAt(i*LAMPS.length+j,dummy.matrix)})});
+  csPatch.instanceMatrix.needsUpdate=true;csFan.instanceMatrix.needsUpdate=true}
 function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
   renderer.setPixelRatio(Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);/* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
   PP=gfxTier>=2||gfxLow?null:(PP||setupPost());
-  const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;blobShadows.forEach(m=>m.visible=!sh);
+  const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
@@ -1230,7 +1254,7 @@ renderer.setAnimationLoop(()=>{
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(envOn){updateBugs(now/1000);updateBlades()}
+  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
   if(readyN<READY_FRAMES&&++readyN===READY_FRAMES)readyOk();
