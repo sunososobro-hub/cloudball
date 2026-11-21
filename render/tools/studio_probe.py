@@ -1,11 +1,11 @@
 # Numeric probe of one action-studio clip: evaluates a JS expression at each time, no screenshots (fast).
 # THREE_DIR=.../node_modules/three/ python3 studio_probe.py REPO ACT CLIP '1.2,2.05' 'JS expression'
-# The expression sees X = {batter,bat,ball,fielders,runners,BR,game,studio} plus V(obj3d) -> [x,y,z] world position.
+# The expression sees X = {batter,bat,ball,fielders,runners,ump,BR,game,studio} plus V(obj3d) -> [x,y,z] world position.
 import sys,os,asyncio,mimetypes,json
 from playwright.async_api import async_playwright
 REPO,act,clip,times,expr=sys.argv[1],sys.argv[2],int(sys.argv[3]),[float(x) for x in sys.argv[4].split(',')],sys.argv[5]
 TH=os.environ.get('THREE_DIR','node_modules/three/')
-HOOK=';window.__X={batter,bat,ball,fielders,runners,BR,studioClips,ROSTERS,get game(){return game},get studio(){return studio},get scene(){return scene}};'
+HOOK=';window.__X={batter,bat,ball,fielders,runners,ump,BR,studioClips,ROSTERS,get game(){return game},get studio(){return studio},get scene(){return scene}};'
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch(executable_path='/usr/bin/google-chrome',args=['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'])
