@@ -16,6 +16,5 @@
 ## Known traps
 - `tests/` is not this folder: new slots in exchanges need `KNOWN_SLOTS`; `banter.check.mjs` is not in CI yet (issue).
 - Every trigger draws two RNG values even when silent; keep that, or drafts shift.
-- `needs` lines win over `when` lines; give them `once` or they repeat every time they fit.
-- Timing: `wire-audio.mjs --report 320`; fix drops by delaying the next call (late batter intros are not drops).
+- `needs` lines win over `when` lines: give them `once`. Timing: `wire-audio.mjs --report 320`; fix drops by delaying the next call (late batter intros are not drops).
 - Banter: a reworded line can lose its gag mark (`GAG_MARKS`); rerun the check. Excited clips stay slow (long vowels).
