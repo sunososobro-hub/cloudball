@@ -145,21 +145,27 @@ const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;con
 const standMat=(()=>{const {triplanarTexture,texture,positionWorld,normalWorld,float,dot,vec3,clamp:tc,color}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.9});
   const t=triplanarTexture(texture(tex('concrete_c',1)),null,null,float(.35),positionWorld,normalWorld);m.colorNode=color(LC(0x2a3246)).mul(tc(dot(t.rgb,vec3(.2126,.7152,.0722)).div(.31),.6,1.4));
   const o=triplanarTexture(texture(tex('concrete_orm')),null,null,float(.35),positionWorld,normalWorld);m.roughnessNode=o.g;return m})(),seatMat=new THREE.MeshStandardMaterial({color:LC(0x16365c),roughness:.6});const fans=[];
-const CROWD_EMPTY=.1;/* share of seats left empty */
-function stand(px,pz,rotY,len,rows,side,roof){
+/* #33 scale, real stadium figures: seat width ~.5 m (was .82), row depth .9 m and rise .55 m (~31 deg rake, a steep lower bowl).
+   Foul-line stands 16 m off the line and the backstop 24 m behind the plate are already in the real range (MLB backstop >= 18 m). */
+const CROWD_EMPTY=.1,/* share of seats left empty */SEAT_W=.55,ROW_D=.9,ROW_RISE=.55,FRONT_H=1,BACK_WALL=4,RAIL_H=1.1;
+function stand(px,pz,rotY,len,rows,side,roof,base=0){
   const g=new THREE.Group();g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
-  for(let r=0;r<rows;r++){const h=1+r*.55,d=r*.9+.45;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,.9),standMat);b.position.set(0,h/2,d);g.add(b);
-    for(let x=-len/2+.5;x<len/2-.3;x+=.82)fans.push({g,x,y:h,z:d,side,empty:Math.random()<CROWD_EMPTY})}
-  const top=1+rows*.55,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+4,1),standMat);w.position.set(0,(top+4)/2,rows*.9+.5);g.add(w);
-  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,1.1,.25),seatMat);rail.position.set(0,.55,-.1);g.add(rail);
+  for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.position.set(0,h/2,d);g.add(b);
+    for(let x=-len/2+.4;x<len/2-.3;x+=SEAT_W)fans.push({g,x,y:h,z:d,side,empty:Math.random()<CROWD_EMPTY})}
+  const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
   if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
     const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,.25,.25),new THREE.MeshBasicMaterial({color:0xfff3d6}));lip.position.set(0,top+7.4,-4.9);g.add(lip)}
   g.updateMatrixWorld(true);
 }
 const Q=Math.PI/4;
 stand(0,24,0,48,16,2,true);stand(46.7,-24.1,Q,72,14,1,true);stand(-46.7,-24.1,-Q,72,14,0,true);
-for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*116,-Math.cos(t)*116,Math.atan2(Math.sin(t),-Math.cos(t)),21,10,a<0?0:a>0?1:2)}
-const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},{x:0,y:3.75,z:-120.5,tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
+/* Outfield bleachers start right behind the 3 m fence (110 m) with the front row above its top, as in a real park; they used to sit 6 m back
+   at ground level, so the first rows peeked over the wall and made it look small. */
+const OF_R=111.5,OF_BASE=2.4,OF_ROWS=10,OF_SEAT_ROW=5;
+for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.cos(t)*OF_R,Math.atan2(Math.sin(t),-Math.cos(t)),20,OF_ROWS,a<0?0:a>0?1:2,false,OF_BASE)}
+const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
+  {x:0,y:OF_BASE+FRONT_H+OF_SEAT_ROW*ROW_RISE+.55,z:-(OF_R+OF_SEAT_ROW*ROW_D+ROW_D/2+.12),tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
 const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
 const FOLLOW_T=new THREE.Vector3(0,1.3,-9),_fw=new THREE.Vector3();
 const v3=new THREE.Vector3(),dummy=new THREE.Object3D(),col=new THREE.Color();
@@ -188,7 +194,9 @@ function crowdBody(up){const W=CROWD_WHITE,T=CROWD_PANTS,P=[[new THREE.CylinderG
 const seatGeo=crowdGeo([[cBox(.46,.05,.42,0,.42,-.02),CROWD_WHITE],[cBox(.46,.42,.04,0,.64,-.24),CROWD_WHITE]]);
 for(const f of fans){v3.set(f.x,f.y,f.z+CROWD_HIP_BACK).applyMatrix4(f.g.matrixWorld);f.wx=v3.x;f.wy=v3.y;f.wz=v3.z;f.sy=f.g.rotation.y+Math.PI}
 for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-s.x,fans[i].wz-s.z)<2.2))fans.splice(i,1);
-const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty),cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
+const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty);
+for(let i=people.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[people[i],people[j]]=[people[j],people[i]]}/* random order: a lower quality tier draws a prefix, i.e. a random subset */
+people.forEach((f,i)=>f.pi=i);const cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
 const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.5}),fans.length);
 const crowdMat=(()=>{const {attribute,mix,vec3}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.85});
   m.colorNode=attribute('color','vec3').mul(mix(vec3(1),attribute('shirt','vec3'),attribute('tint','float')));return m})();
@@ -207,9 +215,12 @@ cheerers.forEach((f,i)=>{f.ui=i;col.setHex(f.shirt);shirtUpA.setXYZ(i,col.r,col.
 seats.instanceMatrix.needsUpdate=true;
 scene.add(seats,crowd,crowdUp,heads);
 const HIDE=new THREE.Matrix4().makeScale(0,0,0);
+/* Share of fans drawn per quality tier (0 desktop .. 3 lowest); the rest become empty seats. Cheer bodies follow people order, so a prefix too. */
+const CROWD_DENSITY=[1,.6,.45,.35];let crowdN=people.length;
+function setCrowdDensity(k){crowdN=Math.round(people.length*k);crowd.count=heads.count=crowdN;let c=0;while(c<cheerers.length&&cheerers[c].pi<crowdN)c++;crowdUp.count=c}
 function updateCrowd(now,ex,batTeam,live){
   const beat=(now/1000)*BPM/60*2,ts=now/1000;
-  for(let i=0;i<people.length;i++){const f=people[i];let up=Math.max(0,Math.sin(now*.008+f.ph))*ex*.5;
+  for(let i=0;i<crowdN;i++){const f=people[i];let up=Math.max(0,Math.sin(now*.008+f.ph))*ex*.5;
     if(live&&f.team===batTeam)up+=Math.max(0,Math.sin(beat*Math.PI))*.1*(i%2?1:.6);
     dummy.position.set(f.wx,f.wy+up,f.wz);dummy.rotation.set(f.rx,f.ry,0,'YXZ');dummy.scale.setScalar(f.k);dummy.updateMatrix();
     const cheer=f.ui!==undefined&&up>CROWD_CHEER_ON;crowd.setMatrixAt(i,cheer?HIDE:dummy.matrix);if(f.ui!==undefined)crowdUp.setMatrixAt(f.ui,cheer?dummy.matrix:HIDE);
@@ -285,12 +296,13 @@ const LOGO_DIR='assets/logos/',LOGO_PX=128,logoSrc=id=>`${LOGO_DIR}${id}_${LOGO_
 const logoOf=(i,px)=>{const T=TEAMS[i];if(!T||!T.id)return'';return`<img src="${logoSrc(T.id)}" alt="" draggable="false" ${px?`width="${px}" height="${px}"`:'style="width:100%;height:100%;display:block;object-fit:contain"'} onerror="this.remove()">`};
 const INTRO_LOGO_PX=84;$('mas').innerHTML=logoOf(0,INTRO_LOGO_PX)+logoOf(1,INTRO_LOGO_PX);
 const logoImgs={};for(const T of TEAMS){if(!T.id)continue;const im=new Image();im.onload=()=>{sbKey=''};im.src=logoSrc(T.id);logoImgs[T.id]=im}
-/* outfield scoreboard */
+/* outfield scoreboard (raised with the outfield bleachers so their back wall does not cover its bottom edge) */
+const SB_Y=18;
 const sbC=document.createElement('canvas');sbC.width=1024;sbC.height=400;const sbTex=new THREE.CanvasTexture(sbC);sbTex.colorSpace=THREE.SRGBColorSpace;
 const sbMesh=new THREE.Mesh(new THREE.PlaneGeometry(26,10),new THREE.MeshBasicMaterial({map:sbTex,toneMapped:false}));
-{const t=-28*Math.PI/180;sbMesh.position.set(Math.sin(t)*128,16,-Math.cos(t)*128);sbMesh.lookAt(0,10,0);scene.add(sbMesh);
+{const t=-28*Math.PI/180;sbMesh.position.set(Math.sin(t)*128,SB_Y,-Math.cos(t)*128);sbMesh.lookAt(0,10,0);scene.add(sbMesh);
  const back=new THREE.Mesh(new THREE.BoxGeometry(27,11,.6),mast);back.position.copy(sbMesh.position);back.quaternion.copy(sbMesh.quaternion);back.translateZ(-.35);scene.add(back);
- const leg=new THREE.Mesh(new THREE.BoxGeometry(2,11,1),mast);leg.position.set(sbMesh.position.x,5.5,sbMesh.position.z);scene.add(leg)}
+ const leg=new THREE.Mesh(new THREE.BoxGeometry(2,SB_Y-5,1),mast);leg.position.set(sbMesh.position.x,(SB_Y-5)/2,sbMesh.position.z);scene.add(leg)}
 let sbKey='';
 function drawBoard(s,txt){const k=s.sc.join()+txt;if(k===sbKey)return;sbKey=k;const g=sbC.getContext('2d');
   g.fillStyle='#05070d';g.fillRect(0,0,1024,400);g.font='600 64px "Noto Sans TC",sans-serif';g.textBaseline='middle';
@@ -820,18 +832,21 @@ sayBtn.onclick=()=>{sayOn=!sayOn;sayBtn.setAttribute('aria-pressed',sayOn);if(sa
 let seat=3,yawOff=0,pitchOff=0,zoomed=false;
 const look=(sx,sy,sz,tx,ty,tz)=>[Math.atan2(-(tx-sx),-(tz-sz)),Math.atan2(ty-sy,Math.hypot(tx-sx,tz-sz))];
 let shotNow=-1,autoSeat=-1,hitPrev=false;
+/* Seat fovs are vertical. On a 19.5:9 phone 55 deg vertical is ~97 deg across, a fisheye that stretches the near stands while dragging the
+   view around and makes the park feel like a model; cap the horizontal angle at HFOV_MAX (a 16:10 desktop stays as it was). */
+const HFOV_MAX=80,fitFov=f=>Math.min(f,2*Math.atan(Math.tan(HFOV_MAX*Math.PI/360)/camera.aspect)*180/Math.PI);
 /* Broadcast camera after contact: high behind home plate looking at the whole field, aim drifting slowly between the field centre and the ball */
 const HITCAM={x:0,y:8,z:11,fov:62,mid:[0,0,-26]};
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
-  if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=SEATS[id].follow?30:SEATS[id].fov;camera.updateProjectionMatrix()}
+  if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
   return SEATS[id]}
 function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat];
   if(renderer.xr&&renderer.xr.isPresenting){const v=s.cam?SEATS[0]:s;rig.position.set(v.x,v.y,v.z);rig.rotation.set(0,look(v.x,0,v.z,v.tx,0,v.tz)[0],0);return}
   rig.rotation.set(0,0,0);camera.position.set(0,0,0);
   const hit=!!(s.auto&&curEvent&&curEvent.k==='P'&&(curEvent.r==='inplay'||curEvent.r==='foul')&&curU>=ARRIVE&&ball.visible);
   const cs=hit?HITCAM:s,py=cs.y+(cs.cam?0:1.25);rig.position.set(cs.x,py,cs.z);
-  if(hit!==hitPrev){hitPrev=hit;if(hit)FOLLOW_T.set(...HITCAM.mid);else FOLLOW_T.set(s.tx,s.ty,s.tz);camera.fov=hit?HITCAM.fov:s.fov;camera.updateProjectionMatrix()}
+  if(hit!==hitPrev){hitPrev=hit;if(hit)FOLLOW_T.set(...HITCAM.mid);else FOLLOW_T.set(s.tx,s.ty,s.tz);camera.fov=fitFov(hit?HITCAM.fov:s.fov);camera.updateProjectionMatrix()}
   let tx=s.tx,ty=s.ty,tz=s.tz,bf=s.fov;
   /* Broadcast camera (auto): normally a fixed long lens on home plate; once the ball is hit (fair or foul) it follows the ball, then pans slowly back to home after the ball is gone */
   const trk=s.auto&&curEvent&&curEvent.k==='P'&&(curEvent.r==='inplay'||curEvent.r==='foul')&&curU>=ARRIVE&&ball.visible;
@@ -839,7 +854,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   if(s.follow||s.auto){const want=s.follow?(ball.visible?ball.position:_fw.set(0,1.3,-9)):(trk?_fw.set(HITCAM.mid[0],HITCAM.mid[1],HITCAM.mid[2]).lerp(ball.position,.35):_fw.set(s.tx,s.ty,s.tz)),k=Math.min(1,dt*(ball.visible&&(s.follow||trk)?7:s.auto?4:2.5));FOLLOW_T.lerp(want,k);tx=FOLLOW_T.x;ty=FOLLOW_T.y;tz=FOLLOW_T.z;
     const d=Math.hypot(tx-s.x,tz-s.z);if(s.follow)bf=clamp(2*Math.atan(14/Math.max(d,8))*180/Math.PI,16,40);else if(trk)bf=HITCAM.fov}
   const [y,p]=look(cs.x,py,cs.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
-  const fov=zoomed?bf*.4:bf;if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}}
+  const fov=fitFov(zoomed?bf*.4:bf);if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(editing)return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
@@ -966,7 +981,7 @@ function setTier(n){gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tie
   key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);if(key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
   PP=gfxTier>=2||gfxLow?null:(PP||setupPost());
   const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;blobShadows.forEach(m=>m.visible=!sh);
-  envOn=gfxTier<2;bugs.pts.visible=envOn;if(!envOn)blades.im.visible=false;
+  envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}})}
 let envOn=true;
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
