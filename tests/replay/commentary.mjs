@@ -1,5 +1,6 @@
 /* Commentary checks (plain Node):
  *   - the fallback bank is well formed and uses only known slots and triggers
+ *   - gag wiring is valid (validateBank returns no problems)
  *   - a draft never leaves a slot unfilled and is deterministic
  *   - causality: a line bound to event i is identical when the booth is only shown events 0..i
  *     (so it cannot be talking about something that has not happened yet)
@@ -10,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { simGame, TEAMS } from '../../engine/index.js';
-import { createBooth, draftFromBank, validateScript, SPEAKERS } from '../../commentary/player.js';
+import { createBooth, draftFromBank, validateScript, validateBank, SPEAKERS } from '../../commentary/player.js';
 
 const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../commentary');
 const GAMES = Number(process.env.GAMES || 60);
@@ -34,6 +35,7 @@ for (const [name, T] of Object.entries(bank.triggers)) {
   }
 }
 if (neverSilent) bad('bank: a routine trigger is never silent');
+for (const e of validateBank(bank)) bad(`bank: ${e}`);
 
 let lines = 0, events = 0, seconds = 0;
 for (let seed = 1; seed <= GAMES; seed++) {
