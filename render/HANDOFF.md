@@ -7,13 +7,13 @@
 - #5 steal (PR #24): `catcherThrow` pop-up, transfer, hold when plan.t0 is late (#23), step, throw at plan.t0, re-crouch.
 - #5 tag (feat/5-tag): `tagPose` for steal receiver, bunt-FC and tag-up plays. Out = engine `plan.actions` a:'tag' time, then
   shows the ball; safe = late swipe at arrive+TAG_LATE_SWEEP. Glove on the runner's lane. Studio acts `sbout`, `tagfc` (400 seeds).
-
 - #5 pitcher cover (feat/5-cover, stacked on feat/5-tag): fielding/covering pitcher starts from the stride at contact
   (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). Probed on studio act `dp3`: no jump.
 
 ## Next
 - #5 is done once PRs #24, #39 and the cover PR merge (in that order). Not yet screenshotted: `dp3` pitcher run (only probed).
 ## Traps
+- Batter-runner on a fly out runs onto an occupied first base and vanishes 0.6 s later (sf23 clip 0, t 6.6 s): #42.
 - Engine's second-base tag spot is in the runner's lane (issue #35): runner slides through the SS until the engine moves it.
 - Batter-local frame: +z faces the plate, +x faces the pitcher. No left-handed bunt in the studio seed bank yet.
 - Engine sets `e.swing=true` on bunts; guard with `e.play.bunt`. Shell env does not persist: re-export THREE_DIR each call.
