@@ -3,6 +3,7 @@
 //        node commentary/tools/synth.mjs --in lines.json --out dir [--redo] [--only id,id,...]
 //        node commentary/tools/synth.mjs --ping     (free: can this machine reach the API? nothing is made)
 //        node commentary/tools/synth.mjs --in lines.json --out dir --show id,id  (free: print what would be sent)
+//   --cap: stop requesting once the estimated cost of this run reaches this many US$ (exit 1)
 //   --only: make just these ids again, even when the file is there and up to date (a clip that came
 //           back far too long); every other line is left alone
 //   input json: [{role, tone, text, id?, voice?, ctx?}]
@@ -80,6 +81,8 @@ if (flag('--ping')) {
 }
 
 const redo = flag('--redo');
+const cap = opt('--cap') != null ? Number(opt('--cap')) : null;
+if (cap != null && !(cap > 0)) { console.error('--cap: give a positive US$ amount'); process.exit(2); }
 const only = opt('--only') ? new Set(opt('--only').split(',').map(s => s.trim()).filter(Boolean)) : null;
 const inFile = flag('--trial') ? join(here, 'trial.json') : opt('--in');
 const outDir = flag('--trial') ? join(root, 'audio', '_trial') : opt('--out');
@@ -184,7 +187,11 @@ async function speak(r, l) {
   return a?.data ? { audio: Buffer.from(a.data, 'base64'), transcript: a.transcript || '' } : { error: 'no audio' };
 }
 
+/* estimated US$ of this run so far (gpt-audio prices per token) */
+const costNow = () => tot.audioOut * 64e-6 + tot.textOut * 10e-6 + tot.textIn * 2.5e-6;
+
 for (const l of lines) {
+  if (cap != null && costNow() >= cap) { console.error(`stopped: estimated cost US$${costNow().toFixed(4)} reached the cap of US$${cap}.`); finish(true); }
   const r = roles[l.role];
   if (!r) { console.error(`unknown role ${l.role}`); counts.failed++; failed.push(l.id || l.role); continue; }
   counter[l.role] = (counter[l.role] || 0) + 1;
@@ -224,7 +231,7 @@ for (const l of lines) {
 finish(false);
 
 function finish(stopped) {
-  const cost = tot.audioOut * 64e-6 + tot.textOut * 10e-6 + tot.textIn * 2.5e-6;
+  const cost = costNow();
   console.log(`\nsummary: ${JSON.stringify(counts)}`);
   console.log(`tokens: text_in=${tot.textIn} text_out=${tot.textOut} audio_out=${tot.audioOut} (audio_in=${tot.audioIn} not priced)`);
   console.log(`estimated cost: US$${cost.toFixed(4)}`);

@@ -448,5 +448,265 @@
     "text": "被打成這樣只掉一分，投手該請三壘手吃宵夜。",
     "transcript": "被打成這樣只掉一分，投手該請三壘手吃宵夜。",
     "transcriptMatch": true
+  },
+  "pbp-c3e59d7cb9": {
+    "hash": "6a7d9aca6ff066e591dce653b3436db06f48e27835e2475b78b7fe14053b3c1f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第一棒，捕手蔡俊廷，背號78。",
+    "transcript": "第一棒，捕手蔡俊廷，背號78。",
+    "transcriptMatch": true
+  },
+  "pbp-28c6ca0984": {
+    "hash": "63549815b825b8adb9ecde39291a777743de75d1f77f9534cf77ab755c2d18ee",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第二棒，右外野手張家銘，背號33。",
+    "transcript": "第二棒，右外野手張家銘，背號33。",
+    "transcriptMatch": true
+  },
+  "pbp-dda3bb28f4": {
+    "hash": "927499f8eccd2c8c79ce2104b8efddcbf47ed79bd13c8fa641aa96b98726a73a",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第三棒，一壘手郭彥廷，背號64。",
+    "transcript": "第三棒，一壘手郭彥廷，背號六十四。",
+    "transcriptMatch": true
+  },
+  "pbp-80c12586e1": {
+    "hash": "2d27a18b5eab29496b4b70b89d8b2f6eb1855642c304ca8bd564625801c13ef1",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第四棒，三壘手邱子翔，背號7。",
+    "transcript": "第四棒，三壘手邱子翔，背號7.",
+    "transcriptMatch": true
+  },
+  "pbp-c35f85ec57": {
+    "hash": "294bb56dd0149b33c6e51a44d07b0cd5ba0e0944c9b829efeb949a333b58ce58",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第五棒，左外野手許柏翰，背號4。",
+    "transcript": "第五棒，左外野手許柏翰，背號4。",
+    "transcriptMatch": true
+  },
+  "pbp-dff60fa3da": {
+    "hash": "8f53bbda2080eec4c11005f765b875d7d9c8efd34ea0a42663637298fb0d3bb4",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第六棒，二壘手林柏均，背號65。",
+    "transcript": "第六棒，二壘手林柏均，背號65",
+    "transcriptMatch": true
+  },
+  "pbp-e56cf405e7": {
+    "hash": "edff54b8ab0eb53654a20db475ef6b94fc0c90ec6c66162c6e2cda3348d917a8",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第七棒，游擊手陳偉倫，背號21。",
+    "transcript": "第七棒，游擊手陳偉倫，背號21。",
+    "transcriptMatch": true
+  },
+  "pbp-b54cfa2ddb": {
+    "hash": "78dad18aaecf71ea61b5fe1781e461300db1e4ce0e25d90fe2bcae20e3861e96",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第八棒，中外野手鄭冠勳，背號44。",
+    "transcript": "第八棒，中外野手鄭冠勳，背號44。",
+    "transcriptMatch": true
+  },
+  "pbp-e2682862f2": {
+    "hash": "42a3fec17754d96718b084394aa78bc908f4ea2b1679309a18d7caf6d3563000",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第九棒，指定打擊潘振宇，背號71。",
+    "transcript": "第九棒，指定打擊潘振宇，背號71。",
+    "transcriptMatch": true
+  },
+  "color-beb40b3fc0": {
+    "hash": "144a2437cde6d3ea2513368d01b61b7a05e4989307b6d0ef516e24465ef501d6",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "捕手打第一棒，很少見喔。蹲完還要跑，這個體力我佩服。",
+    "transcript": "捕手打第一棒，很少見喔。蹲完還要跑，這個體力我佩服。",
+    "transcriptMatch": true
+  },
+  "fan_owls-4703b60732": {
+    "hash": "4e6fdb18438c3ec60ab69cc2006616dab69e0987c379a00633c20fcebdbe844a",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "我們俊廷腳很快啦！",
+    "transcript": "我們俊廷腳很快啦！",
+    "transcriptMatch": true
+  },
+  "pbp-7a39b58b6e": {
+    "hash": "b82dbbe9c458971d0cb7859fc74df5f6c8ad154799ca9c559b1b0a2ab100fe38",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "投手丘上，先發投手黃宗翰。",
+    "transcript": "投手丘上，先發投手黃宗翰。",
+    "transcriptMatch": true
+  },
+  "pbp-d3bf8e1c4d": {
+    "hash": "d3f7553bb50b844e279e97c19873399ab9f9e7592b5f5241c4ca3a3c41f5c93f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "今晚的裁判，主審郭家銘，一壘謝俊雄，二壘張建良，三壘李志偉。",
+    "transcript": "今晚的裁判，主審郭家銘，一壘謝俊雄，二壘張建良，三壘李志偉。",
+    "transcriptMatch": true
+  },
+  "color-f9d7ab118e": {
+    "hash": "8eb8aca8027cacc3c0cce7a890068fc26eb07de12ec4ca01f595edb31500c401",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "郭家銘記性很好，誰跟他抱怨過哪一球，他都記得。打者今天講話小心一點。",
+    "transcript": "郭家銘記性很好，誰跟他抱怨過哪一球，他都記得。打者今天講話小心一點。",
+    "transcriptMatch": true
+  },
+  "pbp-771febdb69": {
+    "hash": "e2b909cfeb8410753b42f4f886440a3ff2eb0e308947835fbac3698572fbb520",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "兩隊總教練，帝雉劉智偉，貓頭鷹廖志強。",
+    "transcript": "兩隊總教練，帝雉劉智偉，貓頭鷹廖志強。",
+    "transcriptMatch": true
+  },
+  "fan_owls-82e0a9c56b": {
+    "hash": "fed77a726d70ff11cf2f6454cdff0dcbdddd9df39459989b457fb793e557208a",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "廖教練凌晨三點還在看影片，跟我一樣，都是上夜班的。",
+    "transcript": "廖教練凌晨三點還在看影片，跟我一樣，都是上夜班的。",
+    "transcriptMatch": true
+  },
+  "pbp-13f0a85cea": {
+    "hash": "79926f6b8a8493206afba7631a024617abc9ff988293707b62f9ee6016943b7f",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "好，兩隊都準備好了，帝雉先攻。",
+    "transcript": "好，兩隊都準備好了，帝雉先攻。",
+    "transcriptMatch": true
+  },
+  "color-913822321d": {
+    "hash": "2be4ecbed09aa4c89034e1726cf9067ff59fc3412ded4278a7a825be94353356",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "開始吧。",
+    "transcript": "開始吧",
+    "transcriptMatch": true
+  },
+  "pbp-7ab09df0c2": {
+    "hash": "48da4226b6e5b56e5988e0d93cfae8e002f4f52e36afa595a4dfc40c67cf87d2",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "比賽開始！",
+    "transcript": "比賽開始！",
+    "transcriptMatch": true
+  },
+  "pbp-4b7410dd94": {
+    "hash": "86388926a00868eec9d03bbdb1c730cd8609f189f5c39a02b22c6a6789dc469c",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第一棒，捕手蔡俊廷。",
+    "transcript": "第一棒，捕手蔡俊廷。",
+    "transcriptMatch": true
+  },
+  "pbp-5cc8dfbce0": {
+    "hash": "28085337e110dceb1022b7a4afb7a99eaa27b072e6609221267c19fba488e232",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "一局下，蔡俊廷右外野方向滾地安打，上壘。",
+    "transcript": "一局下，蔡俊廷右外野方向滾地安打，上壘。",
+    "transcriptMatch": true
+  },
+  "fan_owls-c1d8f01941": {
+    "hash": "b42a10cf81feb117e0da10b9b9a5b20ed4ef68f4c6599e18793aa7bcc4f51537",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "對嘛！馬上要回來！",
+    "transcript": "對嘛！馬上要回來！",
+    "transcriptMatch": true
+  },
+  "pbp-22c6818810": {
+    "hash": "69bc01db01a778b4d693ce5e71d065cda6e5cd7000d93a805901cd3aec731d4b",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第二棒，右外野手張家銘。",
+    "transcript": "第二棒，右外野手張家銘",
+    "transcriptMatch": true
+  },
+  "pbp-dd04ee3b58": {
+    "hash": "e1617d41ae0f0a7f25295de32c37b65f99acde328a8a64f124f0e94ec0c11c75",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "張家銘揮棒落空，三振，一出局。",
+    "transcript": "張家銘揮棒落空，三振，一出局。",
+    "transcriptMatch": true
+  },
+  "pbp-4afbc2349f": {
+    "hash": "777245e5ab91f82609523d061304e00960691b366fea8d1d8ae280040cc64c2b",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第三棒，一壘手郭彥廷。",
+    "transcript": "第三棒，一壘手郭彥廷",
+    "transcriptMatch": true
+  },
+  "pbp-ef139438d9": {
+    "hash": "b1fa9d64d5bf1a43c8394ad2ab5312e7c73ef197ce44fd556cd8ec4b6b52cea9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "郭彥廷第一球，左外野平飛安打！一二壘有人。",
+    "transcript": "郭彥廷第一球，左外野平飛安打！一二壘有人。",
+    "transcriptMatch": true
   }
 }
