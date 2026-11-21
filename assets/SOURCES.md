@@ -18,6 +18,8 @@ licensed file exists yet. Scripts in `tools/` are code (MIT). Earlier versions p
 
 Code-generated surfaces (no file, drawn at load by `render/game.js`, MIT code): wall pads (seams, scuffs, pillowed normal map), painted steel,
 concrete stains and streaks (shader noise), worn chalk and dusty bases (field canvas), painted fence top and foul poles, roof fascia lamps and roof ribs, per-seat tint, and the outer ground (re-uses `tex/grass_c.jpg`). Added download: 0 bytes.
+Player faces (#151): six head shapes (offsets on the packed MakeHuman CC0 head) and face paint (cap shadow, brows, eye sockets, lips,
+nostrils) as per-vertex colour, both computed at load by `render/players.js` (MIT code). Added download: 0 bytes.
 
 `players.b64.txt` is a base64 text copy of a packed binary (shared indices/skeleton/weights,
 one base body plus slim/power/heavy offsets). Rebuild: run `tools/build_players.py` against a
