@@ -1,20 +1,19 @@
 # commentary/ handoff
 
 ## Done
-- Bank (`lines.json`), `player.js` draft, `voice.js`; #11 running gags (`validateBank()`).
-- #46: point-of-view rules in `README.md`; personas 游振宇 (`pbp`), 周國棟 (`color`), approved.
-- #61: third seat `fan` (`guests` + `fan` in bank, `personas/fan-*.md`; names unchecked until #50). ~1 line in 5, only on `FAN_TRIGGERS`, own RNG stream.
-- Batter intros: `tools/add-intros.mjs <script>` (bank `batter_up`) and `tools/add-lineup.mjs <script>` (starters, slot/position/number from the game data) merge into a hand-written script (it replaces the bank for the whole game). Rerun after edits or a new batting order; `--check`, `--text` (full lineup read-out). `tools/segment-script.mjs <script> <dir>` cuts a script into voice segments + clip list. `tools/make-sheet.mjs <script>` writes `<name>.tts.json` (synth.mjs input, whole sentences, id = hash of voice+tone+text); rerun after every script edit, `--check`, `--audio <dir>` lists orphans.
+- Bank (`lines.json`), `player.js` draft, `voice.js`; #11 gags; #46 booth rules; #61 fan seat (`FAN_TRIGGERS`, own RNG).
+- Tools: `add-intros.mjs` (bank `batter_up`), `add-lineup.mjs` (starters + short intro 「第N棒，位置名字。」, on the first pitch or while he walks up), `segment-script.mjs`, `make-sheet.mjs` (`.tts.json` for synth.mjs, id = hash of voice+tone+text, prints a rough reuse count). Rerun add-intros, add-lineup, make-sheet after every script edit.
+- #94: booth renamed 游振宇 -> 游明凱 (「明凱」), owls fan 陳彥廷 -> 陳昱辰 (「阿辰」): no player/coach/umpire shares a character of the given names. Bank `alt`: other wordings of a response, said in turn. Script colour/fan lines made generic where names were not needed.
 
 ## Next (board order)
-1. #45 owner line edits: edit 1 applied (`fix/45`); the list stays open for new edits. Pre-season wording 「熱身賽」 sits only in that `game_start` call (bank) and line 1 of the frozen script.
-2. #26: the frozen game's script is written (`scripts/preseason-opening.json`, seed 704, three voices, `emotion` per line; owner edits lines by hand). Left: voices/tool (`fix/26-voices`), synthesis after casting, staff names after #52, then #56.
-3. After #52 (staff): fan blames manager/umpire by name.
-4. Voice: clip list for the whole bank (446 fixed lines + names/numbers; `{desc}` needs fixed phrasings); the viewer plays one `audio` file per line, so cut clips must be joined per line first.
-5. #56 pregame: frozen game script (`scripts/preseason-opening.json`, seed 704) now has the 44-line `pregame` part (six segments) + `.tts.json` (339 files). Left: owner casting/synthesis, then `audio` fields per line; when the viewer plays the pregame (#55/#57), drop the six `at: 0` hello/starters lines from `lines` (same audio ids as `open`/`pitchers`); character lines after #54. Render notes need no issue (`aside` = #70, pregame length = #55/#57).
+1. #45 owner line edits (running list): apply new comments as written.
+2. #26/#56: owner casting + synthesis of `scripts/preseason-opening.tts.json`; then `audio` fields per line. When the viewer plays the pregame (#55/#57), drop the six `at: 0` stand-in lines and rerun add-lineup: the game's leadoff man (劉立偉) then gets his intro (no room today).
+3. #82 staff names (fan blames manager/umpire by name). Note: 黃建宏 shares a given name with coach 蕭建宏, 蔡文雄 with managers 游文雄/王文雄 (players are clear); use 「姓+教練」 for coaches.
+4. Voice for the whole bank: clip list (fixed lines + names/numbers), one `audio` file per line.
 
 ## Known traps
-- `tests/` is not this folder: new slots go in `KNOWN_SLOTS` in `tests/replay/commentary.mjs` by its owner (open an issue). `{guest}` is only filled in fan moments.
-- Every trigger draws two main-RNG and two fan-RNG values even when silent; keep that.
+- `tests/` is not this folder: new slots go in `KNOWN_SLOTS` in `tests/replay/commentary.mjs` (open an issue). `{guest}` only in fan moments. The test does not read `alt`: `validateBank` checks its slots.
+- Every trigger draws two main-RNG and two fan-RNG values even when silent; keep that (`alt` rotation draws none).
 - `needs` lines beat `when` lines: give them `once`. Fan moments: max `fanMaxUses` per game.
 - `substitution`: `team` = team making the change (`{team}`). `{desc}` = engine text, may end 「！」.
+- Player given names 振宇/彥廷 exist (黃振宇, 潘振宇, 郭彥廷): never bulk-replace them in scripts.

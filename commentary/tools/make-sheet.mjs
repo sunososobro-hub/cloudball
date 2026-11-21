@@ -10,6 +10,11 @@
  * The same words said twice by the same voice with the same emotion are one row (one mp3).
  * Extra fields (`part`, `seg`, `at`, `uses`) are for people; synth.mjs ignores them.
  *
+ * It also prints a rough reuse count (#94: a voice made once should serve many games): rows that
+ * name nobody and carry no count or score of this game fit any game; rows that name people but no
+ * game facts (lineup intros) come back whenever those people are in that spot again; the rest
+ * belong to this game. Text rules only (names from league/, numerals 二-十 before 局/分/支/...).
+ *
  * Usage: node commentary/tools/make-sheet.mjs commentary/scripts/<name>.json [--check] [--audio <dir>]
  *   writes commentary/scripts/<name>.tts.json
  *   --check        write nothing; exit 1 if the sheet is missing or out of date
@@ -20,6 +25,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const { ROSTERS } = await import('../../league/players.js');
+const { STAFF, UMPIRES } = await import('../../league/staff.js');
+const { TEAMS } = await import('../../league/teams.js');
 const EMOTION_TONE = {
   calm: '平穩清楚，正常播報',
   excited: '興奮，音量拉高、語速加快',
@@ -66,6 +74,15 @@ const chars = {};
 for (const r of sheet) chars[r.role] = (chars[r.role] || 0) + [...r.text].length;
 console.log(`${all.length} lines (${all.length - script.lines.length} pregame, ${script.lines.length} game) -> ${sheet.length} files to synthesize`);
 console.log(`characters per voice: ${Object.entries(chars).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+
+const bankGuests = JSON.parse(readFileSync(path.join(ROOT, 'lines.json'), 'utf8')).guests || {};
+const people = [...ROSTERS.flatMap(t => [...t.bat, ...t.pit]), ...STAFF, ...UMPIRES].map(p => p.name);
+const names = [...people, ...people.map(n => n.slice(1)), ...people.map(n => n[0] + '教練'), ...TEAMS.flatMap(t => [t.name, t.short]),
+  ...Object.values(bankGuests).flatMap(g => [g.name, g.nick, '阿' + g.name.slice(-1)])];
+const GAME_FACT = /[0-9]|[二三四五六七八九十兩]+(局|分|支|次|打數|公尺|公里|歲|任|發|個打者|個人|個三振|個殘壘)|(?<!第)[二三四五六七八九十]+球/;
+const reuse = { any: 0, people: 0, game: 0 };
+for (const r of sheet) reuse[GAME_FACT.test(r.text) ? 'game' : names.some(n => r.text.includes(n)) ? 'people' : 'any']++;
+console.log(`reuse (rough): ${reuse.any} rows fit any game, ${reuse.people} name people but no game facts, ${reuse.game} belong to this game`);
 
 if (audioDir && existsSync(audioDir)) {
   const used = new Set(sheet.map(r => `${r.id}.mp3`));

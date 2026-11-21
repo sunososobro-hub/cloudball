@@ -1,9 +1,11 @@
 # Persona: play-by-play voice (`pbp`)
 
 > Proposed casting (#46). Waiting for the owner's approval; until then treat names and
-> details as a proposal, not canon. Neutral between all teams.
+> details as a proposal, not canon. Neutral between all teams. Renamed in #94 (was 游振宇: two
+> players are 黃振宇 and 潘振宇); no player, coach or umpire shares a character of his given
+> name; not on the blocklist.
 
-- **Name:** 游振宇. On air his partner calls him 「振宇」; he calls his partner 「周哥」.
+- **Name:** 游明凱. On air his partner calls him 「明凱」; he calls his partner 「周哥」.
 - **Age, background:** 34. Played high-school ball (bench outfielder), studied journalism, ten
   years calling baseball on radio and cable. Never played pro, and knows it.
 - **Job in the booth:** says what he sees, first and fast, to the viewers: who, where the ball

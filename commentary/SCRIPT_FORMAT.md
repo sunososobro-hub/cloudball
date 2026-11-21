@@ -104,6 +104,10 @@ spot, deterministically for a given seed.
   has spoken, routine triggers stay quiet for `rules.minGapSec` seconds. Silence is part of the
   broadcast; do not tune it to zero.
 - An exchange is not reused within the last `rules.noRepeatWindow` exchanges.
+- `alt` (optional): other wordings of the `response`, with the same slots. Each time the exchange
+  is said in a game, the next wording is used (`response`, then `alt` in order), so one idea does
+  not come back word for word. Keep each wording generic (no names, no scores) so its audio can be
+  reused in any game.
 - **Running gags** (see `personas/`): `gag` names the gag a line belongs to, `sets` lists flags
   the line raises when spoken, `needs` lists flags that must already be raised, and `once: true`
   means the line is spoken at most once per game. The first gag line spoken picks the game's gag;

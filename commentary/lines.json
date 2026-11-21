@@ -5,23 +5,23 @@
   "triggers": {
     "game_start": { "priority": 2, "silence": 0, "delay": 1, "fanChance": 1, "exchanges": [
       { "call": "各位球迷晚安，今晚是{away}對上{home}的熱身賽。", "response": "大家晚安，我是周國棟。這兩隊，我今天很期待。" },
-      { "gag": "bet", "sets": ["bet"], "call": "歡迎收看雲端職棒，今晚{away}作客{home}。", "response": "振宇，老規矩喔，比分猜錯的請鹹酥雞。" },
+      { "gag": "bet", "sets": ["bet"], "call": "歡迎收看雲端職棒，今晚{away}作客{home}。", "response": "明凱，老規矩喔，比分猜錯的請鹹酥雞。" },
       { "call": "球員都就位了，{away}先攻，比賽準備開始。", "response": "先看第一局，投手今天的狀況一下就看得出來。" }
     ] },
     "batter_up": { "priority": 0, "silence": 0.4, "delay": 0.1, "exchanges": [
       { "call": "{batter}站上打擊區。" },
       { "call": "接下來是{team}的{batter}。" },
-      { "when": { "batterHits": { "min": 2 } }, "call": "{batter}上來了，今天已經{batterHits}支安打。", "response": "他今天手感很燙，投手要小心喔。" },
-      { "when": { "batterKToday": { "min": 2 } }, "call": "{batter}，今天已經被三振{batterKToday}次。", "response": "再被三振，我就叫他回去看錄影帶。" },
-      { "when": { "hasPrev": 1 }, "call": "{batter}，上個打席{batterPrev}。", "response": "看他這次怎麼調整。" },
-      { "when": { "hadLastInning": 1, "lastInningRuns": { "min": 2 } }, "call": "{team}上一局才拿下{lastInningRuns}分，{batter}接著上。", "response": "打線熱起來了，投手要穩住。" },
-      { "when": { "hadLastInning": 1, "lastInningRuns": 0, "inning": { "min": 4 } }, "call": "{batter}上來，{team}上一局沒有得分。", "response": "上一局掛零，這局總要有點東西了吧。" },
-      { "when": { "pitchCount": { "min": 85 } }, "call": "{batter}上來，{pitcher}的用球數已經{pitchCount}球了。", "response": "到這個球數，手臂會開始重，我蹲過我知道。" },
+      { "when": { "batterHits": { "min": 2 } }, "call": "{batter}上來了，今天已經{batterHits}支安打。", "response": "他今天手感很燙，投手要小心喔。", "alt": ["今天他看球很清楚，投手不能太好猜。", "手感這麼燙，投手跟他正面對決不划算。"] },
+      { "when": { "batterKToday": { "min": 2 } }, "call": "{batter}，今天已經被三振{batterKToday}次。", "response": "再被三振，我就叫他回去看錄影帶。", "alt": ["這打席先求碰到球再說。", "今天一直被三振，揮棒要縮短一點了。"] },
+      { "when": { "hasPrev": 1 }, "call": "{batter}，上個打席{batterPrev}。", "response": "看他這次怎麼調整。", "alt": ["再碰一次，打者心裡比較有底了。", "剛剛投手怎麼配他的，他應該記得。", "看他這次有沒有準備。"] },
+      { "when": { "hadLastInning": 1, "lastInningRuns": { "min": 2 } }, "call": "{team}上一局才拿下{lastInningRuns}分，{batter}接著上。", "response": "打線熱起來了，投手要穩住。", "alt": ["上一局打得順，氣勢還在。", "打線連起來了，投手不能讓他們再接下去。"] },
+      { "when": { "hadLastInning": 1, "lastInningRuns": 0, "inning": { "min": 4 } }, "call": "{batter}上來，{team}上一局沒有得分。", "response": "上一局掛零，這局總要有點東西了吧。", "alt": ["上一局空手回去，這局要想辦法上壘。", "這局打線該醒一醒了。", "上一局沒動靜，這局看能不能弄點東西出來。"] },
+      { "when": { "pitchCount": { "min": 85 } }, "call": "{batter}上來，{pitcher}的用球數已經{pitchCount}球了。", "response": "到這個球數，手臂會開始重，我蹲過我知道。", "alt": ["球數到這裡，球速會開始掉。", "這個球數，投手的控球最容易跑掉。"] },
       { "gag": "story", "needs": ["story"], "once": true, "when": { "inning": { "min": 5 } }, "call": "{batter}上來。周哥，你今晚講幾次「我當年」了？", "response": "沒幾次啦，是我當年的事比較多而已。" },
       { "when": { "batterPa": { "eq": 0 } }, "call": "{inning}局{half}，{outs}出局，{team}的{batter}，今天第一個打席。" },
-      { "when": { "batterAb": { "min": 1 }, "batterHits": { "eq": 0 } }, "call": "{batter}今天{batterAb}個打數，還沒有安打。", "response": "這個打席他要把球看清楚。" },
+      { "when": { "batterAb": { "min": 1 }, "batterHits": { "eq": 0 } }, "call": "{batter}今天{batterAb}個打數，還沒有安打。", "response": "這個打席他要把球看清楚。", "alt": ["還沒開張，這次先求有，不要求好。", "別急，等一顆自己要的球。", "一直沒安打，這打席不要亂追。"] },
       { "when": { "batterAb": { "min": 2 }, "batterHits": { "eq": 1 } }, "call": "{batter}今天{batterAb}打數{batterHits}安打。" },
-      { "when": { "batterHrToday": { "min": 1 } }, "call": "{batter}今天已經轟出{batterHrToday}發全壘打。", "response": "投手最好別投到中間。" },
+      { "when": { "batterHrToday": { "min": 1 } }, "call": "{batter}今天已經轟出{batterHrToday}發全壘打。", "response": "投手最好別投到中間。", "alt": ["他已經開過轟了，投手要小心。", "這種手感，一顆失投就飛出去了。"] },
       { "when": { "pitcherK": { "min": 3 } }, "call": "{pitcher}今天已經三振了{pitcherK}個人，現在面對{batter}。" },
       { "when": { "tied": 0 }, "call": "{inning}局{half}，{away}{awayScore}比{homeScore}{home}，{outs}出局，{team}的{batter}上場。" },
       { "when": { "tied": 1 }, "call": "{inning}局{half}，{awayScore}比{homeScore}平手，{outs}出局，輪到{team}的{batter}。" }
@@ -51,7 +51,7 @@
       { "when": { "runs": { "min": 2 } }, "call": "一口氣{runs}分！{desc}", "response": "一棒{runs}分，投手臉都綠了。" }
     ] },
     "home_run": { "priority": 2, "silence": 0, "exchanges": [
-      { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "打出去了！{desc}", "response": "振宇，這次你沒喊錯，真的出去了。" },
+      { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "打出去了！{desc}", "response": "明凱，這次你沒喊錯，真的出去了。" },
       { "call": "打出去了！{desc}", "response": "這球不用看，一出棒就知道了。" },
       { "call": "很遠喔——{desc}", "response": "吃得太正了，沒有懸念。" },
       { "when": { "batterHrToday": { "min": 2 } }, "call": "又是他！{desc}", "response": "今天第{batterHrToday}支了，投手今晚應該睡不著。" }
@@ -101,7 +101,7 @@
     ] },
     "flyout": { "priority": 0, "silence": 0.55, "exchanges": [
       { "call": "{desc}。" },
-      { "gag": "earlyCall", "sets": ["earlyCall"], "once": true, "call": "這球很高、很遠……{desc}。", "response": "振宇，你剛剛是不是又想喊全壘打？" },
+      { "gag": "earlyCall", "sets": ["earlyCall"], "once": true, "call": "這球很高、很遠……{desc}。", "response": "明凱，你剛剛是不是又想喊全壘打？" },
       { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "這球——喔，{desc}。", "response": "又喊太早了，今晚第二筆，我幫你記下來。" },
       { "call": "{desc}。", "response": "打到球的下緣了，只能變成飛球。" }
     ] },
@@ -147,7 +147,7 @@
       { "call": "再見比賽！{home}贏了！", "response": "全場都站起來了！這種比賽，看一次少一次。" }
     ] },
     "game_end": { "priority": 2, "silence": 0, "exchanges": [
-      { "gag": "bet", "needs": ["bet"], "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{margin}分之差拿下勝利。", "response": "謝謝大家收看。振宇，鹹酥雞的帳，我們下了節目再算。" },
+      { "gag": "bet", "needs": ["bet"], "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{margin}分之差拿下勝利。", "response": "謝謝大家收看。明凱，鹹酥雞的帳，我們下了節目再算。" },
       { "gag": "bet", "needs": ["bet"], "when": { "tied": 1 }, "call": "比賽結束，雙方{awayScore}比{homeScore}握手言和。", "response": "打這麼久沒分勝負，鹹酥雞各付各的。" },
       { "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{margin}分之差拿下勝利。", "response": "謝謝大家收看，我們下一場見。" },
       { "when": { "tied": 1 }, "call": "比賽結束，雙方{awayScore}比{homeScore}握手言和。", "response": "打這麼久沒有勝負，大家早點回家休息。" }
@@ -155,7 +155,7 @@
   },
   "guests": {
     "pheasants": {"nick": "房貸哥", "name": "黃建宏", "cast": "fan"},
-    "owls": {"nick": "爆肝仔", "name": "陳彥廷", "cast": "fan"},
+    "owls": {"nick": "爆肝仔", "name": "陳昱辰", "cast": "fan"},
     "macaques": {"nick": "煞氣伯", "name": "蔡文雄", "cast": "fan"},
     "muntjacs": {"nick": "宿醉妹", "name": "張詩涵", "cast": "fan_f"}
   },
@@ -163,7 +163,7 @@
     {"on": ["game_start"], "side": "any", "guest": "pheasants", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的老球迷，{guest}。"], ["fan", "大家好！門票錢我都算進房貸裡了，{home}今天一定要贏。"], ["color", "{guest}，這筆帳我不幫你算喔。"]]},
     {"on": ["game_start"], "side": "any", "guest": "owls", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的鐵粉，{guest}。"], ["fan", "大家好！我剛下班，直接衝過來的。"], ["color", "{guest}，你這是剛下班，還是根本沒睡？"]]},
     {"on": ["game_start"], "side": "any", "guest": "macaques", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的老球迷，{guest}。"], ["fan", "大家好！{home}今天給我打出氣勢來！"], ["color", "{guest}，麥克風在你面前，不用那麼大聲。"]]},
-    {"on": ["game_start"], "side": "any", "guest": "muntjacs", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的球迷，{guest}。"], ["fan", "嗨……大家好。我今天會小聲一點。"], ["color", "{guest}，你小聲的時候，都比振宇大聲。"]]},
+    {"on": ["game_start"], "side": "any", "guest": "muntjacs", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的球迷，{guest}。"], ["fan", "嗨……大家好。我今天會小聲一點。"], ["color", "{guest}，你小聲的時候，都比明凱大聲。"]]},
     {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "唉——{batter}啦！"], ["color", "{guest}，你這口氣嘆得比我還長。"]]},
     {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "可惡，差一點點而已啦！"], ["color", "差一點？好啦，你說了算。"]]},
     {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "when": {"inning": {"max": 4}}, "lines": [["fan", "沒關係沒關係，{home}是慢熱型的啦。"]]},
