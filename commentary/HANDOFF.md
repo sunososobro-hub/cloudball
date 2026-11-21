@@ -5,7 +5,7 @@
 - #46: point-of-view rules in `README.md`; personas 游振宇 (`pbp`), 周國棟 (`color`), approved.
 - #61: third seat, speaker `fan` = home team's fan (`guests` + `fan` in bank, `personas/fan-*.md`;
   casting awaits owner, names unchecked until #50; open #70 render, #71 tests). ~1 line in 5, only on `FAN_TRIGGERS` (play over), own RNG stream, `aside` lines yield to pbp.
-- Batter intros: `batter_up` templates in the bank; `tools/add-intros.mjs <script>` merges them into a hand-written script (a script replaces the bank for the whole game; `--check`; rerun after edits).
+- Batter intros: `tools/add-intros.mjs <script>` (bank `batter_up`) and `tools/add-lineup.mjs <script>` (starters, slot/position/number from the game data) merge into a hand-written script (it replaces the bank for the whole game). Rerun after edits or a new batting order; `--check`.
 
 ## Next (board order)
 1. #45 owner line edits (edit 1: only the owner wording of the `game_start` call is left).

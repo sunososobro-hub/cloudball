@@ -33,6 +33,7 @@ const ownTimes = own.map(timeOf);
 const T = bank.triggers[SRC], plain = { ...bank, triggers: { ...bank.triggers, [SRC]: { ...T, exchanges: T.exchanges.filter(e => !e.gag && !e.needs && !e.sets) } } };
 const intros = draftFromBank(stream, plain, { seed: script.seed, teams, describe })
   .filter(l => stream[l.at].type === 'pitch' && stream[l.at].count[0] === 0 && stream[l.at].count[1] === 0 && (l.speaker === 'pbp' || l.speaker === 'color'))
+  .filter(l => !own.some(o => o.src === 'lineup' && o.at === l.at))   /* add-lineup.mjs already announces this batter */
   .filter(l => !ownTimes.some(t => t > timeOf(l) - CLEAR_BEFORE_SEC && t < timeOf(l) + CLEAR_AFTER_SEC))
   .map(l => ({ at: l.at, speaker: l.speaker, text: l.text, emotion: 'calm', delay: l.delay, aside: true, src: SRC }));
 
