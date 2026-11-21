@@ -7,8 +7,9 @@ events and never feeds back into the engine. No AI or paid service is called whi
   (`fan-<team>.md`, speaker `fan`): the fan of the **home** team sits in for that game (#61).
 - `SCRIPT_FORMAT.md`: the per-game script format and the fallback bank format.
 - `lines.json`: fallback bank, call-and-response pairs with slots.
-- `player.js`: picks the line for each moment (pure, runs under Node). `voice.js`: plays a
-  pre-rendered audio file when a line has one, otherwise the browser's speechSynthesis.
+- `player.js`: picks the line for each moment (pure, runs under Node) and times a recorded game by
+  its clip lengths. `voice.js`: plays the recorded files of a recorded game (never mixed with the
+  browser voice), otherwise the browser's speechSynthesis. Check: `node commentary/audio.check.mjs`.
 - `tension.js`: tension index, 0 to 100 per stream event, a pure causal function of the stream;
   `emotionFor()` turns it into a line's emotion tag. Check: `node commentary/tension.check.mjs`.
 - `scripts/`: per-game scripts and their index. `audio/`: pre-rendered voice files.
