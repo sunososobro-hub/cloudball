@@ -10,8 +10,8 @@
   ball drops and hops (`hbpBall`), runner leaves at engine st0. Seen on studio act `hbp` clips 0 (R), 3 (high), 5 (L).
 
 ## Next
-- #43 items 4 (overlaps at the plate), 2 (bat), 3 (HR flip), 5 (bunt ball floats): open; owner order is 1, 4 first. HBP has no thud
-  sound: `wip/43-hbp-pickup` has a thud, a catcher pickup and body-socket hit spots to borrow (not for merge as is).
+- #43 plate pose (fix/43-plate-pose, stacked on #63): catcher rises for high balls (C_HIGH_*), mitt back to rest after the catch,
+  bat rests on the back shoulder (BAT_REST). Studio act `hiball`. Next #43 item 4, then 2, 3, 5; HBP thud: `wip/43-hbp-pickup`. #42 free.
 
 ## Traps
 - Batter-local frame: +z faces the plate, +x faces the pitcher. World: pitcher at -z, catcher at +z (MITT_Z), righty at x=-.9.

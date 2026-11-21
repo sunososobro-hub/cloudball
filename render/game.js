@@ -374,8 +374,9 @@ const bat=window.PL?PL.makeBat(0xc9a06a):new THREE.Mesh(new THREE.CylinderGeomet
 /* batting keyframes: S stance, L load (stride + hands back), C contact, F follow-through. Frame: batter-local, +z faces the plate, +x faces the pitcher */
 const BK={yaw:[-.15,-.45,.75,1.7],lean:[.12,.16,.2,.1],hx:[-.2,-.3,-.05,.35],hy:[.55,.62,.38,.65],hz:[.3,.22,.56,.35],
   bx:[-.3,-.5,-.55,.4],by:[.95,.85,.12,.7],bz:[.12,.1,.82,.55],stride:[.2,.3,.42,.4],back:[-.2,-.2,-.25,-.32],head:[1.1,1.15,.6,.2]};
-/* When the batter stays in the box after a pitch (foul, take, swing and miss), the bat comes down to rest and goes back up before the next pitch */
-const BAT_REST={yaw:-.1,hx:-.1,hy:.5,hz:.35,bx:.15,by:-.85,bz:.5},BAT_REST_AT=1.4,BAT_REST_DUR=.6,BAT_UNREST_DUR=.5;
+/* When the batter stays in the box after a pitch (foul, take, swing and miss), the bat comes down to rest on his back shoulder, hands low in front
+   (never held vertical in front of him, #43), and goes back up before the next pitch */
+const BAT_REST={yaw:-.1,hx:.02,hy:.3,hz:.28,bx:-.6,by:.55,bz:-.55},BAT_REST_AT=1.4,BAT_REST_DUR=.6,BAT_UNREST_DUR=.5;
 const BAT_LOAD_LEAD=.9,BAT_LOAD_DUR=.6,BAT_SWING_LEAD=.22,BAT_SWING_DUR=.3,BAT_FT_DELAY=.06,BAT_FT_DUR=.3,BAT_ARM_LEN=.6,BAT_SHOULDER_X=.3,BAT_SHOULDER_Y=.57;
 const _bv=new THREE.Vector3(),_bq=new THREE.Quaternion(),_dn=new THREE.Vector3(0,-1,0),_up=new THREE.Vector3(0,1,0),sat01=t=>Math.max(0,Math.min(1,t)),ease=t=>t*t*(3-2*t);
 function aimArm(a,sx,tx,ty,tz){_bv.set(tx-sx,ty-BAT_SHOULDER_Y,tz);const d=_bv.length();_bq.setFromUnitVectors(_dn,_bv.normalize());a.quaternion.copy(_bq);a.scale.y=Math.max(ARM_S_MIN,Math.min(1.2,d/BAT_ARM_LEN))}
@@ -533,10 +534,16 @@ const dugout=t=>[(t===0?1:-1)*INTRO_X,INTRO_Z];
 function crouch(f,R,c,fwd,splay,lean,shrink){const fw=fwd*c,sp=splay*c,len=LEG_LEN*(1-shrink*c);f.g.position.y=-(LEG_LEN-len*Math.cos(sp)*Math.cos(fw))*(f.k||1);R.l0.scale.y=R.l1.scale.y=1-shrink*c;R.l0.rotation.set(-fw,0,-sp);R.l1.rotation.set(-fw,0,sp);R.up.rotation.set(lean*c,0,0)}
 function aimWorld(R,arm,sx,wx,wy,wz){R.up.updateWorldMatrix(true,false);_tv.set(wx,wy,wz);R.up.worldToLocal(_tv);aimArm(arm,sx,_tv.x,_tv.y,_tv.z)}
 function armsDown(R){R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1}
+/* #43 plate pose: a crouched catcher's head is ~1.1 m up, a high miss arrives at 1.3-1.55 m. Instead of an arm straight up he rises out of the
+   crouch in a controlled way (up to C_HIGH_RISE of it, from C_HIGH_Y over C_HIGH_SPAN of pitch height). After the catch he holds the mitt
+   MITT_HOLD s, then brings it back to rest at his chest and sinks back into the crouch over MITT_BACK s (the return throw starts from there). */
+const C_HIGH_Y=.95,C_HIGH_SPAN=.5,C_HIGH_RISE=.6,MITT_HOLD=.35,MITT_BACK=.5;
 function poseBattery(e,u){
-  const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG',isP=e.k==='P',c=set?1:0;
-  C.noAnim=c>0;crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
-  if(c>0){const py=isP?.45+e.zy*.75:.7,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,gx=lerp(0,isP?e.zx:0,k),gy=lerp(.7,py,k);
+  const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG',isP=e.k==='P';
+  const py=isP?.45+e.zy*.75:MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
+    back=isP&&!e.sbGo?ease(sat01((u-(ARRIVE+CATCH_SNAP+MITT_HOLD))/MITT_BACK)):0,rise=C_HIGH_RISE*sat01((py-C_HIGH_Y)/C_HIGH_SPAN)*k*(1-back),c=set?1-rise:0;
+  C.noAnim=set;crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
+  if(set){const gx=lerp(lerp(0,isP?e.zx:0,k),0,back),gy=lerp(lerp(MITT_REST_Y,py,k),MITT_REST_Y,back);
     aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,gx*.8,gy-.15,MITT_Z+.2)}else armsDown(CR);
   const call=isP&&(e.r==='cstr'||e.r==='sstr')?ease(sat01((u-(ARRIVE+CALL_DELAY))/CALL_UP))*(1-ease(sat01((u-(ARRIVE+CALL_HOLD))/CALL_DOWN))):0,cu=(set?1:0)*(1-CALL_STAND*call);
   crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.hg.rotation.x=-UMP_HEAD_UP*cu;
@@ -624,7 +631,7 @@ function poseScene(e,u,dt){
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
   else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
-    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3)bp=arc(mitt,hand,3,(u-3.4)/.9)}
+    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-3.4)/.9)}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
@@ -911,6 +918,7 @@ const STUDIO_SEEDS=40,STUDIO_SEEDS_RARE=400,STUDIO_MAX=30;/* rare acts (5th fiel
 const STUDIO_ACTS=[
   ['投打','cstr','投球・看好球',e=>e.k==='P'&&e.r==='cstr'&&!K3(e)],
   ['投打','ball','投球・壞球',e=>e.k==='P'&&e.r==='ball'],
+  ['投打','hiball','投球・高壞球（捕手起身接）',e=>e.k==='P'&&e.r==='ball'&&!e.sbGo&&e.zy>1.15],
   ['投打','foul','打者・界外球',e=>e.k==='P'&&e.r==='foul'],
   ['投打','Ks','被三振・揮棒落空',e=>e.k==='P'&&e.r==='sstr'&&K3(e)],
   ['投打','Kc','被三振・站著不動',e=>e.k==='P'&&e.r==='cstr'&&K3(e)],
