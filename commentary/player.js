@@ -121,6 +121,12 @@ export function validateBank(bank) {
   for (const [name, T] of Object.entries(bank.triggers || {})) for (const e of T.exchanges || []) {
     all.push([name, e]);
     if ((e.sets || e.needs) && !e.gag) errs.push(`${name}: a line with sets/needs must name its gag`);
+    if (e.alt !== undefined) {
+      /* other wordings of the same response, said in turn: same slots, so any of them fits the moment */
+      const slotsOf = t => [...new Set([...(t || '').matchAll(/\{(\w+)\}/g)].map(m => m[1]))].sort().join();
+      if (!e.response || !Array.isArray(e.alt) || !e.alt.length) errs.push(`${name}: "alt" needs a response and a list of other wordings`);
+      else for (const a of e.alt) if (typeof a !== 'string' || !a.trim() || slotsOf(a) !== slotsOf(e.response)) errs.push(`${name}: alt wording ${JSON.stringify(a)} must use the same slots as its response`);
+    }
     for (const f of e.sets || []) sets.set(f, e.gag);
   }
   for (const [name, e] of all) for (const f of e.needs || []) {
@@ -145,6 +151,7 @@ export function validateBank(bank) {
 export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => '' }) {
   const rng = mulberry32((seed ^ 0xc0ffee) >>> 0), mem = createMemory(teams), rules = bank.rules || {}, lines = [], recent = [];
   const gags = { chosen: null, flags: new Set(), used: new Set() };   /* the one running gag of this game and how far it has got */
+  const turns = new Map();   /* how often each exchange was said: its response and "alt" wordings are said in turn */
   /* the fan guest has his own random stream, so his picks never shift what the other two pick */
   const fanRng = mulberry32((seed ^ 0xfa11) >>> 0), guest = guestOf(bank, teams[1] && teams[1].id), fanRecent = [], fanUses = new Map();
   let quietUntil = -Infinity;
@@ -167,7 +174,9 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
     if (ex.gag) { gags.chosen = ex.gag; for (const f of ex.sets || []) gags.flags.add(f); }
     const delay = T.delay || 0;
     if (ex.call) lines.push({ at: x.i, speaker: 'pbp', text: fill(ex.call, slots), delay, priority });
-    if (ex.response) lines.push({ at: x.i, speaker: 'color', text: fill(ex.response, slots), delay: delay + RESPONSE_DELAY, priority });
+    const turn = turns.get(ex) || 0, wordings = [ex.response, ...(ex.alt || [])];
+    turns.set(ex, turn + 1);
+    if (ex.response) lines.push({ at: x.i, speaker: 'color', text: fill(wordings[turn % wordings.length], slots), delay: delay + RESPONSE_DELAY, priority });
     quietUntil = x.t + (rules.minGapSec || 0);
     /* the fan guest, after the two professionals, only on moments where the play is over */
     if (!guest || !FAN_TRIGGERS.has(name)) continue;

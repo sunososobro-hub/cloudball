@@ -25,7 +25,7 @@ if (!file || !outDir) { console.error('usage: node commentary/tools/segment-scri
 const script = JSON.parse(readFileSync(file, 'utf8'));
 const bank = JSON.parse(readFileSync(path.join(ROOT, 'commentary/lines.json'), 'utf8'));
 const g = simGame(script.seed, {}), teams = g.teams.map(i => TEAMS[i]);
-const SPEAKER = { pbp: '游振宇', color: '周國棟', fan: ((bank.guests || {})[script.guest] || {}).name || '來賓' };
+const SPEAKER = { pbp: '游明凱', color: '周國棟', fan: ((bank.guests || {})[script.guest] || {}).name || '來賓' };
 
 /* every name the script may say, longest first so a full name wins over a short one */
 const roles = ['away', 'home'], entities = new Map();
