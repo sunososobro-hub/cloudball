@@ -5,7 +5,6 @@ Agent: the interface window: `ui/` and root files.
 - #60 rename, #25 entry screen, #58 poster, #53 part 1 (guide page), #89 viewing counts (PR #91), #117 jumps do not count as watched innings (`ui/stats.js` listens to `cloudball:seek`).
 - #47 round 1: `league/tools/record.mjs 704 --write` made `league/preseason/opening.json`; enter starts it (`startOpening`, mode `opening`, no votes). `ui/site.js` = dev/production by host (class `dev-only`).
   Guards: `tests/opening.check.mjs`, `tests/site.check.mjs`. Guide page staff block fixed (`staffOf`, `ROLES`).
-- Guide page staff block fixed (`staffOf`, `ROLES`, umpire `years`).
 
 ## Next
 - #47 round 2 / #55: 21:00 synchronized showing + countdown (A3), viewing-count flag for the two kinds of showing. Pregame segments come from #55's `league/` timeline module.
