@@ -1,7 +1,8 @@
 /* Voices for the booth (browser only). A line plays its pre-rendered audio file when it has
  * one; otherwise, or if the file fails to load, it is read by the browser's own
  * speechSynthesis. Nothing here calls a paid service. */
-const CAST = { pbp: { rate: 1.15, pitch: 1.15 }, color: { rate: 0.95, pitch: 0.55 } };
+/* fan / fan_f: the fan guest in the third seat (a man / a woman), see personas/ */
+const CAST = { pbp: { rate: 1.15, pitch: 1.15 }, color: { rate: 0.95, pitch: 0.55 }, fan: { rate: 1.1, pitch: 0.85 }, fan_f: { rate: 1.1, pitch: 1.35 } };
 const MAX_QUEUE = 4;
 const LANG = 'zh-TW';
 
@@ -11,22 +12,24 @@ const speakable = t => t.replace(/(\d+)\s*km\/h/gi, '時速$1公里').replace(/A
 
 export function createVoice({ audioBase = 'commentary/' } = {}) {
   const SS = typeof window !== 'undefined' ? window.speechSynthesis : null;
-  let voices = { pbp: null, color: null }, queue = [], busy = false, current = null, generation = 0;
+  let voices = { pbp: null, color: null, fan: null, fan_f: null }, queue = [], busy = false, current = null, generation = 0;
 
-  /* prefer Taiwan Mandarin, avoid Cantonese; give the two speakers different voices when possible */
+  /* prefer Taiwan Mandarin, avoid Cantonese; give the speakers different voices when possible */
   function pickVoices() {
     if (!SS) return;
     const norm = l => (l || '').replace('_', '-').toLowerCase(), ok = v => /^(zh|cmn)/i.test(v.lang) && !/hk|yue|mo/i.test(v.lang);
     const rank = v => { const l = norm(v.lang); return l.includes('tw') || l.includes('hant') ? 0 : l.includes('cn') || l.includes('hans') ? 1 : 2; };
     const zh = SS.getVoices().filter(ok).sort((a, b) => rank(a) - rank(b)), male = zh.find(v => /zhiwei|male|男|yunyang|yunxi/i.test(v.name));
     const a = zh[0] || null, b = male && male !== a ? male : (zh.find(v => v !== a && rank(v) === rank(a)) || zh.find(v => v !== a) || a);
-    voices = { pbp: a, color: b };
+    const third = zh.find(v => v !== a && v !== b) || a, female = zh.find(v => v !== a && v !== b && /female|女|hanhan|yating|hsiaochen|hsiaoyu|meijia/i.test(v.name));
+    voices = { pbp: a, color: b, fan: third, fan_f: female || third };
   }
   if (SS) { pickVoices(); if (SS.addEventListener) SS.addEventListener('voiceschanged', pickVoices); }
 
   function speakText(job, done) {
     if (!SS) return done();
-    const u = new SpeechSynthesisUtterance(speakable(job.text)), v = voices[job.speaker], same = voices.pbp === voices.color || !v, cast = CAST[job.speaker] || CAST.pbp;
+    const key = CAST[job.cast] ? job.cast : job.speaker, v = voices[key] || voices.pbp, cast = CAST[key] || CAST.pbp;
+    const u = new SpeechSynthesisUtterance(speakable(job.text)), same = !v || Object.entries(voices).some(([k, o]) => k !== key && o === v);
     u.lang = LANG; if (v) u.voice = v; u.rate = cast.rate; u.pitch = same ? cast.pitch : 1;
     u.onend = u.onerror = done; current = { stop: () => SS.cancel() }; SS.speak(u);
   }
@@ -47,10 +50,14 @@ export function createVoice({ audioBase = 'commentary/' } = {}) {
   return {
     get available() { return !!SS; },
     hasMandarin: () => { pickVoices(); return !!voices.pbp; },
-    /* speaker: 'pbp' | 'color'. urgent: drop whatever is queued and say this now. */
-    say(speaker, text, { urgent = false, audio = null } = {}) {
-      if (urgent) this.stop(); else if (queue.length >= MAX_QUEUE) return;
-      queue.push({ speaker, text, audio }); next();
+    /* speaker: 'pbp' | 'color' | 'fan'. urgent: drop whatever is queued and say this now.
+     * cast: voice for the fan guest ('fan' or 'fan_f'). aside: part of a fan moment; a new
+     * play-by-play call drops queued asides, so the guest never holds up a live call. */
+    say(speaker, text, { urgent = false, audio = null, cast = null, aside = speaker === 'fan' } = {}) {
+      if (urgent) this.stop();
+      else if (speaker === 'pbp' && !aside) queue = queue.filter(j => !j.aside);
+      if (queue.length >= MAX_QUEUE) return;
+      queue.push({ speaker, text, audio, cast, aside }); next();
     },
     stop() { generation++; queue = []; busy = false; if (current) current.stop(); current = null; if (SS) SS.cancel(); },
   };

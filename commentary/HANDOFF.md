@@ -1,20 +1,19 @@
 # commentary/ handoff
 
 ## Done
-- Fallback bank (`lines.json`) + `player.js` draft, `voice.js` (audio file or speechSynthesis).
-- #11: running gags with setup before payoff (`gag`/`sets`/`needs`/`once`), `validateBank()`.
-- #46: point-of-view rules in `README.md`; personas 游振宇 (`pbp`) and 周國棟 (`color`),
-  casting waiting for owner approval; bank rewritten (wiring unchanged, 69 of 148 lines no slot).
-  Fixed: pitching change named the wrong team; 「三上三下」 said after any scoreless inning.
+- Bank (`lines.json`), `player.js` draft, `voice.js`; #11 running gags (`validateBank()`).
+- #46: point-of-view rules in `README.md`; personas 游振宇 (`pbp`), 周國棟 (`color`), approved.
+- #61: third seat, speaker `fan` = home team's fan (`guests` + `fan` in bank, `personas/fan-*.md`;
+  casting awaits owner, names unchecked until #50; open #70 render, #71 tests). ~1 line in 5, only on `FAN_TRIGGERS` (play over), own RNG stream, `aside` lines yield to pbp.
 
 ## Next (board order)
-1. #45 owner line edits, on top of the #46 rewrite (edit 1 call wording still to apply).
-2. #61 third seat (four fan personas, third speaker), then #26 voiced frozen game, then #56.
+1. #45 owner line edits (edit 1: only the owner wording of the `game_start` call is left).
+2. #26 voiced frozen game (owls home: 爆肝仔 sits in, six voices), then #56.
+3. After #52 (staff): fan blames manager/umpire by name.
 
 ## Known traps
 - `tests/` is not this folder: new slots go in `KNOWN_SLOTS` in `tests/replay/commentary.mjs`
-  by its owner (open an issue), or the test fails.
-- Every trigger draws two RNG values even when silent; keep that, or drafts shift.
-- `needs` lines win over `when` lines; give them `once` or they repeat every time they fit.
-- On `substitution` events `team` is the team making the change: use `{team}`, not `{fieldTeam}`.
-- `{desc}` is engine text; HR, double play, bunt hit end in 「！」: no punctuation after it there.
+  by its owner (open an issue). `{guest}` is only filled in fan moments, never in exchanges.
+- Every trigger draws two main-RNG and two fan-RNG values even when silent; keep that.
+- `needs` lines beat `when` lines: give them `once`. Fan moments: max `fanMaxUses` per game.
+- `substitution`: `team` = team making the change (`{team}`). `{desc}` = engine text, may end 「！」.

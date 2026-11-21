@@ -41,11 +41,14 @@ The key is the game's seed as an unsigned decimal integer.
 | `version` | yes | Format version, `1`. |
 | `seed`, `engine`, `events` | recommended | Seed, engine version and stream length the script was written against. If any of them does not match the game being shown, the whole script is ignored and the fallback bank is used: a script for a different game would describe things that did not happen. |
 | `lines[].at` | yes | Index (`i`) of the engine stream event the line is bound to. Lines are ordered by `at`. |
-| `lines[].speaker` | yes | `pbp` (play-by-play) or `color`. See `personas/`. |
+| `guest` | no | Team id of the fan in the third seat. Default: the home team. |
+| `lines[].speaker` | yes | `pbp` (play-by-play), `color`, or `fan` (the guest). See `personas/`. |
 | `lines[].text` | yes | What is said. Also the text read by the browser voice when there is no audio. |
 | `lines[].delay` | no | Seconds after the event before the line is due. Default 0. |
 | `lines[].audio` | no | Pre-rendered audio file, path relative to `commentary/`. Played when present; if it is missing or fails to load, the browser's speechSynthesis reads `text`. |
 | `lines[].priority` | no | `2` = also spoken when the viewer fast-forwards. Default 0. |
+| `lines[].aside` | no | `true` for the lines of a fan moment: the voice drops them, still queued, when a new play-by-play call comes. `fan` lines are asides by default. |
+| `lines[].cast` | no | Voice of a `fan` line (`fan` or `fan_f`); filled from the guest when missing. |
 
 Validate with `validateScript(script, stream)` from `player.js`; the test suite runs it on every
 script that is registered.
@@ -77,3 +80,13 @@ spot, deterministically for a given seed.
   lines of other gags are skipped for the rest of the game, so a payoff always has its setup.
   A line with `needs` is preferred over a `when` line, which is preferred over a generic one.
   `validateBank(bank)` from `player.js` checks that every `needs` flag is set by the same gag.
+- **The fan guest.** `guests.<teamId>` is the fan of that team (`name`, `nick` = the `{guest}`
+  slot, `cast` = his voice). `fan` is a list of fan moments: `on` (triggers; only moments after
+  the play is over, see `FAN_TRIGGERS` in `player.js`), `side` (`up` = the home team just
+  gained, `down` = it just lost, `any`), optional `guest` (one fan's own line), `when`, `once`,
+  and `lines`: `[speaker, text]` pairs, at least one by `fan`. After the two professionals have
+  spoken, the guest takes the moment with probability `rules.fanChance`; a moment is not
+  reused within `rules.fanNoRepeatWindow` and at most `rules.fanMaxUses` times a game (default
+  2); his own lines get `rules.fanOwnShare` of his moments; after him routine calls wait
+  `rules.fanGapSec` longer. He draws from his own random stream, so his picks never shift the
+  other two's picks.

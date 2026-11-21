@@ -1,9 +1,10 @@
 # commentary
 
-The two commentators. Commentary is produced after a game is simulated, only reads past engine
+The booth: two commentators and a fan guest. Commentary is produced after a game is simulated, only reads past engine
 events and never feeds back into the engine. No AI or paid service is called while watching.
 
-- `personas/`: the two voices, 游振宇 (`pbp`) and 周國棟 (`color`). Casting proposed in #46.
+- `personas/`: the two fixed voices, 游振宇 (`pbp`) and 周國棟 (`color`), and the four fan guests
+  (`fan-<team>.md`, speaker `fan`): the fan of the **home** team sits in for that game (#61).
 - `SCRIPT_FORMAT.md`: the per-game script format and the fallback bank format.
 - `lines.json`: fallback bank, call-and-response pairs with slots.
 - `player.js`: picks the line for each moment (pure, runs under Node). `voice.js`: plays a
@@ -26,5 +27,8 @@ events and never feeds back into the engine. No AI or paid service is called whi
 4. **No self-explaining.** A line never explains itself or announces what it is about to do.
 5. **True.** Opinions may be wrong; facts may not. Never state something about the play that
    the event did not record (which base, which team, how the inning went).
-6. **The test.** Read every line aloud. Would a real broadcaster say this exact sentence on
+6. **The third seat.** The fan guest is biased, loud and often wrong in his opinions, but like
+   the other two he never states a false fact. He talks less (about one line in five), only
+   once a play is over, and the two professionals answer him by his nickname.
+7. **The test.** Read every line aloud. Would a real broadcaster say this exact sentence on
    air? If not, rewrite it.
