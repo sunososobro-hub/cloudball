@@ -3,8 +3,7 @@
 ## Done
 - Bank (`lines.json`, gags, `validateBank`), personas 游明凱/周國棟 + four fans, frozen game script
   with pregame, sheet + `synth.mjs` (transcript gate #99, keyless cloud mode, `--cap` US$), wiring (#96).
-- #108 sheet `ctx`; #82 part 1 people slots; #115 whole frozen game recorded (351 clips, US$2.09).
-- #129: `synth.mjs --converse` trial; owner verdict: not better, approach dropped (tool stays, unwired).
+- #108 sheet `ctx`; #82 part 1 people slots; #115 whole game recorded (351 clips); #129 `--converse` dropped.
 - #134 step 1: `banter.js` (score per exchange, `topBanter` with gap and full line range) + check.
 - #140: `tools/post-trial.mjs` free A/B (gain per emotion, silence trim, tempo, turn gaps) on at 30/142/1296; files in `audio/_trial/post/` (force-added; `_trial/` is git-ignored).
 
@@ -19,4 +18,4 @@
 - Every trigger draws two RNG values even when silent; keep that, or drafts shift.
 - `needs` lines win over `when` lines; give them `once` or they repeat every time they fit.
 - Timing: `wire-audio.mjs --report 320`; fix drops by delaying the next call (late batter intros are not drops).
-- Banter: a reworded line can lose its gag mark (`GAG_MARKS`) or bank match; rerun the check after edits.
+- Banter: a reworded line can lose its gag mark (`GAG_MARKS`); rerun the check. Excited clips stay slow (long vowels).
