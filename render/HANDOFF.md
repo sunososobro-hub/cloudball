@@ -1,20 +1,18 @@
 # render/ handoff (max 20 lines)
 
 ## Done
-- #3 comments translated (PR #12). `tools/studio_shot.py`: headless contact sheets of a studio clip (needs `npm i three@0.186.1`,
-  THREE_DIR). `tools/studio_probe.py`: same page, prints a JS expression per time (world positions), ~20 s a run, no screenshots.
-- #5 bunt: squares around, knees bend by pitch height, bat level over the plate in the batter's ground frame (`groundToUp`),
-  sweet spot on the pitch line; the pitch ends on the bat and the bunted ball starts there (`buntContact`). Bunter rises out of
-  the crouch as he runs. Batter-runner now leaves from the box, not plate center (`BAT_LEAVE_BLEND`), for every ball in play.
+- Tools: `tools/studio_shot.py` (contact sheets; needs `npm i three@0.186.1`, THREE_DIR; run one at a time, parallel runs time out),
+  `tools/studio_probe.py` (prints a JS expression per time, ~20 s a run). #3 comments translated (PR #12).
+- #5 bunt (PR #22): squared stance, level bat on the pitch line (`buntContact`); batter-runner leaves from the box (`BAT_LEAVE_BLEND`).
+- #5 steal (PR #24): `catcherThrow` pop-up, transfer, hold when plan.t0 is late (#23), step, throw at plan.t0, re-crouch.
+- #5 tag (feat/5-tag): `tagPose` for steal receiver, bunt-FC and tag-up plays. Out = engine `plan.actions` a:'tag' time, then
+  shows the ball; safe = late swipe at arrive+TAG_LATE_SWEEP. Glove on the runner's lane. Studio acts `sbout`, `tagfc` (400 seeds).
 
-- #5 steal (PR #24, stacked on #22): `catcherThrow` pops him up, transfers, holds at the chest when plan.t0 is late (issue #23),
-  steps toward the bag, throws at plan.t0 from `throwRelease`, sinks back into the crouch over the last 0.7 s of the event.
-
-## Next in #5 (one PR each, base dev; branch off feat/5-steal. Remote feat/5 is a stale WIP, ignore it)
-- (b) tag pose helper (crouch, glove low on the runner's side of the bag) for steal receiver and FC tags (`plan.actions` a:'tag').
+## Next in #5 (one PR each, base dev. Remote feat/5 is a stale WIP, ignore it)
 - (c) pitcher ~1 m jump covering first on 3-6-3: cover position ignores the delivery stride `kf(u,PK.dz)`.
 
 ## Traps
+- Engine's second-base tag spot is in the runner's lane (issue #35): runner slides through the SS until the engine moves it.
 - Batter-local frame: +z faces the plate, +x faces the pitcher. No left-handed bunt in the studio seed bank yet.
 - Engine sets `e.swing=true` on bunts; guard with `e.play.bunt`. Shell env does not persist: re-export THREE_DIR each call.
 - `gh` GraphQL is blocked: use `gh api repos/...` REST for issues/PRs.
