@@ -3,6 +3,10 @@
 //        node commentary/tools/synth.mjs --in lines.json --out dir [--redo] [--only id,id,...]
 //        node commentary/tools/synth.mjs --ping     (free: can this machine reach the API? nothing is made)
 //        node commentary/tools/synth.mjs --in lines.json --out dir --show id,id  (free: print what would be sent)
+//        node commentary/tools/synth.mjs --converse [--dry-run] [--at 30,142] [--redo] [--cap 1]
+//          conversation trial (#129, tools/converse.mjs): the lines of tools/converse-trial.json, each
+//          speaker hearing the clips before his; A/B files in audio/_trial/converse/. Its own gate
+//          (required words); every other run of this tool keeps the exact check below.
 //   --cap: stop requesting once the estimated cost of this run reaches this many US$ (exit 1)
 //   --only: make just these ids again, even when the file is there and up to date (a clip that came
 //           back far too long); every other line is left alone
@@ -84,21 +88,22 @@ const redo = flag('--redo');
 const cap = opt('--cap') != null ? Number(opt('--cap')) : null;
 if (cap != null && !(cap > 0)) { console.error('--cap: give a positive US$ amount'); process.exit(2); }
 const only = opt('--only') ? new Set(opt('--only').split(',').map(s => s.trim()).filter(Boolean)) : null;
-const inFile = flag('--trial') ? join(here, 'trial.json') : opt('--in');
-const outDir = flag('--trial') ? join(root, 'audio', '_trial') : opt('--out');
+const converse = flag('--converse');
+const inFile = flag('--trial') ? join(here, 'trial.json') : converse ? opt('--in') || join(here, 'converse-trial.json') : opt('--in');
+const outDir = flag('--trial') ? join(root, 'audio', '_trial') : converse ? opt('--out') || join(root, 'audio', '_trial', 'converse') : opt('--out');
 if (!inFile || !outDir) { console.error('usage: --trial | --in <json> --out <dir>  [--redo] [--only ids] | --ping'); process.exit(2); }
 
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
-if (spawnSync(FFMPEG, ['-version'], { stdio: 'ignore', windowsHide: true }).error) {
+if (!(converse && (flag('--dry-run') || opt('--show'))) && spawnSync(FFMPEG, ['-version'], { stdio: 'ignore', windowsHide: true }).error) {
   console.error(`ffmpeg not found (${FFMPEG}). Install it with the package manager (apt-get install ffmpeg / brew install ffmpeg / winget install ffmpeg),`
     + ' or `npm i -g ffmpeg-static` and set FFMPEG to the path it prints. Never commit the binary.');
   process.exit(1);
 }
 
 const roles = JSON.parse(readFileSync(join(root, 'voices.json'), 'utf8')).roles;
-const lines = JSON.parse(readFileSync(inFile, 'utf8'));
+const lines = converse ? [] : JSON.parse(readFileSync(inFile, 'utf8'));
 if (only) { const ids = new Set(lines.map(l => l.id)), unknown = [...only].filter(i => !ids.has(i)); if (unknown.length) { console.error(`--only: not in ${inFile}: ${unknown.join(', ')}`); process.exit(2); } }
-mkdirSync(outDir, { recursive: true });
+if (!converse) mkdirSync(outDir, { recursive: true });
 const manifestPath = join(outDir, 'manifest.json');
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};
 const saveManifest = () => writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -144,6 +149,13 @@ function normalize(src, file) {
   renameSync(tmp, file);
 }
 const drop = (f) => { if (existsSync(f)) unlinkSync(f); };
+
+if (converse) {
+  const { runConverse } = await import('./converse.mjs');
+  const set = (n) => opt(n) ? new Set(opt(n).split(',').map(s => s.trim()).filter(Boolean)) : null;
+  process.exit(await runConverse({ file: inFile, root, outDir, roles, call, accessProblem, normalize, ffmpeg: FFMPEG,
+    dryRun: flag('--dry-run'), redo, cap, at: set('--at'), show: set('--show') }));
+}
 
 const requestOf = (r, l) => ({
   model: r.model,
