@@ -1,6 +1,6 @@
 {
   "pbp-5fe7aca84b": {
-    "hash": "13ad934c790a573f6a2bcc9b9f5360feffdc8d2b11444ca42e84c81f5a547f0d",
+    "hash": "772656da8d354cbfa5ad8fce38b3d1ab89b856c2a5a73e9086955c5b220159b1",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -10,7 +10,7 @@
     "transcriptMatch": true
   },
   "pbp-a16f839c63": {
-    "hash": "e20b165609777725d6119fd07fad1e2f89df062a8e27b689b63834c418dcb9b3",
+    "hash": "ecc19fce33de4fa9c58b95005caee51c15f8cbf8b3543392e7e9d2d64e331246",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -20,7 +20,7 @@
     "transcriptMatch": true
   },
   "color-b4ea3b077d": {
-    "hash": "07d24e75fd0f3d2d302c18a59f5466bd812377550bcab5e2f31821dbba597290",
+    "hash": "e384443de93f6a0c06cec3ffab0dcfc9beb3180927db5e47816932c050e06ac6",
     "role": "color",
     "model": "gpt-audio-1.5",
     "voice": "echo",
@@ -30,7 +30,7 @@
     "transcriptMatch": true
   },
   "pbp-81fabf06ac": {
-    "hash": "163ef022a36ca702ceb112f71c4f3c1a1d83c8e374719405650f41ffbc53a026",
+    "hash": "10f83ff8ebd6862785180b647964d6647ba0e731ab8e155ac3d8ad0ee03534b4",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -40,47 +40,47 @@
     "transcriptMatch": true
   },
   "fan_owls-a7f02e474b": {
-    "hash": "07b457d43c5ad46e91c7720a70cc344308f283dac7d388867d40103275026032",
+    "hash": "4d992cd424f31b883f073df47c1e4e793294c2a1513e6bfcbbdcd2a94c8b4def",
     "role": "fan_owls",
     "model": "gpt-audio-1.5",
     "voice": "cedar",
     "tone": "興奮，音量拉高、語速加快",
     "text": "主播好，周哥好，各位觀眾朋友大家好！",
-    "transcript": "主播好，周哥好，各位觀眾朋友大家好！",
+    "transcript": "主播好，周哥好，各位觀眾朋友大家好!",
     "transcriptMatch": true
   },
   "pbp-6d1028456c": {
-    "hash": "628868369c00a1806188985f076fea0b6a9575d425eb9f8207e8e0a52621703f",
+    "hash": "dd2565e903457aa86f7afff79a2ecd94316ada802ecb370b2109018c488f9066",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "平穩清楚，正常播報",
     "text": "先發投手，帝雉許子豪，貓頭鷹黃宗翰。",
-    "transcript": "先發投手，帝雉許子豪，貓頭鷹黃宗翰。",
+    "transcript": "先發投手，帝雉許子豪，貓頭鷹黃宗翰",
     "transcriptMatch": true
   },
   "pbp-79818b3b14": {
-    "hash": "d9b16c51002907c5c068c78a9fc98dc1fe1ed62ca91cf6877e13febe9fe0a8e8",
+    "hash": "f6e7eefa60ed95ad83943d776240644e32d1074b6140d9d0d1285b615def2cd9",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "平穩清楚，正常播報",
     "text": "許子豪二十九歲，右投，背號40。",
-    "transcript": "許子豪二十九歲，右投，背號40。",
+    "transcript": "許子豪二十九歲，右投，背號40",
     "transcriptMatch": true
   },
   "color-648b49be16": {
-    "hash": "5f41a572e7b81cb5ec7304157b1518e257206bb7c409248713ebb1ea34ee534a",
+    "hash": "52116c8f9fd9b125537d4ad9f068de6e942517c19f89c7b6ad046b7ffeb44c5b",
     "role": "color",
     "model": "gpt-audio-1.5",
     "voice": "echo",
     "tone": "平穩清楚，正常播報",
     "text": "他球威、控球都很平均，沒有特別弱的地方，就看今天手感。",
-    "transcript": "他球威、控球都很平均，沒有特別弱的地方，就看今天手感।",
-    "transcriptMatch": false
+    "transcript": "他球威、控球都很平均，沒有特別弱的地方，就看今天手感。",
+    "transcriptMatch": true
   },
   "pbp-e622889e1b": {
-    "hash": "8a99103fb0662070da4fc2e5bb4b37e65ce14a81edc92f900f28b9b3d6c3af6e",
+    "hash": "72b284c72b571d56372a6597406203f0693233adb0c9db460ac9106472eb44e2",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -90,7 +90,7 @@
     "transcriptMatch": true
   },
   "fan_owls-917ca2cce8": {
-    "hash": "321e0a8a9f366a537ee71cd30902e4152bb2250c817d668add2a38bb7257e31b",
+    "hash": "a2dab40f00c98610153d8a57aa54391a754caa213c589909007f4572338a8020",
     "role": "fan_owls",
     "model": "gpt-audio-1.5",
     "voice": "cedar",
@@ -100,7 +100,7 @@
     "transcriptMatch": true
   },
   "pbp-b24e8332d5": {
-    "hash": "fae1a724e8d4987170c6621922d6cd8bc706d8a084a80b524debf3949d9990e3",
+    "hash": "b2f79eac2f4502e06c1f41ccb5a2bd42a810fd75ee41f6ef08c2f0e9c0c7e9e4",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -110,7 +110,7 @@
     "transcriptMatch": true
   },
   "pbp-8444fd1dc3": {
-    "hash": "3961dee4e3203e488215564f476a2f1fd8288bfa131f9c65da2c0ae0b7ffa217",
+    "hash": "f606d9520861fd9b51d208a8f2083b31a7bd535809324f54ea92205b440379e8",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -120,17 +120,17 @@
     "transcriptMatch": true
   },
   "pbp-c18be082ee": {
-    "hash": "43f4b872e5884a6a4bc48b6567e16c5630491501597c569b117352e05f87026a",
+    "hash": "72e8ad54fd9ff942615453617600ee8ad343e5e189c2124009a89d295e4a0fc9",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "平穩清楚，正常播報",
     "text": "第一棒，二壘手劉立偉，背號58。",
-    "transcript": "第一棒，二壘手劉立偉，背號58。",
+    "transcript": "第一棒，二壘手劉立偉，背號五十八。",
     "transcriptMatch": true
   },
   "pbp-9f577d8eca": {
-    "hash": "bd96569897a4304b3bc31e350147f0818daae5d727cb3d5e2bbe9c59b5a7a7a5",
+    "hash": "e9771d080e9b3acc10e32e9f2e56ab0cbc826dc969c7e435521a81d3fc1a9188",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -140,7 +140,7 @@
     "transcriptMatch": true
   },
   "pbp-295eaba1e6": {
-    "hash": "d8519110e38b196019e7ad42632d44a4d7531e31fdd01579f1265ac1bea5271e",
+    "hash": "7a8ad56c097103bf1895ce7cec8a3d23e12c07dde61567017fbbc9c9617977c0",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -150,7 +150,7 @@
     "transcriptMatch": true
   },
   "pbp-5423fd2846": {
-    "hash": "4672cc1ce7d0e47c1f439bea16768c1a2a664676e162cbca0781b78f4f1bb414",
+    "hash": "53ee55be36e4be9b61056039fd6d51710ed3b465e459c99d1173056be3abc406",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -160,17 +160,17 @@
     "transcriptMatch": true
   },
   "pbp-96b1ca2a6f": {
-    "hash": "34c7f13680ef5d043ccc4b71b70988c7a650c8a1f51b58ded132361915774e50",
+    "hash": "95bc4da921eac065dca24ef79cde77884176dbcc4925849e43f738b71a557a89",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "平穩清楚，正常播報",
     "text": "第五棒，指定打擊蕭家瑋，背號59。",
-    "transcript": "第五棒，指定打擊蕭家瑋，背號五十九。",
-    "transcriptMatch": false
+    "transcript": "第五棒，指定打擊蕭家瑋，背號59。",
+    "transcriptMatch": true
   },
   "pbp-9e7109ecec": {
-    "hash": "df21b8e83e1d29842816888973e72f62703419919774e385f35d80461cee66fd",
+    "hash": "9d097b628740630e1dfcd495056183d19b158ff36989e527017f663978948629",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -180,7 +180,7 @@
     "transcriptMatch": true
   },
   "pbp-87b6288459": {
-    "hash": "b556627363e4867592d264a81a03cc095ce51e9728a258ee425994ac64efbaad",
+    "hash": "768f0762816b00b51b58db1b9961a7a79811a98c4aa539a7c23b7420e5d02d0e",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -190,7 +190,7 @@
     "transcriptMatch": true
   },
   "pbp-73ddcb4def": {
-    "hash": "b0a82a23795e094432b70cc6ab1712ca4e8282eaf6f58fbfdfb90755bc9a7bbc",
+    "hash": "3912b8e093621049e05467bb50f4394c7b9ccdb934904d942cea1413e51d93e0",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -200,7 +200,7 @@
     "transcriptMatch": true
   },
   "pbp-2fec65aad8": {
-    "hash": "3e7c84242b286debb68d9d213fdff1454b9b5873b3b99afd89ffca5e870e127c",
+    "hash": "d80d72af57dc7b62442b605f2543d930fe76a27bc48e80b7a96e67b7c570ff05",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -210,7 +210,7 @@
     "transcriptMatch": true
   },
   "pbp-8960bcffc6": {
-    "hash": "04a58d243cc10d5fa763c3f321cf9fc2cc76c875219bf04f79bbee696822bb6c",
+    "hash": "ed6ae3e6c50a7ff3fcdc0ae233654fe4e6239e6194a45cf70c0815f58f113dd6",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -220,17 +220,17 @@
     "transcriptMatch": true
   },
   "color-cf5ad1d052": {
-    "hash": "53b15da9cc7d9287d4507eec3e65bf80e98811bd6459ea501669723ad76b6210",
+    "hash": "6d6452a6273b0a6216b1f5ebff5bd3086ee697c4ba031b27363dedd3b30acbd0",
     "role": "color",
     "model": "gpt-audio-1.5",
     "voice": "echo",
     "tone": "平穩清楚，正常播報",
     "text": "投手差不多的時候，就看捕手怎麼配球。我蹲過我知道。",
-    "transcript": "投手差不多的時候，就看捕手怎麼配球。我蹲過我知道",
+    "transcript": "投手差不多的時候，就看捕手怎麼配球。我蹲過我知道。",
     "transcriptMatch": true
   },
   "color-2662a105f2": {
-    "hash": "625c08e550d65446d4b24b0196eecf6ba595db693a1516ed24a035ef25e40c52",
+    "hash": "7a772f4f013a012f521108d3d656372acaedaabcced0f26c1e56fc067337d84a",
     "role": "color",
     "model": "gpt-audio-1.5",
     "voice": "echo",
@@ -240,7 +240,7 @@
     "transcriptMatch": true
   },
   "pbp-4559c7feff": {
-    "hash": "6fd4593f3b92c7b86dea0ae6293fbcc746782a50e177dc5cd88c45bbf1c96166",
+    "hash": "070bff5c8177ccc458f28e756ed9b59e0e07f35928be8342751bf563c6b2b98e",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -250,7 +250,7 @@
     "transcriptMatch": true
   },
   "pbp-146aa27a11": {
-    "hash": "1a8ed9f65325eb183c96be39d45ed7402348780db8c32381bafeb5974b173b23",
+    "hash": "1478d1fd23a14e7fef9a12785ece5812b29d4864645d4638ca55d0f863e81003",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -260,7 +260,7 @@
     "transcriptMatch": true
   },
   "pbp-3a5a767a7d": {
-    "hash": "fcb69045283bbd3bc43eb124455aa989b19aaccb3def1d29db255245b108e923",
+    "hash": "832437c4ad1f266803d9a761dbe6cb72c44e9d8f7caed13889bc1d7ec412f677",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -270,7 +270,7 @@
     "transcriptMatch": true
   },
   "pbp-5b799841c3": {
-    "hash": "8cba37a31ed55ed8f8e7d4f455ba392de2d9777bc76bc7b10ad5662cfc9e1796",
+    "hash": "da89a5c4790954ebc8e981d5deecaad8663f09645c42de0ffa1f34798421fb1e",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -280,17 +280,17 @@
     "transcriptMatch": true
   },
   "pbp-4db68acf12": {
-    "hash": "22b40b714a146c2828425294463e341154038224fec40411bdefa13134cb02de",
+    "hash": "1a4386b49c1ea69b1715fa2ca337c96166c50f2790713690a75b44a57d1dc6d6",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "平穩清楚，正常播報",
     "text": "第三棒，左外野手陳冠霖。",
-    "transcript": "第三棒，左外野手陳冠霖。",
+    "transcript": "第三棒，左外野手陳冠霖.",
     "transcriptMatch": true
   },
   "pbp-fa19c0745e": {
-    "hash": "a172df5ceb1eaee4143d4197853b7471bef0a15a0a604c898a5a29b4b7294c7e",
+    "hash": "9f45a3e1083bc8a6c50fe7c20b7cc52cbe9d29d234a784465ccbf993f95b0873",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -300,27 +300,27 @@
     "transcriptMatch": true
   },
   "pbp-c27064a939": {
-    "hash": "cdcda4d370f4df05163d237ff84dadb3269639eaf305cdd410b8956f3b8ebd70",
+    "hash": "b43aadb4bc169adedab21e702024adf78eea2c42ac121367e85bd696280d1356",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "非常激動，大聲、尾音拉長",
     "text": "出去了！陳冠霖，右外野陽春全壘打！帝雉1比0貓頭鷹。",
-    "transcript": "出去了——！陳冠霖，右外野陽春全壘打！帝雉1比0貓頭鷹！",
+    "transcript": "出去了！陳冠霖，右外野陽春全壘打！帝雉1比0貓頭鷹。",
     "transcriptMatch": true
   },
   "fan_owls-005c137878": {
-    "hash": "742fde1e8f62eb18636dae80b3951c694dc57660959cc96c0cd26850fbe09238",
+    "hash": "bdfb225e650227b57a8f1dfabae24db62e98648d5bf34352f69f840ffcdbab36",
     "role": "fan_owls",
     "model": "gpt-audio-1.5",
     "voice": "cedar",
     "tone": "失望，語氣往下沉、慢一點",
     "text": "這分我不承認啦。",
-    "transcript": "這分我不承認啦。",
+    "transcript": "這分我不承認啦.",
     "transcriptMatch": true
   },
   "pbp-994b1fcad5": {
-    "hash": "41effff2efdee171d355b17cdd4803e84aeb199a98116f5ea5f339400d7499d3",
+    "hash": "1d7d8f44fde183910cfffbe9ea9368c43a4cc9de98fbbdb6693aee821abe7087",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -330,7 +330,7 @@
     "transcriptMatch": true
   },
   "pbp-5a33de53b9": {
-    "hash": "32094a46d7b893fe5fff7366b31205685895b6785ff37a2c90682bc0fb7dc448",
+    "hash": "f5184a3f7d0dca92d3b26501d4dcf2947c993099666f2103d4abb033a79b2055",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -340,7 +340,7 @@
     "transcriptMatch": true
   },
   "pbp-6ad2faeeaa": {
-    "hash": "b9f3bd7e7a5aa662a49cdb3ea2d1f7525a17abc73d6e214b8c8f4a0d726806dc",
+    "hash": "6be7fe45f3a2479fcaeef669e1e2d96d6edc72e432d34344427d9de29090575f",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -350,7 +350,7 @@
     "transcriptMatch": true
   },
   "pbp-0abf1c9014": {
-    "hash": "a857207f3f98746ea5ed2742206c6f0e2d9739f1f461762875a84cfc257d5a85",
+    "hash": "9ffb7d7e50e33ba317fc8b2dee2117802bbfc244fa741df90490db873093c06c",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -360,17 +360,17 @@
     "transcriptMatch": true
   },
   "pbp-6cb73a812b": {
-    "hash": "7185d49b765d7dc79c6c35461aa7901aafa510f5da17d965debaa569292fe386",
+    "hash": "ebfea880e23af278b8ac19fda3cb208e16e5341e29e5986ba9aa2f3b67692b2b",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "興奮，音量拉高、語速加快",
     "text": "蕭家瑋第一球，左外野平飛安打，一二壘有人。",
-    "transcript": "蕭家瑋第一球，左外野平飛安打，一二壘有人!",
+    "transcript": "蕭家瑋第一球，左外野平飛安打，一二壘有人。",
     "transcriptMatch": true
   },
   "color-b97c4adb3c": {
-    "hash": "ca0744fa17e1ec5aba17420aca4483b4739d0e05b74b27fb88bab9bc722426be",
+    "hash": "948381827d7246c83519e5b671b230cc47b9a9dfbf9b58657459fdb1d4b66e3c",
     "role": "color",
     "model": "gpt-audio-1.5",
     "voice": "echo",
@@ -380,27 +380,27 @@
     "transcriptMatch": true
   },
   "pbp-cc072fa030": {
-    "hash": "058b23a5500c5342d364b03857a5c0df34abf80b52f7836cba50fa0329af14d9",
+    "hash": "8a0876268ad1aeb03bbc49ea5c8730b4e18416db3becd424d538524630dc61e1",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "平穩清楚，正常播報",
     "text": "第六棒，中外野手黃振宇。",
-    "transcript": "第六棒，中外野手黃振宇。",
+    "transcript": "第六棒，中外野手黃振宇",
     "transcriptMatch": true
   },
   "pbp-521163d488": {
-    "hash": "acbe8818e95b70f7589ee5ce4ae426de9f1452caf5367b8dd7f3ca22b50fe964",
+    "hash": "746bedf0f73cbf1e18c8c1039fad23e6f0402da5e5258222630bb16cc69ed31e",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
     "tone": "平穩清楚，正常播報",
     "text": "黃振宇三壘滾地球，傳一壘出局，留下兩個殘壘。",
-    "transcript": "黃振宇三壘滾地球，傳一壘出局，留下兩個殘壘。",
+    "transcript": "黃振宇三壘滾地球，傳一壘出局，留下兩個殘壘",
     "transcriptMatch": true
   },
   "pbp-845fe57725": {
-    "hash": "b8e5f7e0baaa77028cd665dba1b41e172af446b39a4ed9153ddd4fbb753d31c8",
+    "hash": "0884cdfcd7d810bd5bc74e9acf1c9f1c0ffde07c7e2ce0e97ca85752a266b811",
     "role": "pbp",
     "model": "gpt-audio-1.5",
     "voice": "alloy",
@@ -410,13 +410,43 @@
     "transcriptMatch": true
   },
   "color-dcbde0f4f3": {
-    "hash": "4fe4b924a0a39d245a4b639f1ede28c5c31e380981bfe7505a462efec02b76a0",
+    "hash": "35f7c6eae6faa4f332e1f4719e36eb14d69c49093b2df5c5d6a3397bf1722142",
     "role": "color",
     "model": "gpt-audio-1.5",
     "voice": "echo",
     "tone": "覺得好笑，帶點調侃",
     "text": "明凱，這次你沒喊錯，真的出去了。",
-    "transcript": "明凱，這次你沒喊錯，真的出去了。\n\n",
+    "transcript": "明凱，這次你沒喊錯，真的出去了。",
+    "transcriptMatch": true
+  },
+  "color-2dcd3737c4": {
+    "hash": "52c3df648430f51d44d3fd448dcc5f0967f8f0e20c58925df4c0f9b0536f2220",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "二十一歲就先發，球威不輸許子豪。年輕人啦，第一局先把緊張投掉就好。",
+    "transcript": "二十一歲就先發，球威不輸許子豪。年輕人啦，第一局先把緊張投掉就好。",
+    "transcriptMatch": true
+  },
+  "color-4f49145609": {
+    "hash": "82b0c2103d7a6d3fe4449a421bd7fdf04b8f55f1ea88e0dd7fadccd92805701f",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "明凱，這種飛球你也喊得像要出場。",
+    "transcript": "明凱，這種飛球你也喊得像要出場。",
+    "transcriptMatch": true
+  },
+  "color-08ccb2ddb3": {
+    "hash": "f790e947f78c68a5e9f1d50f834efd538067731adfff822ac344dccf8d77a26b",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "被打成這樣只掉一分，投手該請三壘手吃宵夜。",
+    "transcript": "被打成這樣只掉一分，投手該請三壘手吃宵夜。",
     "transcriptMatch": true
   }
 }
