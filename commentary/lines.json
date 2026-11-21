@@ -5,7 +5,7 @@
   "triggers": {
     "game_start": { "priority": 2, "silence": 0, "delay": 1, "exchanges": [
       { "call": "各位球迷晚安，今晚是{away}對上{home}。", "response": "熱身賽啦，輸贏不算，但我照樣會唸。" },
-      { "call": "歡迎收看雲端職棒，{away}作客{home}。", "response": "我先講，今天賭輸的人買鹹酥雞。" },
+      { "gag": "bet", "sets": ["bet"], "call": "歡迎收看雲端職棒，{away}作客{home}。", "response": "我先講，今天賭輸的人買鹹酥雞。" },
       { "call": "球員進場，比賽馬上開始，{away}先攻。", "response": "老樣子，你負責喊，我負責潑冷水。" }
     ] },
     "batter_up": { "priority": 0, "silence": 0.4, "delay": 0.1, "exchanges": [
@@ -16,7 +16,8 @@
       { "when": { "hasPrev": 1 }, "call": "{batter}，上個打席{batterPrev}。", "response": "看他這次有沒有調整。" },
       { "when": { "hadLastInning": 1, "lastInningRuns": { "min": 2 } }, "call": "{team}上一局才攻下{lastInningRuns}分，{batter}接著打。", "response": "打線有連貫，投手壓力就來了。" },
       { "when": { "hadLastInning": 1, "lastInningRuns": 0, "inning": { "min": 4 } }, "call": "{batter}上場，{team}上一局沒有得分。", "response": "上一局三上三下，這局總該醒了吧。" },
-      { "when": { "pitchCount": { "min": 85 } }, "call": "{batter}上來，{pitcher}用球數來到{pitchCount}。", "response": "球開始飄了，我蹲過我知道。" }
+      { "when": { "pitchCount": { "min": 85 } }, "call": "{batter}上來，{pitcher}用球數來到{pitchCount}。", "response": "球開始飄了，我蹲過我知道。" },
+      { "gag": "story", "needs": ["story"], "once": true, "when": { "inning": { "min": 5 } }, "call": "{batter}上來。老周，你今晚已經講過「我當年」了喔。", "response": "因為我當年真的很多事。" }
     ] },
     "two_strikes": { "priority": 0, "silence": 0.6, "exchanges": [
       { "call": "兩好球。" },
@@ -29,11 +30,12 @@
     ] },
     "stolen_base": { "priority": 1, "silence": 0.05, "exchanges": [
       { "call": "{runner}起跑，盜壘成功！", "response": "捕手傳得不差，是他起跑太好。" },
-      { "call": "跑了！{runner}安全上二壘。", "response": "我當年這球一定抓到，好啦可能。" }
+      { "gag": "story", "sets": ["story"], "call": "跑了！{runner}安全上二壘。", "response": "我當年這球一定抓到，好啦可能。" }
     ] },
     "caught_stealing": { "priority": 1, "silence": 0, "exchanges": [
       { "call": "{runner}盜壘，被觸殺出局！", "response": "球先到，手套等在那裡，沒得吵。" },
-      { "call": "二壘前攔下來，{runner}出局。", "response": "這個我先推，捕手這球傳得漂亮。" }
+      { "call": "二壘前攔下來，{runner}出局。", "response": "這個我先推，捕手這球傳得漂亮。" },
+      { "gag": "story", "needs": ["story"], "once": true, "call": "{runner}出局！老周，這球你當年也抓得到吧？", "response": "當年我瞪一眼，跑者就自己回去了。" }
     ] },
     "run_scores": { "priority": 2, "silence": 0, "exchanges": [
       { "call": "{desc}！", "response": "關鍵的{runs}分，現在{away}{awayScore}比{homeScore}{home}。" },
@@ -42,7 +44,8 @@
       { "when": { "runs": { "min": 2 } }, "call": "{desc}！", "response": "一棒{runs}分，投手臉都綠了。" }
     ] },
     "home_run": { "priority": 2, "silence": 0, "exchanges": [
-      { "call": "打出去了！{desc}", "response": "這次你沒喊錯，真的出去了。" },
+      { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "打出去了！{desc}", "response": "這次你沒喊錯，真的出去了。" },
+      { "call": "打出去了！{desc}", "response": "這球不用等，一出棒就知道。" },
       { "call": "這球很遠！{desc}", "response": "球吃得太正，沒懸念。" },
       { "when": { "batterHrToday": { "min": 2 } }, "call": "又是他！{desc}", "response": "今天第{batterHrToday}發，投手可以請假了。" }
     ] },
@@ -63,7 +66,7 @@
       { "call": "{desc}。", "response": "不跟他硬拚，賭下一棒。" }
     ] },
     "hit_by_pitch": { "priority": 1, "silence": 0.3, "exchanges": [
-      { "call": "{desc}。", "response": "這顆很痛，我當年被打到都不敢叫。" },
+      { "gag": "story", "sets": ["story"], "call": "{desc}。", "response": "這顆很痛，我當年被打到都不敢叫。" },
       { "call": "觸身球，{batter}上一壘。" }
     ] },
     "single": { "priority": 1, "silence": 0.3, "exchanges": [
@@ -91,7 +94,8 @@
     ] },
     "flyout": { "priority": 0, "silence": 0.55, "exchanges": [
       { "call": "{desc}。" },
-      { "call": "這球很高……{desc}。", "response": "你剛剛是不是又想喊全壘打。" },
+      { "gag": "earlyCall", "sets": ["earlyCall"], "once": true, "call": "這球很高、很遠……{desc}。", "response": "你剛剛是不是又想喊全壘打。" },
+      { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "這球——喔，{desc}。", "response": "又喊太早，今晚我幫你記第二筆了。" },
       { "call": "{desc}。", "response": "差一點，力道再多一點就出去了。" }
     ] },
     "lineout": { "priority": 0, "silence": 0.6, "exchanges": [
@@ -128,15 +132,18 @@
     "half_end": { "priority": 1, "silence": 0.1, "exchanges": [
       { "when": { "halfRuns": { "min": 1 } }, "call": "{inning}局{half}結束，{team}這局攻下{halfRuns}分。", "response": "現在{away}{awayScore}比{homeScore}{home}。" },
       { "when": { "inning": { "min": 7 }, "tied": 1 }, "call": "{inning}局{half}打完，{awayScore}比{homeScore}平手。", "response": "接下來每一分都要命。" },
-      { "when": { "inning": { "min": 7 }, "margin": { "min": 1, "max": 2 } }, "call": "{inning}局{half}結束，{leadTeam}領先{margin}分。", "response": "差這麼一點，鹹酥雞還不知道誰買。" },
+      { "when": { "inning": { "min": 7 }, "margin": { "min": 1, "max": 2 } }, "gag": "bet", "needs": ["bet"], "once": true, "call": "{inning}局{half}結束，{leadTeam}領先{margin}分。", "response": "差這麼一點，鹹酥雞還不知道誰買。" },
+      { "when": { "inning": { "min": 7 }, "margin": { "min": 1, "max": 2 } }, "call": "{inning}局{half}結束，{leadTeam}領先{margin}分。", "response": "一支安打就翻盤的距離。" },
       { "when": { "inning": { "min": 7 }, "margin": { "min": 5 } }, "call": "{inning}局{half}結束，{leadTeam}領先{margin}分。", "response": "分數拉開了，可以準備收東西。" }
     ] },
     "walkoff": { "priority": 2, "silence": 0, "exchanges": [
       { "call": "再見比賽！{home}贏了！", "response": "全場都站起來了，這種比賽看一次少一次。" }
     ] },
     "game_end": { "priority": 2, "silence": 0, "exchanges": [
-      { "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{margin}分差拿下勝利。", "response": "謝謝收看，鹹酥雞記得買。" },
-      { "when": { "tied": 1 }, "call": "比賽結束，雙方{awayScore}比{homeScore}握手言和。", "response": "打這麼久沒輸贏，鹹酥雞各付各的。" }
+      { "gag": "bet", "needs": ["bet"], "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{margin}分差拿下勝利。", "response": "謝謝收看，鹹酥雞記得買。" },
+      { "gag": "bet", "needs": ["bet"], "when": { "tied": 1 }, "call": "比賽結束，雙方{awayScore}比{homeScore}握手言和。", "response": "打這麼久沒輸贏，鹹酥雞各付各的。" },
+      { "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{margin}分差拿下勝利。", "response": "謝謝收看，我們下一場見。" },
+      { "when": { "tied": 1 }, "call": "比賽結束，雙方{awayScore}比{homeScore}握手言和。", "response": "打這麼久沒輸贏，各自回家吧。" }
     ] }
   }
 }

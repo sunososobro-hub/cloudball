@@ -85,9 +85,30 @@ const matches = (when, slots) => !when || Object.entries(when).every(([k, c]) =>
   return (c.min === undefined || v >= c.min) && (c.max === undefined || v <= c.max) && (c.eq === undefined || v === c.eq);
 });
 
+/* Running gags (see personas/): one gag per game, and a payoff only after its setup.
+ * gag: which gag a line belongs to; sets: flags it raises when spoken; needs: flags it requires;
+ * once: spoken at most once per game. */
+const gagAllows = (e, g) => (!e.gag || g.chosen === null || g.chosen === e.gag) && (e.needs || []).every(f => g.flags.has(f)) && !(e.once && g.used.has(e));
+
+/* Problems in the fallback bank's gag wiring (empty array = fine). */
+export function validateBank(bank) {
+  const errs = [], sets = new Map(), all = [];
+  for (const [name, T] of Object.entries(bank.triggers || {})) for (const e of T.exchanges || []) {
+    all.push([name, e]);
+    if ((e.sets || e.needs) && !e.gag) errs.push(`${name}: a line with sets/needs must name its gag`);
+    for (const f of e.sets || []) sets.set(f, e.gag);
+  }
+  for (const [name, e] of all) for (const f of e.needs || []) {
+    if (!sets.has(f)) errs.push(`${name}: needs "${f}" but no line sets it`);
+    else if (sets.get(f) !== e.gag) errs.push(`${name}: needs "${f}" from gag "${sets.get(f)}" but belongs to gag "${e.gag}"`);
+  }
+  return errs;
+}
+
 /* Draft a whole game's lines from the fallback bank. Same stream + same seed = same draft. */
 export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => '' }) {
   const rng = mulberry32((seed ^ 0xc0ffee) >>> 0), mem = createMemory(teams), rules = bank.rules || {}, lines = [], recent = [];
+  const gags = { chosen: null, flags: new Set(), used: new Set() };   /* the one running gag of this game and how far it has got */
   let quietUntil = -Infinity;
   for (const x of stream) {
     mem.apply(x);
@@ -98,10 +119,13 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
     if (priority < 2 && x.t < quietUntil) continue;  /* the booth just spoke: let the picture breathe */
     if (roll < (T.silence || 0)) continue;           /* sometimes nobody talks */
     const slots = mem.slots(x, describe(x));
-    const fits = T.exchanges.filter(e => matches(e.when, slots) && !recent.includes(e));
+    const fits = T.exchanges.filter(e => matches(e.when, slots) && !recent.includes(e) && gagAllows(e, gags));
     if (!fits.length) continue;
-    const specific = fits.filter(e => e.when), pool = specific.length ? specific : fits, ex = pool[Math.floor(pickRoll * pool.length)];
+    /* a gag payoff beats a line about this moment, which beats a generic line */
+    const payoff = fits.filter(e => e.needs), specific = fits.filter(e => e.when), pool = payoff.length ? payoff : specific.length ? specific : fits, ex = pool[Math.floor(pickRoll * pool.length)];
     recent.push(ex); if (recent.length > (rules.noRepeatWindow || 12)) recent.shift();
+    gags.used.add(ex);
+    if (ex.gag) { gags.chosen = ex.gag; for (const f of ex.sets || []) gags.flags.add(f); }
     const delay = T.delay || 0;
     if (ex.call) lines.push({ at: x.i, speaker: 'pbp', text: fill(ex.call, slots), delay, priority });
     if (ex.response) lines.push({ at: x.i, speaker: 'color', text: fill(ex.response, slots), delay: delay + RESPONSE_DELAY, priority });
