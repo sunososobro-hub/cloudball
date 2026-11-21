@@ -12,6 +12,9 @@ events and never feeds back into the engine. No AI or paid service is called whi
   browser voice), otherwise the browser's speechSynthesis. Check: `node commentary/audio.check.mjs`.
 - `tension.js`: tension index, 0 to 100 per stream event, a pure causal function of the stream;
   `emotionFor()` turns it into a line's emotion tag. Check: `node commentary/tension.check.mjs`.
+- `banter.js`: banter score of a script's exchanges (#134; pure: speakers, answers, guest, `amused`, gag
+  callbacks, `once` bank lines) and `topBanter()`, the best ones a minimum gap apart with their first and
+  last line, for the highlights. Check: `node commentary/banter.check.mjs`.
 - `scripts/`: per-game scripts and their index. `audio/`: pre-rendered voice files.
 - `tools/synth.mjs --converse`: conversation trial (#129) of `tools/converse-trial.json`: each speaker hears
   the clips before his and answers live; gate = required words; A/B files in `audio/_trial/converse/` (not wired).
