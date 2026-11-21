@@ -9,8 +9,7 @@
   shows the ball; safe = late swipe at arrive+TAG_LATE_SWEEP. Glove on the runner's lane. Studio acts `sbout`, `tagfc` (400 seeds).
 
 - #5 pitcher cover (feat/5-cover, stacked on feat/5-tag): fielding/covering pitcher starts from the stride at contact
-  (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). dp3 screenshotted: no jump.
-  Fielder whose home spot is within BAG_CROWD_R of the covered base waits off the bag until the coverer leaves (`rtF`).
+  (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). dp3 shot: no jump. Fielder whose home spot is within BAG_CROWD_R of the covered base waits off the bag until the coverer leaves (`rtF`).
 
 ## Next
 - #5: #24, #39 merged; PR #40 left (dev merged in). `rtF` wait only probed, not screenshotted (dp3, t 6-10 s). Then #36, #33.
