@@ -2,7 +2,7 @@
 Agent: the interface window: `ui/` and root files.
 
 ## Done
-- #60 rename, #25 entry screen, #58 poster, #53 part 1 (guide page), #89 viewing counts (PR #91), #117 jumps do not count as watched innings (`ui/stats.js` listens to `cloudball:seek`).
+- #60 rename, #25 entry screen, #58 poster, #53 part 1 (guide page), #89 viewing counts (PR #91), #117 jumps do not count as watched innings (`ui/stats.js` listens to `cloudball:seek`). #122 plain menu words (`畫面：精緻/順暢`, `畫面怪怪的？點這裡`).
 - #47 round 1: `league/tools/record.mjs 704 --write` made `league/preseason/opening.json`; enter starts it (`startOpening`, mode `opening`, no votes). `ui/site.js` = dev/production by host (class `dev-only`).
   Guards: `tests/opening.check.mjs`, `tests/site.check.mjs`. Guide page staff block fixed (`staffOf`, `ROLES`).
 

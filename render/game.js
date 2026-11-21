@@ -285,10 +285,10 @@ function setupPost(){try{const {pass,mrt,output,normalView,screenUV,length,smoot
   pp.outputColorTransform=false;pp.outputNode=FX.fxaa(renderOutput(c));pp.scenePass=sp;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
 PP=gfxLow?null:setupPost();
-$('gfx').textContent=gfxLow?'畫質：低':'畫質：高';
-$('gfx').onclick=()=>{gfxLow=!gfxLow;try{localStorage.setItem('zu_gfx',gfxLow?'low':'high')}catch(e){}PP=gfxLow?null:(PP||setupPost());if(typeof setTier==='function'){setTier(gfxLow?2:(IS_MOBILE?1:0));tierT0=performance.now()}$('gfx').textContent=gfxLow?'畫質：低':'畫質：高';note(gfxLow?'畫質低：關掉後製，比較順':'畫質高：開後製光影')};
-{const on=(()=>{try{return localStorage.getItem('zu_gl')==='1'}catch(e){return false}})();$('compat').setAttribute('aria-pressed',on);
- $('compat').onclick=()=>{try{localStorage.setItem('zu_gl',on?'0':'1')}catch(e){}note(on?'關閉相容模式，重新載入…':'改用相容模式（WebGL），重新載入…');setTimeout(()=>location.reload(),800)}}
+const gfxText=()=>{$('gfx').innerHTML=(gfxLow?'畫面：順暢':'畫面：精緻')+'<small>卡卡的就選順暢</small>'};gfxText();
+$('gfx').onclick=()=>{gfxLow=!gfxLow;try{localStorage.setItem('zu_gfx',gfxLow?'low':'high')}catch(e){}PP=gfxLow?null:(PP||setupPost());if(typeof setTier==='function'){setTier(gfxLow?2:(IS_MOBILE?1:0));tierT0=performance.now()}gfxText();note(gfxLow?'畫面順暢：簡化光影，比較不卡':'畫面精緻：開啟完整光影')};
+{const on=(()=>{try{return localStorage.getItem('zu_gl')==='1'}catch(e){return false}})();$('compat').setAttribute('aria-pressed',on);$('compat').textContent=on?'已切換相容畫面（點一下換回來）':'畫面怪怪的？點這裡';
+ $('compat').onclick=()=>{try{localStorage.setItem('zu_gl',on?'0':'1')}catch(e){}note(on?'換回一般畫面，重新載入…':'改用相容畫面，重新載入…');setTimeout(()=>location.reload(),800)}}
 /* ---------- Team logos: the owner's own team marks, assets/logos/<team id>_<px>.webp (see assets/SOURCES.md), found by team id.
    Replacing a logo is replacing its file (assets/tools/make_logos.py). A team without a file shows no logo, nothing breaks ---------- */
 const LOGO_DIR='assets/logos/',LOGO_PX=128,logoSrc=id=>`${LOGO_DIR}${id}_${LOGO_PX}.webp`;
