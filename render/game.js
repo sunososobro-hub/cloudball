@@ -481,6 +481,25 @@ function slidePose(f,k){const R=f.rig;f.noAnim=true;f.auto=false;R.up.rotation.s
   R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1;R.a0.rotation.set(lerp(0,-2.5,k),0,lerp(0,-.3,k));R.a1.rotation.set(lerp(0,-2.2,k),0,lerp(0,.3,k));R.hg.rotation.set(lerp(0,.6,k),0,0);
   f.g.position.y=-SLIDE_DROP*k*(f.k||1)}
 const SLIDE_DROP=.62;
+/* Tag: holding the ball in the glove (throwing hand over it), the fielder crouches and lays the glove at the front edge of the bag on the side
+   the runner comes from, so it is there when the runner arrives (tagT, from the engine); he turns partly toward the runner. After TAG_HOLD the
+   glove comes up; on an out he shows the ball. Until ballIn he is still receiving (gloveTo). All times share the caller's clock. On a safe play
+   the engine's ball is late (TAG_LATE), so the caller passes tagT = arrival + TAG_LATE_SWEEP: a late swipe, no out */
+const TAG_SET=.45,TAG_MIN=.12,TAG_AFTER_CATCH=.1,TAG_HOLD=.25,TAG_UP=.4,TAG_BACK=.3,TAG_REACH=.45,TAG_REACH_MAX=.8,TAG_Y=.15,TAG_TURN=.35,TAG_HAND_UP=.12,TAG_LATE_SWEEP=.15,
+  TAG_SHOW=[-.1,.85,.4],TAG_CROUCH=[.6,.45,.9,.45],TAG_RECV=[-.05,.42,.55],TAG_HAND0=[.25,-.3,.1];
+const wrapA=a=>a-2*Math.PI*Math.round(a/(2*Math.PI));
+function upLocal(R,w){R.up.updateWorldMatrix(true,false);_tv.set(w[0],w[1],w[2]);R.up.worldToLocal(_tv);return[_tv.x,_tv.y,_tv.z]}
+function tagPose(f,u,ballIn,tagT,base,out){f.auto=false;f.noAnim=true;const R=f.rig,t0=Math.min(Math.max(ballIn+TAG_AFTER_CATCH,tagT-TAG_SET),tagT-TAG_MIN),
+    k=ease(sat01((u-t0)/(tagT-t0)))*(1-ease(sat01((u-tagT-TAG_HOLD)/TAG_UP))),show=out?ease(sat01((u-tagT-TAG_HOLD)/TAG_UP)):0,hold=ease(sat01((u-ballIn)/.25));
+  /* Glove on the runner's lane, TAG_BACK in front of the bag, or TAG_REACH ahead of the fielder's feet when he stands on the lane himself;
+     pulled toward him when it would be out of reach */
+  const [bx,bz]=BASES[base],[ax,az]=BASES[base-1],L=Math.hypot(ax-bx,az-bz),ux=(ax-bx)/L,uz=(az-bz)/L,fx=f.g.position.x,fz=f.g.position.z,
+    sd=Math.max(TAG_BACK,(fx-bx)*ux+(fz-bz)*uz+TAG_REACH),w=[bx+ux*sd,TAG_Y,bz+uz*sd],dw=Math.hypot(w[0]-fx,w[2]-fz);
+  if(dw>TAG_REACH_MAX){w[0]=fx+(w[0]-fx)*TAG_REACH_MAX/dw;w[2]=fz+(w[2]-fz)*TAG_REACH_MAX/dw}
+  const ry=f.g.rotation.y;f.g.rotation.y=ry+wrapA(Math.atan2(ax-f.g.position.x,az-f.g.position.z)-ry)*TAG_TURN*k;
+  crouch(f,R,k,...TAG_CROUCH);const wl=upLocal(R,w),g0=TAG_RECV.map((v,i)=>lerp(v,CHEST[i],hold)),h0=TAG_HAND0.map((v,i)=>lerp(v,CHEST[i]+(i===0?.05:0),hold));
+  aimArm(R.a0,G_SX,...[0,1,2].map(i=>lerp(lerp(g0[i],wl[i],k),TAG_SHOW[i],show)));
+  aimArm(R.a1,T_SX,...[0,1,2].map(i=>lerp(h0[i],wl[i]+(i===1?TAG_HAND_UP:0),k)))}
 /* Steal: the catcher pops out of his crouch while moving the ball to his throwing hand, steps toward the bag and throws at the engine's
    release time (plan.t0). When plan.t0 is later than catch + CATCHER_POP (safe steals: the engine times the ball to arrive after the
    runner), he comes up with the ball at his chest, holds it, and starts the arm action CATCHER_POP*(1-XFER_HAND_SWAP) before release.
@@ -532,7 +551,8 @@ function poseScene(e,u,dt){
   /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
     c.g.position.set(lerp(lerp(c.pos[0],sp[0],kc),c.pos[0],bk),0,lerp(lerp(c.pos[1],sp[1],kc),c.pos[1],bk));
-    if(bk===0&&u>S.t0-.2){face(c,-c.g.position.x,-c.g.position.z);c.noAnim=true;gloveTo(c,lerp(.45,1,ease(sat01((u-(S.arrive-.45))/.3))),u<S.arrive?null:sat01((u-S.arrive)/.25))}
+    const tagA=S.actions.find(a=>a.a==='tag'),tagT=tagA?tagA.t:S.arrive+TAG_LATE_SWEEP;/* out: the engine's tag time; safe: a late swipe */
+    if(bk===0&&u>S.t0-.2){face(c,-c.g.position.x,-c.g.position.z);c.noAnim=true;if(u<S.arrive)gloveTo(c,lerp(.45,1,ease(sat01((u-(S.arrive-.45))/.3))),null);else tagPose(c,u,S.arrive,tagT,S.CV.base,!!tagA)}
     const C=fielders.C,ct=catcherThrow(e,u,S,sp);
     if(u>=ARRIVE+CATCH_SNAP&&u<S.t0){const q=C.handWorld(ct.xferT<ct.xfer*XFER_HAND_SWAP?0:1);bp=[q.x,q.y,q.z]}
     else if(u>=S.t0&&u<S.arrive)bp=arc(ct.rel,ct.tgt,Math.min(3,S.TD*THROW_ARC*(32/S.v)),(u-S.t0)/S.TT);
@@ -561,7 +581,7 @@ function poseScene(e,u,dt){
     const p=e.play,PL=e.plan,f=fielders[p.fielder],T=p.hang,u2=u-ARRIVE,hr=p.res==='HR',hit=PL.hit;
     const land=[p.lx,hr?6+(p.dist-114)*.15:(hit||p.type==='GB'?.15:1.5),p.lz];
     const rollEnd=[PL.target[0],.15,PL.target[1]];
-    const CV=PL.CV,tagPlay=PL.tagPlay,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer;
+    const CV=PL.CV,tagPlay=PL.tagPlay,tagA=PL.actions.find(a=>a.a==='tag'&&a.f===CV.key),tg=tagA?{t:tagA.t,out:true}:tagPlay?{t:PL.arrive+TAG_LATE_SWEEP,out:false}:null,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer;
     const catchT=PL.catchT,D=PL.D,cx=PL.stand[0],cz=PL.stand[1];
     const tgt=[CV.spot[0],1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
     const BAG=[BASES[1][0],BASES[1][1]],DB=Math.hypot(BAG[0]-cx,BAG[1]-cz),soloAt=PL.soloAt;
@@ -574,7 +594,7 @@ function poseScene(e,u,dt){
         const fromX=dp?PVspot[0]:cx,fromZ=dp?PVspot[1]:cz;if(bk===0&&u2>arrive-TT-(dp?TT2:0)-.2){face(c,fromX-c.g.position.x,fromZ-c.g.position.z);c.noAnim=true;
           /* Receiving a throw: glove meets the ball, then the other hand takes it */
           const reach=ease(sat01((u2-(arrive-.45))/.3)),hold=sat01((u2-arrive)/.25);
-          if(tagPlay&&u2>=arrive){const tg=ease(sat01((u2-arrive)/.2))*(1-ease(sat01((u2-arrive-1.2)/.4)));crouch(c,c.rig,tg,.6,.35,.6,.3);face(c,-.6-c.g.position.x,-.6-c.g.position.z);if(tg>.05)aimWorld(c.rig,c.rig.a0,G_SX,-.15,lerp(.9,.12,tg),-.15);aimArm(c.rig.a1,T_SX,.1,lerp(.3,-.1,tg),.3)}/* After the catch, crouch and tag the sliding runner with the glove */
+          if(tg&&u2>=arrive)tagPose(c,u2,arrive,tg.t,CV.base,tg.out);/* A runner to tag (FC lead runner, tag-up at home or third): the tag */
           else gloveTo(c,lerp(.45,1,reach),u2<arrive?null:hold)}
         else face(c,p.lx-c.g.position.x,p.lz-c.g.position.z)}
       if(dp){const D3=Math.hypot(PVspot[0]-pv.pos[0],PVspot[1]-pv.pos[1]),kp=D3<.3?1:clamp(runDist(u2-FIELD_REACT,PIVOT_SPEED)/D3,0,1),bp2=D3<.3?0:clamp(runDist(u2-(t1+1.5),6.5)/D3,0,1);
@@ -602,7 +622,7 @@ function poseScene(e,u,dt){
         else if(u2>=t0&&u2<a1){const rel=throwRelease(e,f,[cx,cz],TH.xfer,tgtF);bp=arc(rel,tgtF,Math.min(3,TD*THROW_ARC*(32/TH.v)),(u2-t0)/TT)}
         else if(dp&&u2<t1){const q=pv.handWorld(u2-a1<PIVOT_XFER*.45?0:1);bp=[q.x,q.y,q.z]}
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,Math.min(3,TD2*THROW_ARC*(32/V2)),(u2-t1)/TT2)}
-        else if(u2<arrive+3.2){if(c){const q=c.handWorld(u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
+        else if(u2<arrive+3.2){if(c){const q=c.handWorld(tg||u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
     if(hr&&u2>0&&u2<T+.2&&!bp)bp=null;
     function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?arc(hit0,land,p.peak,t/T):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,.3,(t-T)/.8):rollEnd;return null}
   }
@@ -803,6 +823,7 @@ $('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);
 const isL=e=>e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';
 const pl=(e,f)=>e.k==='P'&&e.play&&f(e.play);
 const K3=e=>/三振/.test(e.desc||'');
+const STUDIO_SEEDS=40,STUDIO_SEEDS_RARE=400,STUDIO_MAX=30;/* rare acts (5th field) scan a bigger seed bank */
 const STUDIO_ACTS=[
   ['投打','cstr','投球・看好球',e=>e.k==='P'&&e.r==='cstr'&&!K3(e)],
   ['投打','ball','投球・壞球',e=>e.k==='P'&&e.r==='ball'],
@@ -827,6 +848,8 @@ const STUDIO_ACTS=[
   ['跑壘','score','跑壘・跑者回本壘得分',e=>e.k==='P'&&e.play&&e.play.res!=='HR'&&e.runs>0],
   ['跑壘','HR','跑壘・全壘打繞壘',e=>pl(e,p=>p.res==='HR')],
   ['跑壘','sb','盜壘',e=>e.k==='P'&&e.sbGo],
+  ['跑壘','sbout','盜壘・觸殺出局',e=>e.k==='P'&&e.sbGo&&e.plan&&e.plan.actions.some(a=>a.a==='tag')],
+  ['傳球','tagfc','短打・野選觸殺',e=>pl(e,p=>p.bunt)&&e.plan.actions.some(a=>a.a==='tag'),STUDIO_SEEDS_RARE],
   ['跑壘','slide','滑壘・二壘/三壘安打',e=>pl(e,p=>p.res==='2B'||p.res==='3B')],
   ['跑壘','dpslide','滑壘・雙殺被封殺',e=>pl(e,p=>p.dp)],
   ['跑壘','tagup','高飛犧牲打・回壘再衝本壘',e=>pl(e,p=>p.res==='out'&&p.type==='FB'&&e.runs>0)],
@@ -834,10 +857,9 @@ const STUDIO_ACTS=[
   ['上壘','hbp','觸身球',e=>e.k==='P'&&e.r==='hbp'],
   ['上壘','ibb','故意四壞',e=>e.k==='P'&&e.r==='ibb'],
 ];
-const STUDIO_SEEDS=40,STUDIO_MAX=30;
 let studio=null;const stCache={};
-function studioClips(key){if(stCache[key])return stCache[key];const f=STUDIO_ACTS.find(a=>a[1]===key)[3],out=[];
-  for(let sd=1;sd<=STUDIO_SEEDS&&out.length<STUDIO_MAX;sd++){const g=simGame(sd,{});g.ev.forEach((e,i)=>{if(out.length<STUDIO_MAX&&f(e))out.push({seed:sd,i})})}
+function studioClips(key){if(stCache[key])return stCache[key];const A=STUDIO_ACTS.find(a=>a[1]===key),f=A[3],nS=A[4]||STUDIO_SEEDS,out=[];
+  for(let sd=1;sd<=nS&&out.length<STUDIO_MAX;sd++){const g=simGame(sd,{});g.ev.forEach((e,i)=>{if(out.length<STUDIO_MAX&&f(e))out.push({seed:sd,i})})}
   return stCache[key]=out}
 function studioLoad(key,n){const clips=studioClips(key);if(!clips.length){note('種子庫裡找不到這種動作');return}
   n=(n+clips.length)%clips.length;const c=clips[n];
