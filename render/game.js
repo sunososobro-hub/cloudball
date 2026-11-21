@@ -1183,11 +1183,27 @@ let envOn=true;
    what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
    then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
 const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk;window.READY=new Promise(ok=>readyOk=ok);setTimeout(()=>readyOk(),READY_MAX_MS);
-async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();
+/* #133 progress bar: from the start of a warm-up (behind the entry card, or a quality drop in play) until the frames after it are drawn.
+   Real progress only: objects compiled / objects to compile (compileAsync's onProgress), then the WARM_BAR_FRAME_SHARE for the frames that
+   compile the shadow and post passes. It shows only once the wait passes WARM_BAR_DELAY_MS, so a warm visit does not flash it. */
+const WARM_BAR_DELAY_MS=700,WARM_BAR_FRAME_SHARE=.15,WARM_FRAMES=READY_FRAMES;let warmT0=0,warmLoaded=0,warmTotal=0,warmFramesLeft=0;
+const wbar=document.createElement('div');wbar.id='warmBar';wbar.hidden=true;wbar.setAttribute('role','progressbar');wbar.setAttribute('aria-valuemin','0');wbar.setAttribute('aria-valuemax','100');wbar.setAttribute('aria-label','球場準備中');
+wbar.style.cssText='position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none';
+wbar.innerHTML='<div style="height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden"><i style="display:block;height:100%;width:0;background:#f2c230;transition:width .2s linear"></i></div><p style="margin:8px 0 0;font-size:14px;color:#cfd8e8;text-shadow:0 1px 3px rgba(0,0,0,.6)">球場準備中…</p>';
+document.body.appendChild(wbar);const wbarFill=wbar.querySelector('i');
+function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wbar.hidden)wbar.hidden=true;return}
+  if(now-warmT0<WARM_BAR_DELAY_MS)return;
+  const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,pc=Math.round(100*f);
+  wbarFill.style.width=pc+'%';wbar.setAttribute('aria-valuenow',String(pc));if(wbar.hidden)wbar.hidden=false}
+async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();warmT0=w0;warmLoaded=warmTotal=0;warmFramesLeft=WARM_FRAMES;
+  const prog=ev=>{if(run!==warmRun)return;warmLoaded=ev.loaded;warmTotal=ev.total;warmBarTick(performance.now())};
   scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
   /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one */
   const sp=PP&&PP.scenePass;let p=null;
-  try{if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;p=sp.compileAsync(renderer)}else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera)}
+  /* the post path does what PassNode.compileAsync does (its target and MRT around the compile), so the progress callback can be passed */
+  try{if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;const rt=renderer.getRenderTarget(),mrt=renderer.getMRT();
+      renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT());p=renderer.compileAsync(sp.scene,sp.camera,null,prog).finally(()=>{renderer.setRenderTarget(rt);renderer.setMRT(mrt)})}
+    else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera,null,prog)}
   catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true}
   try{await p}catch(e){console.warn('warm-up failed',e)}
   if(run!==warmRun)return;warming=false;entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
@@ -1216,8 +1232,8 @@ renderer.setAnimationLoop(()=>{
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
   updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(envOn){updateBugs(now/1000);updateBlades()}
-  if(warming)return;/* the last drawn picture stays up while the materials compile */
-  if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());
+  warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
+  if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
   if(readyN<READY_FRAMES&&++readyN===READY_FRAMES)readyOk();
 });
 warmUp();
