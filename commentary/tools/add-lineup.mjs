@@ -9,7 +9,8 @@
  * An intro that would talk over a hand-written line is dropped and reported, never forced.
  *
  * Usage: node commentary/tools/add-lineup.mjs commentary/scripts/<name>.json [--check]
- *   --check  write nothing; exit 1 if the file would change. */
+ *   --check  write nothing; exit 1 if the file would change.
+ *   --text   print the full pre-game lineup read-out (tab separated: speaker, emotion, text) and exit. */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { simGame, TEAMS, ROSTERS } from '../../engine/index.js';
 import { validateScript } from '../player.js';
@@ -26,6 +27,16 @@ if (!file) { console.error('usage: node commentary/tools/add-lineup.mjs <script.
 const raw = readFileSync(file, 'utf8'), script = JSON.parse(raw);
 const g = simGame(script.seed, {}), stream = g.stream, teams = g.teams.map(i => TEAMS[i]);
 const start = stream[0], bats = g.teams.map(i => ROSTERS[i].bat);
+
+/* --text: print the whole pre-game lineup read-out (one line per batter) for voice generation; the script is not touched */
+if (flag === '--text') {
+  const out = [`pbp\tcalm\t先發投手，${teams[0].short}${start.starters[0]}，${teams[1].short}${start.starters[1]}。`];
+  for (let t = 0; t < 2; t++) {
+    out.push(`pbp\tcalm\t${t ? '主隊' : '客隊'}${teams[t].short}的先發打線。`);
+    start.lineups[t].forEach((name, i) => { const p = bats[t].find(b => b.name === name); out.push(`pbp\tcalm\t第${SLOT[i]}棒，${p ? POSITION[p.pos] || '' : ''}${name}${p ? `，背號${p.num}` : ''}。`); });
+  }
+  console.log('speaker\temotion\ttext\n' + out.join('\n')); process.exit(0);
+}
 
 /* the lines to keep: everything except the old lineup lines */
 let own = script.lines.filter(l => l.src !== SRC);
