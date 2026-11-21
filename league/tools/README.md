@@ -3,7 +3,9 @@
 Hand-run tools for league data. Nothing here runs at game time.
 
 - `names.mjs`: draws "market names" (the most common real Taiwanese names) for league people.
-  `node league/tools/names.mjs` prints, `--write` rewrites only the `name` fields of `../players.js`.
+  `node league/tools/names.mjs` prints, `--write` rewrites only the `name` fields of `../players.js`;
+  `--staff [--write]` does the same for `../staff.js` (`STAFF_SEED`, player full names taken, a coach
+  never shares a given name with a player of his team).
   Deterministic (`NAME_SEED`); `drawNames(people, {taken})` is exported for staff and umpires.
 - `blocklist.txt`: full names of real athletes, one per line; `#` lines are section headers.
   No league person may carry one of these names. `tests/names.check.mjs` enforces it.
@@ -30,3 +32,6 @@ approximations in that order, not copied tables. Checked 2026-11-21.
    from zh.wikipedia national-team pages, the CTFA selection minutes of 2025-10-23 and news
    coverage (NOWnews, udn, TVBS, Marie Claire Taiwan). Incomplete by nature: add a name whenever a
    real athlete is spotted, then rerun the check.
+4. CPBL coaches and umpires (#52): names in 2016-2026 news coverage of umpires (The News Lens,
+   CNA, Mirror Media, NOWnews, TVBS) and of the 2025-2026 coaching staffs (TVBS, CNA, NOWnews, udn).
+   Only names not already in lists 1-3 (most coaches are former CPBL players). Checked 2026-11-21.

@@ -1,6 +1,8 @@
 /* Name generator for league people (CC0). Run by hand, never at game time:
  *   node league/tools/names.mjs          print the names it would give, change nothing
  *   node league/tools/names.mjs --write  rewrite only the `name` fields of league/players.js
+ *   node league/tools/names.mjs --staff [--write]  the same for league/staff.js (coaches and
+ *                                        umpires, STAFF_SEED, player full names are taken)
  * Names are "market names": the most common real Taiwanese names, so one name points at
  * thousands of people and at nobody in particular. Surnames follow the real frequency order,
  * given names come from the pool of the decade the person was born in (age -> birth year).
@@ -13,6 +15,7 @@ import path from 'node:path';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const NAME_SEED = 50;            /* issue #50: change it only to re-roll the whole league */
+export const STAFF_SEED = 52;           /* issue #52: coaches and umpires */
 export const MAX_GIVEN_LEAGUE = 2;
 export const SEASON_YEAR = 2026;        /* age is counted against this year */
 const MAX_TRIES = 10000;
@@ -49,9 +52,11 @@ const rng = seed => () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(se
 const pick = (r, items) => { const total = items.reduce((s, [, w]) => s + w, 0); let x = r() * total; for (const [v, w] of items) if ((x -= w) < 0) return v; return items[items.length - 1][0]; };
 const poolOf = age => Object.entries(GIVEN[decadeOf(age)]).flatMap(([w, s]) => s.split(' ').map(g => [g, Number(w)]));
 
-/* people: [{id, team, age}] in a stable order. Returns Map id -> name. */
-export function drawNames(people, { seed = NAME_SEED, blocked = readBlocklist(), taken = new Set() } = {}) {
-  const r = rng(seed), out = new Map(), full = new Set(taken), league = new Map(), team = new Map();
+/* people: [{id, team, age}] in a stable order. Returns Map id -> name.
+ * taken: full names already in use; teamGiven: Map team -> Set of given names already on it. */
+export function drawNames(people, { seed = NAME_SEED, blocked = readBlocklist(), taken = new Set(), teamGiven = new Map() } = {}) {
+  const r = rng(seed), out = new Map(), full = new Set(taken), league = new Map();
+  const team = new Map([...teamGiven].map(([t, g]) => [t, new Set(g)]));
   for (const p of people) {
     const onTeam = team.get(p.team) || new Set();
     const pool = poolOf(p.age).filter(([g]) => (league.get(g) || 0) < MAX_GIVEN_LEAGUE && !onTeam.has(g));
@@ -67,17 +72,33 @@ export function drawNames(people, { seed = NAME_SEED, blocked = readBlocklist(),
   return out;
 }
 
+/* Rewrites only `name: "..."` right after `{id: "<id>"` in a data file. */
+function writeNames(file, names) {
+  let src = readFileSync(file, 'utf8'), n = 0;
+  src = src.replace(/(\{id: "([^"]+)", name: ")([^"]*)(")/g, (m, a, id, old, b) => names.has(id) ? (n++, a + names.get(id) + b) : m);
+  if (n !== names.size) throw new Error(`rewrote ${n} names, expected ${names.size}`);
+  writeFileSync(file, src);
+  console.log(`wrote ${n} names into ${path.relative(path.join(HERE, '../..'), file)}`);
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const file = path.join(HERE, '../players.js');
   const { ROSTERS } = await import('../players.js');
-  const people = ROSTERS.flatMap(t => [...t.bat, ...t.pit].map(p => ({ id: p.id, team: p.id.split('-')[0], age: p.age, old: p.name })));
-  const names = drawNames(people);
-  for (const p of people) console.log(`${p.id}\t${p.age}\t${p.old} -> ${names.get(p.id)}`);
-  if (process.argv.includes('--write')) {
-    let src = readFileSync(file, 'utf8'), n = 0;
-    src = src.replace(/(\{id: "([^"]+)", name: ")([^"]*)(")/g, (m, a, id, old, b) => names.has(id) ? (n++, a + names.get(id) + b) : m);
-    if (n !== people.length) throw new Error(`rewrote ${n} names, expected ${people.length}`);
-    writeFileSync(file, src);
-    console.log(`wrote ${n} names into league/players.js`);
+  const players = ROSTERS.flatMap(t => [...t.bat, ...t.pit].map(p => ({ id: p.id, team: p.id.split('-')[0], age: p.age, old: p.name })));
+  let file, people, names;
+  if (process.argv.includes('--staff')) {
+    file = path.join(HERE, '../staff.js');
+    const { STAFF, UMPIRES } = await import('../staff.js');
+    people = [...STAFF.map(s => ({ id: s.id, team: s.team, age: s.age, old: s.name })),
+      ...UMPIRES.map(u => ({ id: u.id, team: 'umpires', age: u.age, old: u.name }))];
+    /* a coach never shares a given name with a player of his own team: the booth calls both */
+    const teamGiven = new Map();
+    for (const p of players) teamGiven.set(p.team, (teamGiven.get(p.team) || new Set()).add(p.old.slice(1)));
+    names = drawNames(people, { seed: STAFF_SEED, taken: new Set(players.map(p => p.old)), teamGiven });
+  } else {
+    file = path.join(HERE, '../players.js');
+    people = players;
+    names = drawNames(people);
   }
+  for (const p of people) console.log(`${p.id}\t${p.age}\t${p.old} -> ${names.get(p.id)}`);
+  if (process.argv.includes('--write')) writeNames(file, names);
 }
