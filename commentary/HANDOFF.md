@@ -8,7 +8,7 @@
 
 ## Next (board order)
 1. #45 owner line edits (edit 1: only the owner wording of the `game_start` call is left).
-2. #26 voiced frozen game (owls home: 爆肝仔 sits in, six voices), then #56.
+2. #26: the frozen game's script is written (`scripts/preseason-opening.json`, seed 704, three voices, `emotion` per line; owner edits lines by hand). Left: voices/tool (`fix/26-voices`), synthesis after casting, staff names after #52, then #56.
 3. After #52 (staff): fan blames manager/umpire by name.
 
 ## Known traps
