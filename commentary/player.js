@@ -211,7 +211,36 @@ export function validateScript(script, stream) {
     if (typeof l.text !== 'string' || !l.text.trim()) errs.push(`line ${n}: empty text`);
   });
   if (script.guest !== undefined && typeof script.guest !== 'string') errs.push('guest must be a team id');
+  if (script.pregame !== undefined) errs.push(...validatePregame(script.pregame));
   return errs;
+}
+
+/* The pregame part of a script: what the booth says before the first pitch, in the six segments of
+ * the shared showing contract (#55/#56), in this order. Nothing in it may hint at the result. */
+export const PREGAME_SEGMENTS = ['open', 'pitchers', 'lineup_away', 'lineup_home', 'officials', 'playball'];
+export function validatePregame(pregame) {
+  if (!Array.isArray(pregame)) return ['pregame must be a list of lines'];
+  const errs = []; let seg = 0, t = 0;
+  pregame.forEach((l, n) => {
+    const k = PREGAME_SEGMENTS.indexOf(l.seg);
+    if (k < 0) { errs.push(`pregame ${n}: unknown segment "${l.seg}"`); return; }
+    if (k < seg) errs.push(`pregame ${n}: segments must follow the order ${PREGAME_SEGMENTS.join(', ')}`);
+    if (k !== seg) { seg = k; t = 0; }
+    if (typeof l.t !== 'number' || !(l.t >= 0)) errs.push(`pregame ${n}: offset t must be seconds from the start of the segment`);
+    else if (l.t < t) errs.push(`pregame ${n}: lines must be ordered by offset inside a segment`);
+    else t = l.t;
+    if (!SPEAKERS.includes(l.speaker)) errs.push(`pregame ${n}: unknown speaker "${l.speaker}"`);
+    if (typeof l.text !== 'string' || !l.text.trim()) errs.push(`pregame ${n}: empty text`);
+  });
+  return errs;
+}
+
+/* The file layout of a script, shared by every tool that writes one: header on one line, then one
+ * line per entry, so the owner can edit a single line by hand and a diff shows only that line. */
+export function formatScript(script) {
+  const { pregame, lines, ...head } = script;
+  const list = a => '[\n' + a.map(l => JSON.stringify(l)).join(',\n') + '\n]';
+  return JSON.stringify(head).slice(0, -1) + (pregame ? ',"pregame":' + list(pregame) : '') + ',"lines":' + list(lines) + '}\n';
 }
 
 /* The booth for one game. due(T) returns the lines whose moment has come since the last call. */

@@ -11,7 +11,7 @@
 2. #26: the frozen game's script is written (`scripts/preseason-opening.json`, seed 704, three voices, `emotion` per line; owner edits lines by hand). Left: voices/tool (`fix/26-voices`), synthesis after casting, staff names after #52, then #56.
 3. After #52 (staff): fan blames manager/umpire by name.
 4. Voice: clip list for the whole bank (446 fixed lines + names/numbers; `{desc}` needs fixed phrasings); the viewer plays one `audio` file per line, so cut clips must be joined per line first.
-5. Render issues to open: viewer never passes `aside` to `VOICE.say`; pre-game is ~18 s (booth opening + lineup need more).
+5. #56 pregame: frozen game script (`scripts/preseason-opening.json`, seed 704) now has the 44-line `pregame` part (six segments) + `.tts.json` (339 files). Left: owner casting/synthesis, then `audio` fields per line; when the viewer plays the pregame (#55/#57), drop the six `at: 0` hello/starters lines from `lines` (same audio ids as `open`/`pitchers`); character lines after #54. Render notes need no issue (`aside` = #70, pregame length = #55/#57).
 
 ## Known traps
 - `tests/` is not this folder: new slots go in `KNOWN_SLOTS` in `tests/replay/commentary.mjs` by its owner (open an issue). `{guest}` is only filled in fan moments.

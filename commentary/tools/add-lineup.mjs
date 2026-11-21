@@ -13,7 +13,7 @@
  *   --text   print the full pre-game lineup read-out (tab separated: speaker, emotion, text) and exit. */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { simGame, TEAMS, ROSTERS } from '../../engine/index.js';
-import { validateScript } from '../player.js';
+import { validateScript, formatScript } from '../player.js';
 
 const SRC = 'lineup', INTRO_SRC = 'batter_up';
 const STARTERS_DELAY_SEC = 20;   /* after the booth opening (it ends at about 19 s); the first live call comes at about 21 s */
@@ -69,8 +69,7 @@ const merged = [...own, ...lines].map((l, n) => [l, n]).sort((a, b) => a[0].at -
 const next = { ...script, lines: merged }, errs = validateScript(next, stream);
 if (errs.length) { console.error(errs.join('\n')); process.exit(1); }
 
-const head = JSON.stringify({ ...next, lines: undefined }).slice(0, -1).replace(/,?$/, '');
-const out = head + ',"lines":[\n' + merged.map(l => JSON.stringify(l)).join(',\n') + '\n]}\n';
+const out = formatScript(next);
 const slots = lines.filter(l => l.at > 0).length;
 console.log(`starters line: ${lines.some(l => l.at === 0) ? 'yes' : 'no'}; lineup intros: ${slots} of ${start.lineups.flat().length}${dropped.length ? `; dropped for room: ${dropped.join(', ')}` : ''}`);
 if (flag === '--check') process.exit(out === raw ? 0 : 1);

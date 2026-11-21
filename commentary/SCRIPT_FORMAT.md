@@ -51,6 +51,35 @@ The key is the game's seed as an unsigned decimal integer.
 | `lines[].aside` | no | `true` for the lines of a fan moment: the voice drops them, still queued, when a new play-by-play call comes. `fan` lines are asides by default. |
 | `lines[].cast` | no | Voice of a `fan` line (`fan` or `fan_f`); filled from the guest when missing. |
 
+## Pregame part
+
+A showing is the pregame, then the recorded game (shared contract on #55/#56). The optional
+`pregame` list holds what the booth says before the first pitch; the game clock starts after it.
+
+```json
+"pregame": [
+  { "seg": "open",     "t": 6, "speaker": "pbp",   "text": "各位觀眾朋友晚安……", "emotion": "calm" },
+  { "seg": "pitchers", "t": 1, "speaker": "pbp",   "text": "先發投手，……",       "emotion": "calm" }
+]
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `seg` | yes | Segment id, in this order (`PREGAME_SEGMENTS` in `player.js`): `open` (the park, hello), `pitchers` (pregame analysis and the two starters), `lineup_away`, `lineup_home` (fielders take the field), `officials` (umpire crew, managers), `playball` (hand-over to the first pitch). |
+| `t` | yes | Seconds from the start of the segment. Ordered inside a segment. Estimates until the audio exists; the real length of a segment follows its lines. |
+| `speaker`, `text`, `emotion`, `audio` | | As in `lines`. |
+
+Only what is known before the game may be said: ratings, age, handedness, numbers, batting
+order, staff and crew (`league/staff.js`, `crewFor(seed)`), character lines. Nothing about the
+result. Leave the first seconds of `open` free for the music bed.
+
+## Voice
+
+`tools/make-sheet.mjs <script>` writes `<name>.tts.json`, the input of `tools/synth.mjs`: one row
+per distinct line (pregame first, then the game), whole sentences, `fan` voiced by the guest's
+fixed voice, `tone` from `emotion`, and `id` = voice + hash of tone and text (same words, same
+file; new words, new file). Rerun it after every edit of the script.
+
 Validate with `validateScript(script, stream)` from `player.js`; the test suite runs it on every
 script that is registered.
 
