@@ -1,5 +1,6 @@
 # #133: cold-visit waterfall and entry bar timeline. Every request waits LAT ms (local) or CDN ms (jsdelivr), so serial loads show up.
 # THREE_DIR=.../node_modules/three/ [LAT=120 CDN=250 W=1280 H=720] [SHOT=out.png SW=900] python3 boot_probe.py REPO
+import sys,os,asyncio,mimetypes,json
 from playwright.async_api import async_playwright
 REPO=sys.argv[1];TH=os.environ['THREE_DIR'];LAT=int(os.environ.get('LAT','120'));CDN=int(os.environ.get('CDN','250'));W=int(os.environ.get('W','1280'));H=int(os.environ.get('H','720'));SHOT=os.environ.get('SHOT')
 INIT="""window.__s=[];(function f(){const b=document.getElementById('warmBar'),e=document.getElementById('enter');__s.push([Math.round(performance.now()),b?getComputedStyle(b).opacity+'/'+(b.hidden?'H':'')+(b.getAttribute('aria-valuenow')||''):'-',e?(e.disabled?0:1):-1]);requestAnimationFrame(f)})();try{localStorage.setItem('zu_gl','1')}catch(e){}"""
@@ -30,7 +31,7 @@ async def main():
     chg=[];last=None
     for t,o,e in s:
       if o!=last: chg.append((t,o,e));last=o
-    print(json.dumps({'html_end':nav,'bar_first_visible':vis,'enter_ready':next((t for t,o,e in s if e==1),None),'first_paint_sample':s[0] if s else None,'bar_changes':chg[:40]}))
+    print(json.dumps({'boot_to_button_ms':next((t for t,o,e in s if e==1),None),'html_end':nav,'bar_first_visible':vis,'enter_ready':next((t for t,o,e in s if e==1),None),'first_paint_sample':s[0] if s else None,'bar_changes':chg[:40]}))
     res.sort(key=lambda r:r[1])
     for r in res[:40]: print(r)
     await b.close()
