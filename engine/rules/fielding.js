@@ -15,7 +15,7 @@ export const HIT_LIKE = ['1B', '2B', '3B', 'E'];   /* results where the ball is 
 const FIRST_BAG = [BASES[1][0] - K.BAG_FOOT, BASES[1][1]];
 const SECOND_PIVOT = [BASES[2][0] - K.BAG_FOOT, BASES[2][1] - K.BAG_FOOT];   /* outfield corner, clear of the slide */
 const SECOND_RELAY = [BASES[2][0] - K.RELAY_SPOT_OFF[0], BASES[2][1] - K.RELAY_SPOT_OFF[1]];
-const SECOND_TAG = [BASES[2][0] + K.THIRD_TAG_OFF, BASES[2][1] + K.THIRD_TAG_OFF];
+const SECOND_TAG = [BASES[2][0] + K.SECOND_TAG_OFF[0], BASES[2][1] + K.SECOND_TAG_OFF[1]];   /* beside the lane from first */
 const THIRD_BAG = [BASES[3][0] + K.BAG_FOOT, BASES[3][1]];
 const THIRD_TAG = [BASES[3][0] + K.THIRD_TAG_OFF, BASES[3][1] + K.THIRD_TAG_OFF];
 const toFrame = t => K.ARRIVE + t;
