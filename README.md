@@ -72,3 +72,7 @@ nothing else. Pre-season games are never written there.
   names, and the team logos and mascots.** You are welcome to fork the engine and the data
   and run your own league: that is a *parallel universe*. You may not present a fork as the
   original league or its teams. Give your universe its own names and marks.
+
+## Anonymous viewing counts
+
+The site counts how people watch, without knowing who they are: a random id made for each page load (never stored in a cookie or in the browser), the milestone reached (entered, sound on, inning, game end, fast-forward, leaving), the game seed, and the seconds watched. No IP address, user agent or account is stored by us. Code: `ui/stats.js`, `functions/api/v.js`, `ui/stats-report.mjs`.

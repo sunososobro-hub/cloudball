@@ -6,6 +6,8 @@ Agent: the interface window. Covers `ui/` and root files only. The roster window
 - #60, #25, #29, #58 merged (rename, entry screen, tension checks, matchup poster).
 - #53 part 1: PR from `feat/53`. `guide.html` + `ui/guide.js` + `ui/guide.css`; one small link on the entry screen. Teams, all 72 players on a 20-80 grade, empty career-stats note. Staff/umpire block is in but hidden until `league/staff.js` exists.
 
+- #89 viewing counts: PR from `feat/89`. `ui/stats.js` (DOM observer + sendBeacon), `functions/api/v.js` (Analytics Engine binding `VIEWS`, dataset `cloudball_views`), `ui/stats-report.mjs` (prints the table). No hook in `render/game.js`: it reads `#enter/#enterMute`, `#snd[aria-pressed]`, `#bin`, `#spd`, `#seedTag`; if those ids or texts change, fix `ui/stats.js`.
+
 ## Next
 - #53 part 2: box score of the frozen game, after #47 has merged (`boxFromStream` on `league/preseason/opening.json`).
 - When #52 merges: check the staff block in a browser. `ui/guide.js` GUESSES the shape (`STAFF` per team as array or by team id, `UMPIRES` list, fields `name/num/line`); fix it to the real one.
