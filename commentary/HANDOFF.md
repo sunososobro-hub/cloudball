@@ -7,7 +7,7 @@
 - Batter intros: `tools/add-intros.mjs <script>` (bank `batter_up`) and `tools/add-lineup.mjs <script>` (starters, slot/position/number from the game data) merge into a hand-written script (it replaces the bank for the whole game). Rerun after edits or a new batting order; `--check`, `--text` (full lineup read-out). `tools/segment-script.mjs <script> <dir>` cuts a script into voice segments + clip list.
 
 ## Next (board order)
-1. #45 owner line edits (edit 1: only the owner wording of the `game_start` call is left).
+1. #45 owner line edits: edit 1 applied (`fix/45`); the list stays open for new edits. Pre-season wording 「熱身賽」 sits only in that `game_start` call (bank) and line 1 of the frozen script.
 2. #26: the frozen game's script is written (`scripts/preseason-opening.json`, seed 704, three voices, `emotion` per line; owner edits lines by hand). Left: voices/tool (`fix/26-voices`), synthesis after casting, staff names after #52, then #56.
 3. After #52 (staff): fan blames manager/umpire by name.
 4. Voice: clip list for the whole bank (446 fixed lines + names/numbers; `{desc}` needs fixed phrasings); the viewer plays one `audio` file per line, so cut clips must be joined per line first.

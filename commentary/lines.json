@@ -4,7 +4,7 @@
   "rules": { "minGapSec": 7, "noRepeatWindow": 14, "fanChance": 0.85, "fanGapSec": 5, "fanNoRepeatWindow": 10, "fanOwnShare": 0.3, "fanMaxUses": 2 },
   "triggers": {
     "game_start": { "priority": 2, "silence": 0, "delay": 1, "fanChance": 1, "exchanges": [
-      { "call": "各位球迷晚安，今晚是{away}對上{home}。", "response": "大家晚安，我是周國棟。這兩隊，我今天很期待。" },
+      { "call": "各位球迷晚安，今晚是{away}對上{home}的熱身賽。", "response": "大家晚安，我是周國棟。這兩隊，我今天很期待。" },
       { "gag": "bet", "sets": ["bet"], "call": "歡迎收看雲端職棒，今晚{away}作客{home}。", "response": "振宇，老規矩喔，比分猜錯的請鹹酥雞。" },
       { "call": "球員都就位了，{away}先攻，比賽準備開始。", "response": "先看第一局，投手今天的狀況一下就看得出來。" }
     ] },
