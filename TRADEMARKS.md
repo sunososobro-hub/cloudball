@@ -13,8 +13,8 @@ wherever they appear (code, data, text, images, audio):
   - 高雄煞氣獼猴 (獼猴); the former name 高雄角頭猴老大 (猴老大) is also reserved
   - 台東宿醉山羌 (山羌)
 - The player names and their characterisation.
-- The commentators 游振宇 and 周國棟, and the fans 吳俊毅(房貸哥), 黃柏睿(爆肝仔),
-  鄭金水(煞氣伯), 林語彤(宿醉妹): names, nicknames, persona descriptions, catchphrases
+- The commentators 游振宇 and 周國棟, and the fans 黃建宏(房貸哥), 陳彥廷(爆肝仔),
+  蔡文雄(煞氣伯), 張詩涵(宿醉妹): names, nicknames, persona descriptions, catchphrases
   and written dialogue.
 
 ## What you may do
