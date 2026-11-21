@@ -193,6 +193,14 @@ const standMat=(()=>{const {triplanarTexture,texture,positionWorld,normalWorld,f
 /* #33 scale, real stadium figures: seat width ~.5 m (was .82), row depth .9 m and rise .55 m (~31 deg rake, a steep lower bowl).
    Foul-line stands 16 m off the line and the backstop 24 m behind the plate are already in the real range (MLB backstop >= 18 m). */
 const CROWD_EMPTY=.1,/* share of seats left empty */SEAT_W=.55,ROW_D=.9,ROW_RISE=.55,FRONT_H=1,BACK_WALL=4,RAIL_H=1.1;
+/* #150 round 3: roof front = painted dark steel fascia carrying a row of lamp housings (was one flat unlit cream bar); ribs under the roof.
+   The lamp row keeps the old cream glow so the roof line still reads at night. FASCIA_LAMP_M = metres per lamp. */
+const FASCIA_H=.9,FASCIA_LAMP_M=2.4,FASCIA_GLOW=2.2,RIB_GAP=6,RIB_W=.25,RIB_H=.55;
+const fasciaTex=genTex('fascia',64,32,(u,v)=>{const dx=Math.abs(u-.5)/.3,dy=Math.abs(v-.62)/.16,lamp=dx<1&&dy<1?1-.5*Math.max(dx,dy)**4:0,seam=u<.03||u>.97?.6:1,band=v<.12?.75:1,k=(.8+.2*vnoise(u*8,v*4,31,8))*seam*band;return[Math.max(k*.35,lamp),Math.max(k*.35,lamp),Math.max(k*.35,lamp)]},1);
+const fasciaGlow=genTex('fasciaG',64,32,(u,v)=>{const dx=Math.abs(u-.5)/.3,dy=Math.abs(v-.62)/.16,l=dx<1&&dy<1?1:0;return[l,l,l]},1);
+const fasciaMat0=new THREE.MeshStandardMaterial({color:LC(0x9aa3b5),roughness:.65,metalness:.4,map:fasciaTex,roughnessMap:paintTex(),emissive:0xfff3d6,emissiveMap:fasciaGlow,emissiveIntensity:FASCIA_GLOW}),FASCIA_M={};
+const fasciaMat=L=>{if(FASCIA_M[L])return FASCIA_M[L];const m=fasciaMat0.clone();for(const t of ['map','emissiveMap']){m[t]=m[t].clone();m[t].repeat.set(Math.round(L/FASCIA_LAMP_M),1);m[t].needsUpdate=true}return FASCIA_M[L]=m};
+const ribGeo=d=>new THREE.BoxGeometry(RIB_W,RIB_H,d),ribMat=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()}),ribO=new THREE.Object3D();
 function stand(px,pz,rotY,len,rows,side,roof,base=0){
   const g=new THREE.Group();g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
   for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.position.set(0,h/2,d);g.add(b);
@@ -200,7 +208,10 @@ function stand(px,pz,rotY,len,rows,side,roof,base=0){
   const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
   const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
   if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
-    const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,.25,.25),new THREE.MeshBasicMaterial({color:0xfff3d6}));lip.position.set(0,top+7.4,-4.9);g.add(lip)}
+    const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,FASCIA_H,.25),fasciaMat(len+2));lip.position.set(0,top+7.4-FASCIA_H/2+.12,-4.9);g.add(lip);
+    const n=Math.floor((len+2)/RIB_GAP),ribs=new THREE.InstancedMesh(ribGeo(rows*.9+6),ribMat,n);/* #150 round 3: steel ribs under the roof, one draw call per stand */
+    for(let i=0;i<n;i++){ribO.position.set(-(len+2)/2+RIB_GAP*(i+.5),-.25-RIB_H/2,0);ribO.updateMatrix();ribs.setMatrixAt(i,ribO.matrix)}
+    rf.add(ribs)}
   g.updateMatrixWorld(true);
 }
 const Q=Math.PI/4;
@@ -242,7 +253,12 @@ for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-
 const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty);
 for(let i=people.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[people[i],people[j]]=[people[j],people[i]]}/* random order: a lower quality tier draws a prefix, i.e. a random subset */
 people.forEach((f,i)=>f.pi=i);const cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
-const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.5}),fans.length);
+const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.55}),fans.length);
+/* #150 round 3: moulded seats are not one flat blue: each seat a little lighter or darker (SEAT_VAR), higher rows sun-faded (SEAT_FADE per metre),
+   a few newer replacement seats (SEAT_NEW share). Seats only: the people on them are untouched. */
+const SEAT_VAR=.16,SEAT_FADE=.018,SEAT_NEW=.03;
+fans.forEach((f,i)=>{const h=hashG(i,7,41),fade=Math.min(.3,Math.max(0,f.wy-2)*SEAT_FADE);/* instance colour multiplies the base blue: lifting red and green more than blue greys it out like sun-bleached plastic */
+  if(h<SEAT_NEW)col.setRGB(1.25,1.25,1.25);else col.setRGB(1+fade*2.5,1+fade*1.5,1+fade*.6).multiplyScalar(1-SEAT_VAR/2+SEAT_VAR*hashG(i,9,43));seats.setColorAt(i,col)});
 const crowdMat=(()=>{const {attribute,mix,vec3}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.85});
   m.colorNode=attribute('color','vec3').mul(mix(vec3(1),attribute('shirt','vec3'),attribute('tint','float')));return m})();
 const crowdShirts=(geo,n)=>{const a=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3);geo.setAttribute('shirt',a);return a};
