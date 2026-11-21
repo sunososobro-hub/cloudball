@@ -33,8 +33,7 @@
 16. Assets must be CC0 or code-generated. No Mixamo, no unlicensed or "free for personal
     use" files. Record the source of every third-party file in `assets/SOURCES.md`.
 17. No paid API calls anywhere at runtime (no LLM, no paid TTS in the viewer path).
-18. Code is MIT; `assets/` and `league/` are CC0. League name, team names and logos are not
-    licensed: forks are parallel universes and must not present themselves as the original.
+18. Code is MIT. Third-party assets and the league data format are CC0; owner-original art and commentary audio are CC BY 4.0. Names, logos and characters are reserved (TRADEMARKS.md): public forks are parallel universes with their own names.
 
 ## Workflow files
 19. `.github/workflows/` holds at most two files, ever: `ci.yml` and `merge-gate.yml`.
