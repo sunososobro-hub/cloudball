@@ -89,16 +89,6 @@
     "transcript": "貓頭鷹這邊，黃宗翰才二十一歲，也是右投，背號76。",
     "transcriptMatch": true
   },
-  "color-2dcd3737c4": {
-    "hash": "928b0ba130cdcfabb593818f57ade6ae8c5591c1152185ef11b3a861578ee54f",
-    "role": "color",
-    "model": "gpt-audio-1.5",
-    "voice": "echo",
-    "tone": "平穩清楚，正常播報",
-    "text": "二十一歲就先發，球威不輸許子豪。年輕人啦，第一局先把緊張投掉就好。",
-    "transcript": "二十一歲就先發，球威不輸許子豪。年輕人啦，第一局先把緊張投掉就好，別以為很容易。",
-    "transcriptMatch": false
-  },
   "fan_owls-917ca2cce8": {
     "hash": "321e0a8a9f366a537ee71cd30902e4152bb2250c817d668add2a38bb7257e31b",
     "role": "fan_owls",
@@ -118,16 +108,6 @@
     "text": "兩個右投，條件很接近，周哥你怎麼看？",
     "transcript": "兩個右投，條件很接近，周哥你怎麼看？",
     "transcriptMatch": true
-  },
-  "color-cf5ad1d052": {
-    "hash": "53b15da9cc7d9287d4507eec3e65bf80e98811bd6459ea501669723ad76b6210",
-    "role": "color",
-    "model": "gpt-audio-1.5",
-    "voice": "echo",
-    "tone": "平穩清楚，正常播報",
-    "text": "投手差不多的時候，就看捕手怎麼配球。我蹲過我知道。",
-    "transcript": "投手差不多的時候，就看捕手怎麼配球。我蹲過我知道，還真不是每個人都懂。",
-    "transcriptMatch": false
   },
   "pbp-8444fd1dc3": {
     "hash": "3961dee4e3203e488215564f476a2f1fd8288bfa131f9c65da2c0ae0b7ffa217",
@@ -229,16 +209,6 @@
     "transcript": "第九棒，一壘手王俊廷，背號75。",
     "transcriptMatch": true
   },
-  "color-2662a105f2": {
-    "hash": "625c08e550d65446d4b24b0196eecf6ba595db693a1516ed24a035ef25e40c52",
-    "role": "color",
-    "model": "gpt-audio-1.5",
-    "voice": "echo",
-    "tone": "平穩清楚，正常播報",
-    "text": "帝雉二到四棒都很有力量，張柏豪排第二棒，就是一開局要拚。",
-    "transcript": "帝雉二到四棒都很有力量，張柏豪排第二棒，就是一開局要拚，最好能拚到對方投手下班，這樣講的話應該連你阿嬤都聽得懂。",
-    "transcriptMatch": false
-  },
   "pbp-8960bcffc6": {
     "hash": "04a58d243cc10d5fa763c3f321cf9fc2cc76c875219bf04f79bbee696822bb6c",
     "role": "pbp",
@@ -248,5 +218,235 @@
     "text": "主隊貓頭鷹，先發球員上場守備。",
     "transcript": "主隊貓頭鷹，先發球員上場守備。",
     "transcriptMatch": true
+  },
+  "color-2dcd3737c4": {
+    "hash": "928b0ba130cdcfabb593818f57ade6ae8c5591c1152185ef11b3a861578ee54f",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "二十一歲就先發，球威不輸許子豪。年輕人啦，第一局先把緊張投掉就好。",
+    "transcript": "二十一歲就先發，球威不輸許子豪。年輕人啦，第一局先把緊張投掉就好，不然以後要投掉的還多著呢。",
+    "transcriptMatch": false
+  },
+  "color-cf5ad1d052": {
+    "hash": "53b15da9cc7d9287d4507eec3e65bf80e98811bd6459ea501669723ad76b6210",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "投手差不多的時候，就看捕手怎麼配球。我蹲過我知道。",
+    "transcript": "投手差不多的時候，就看捕手怎麼配球。我蹲過我知道",
+    "transcriptMatch": true
+  },
+  "color-2662a105f2": {
+    "hash": "625c08e550d65446d4b24b0196eecf6ba595db693a1516ed24a035ef25e40c52",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "帝雉二到四棒都很有力量，張柏豪排第二棒，就是一開局要拚。",
+    "transcript": "帝雉二到四棒都很有力量，張柏豪排第二棒，就是一開局要拚。",
+    "transcriptMatch": true
+  },
+  "pbp-4559c7feff": {
+    "hash": "6fd4593f3b92c7b86dea0ae6293fbcc746782a50e177dc5cd88c45bbf1c96166",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "劉立偉第一球就打，游擊滾地球，傳一壘，一出局。",
+    "transcript": "劉立偉第一球就打，游擊滾地球，傳一壘，一出局。",
+    "transcriptMatch": true
+  },
+  "pbp-146aa27a11": {
+    "hash": "1a8ed9f65325eb183c96be39d45ed7402348780db8c32381bafeb5974b173b23",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第二棒，右外野手張柏豪。",
+    "transcript": "第二棒，右外野手張柏豪。",
+    "transcriptMatch": true
+  },
+  "pbp-3a5a767a7d": {
+    "hash": "fcb69045283bbd3bc43eb124455aa989b19aaccb3def1d29db255245b108e923",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "打出去了——很遠喔！",
+    "transcript": "打出去了——很遠喔！",
+    "transcriptMatch": true
+  },
+  "pbp-5b799841c3": {
+    "hash": "8cba37a31ed55ed8f8e7d4f455ba392de2d9777bc76bc7b10ad5662cfc9e1796",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "右外野手張家銘接到了，兩出局。",
+    "transcript": "右外野手張家銘接到了，兩出局。",
+    "transcriptMatch": true
+  },
+  "pbp-4db68acf12": {
+    "hash": "22b40b714a146c2828425294463e341154038224fec40411bdefa13134cb02de",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第三棒，左外野手陳冠霖。",
+    "transcript": "第三棒，左外野手陳冠霖。",
+    "transcriptMatch": true
+  },
+  "pbp-fa19c0745e": {
+    "hash": "a172df5ceb1eaee4143d4197853b7471bef0a15a0a604c898a5a29b4b7294c7e",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "又打出去了——這球真的很遠！",
+    "transcript": "又打出去了——這球真的很遠！",
+    "transcriptMatch": true
+  },
+  "pbp-c27064a939": {
+    "hash": "cdcda4d370f4df05163d237ff84dadb3269639eaf305cdd410b8956f3b8ebd70",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "非常激動，大聲、尾音拉長",
+    "text": "出去了！陳冠霖，右外野陽春全壘打！帝雉1比0貓頭鷹。",
+    "transcript": "出去了——！陳冠霖，右外野陽春全壘打！帝雉1比0貓頭鷹！",
+    "transcriptMatch": true
+  },
+  "fan_owls-005c137878": {
+    "hash": "742fde1e8f62eb18636dae80b3951c694dc57660959cc96c0cd26850fbe09238",
+    "role": "fan_owls",
+    "model": "gpt-audio-1.5",
+    "voice": "cedar",
+    "tone": "失望，語氣往下沉、慢一點",
+    "text": "這分我不承認啦。",
+    "transcript": "這分我不承認啦。",
+    "transcriptMatch": true
+  },
+  "pbp-994b1fcad5": {
+    "hash": "41effff2efdee171d355b17cdd4803e84aeb199a98116f5ea5f339400d7499d3",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "阿辰，記分板承認喔。",
+    "transcript": "阿辰，記分板承認喔。",
+    "transcriptMatch": true
+  },
+  "pbp-5a33de53b9": {
+    "hash": "32094a46d7b893fe5fff7366b31205685895b6785ff37a2c90682bc0fb7dc448",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第四棒，三壘手林宇軒。",
+    "transcript": "第四棒，三壘手林宇軒。",
+    "transcriptMatch": true
+  },
+  "pbp-6ad2faeeaa": {
+    "hash": "b9f3bd7e7a5aa662a49cdb3ea2d1f7525a17abc73d6e214b8c8f4a0d726806dc",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "林宇軒一壘方向滾地球，安打。",
+    "transcript": "林宇軒一壘方向滾地球，安打。",
+    "transcriptMatch": true
+  },
+  "pbp-0abf1c9014": {
+    "hash": "a857207f3f98746ea5ed2742206c6f0e2d9739f1f461762875a84cfc257d5a85",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第五棒，指定打擊蕭家瑋。",
+    "transcript": "第五棒，指定打擊蕭家瑋。",
+    "transcriptMatch": true
+  },
+  "pbp-6cb73a812b": {
+    "hash": "7185d49b765d7dc79c6c35461aa7901aafa510f5da17d965debaa569292fe386",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "興奮，音量拉高、語速加快",
+    "text": "蕭家瑋第一球，左外野平飛安打，一二壘有人。",
+    "transcript": "蕭家瑋第一球，左外野平飛安打，一二壘有人!",
+    "transcriptMatch": true
+  },
+  "color-b97c4adb3c": {
+    "hash": "ca0744fa17e1ec5aba17420aca4483b4739d0e05b74b27fb88bab9bc722426be",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "平穩清楚，正常播報",
+    "text": "打者都是前兩球就打，這個投手太好猜了。",
+    "transcript": "打者都是前兩球就打，這個投手太好猜了。",
+    "transcriptMatch": true
+  },
+  "pbp-cc072fa030": {
+    "hash": "058b23a5500c5342d364b03857a5c0df34abf80b52f7836cba50fa0329af14d9",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "第六棒，中外野手黃振宇。",
+    "transcript": "第六棒，中外野手黃振宇。",
+    "transcriptMatch": true
+  },
+  "pbp-521163d488": {
+    "hash": "acbe8818e95b70f7589ee5ce4ae426de9f1452caf5367b8dd7f3ca22b50fe964",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "黃振宇三壘滾地球，傳一壘出局，留下兩個殘壘。",
+    "transcript": "黃振宇三壘滾地球，傳一壘出局，留下兩個殘壘。",
+    "transcriptMatch": true
+  },
+  "pbp-845fe57725": {
+    "hash": "b8e5f7e0baaa77028cd665dba1b41e172af446b39a4ed9153ddd4fbb753d31c8",
+    "role": "pbp",
+    "model": "gpt-audio-1.5",
+    "voice": "alloy",
+    "tone": "平穩清楚，正常播報",
+    "text": "一局上打完，帝雉1比0貓頭鷹。",
+    "transcript": "一局上打完，帝雉1比0貓頭鷹。",
+    "transcriptMatch": true
+  },
+  "color-4f49145609": {
+    "hash": "73ec2d39c6786e8a403cf945dc41959b47fc590dc554742dd3e87e1784f83d67",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "明凱，這種飛球你也喊得像要出場。",
+    "transcript": "明凱，這種飛球你也喊得像要出場，真是有點搞笑，還以為自己是主角呢。",
+    "transcriptMatch": false
+  },
+  "color-dcbde0f4f3": {
+    "hash": "4fe4b924a0a39d245a4b639f1ede28c5c31e380981bfe7505a462efec02b76a0",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "明凱，這次你沒喊錯，真的出去了。",
+    "transcript": "明凱，這次你沒喊錯，真的出去了。\n\n",
+    "transcriptMatch": true
+  },
+  "color-08ccb2ddb3": {
+    "hash": "312dab15666ee958f14a35373a23fd8982d3bc0c84558ac2a601ceb1903aaef7",
+    "role": "color",
+    "model": "gpt-audio-1.5",
+    "voice": "echo",
+    "tone": "覺得好笑，帶點調侃",
+    "text": "被打成這樣只掉一分，投手該請三壘手吃宵夜。",
+    "transcript": "被打成這樣只掉一分，投手該請三壘手吃宵夜，呵，便宜他了。",
+    "transcriptMatch": false
   }
 }
