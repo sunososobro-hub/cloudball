@@ -17,7 +17,7 @@ licensed file exists yet. Scripts in `tools/` are code (MIT). Earlier versions p
 | `players.b64.txt` | Derived from MakeHuman base mesh, targets and default rig (CC0, see MakeHuman `LICENSE.ASSETS.md`) by `tools/build_players.py`, `tools/glb2gltf.py`, `tools/pack_players.py` | CC0 |
 
 Code-generated surfaces (no file, drawn at load by `render/game.js`, MIT code): wall pads (seams, scuffs, pillowed normal map), painted steel,
-concrete stains and streaks (shader noise), and the outer ground (re-uses `tex/grass_c.jpg`). Added download: 0 bytes.
+concrete stains and streaks (shader noise), worn chalk and dusty bases (field canvas), painted fence top and foul poles, and the outer ground (re-uses `tex/grass_c.jpg`). Added download: 0 bytes.
 
 `players.b64.txt` is a base64 text copy of a packed binary (shared indices/skeleton/weights,
 one base body plus slim/power/heavy offsets). Rebuild: run `tools/build_players.py` against a
