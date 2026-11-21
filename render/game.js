@@ -613,6 +613,7 @@ function armsDown(R){R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.
    #128: he receives from the crouch. The rise starts only C_RISE_LEAD s before the ball arrives (it used to follow the mitt set, 0.65 s early,
    so he stood up into the swing); the bat has passed his head by the time he is half up */
 const C_HIGH_Y=.95,C_HIGH_SPAN=.5,C_HIGH_RISE=.6,C_RISE_LEAD=.3,MITT_HOLD=.35,MITT_BACK=.5;
+const pitchY=e=>.45+e.zy*.75,catchRise=e=>C_HIGH_RISE*sat01((pitchY(e)-C_HIGH_Y)/C_HIGH_SPAN);/* mitt height of a pitch; how far a catch there lifts him */
 /* #128: the glove arm cannot reach far across his body (backhand side, world +x), so for a pitch there he shifts his whole body over during
    the mitt set, like a real catcher framing it: (zx - C_GLOVE_X) * C_SHIFT_K, at most C_SHIFT_MAX, back to his spot with the mitt */
 const C_GLOVE_X=-.1,C_SHIFT_K=.8,C_SHIFT_MAX=.25,cShift=e=>clamp((e.zx-C_GLOVE_X)*C_SHIFT_K,0,C_SHIFT_MAX);
@@ -622,9 +623,9 @@ const C_GLOVE_X=-.1,C_SHIFT_K=.8,C_SHIFT_MAX=.25,cShift=e=>clamp((e.zx-C_GLOVE_X
 const PLATE_UP_AT=.25,PLATE_UP_DUR=.45,PLATE_DOWN_AT=1,PLATE_DOWN_DUR=.6,ARM_HANG=[0,BAT_SHOULDER_Y-BAT_ARM_LEN,0];/* hand straight below the shoulder (x = the shoulder's own x) */
 function poseBattery(e,u){
   const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG',isP=e.k==='P',up=isP&&e.r==='inplay'?ease(sat01((u-ARRIVE-PLATE_UP_AT)/PLATE_UP_DUR))*(e.d?1-ease(sat01((u-(e.d-PLATE_DOWN_AT))/PLATE_DOWN_DUR)):1):0;
-  const py=isP?.45+e.zy*.75:MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
+  const py=isP?pitchY(e):MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
     back=isP&&!e.sbGo?Math.max(up,ease(sat01((u-(ARRIVE+CATCH_SNAP+MITT_HOLD))/MITT_BACK))):0,rk=isP?ease(sat01((u-(ARRIVE-C_RISE_LEAD))/C_RISE_LEAD)):0,rise=C_HIGH_RISE*sat01((py-C_HIGH_Y)/C_HIGH_SPAN)*rk*(1-back),c=set?(1-rise)*(1-up):0;
-  C.noAnim=set&&up<1;crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
+  C.noAnim=set&&up<1;if(C.noAnim)C.auto=false;/* #128: no automatic elbow bend on the glove arm, or a reach for a high/low/wide pitch falls ~.4 m short */crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
   if(isP&&up<1)C.g.position.x+=cShift(e)*k*(1-back)*(1-up);
   if(set&&up<1){const gx=lerp(lerp(0,isP?e.zx:0,k),0,back),gy=lerp(lerp(MITT_REST_Y,py,k),MITT_REST_Y,back);
     aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,gx*.8,gy-.15,MITT_Z+.2)}else armsDown(CR);
@@ -693,16 +694,22 @@ function tagPose(f,u,ballIn,tagT,base,out){f.auto=false;f.noAnim=true;const R=f.
    runner), he comes up with the ball at his chest, holds it, and starts the arm action CATCHER_POP*(1-XFER_HAND_SWAP) before release.
    Then he watches the play standing and sinks back into the crouch before the next pitch. Returns the release point for the ball */
 const C_STEP=.45,C_RISE=.6,C_RECROUCH=.7,XFER_HAND_SWAP=.45,MITT_REST_Y=.7;
+/* #128: the transfer starts from the catch pose (mitt on the ball, body as high as the catch left him) and blends into the throw over
+   C_XFER_BLEND s, so neither the mitt nor the ball jumps at the catch */
+const C_XFER_BLEND=.18,_qa=new THREE.Quaternion(),_qb=new THREE.Quaternion();
 function catcherThrow(e,u,S,sp){const C=fielders.C,catchAt=ARRIVE+CATCH_SNAP,xfer=Math.min(CATCHER_POP,S.t0-catchAt),hold=S.t0-catchAt-xfer,tgt=[sp[0],1.2,sp[1]];
   const [h0,hz]=C.pos,hx=h0+cShift(e),dx=sp[0]-hx,dz=sp[1]-hz,L=Math.hypot(dx,dz),at=[hx+dx/L*C_STEP,hz+dz/L*C_STEP],rel=throwRelease(e,C,at,xfer,tgt);
   /* Motion clock: transfer, hold at the end of the transfer, then the throw */
   const x0=xfer*XFER_HAND_SWAP,t=u-catchAt,tt=t<x0?t:t<x0+hold?x0:t-hold,r={rel,tgt,xfer,xferT:tt};
   if(t<0)return r;
-  const step=ease(sat01(tt/xfer)),back=e.d?ease(sat01((u-(e.d-C_RECROUCH))/C_RECROUCH)):0,c=Math.max(1-ease(sat01(t/(xfer*C_RISE))),back);
-  resetPose(C);C.noAnim=true;C.g.position.set(lerp(lerp(hx,at[0],step),h0,back),0,lerp(hz,at[1],step*(1-back)));face(C,dx,dz);/* #128: the throw starts from the shifted catch; he re-crouches on his own spot */
+  const step=ease(sat01(tt/xfer)),back=e.d?ease(sat01((u-(e.d-C_RECROUCH))/C_RECROUCH)):0,c=Math.max((1-catchRise(e))*(1-ease(sat01(t/(xfer*C_RISE)))),back);
+  resetPose(C);C.noAnim=true;C.g.position.set(lerp(lerp(hx,at[0],step),h0,back),0,lerp(hz,at[1],step*(1-back)));{const a0=Math.atan2(-h0,-hz),d=((Math.atan2(dx,dz)-a0)%(2*Math.PI)+3*Math.PI)%(2*Math.PI)-Math.PI;C.g.rotation.y=a0+d*ease(sat01(t/C_XFER_BLEND))}/* #128: the throw starts from the shifted catch, turning from the pitcher; he re-crouches on his own spot */
   if(c>0)crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
   if(back>0){aimWorld(CR,CR.a0,-BAT_SHOULDER_X,0,MITT_REST_Y,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,0,MITT_REST_Y-.15,MITT_Z+.2)}
-  else if(u-S.t0<THROW_FT_DUR)throwPose(C,tt,xfer,tgt);
+  else if(u-S.t0<THROW_FT_DUR){throwPose(C,tt,xfer,tgt);
+    const bl=ease(sat01(t/C_XFER_BLEND));if(bl<1){const q0=_qa.copy(CR.a0.quaternion),q1=_qb.copy(CR.a1.quaternion),s0=CR.a0.scale.y,s1=CR.a1.scale.y,py=pitchY(e);
+      aimWorld(CR,CR.a0,-BAT_SHOULDER_X,e.zx,py,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,e.zx*.8,py-.15,MITT_Z+.2);
+      CR.a0.quaternion.slerp(q0,bl);CR.a1.quaternion.slerp(q1,bl);CR.a0.scale.y=lerp(CR.a0.scale.y,s0,bl);CR.a1.scale.y=lerp(CR.a1.scale.y,s1,bl)}}
   return r}
 const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 function poseScene(e,u,dt,ei){
