@@ -1,20 +1,18 @@
 # render/ handoff (max 20 lines)
 
 ## Done
-- Tools: `tools/studio_shot.py` (contact sheets; needs `npm i three@0.186.1`, THREE_DIR; run one at a time, parallel runs time out),
-  `tools/studio_probe.py` (prints a JS expression per time, ~20 s a run). #3 comments translated (PR #12).
-- #5 bunt (PR #22): squared stance, level bat on the pitch line (`buntContact`); batter-runner leaves from the box (`BAT_LEAVE_BLEND`).
-- #5 steal (PR #24): `catcherThrow` pop-up, transfer, hold when plan.t0 is late (#23), step, throw at plan.t0, re-crouch.
-- #5 tag (feat/5-tag): `tagPose` for steal receiver, bunt-FC and tag-up plays. Out = engine `plan.actions` a:'tag' time, then
-  shows the ball; safe = late swipe at arrive+TAG_LATE_SWEEP. Glove on the runner's lane. Studio acts `sbout`, `tagfc` (400 seeds).
-- #5 pitcher cover (feat/5-cover, stacked on feat/5-tag): fielding/covering pitcher starts from the stride at contact
-  (`kf(ARRIVE,PK.dz)`), run grows out of the follow-through (`P.mix`, P_RUN_BLEND). dp3 shot: no jump. Fielder whose home spot is within BAG_CROWD_R of the covered base waits off the bag until the coverer leaves (`rtF`).
+- Tools: `tools/studio_shot.py` (contact sheets; `npm i three@0.186.1`, THREE_DIR; one run at a time), `tools/studio_probe.py`.
+- #5 bunt (PR #22), steal (PR #24), tag (`tagPose`), pitcher cover (no jump on 3-6-3); 1B waits off the bag (`rtF`, PR #48).
+- #36 studio acts `tag3`, `sf23` (PR #51).
+- #43 item 1 hit by pitch (fix/43-hbp): ball ends on the body (spot from pitch height, pitcher side), flinch + turn (`hbpReact`),
+  ball drops and hops (`hbpBall`), runner leaves at engine st0. Seen on studio act `hbp` clips 0 (R), 3 (high), 5 (L).
 
 ## Next
-- #5 done (#40 merged; `rtF` wait follow-up PR, dp3 clip 0 shot at 6-10 s: 1B waits off the bag, passes P ~2 m apart). Then #36, #33.
+- #43 items 4 (overlaps at the plate), 2 (bat), 3 (HR flip), 5 (bunt ball floats): open; owner order is 1, 4 first. HBP has no thud
+  sound: `wip/43-hbp-pickup` has a thud, a catcher pickup and body-socket hit spots to borrow (not for merge as is).
+
 ## Traps
 - Batter-runner on a fly out runs onto an occupied first base and vanishes 0.6 s later (sf23 clip 0, t 6.6 s): #42.
-- Engine's second-base tag spot is in the runner's lane (issue #35): runner slides through the SS until the engine moves it.
-- Batter-local frame: +z faces the plate, +x faces the pitcher. No left-handed bunt in the studio seed bank yet.
+- Batter-local frame: +z faces the plate, +x faces the pitcher. World: pitcher at -z, catcher at +z (MITT_Z), righty at x=-.9.
 - Engine sets `e.swing=true` on bunts; guard with `e.play.bunt`. Shell env does not persist: re-export THREE_DIR each call.
-- `gh` GraphQL is blocked: use `gh api repos/...` REST for issues/PRs.
+- `gh` GraphQL is blocked: use `gh api repos/...` REST for issues/PRs. One render window at a time (double claim on #43).

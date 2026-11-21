@@ -338,16 +338,28 @@ const _ugm=new THREE.Matrix4(),_ugh=new THREE.Vector3(),_ugd=new THREE.Vector3()
 let buntK=0,buntDrop=0;const buntPt=[0,1,.3];
 /* Convert a point (or direction) from the batter's ground frame into the upper-body frame batPivot lives in */
 function groundToUp(v,dir){batter.g.updateMatrixWorld(true);_ugm.copy(batter.g.matrixWorld).invert().multiply(BR.up.matrixWorld).invert();return dir?v.transformDirection(_ugm):v.applyMatrix4(_ugm)}
+/* Hit by pitch: the ball ends on the batter's body (spot picked from the pitch height, on the pitcher's side of him), he flinches and turns away,
+   the ball drops and hops, then he goes to first at the engine's st0. Batter-local: +x faces the pitcher. */
+const HBP_BODY_R=.2,HBP_Y_MIN=.55,HBP_Y_MAX=1.5,HBP_DROP_DUR=.5,HBP_HOP_DUR=.3,HBP_DROP_DX=.3,HBP_DROP_DZ=.35,HBP_HOP_DX=.2,HBP_HOP_DZ=.25,HBP_HOP_PEAK=.1,HBP_DROP_PEAK=.12,HBP_BALL_GONE=2.2;
+const HBP_REACT_IN=.15,HBP_REACT_OUT_AT=.45,HBP_REACT_OUT=.35,HBP_YAW=-.9,HBP_LEAN=.4,HBP_KNEE=.15;
+const hbpReact=u=>ease(sat01((u-ARRIVE)/HBP_REACT_IN))*(1-ease(sat01((u-ARRIVE-HBP_REACT_OUT_AT)/HBP_REACT_OUT)));
+function hbpSpot(e){const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',kk=batter.k||1;
+  return[lf?-BAT_BOX[0]:BAT_BOX[0],clamp(.45+e.zy*.75,HBP_Y_MIN,HBP_Y_MAX)*kk,BAT_BOX[1]-HBP_BODY_R]}
+function hbpBall(e,u){const S=hbpSpot(e),t=u-ARRIVE,sg=S[0]>0?-1:1;/* he stands on the side away from the plate: the ball bounces back toward it and toward the pitcher */
+  const g1=[S[0]+sg*HBP_DROP_DX,BALL_R,S[2]-HBP_DROP_DZ],g2=[g1[0]+sg*HBP_HOP_DX,BALL_R,g1[2]-HBP_HOP_DZ];
+  if(t<HBP_DROP_DUR)return arc(S,g1,HBP_DROP_PEAK,t/HBP_DROP_DUR);
+  if(t<HBP_DROP_DUR+HBP_HOP_DUR)return arc(g1,g2,HBP_HOP_PEAK,(t-HBP_DROP_DUR)/HBP_HOP_DUR);
+  return t<HBP_BALL_GONE?g2:null}
 function poseBatter(e,u){
   const bn=e.r==='inplay'&&e.play&&e.play.bunt?ease(sat01((u-(ARRIVE-BUNT_SQUARE_LEAD))/BUNT_SQUARE_DUR)):0;
   const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing&&!bn?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing&&!bn?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
   const K=(k,c)=>{const a=BK[k];let v=lerp(a[0],a[1],ld);v=lerp(v,c===undefined?a[2]:c,sw);return lerp(v,a[3],ft)};
   const stay=!(e.pa&&e.r!=='ibb'),rw=stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
   const yaw=lerp(K('yaw'),BAT_REST.yaw,rw),py=.45+e.zy*.75,dyC=Math.max(-.7,Math.min(.2,(py-1.33)/.85));
-  const byaw=lerp(yaw,BUNT.yaw,bn);BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn),byaw,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(K('head'),BUNT.head,bn)-byaw;
+  const byaw=lerp(yaw,BUNT.yaw,bn);const hb=e.r==='hbp'?hbpReact(u):0;BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn)+HBP_LEAN*hb,byaw+HBP_YAW*hb,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(K('head'),BUNT.head,bn)-byaw;
   BR.l0.rotation.z=K('back');BR.l1.rotation.z=lerp(lerp(BK.stride[0],BK.stride[1],ld),BK.stride[2],sw);
   /* Knees bend with the square-around, deeper for a low pitch so the bat stays level instead of chopping down */
-  const knee=clamp(BUNT_KNEE+(BUNT_KNEE_REF-py)*BUNT_KNEE_LOW,BUNT_KNEE_MIN,BUNT_KNEE_MAX)*bn;buntK=bn;buntDrop=LEG_LEN*knee*(batter.k||1);BR.l0.scale.y=BR.l1.scale.y=1-knee;
+  const knee=Math.max(clamp(BUNT_KNEE+(BUNT_KNEE_REF-py)*BUNT_KNEE_LOW,BUNT_KNEE_MIN,BUNT_KNEE_MAX)*bn,HBP_KNEE*hb);buntK=bn;buntDrop=LEG_LEN*knee*(batter.k||1);BR.l0.scale.y=BR.l1.scale.y=1-knee;
   let gx=lerp(K('hx'),BAT_REST.hx,rw),gy=lerp(K('hy'),BAT_REST.hy,rw),gz=lerp(K('hz'),BAT_REST.hz,rw);
   _bv.set(lerp(K('bx'),BAT_REST.bx,rw),lerp(K('by',dyC),BAT_REST.by,rw),lerp(K('bz'),BAT_REST.bz,rw)).normalize();
   if(bn>0){const give=BUNT_GIVE*ease(sat01((u-ARRIVE)/BUNT_GIVE_DUR)),L=Math.hypot(...BUNT_DIR),sl=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L'?-1:1;
@@ -550,7 +562,7 @@ function poseScene(e,u,dt){
   if(e.r==='inplay'&&(e.play.fielder==='P'||e.plan.CV.key==='P')&&u>=ARRIVE){const k=1-ease(sat01((u-ARRIVE-FIELD_REACT)/P_RUN_BLEND));
     P.pos=[P.pos[0],P.pos[1]+kf(ARRIVE,PK.dz)];P.noAnim=false;PR.up.rotation.x*=k;PR.up.rotation.y*=k;PR.hg.rotation.y*=k;
     P.mix={k,l0:P.legs[0].rotation.x,l1:P.legs[1].rotation.x,a0:P.arms[0].rotation.x,a1:wrapA(P.arms[1].rotation.x)}}
-  const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],mitt=[e.zx,plate[1],MITT_Z],bunt=e.r==='inplay'&&e.play.bunt;
+  const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],mitt=[e.zx,plate[1],MITT_Z],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp';
   const moving=new Set((e.moves||[]).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n))standRunner(i,u,n)}
   const contact=e.r==='inplay'||e.r==='foul';
@@ -558,8 +570,8 @@ function poseScene(e,u,dt){
   const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
-  else if(u<ARRIVE)bp=arc(hand,plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
-  else if(!contact){ if(e.r==='hbp'){bp=u<ARRIVE+.4?arc(plate,[-0.9,.3,1],.5,(u-ARRIVE)/.4):null}
+  else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
+  else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3)bp=arc(mitt,hand,3,(u-3.4)/.9)}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
