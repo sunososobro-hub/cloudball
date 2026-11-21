@@ -3,7 +3,7 @@
 ## Done
 - Bank (`lines.json`), `player.js` draft, `voice.js`; #11 gags; #46 booth rules; #61 fan seat (`FAN_TRIGGERS`, own RNG).
 - Tools: `add-intros.mjs` (bank `batter_up`), `add-lineup.mjs` (starters + short intro 「第N棒，位置名字。」, on the first pitch or while he walks up), `segment-script.mjs`, `make-sheet.mjs` (`.tts.json` for synth.mjs, id = hash of voice+tone+text, prints a rough reuse count). Rerun add-intros, add-lineup, make-sheet, wire-audio after every script edit.
-- #96 (PR on `feat/96`): `wire-audio.mjs` fills `audio`+`dur` from `audio/<name>/<id>.mp3` (id from `line-id.mjs`); recorded game = only lines with a file, timed by `planRecorded` (no overlap; a line that cannot end before the next non-aside `pbp` line of a later event is dropped; intros are asides). Render hooks: #101; CI hook: #102. When `feat/26-audio` lands: run `wire-audio.mjs <script> --report`, fix `delay` where it causes a drop.
+- #96 (PR on `feat/96`): `wire-audio.mjs` fills `audio`+`dur` from `audio/<name>/<id>.mp3` (id from `line-id.mjs`); recorded game = only lines with a file, timed by `planRecorded` (no overlap; a line that cannot end before the next non-aside `pbp` line of a later event is dropped; intros are asides). Render hooks: #101; CI hook: #102. Next on it: once the clips PR #98 merges, run `wire-audio.mjs <script>` and commit the fields; 4 colour clips need a re-take (`synth.mjs --only <ids>`, list on #103).
 - #94: booth renamed 游振宇 -> 游明凱 (「明凱」), owls fan 陳彥廷 -> 陳昱辰 (「阿辰」): no player/coach/umpire shares a character of the given names. Bank `alt`: other wordings of a response, said in turn. Script colour/fan lines made generic where names were not needed.
 
 ## Next (board order)

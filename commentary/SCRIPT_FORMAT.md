@@ -90,7 +90,7 @@ synth.mjs and after every edit of the script (`node commentary/audio.check.mjs` 
 A recorded game is timed by the clips (`planRecorded` in `player.js`): two lines never overlap; an
 answer (a line on the same event as the line before it) follows after a short constant pause; a
 line that cannot be over by the next play-by-play call (a `pbp` line of a later event that is not
-an `aside`) is dropped, not played late; a priority-2 call is said on its moment and cuts what is
+an `aside`) is dropped, not played late (it may hold that call back by 1 s at most); a priority-2 call is said on its moment and cuts what is
 still playing. Asides (lineup intros) may come late but never hold another line back.
 
 Validate with `validateScript(script, stream)` from `player.js`; the test suite runs it on every

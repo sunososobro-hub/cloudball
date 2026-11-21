@@ -1,6 +1,8 @@
 // Synthesize commentary audio with OpenAI gpt-audio-1.5 (issue #26).
 // Usage: node commentary/tools/synth.mjs --trial [--redo]
-//        node commentary/tools/synth.mjs --in lines.json --out dir [--redo]
+//        node commentary/tools/synth.mjs --in lines.json --out dir [--redo] [--only id,id,...]
+//   --only: make just these ids again, even when the file is there and up to date (a clip that came
+//           back with extra words or far too long); every other line is left alone
 //   input json: [{role, tone, text, id?, voice?}]
 // API key: env OPENAI_API_KEY only (falls back to HKCU\Environment on Windows). Never printed.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs';
@@ -15,6 +17,7 @@ const args = process.argv.slice(2);
 const flag = (n) => args.includes(n);
 const opt = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : null; };
 const redo = flag('--redo');
+const only = opt('--only') ? new Set(opt('--only').split(',').map(s => s.trim()).filter(Boolean)) : null;
 const inFile = flag('--trial') ? join(here, 'trial.json') : opt('--in');
 const outDir = flag('--trial') ? join(root, 'audio', '_trial') : opt('--out');
 if (!inFile || !outDir) { console.error('usage: --trial | --in <json> --out <dir>  [--redo]'); process.exit(2); }
@@ -33,6 +36,7 @@ function getKey() {
 
 const roles = JSON.parse(readFileSync(join(root, 'voices.json'), 'utf8')).roles;
 const lines = JSON.parse(readFileSync(inFile, 'utf8'));
+if (only) { const ids = new Set(lines.map(l => l.id)), unknown = [...only].filter(i => !ids.has(i)); if (unknown.length) { console.error(`--only: not in ${inFile}: ${unknown.join(', ')}`); process.exit(2); } }
 mkdirSync(outDir, { recursive: true });
 const manifestPath = join(outDir, 'manifest.json');
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};
@@ -62,10 +66,11 @@ for (const l of lines) {
   if (!r) { console.error(`unknown role ${l.role}`); counts.failed++; continue; }
   counter[l.role] = (counter[l.role] || 0) + 1;
   const id = l.id || `${l.role}_${String(counter[l.role]).padStart(2, '0')}`;
+  if (only && !only.has(id)) continue;
   const file = join(outDir, `${id}.mp3`);
   const h = hashOf(r, l);
   const prev = manifest[id];
-  if (existsSync(file) && prev) {
+  if (existsSync(file) && prev && !only) {
     if (prev.hash === h) { counts.skipped++; console.log(`skip   ${id}`); continue; }
     if (!redo) { counts.stale++; console.log(`STALE  ${id} (hash changed; use --redo to regenerate)`); continue; }
   }

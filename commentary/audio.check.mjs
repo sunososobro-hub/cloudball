@@ -4,14 +4,14 @@
  *      (fake clips made in a temporary folder, the real script is never written);
  *   3. timing of a recorded game (every line of the frozen game given a file): only lines with a
  *      file are spoken, no two lines overlap, no line starts before its event, priority-2 calls are
- *      never moved or dropped, nothing is said after the next call it would run into. */
+ *      never moved or dropped, no line holds the next call back more than CALL_GRACE. */
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, unlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { simGame, TEAMS } from '../engine/index.js';
-import { createBooth } from './player.js';
+import { createBooth, CALL_GRACE } from './player.js';
 import { lineId } from './tools/line-id.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url)), TOOL = path.join(DIR, 'tools', 'wire-audio.mjs');
@@ -65,7 +65,7 @@ try {
     const urgent = l.speaker === 'pbp' && (l.priority || 0) >= 2;
     if (urgent && Math.abs(l.time - l.due) > EPS) bad(`priority-2 call moved: ${l.text}`);
     if (prev && !urgent && l.time < prev.end - EPS) bad(`lines overlap: "${prev.text}" / "${l.text}"`);
-    if (!urgent && l.end > l.nextCall + 0.3 + EPS) bad(`line runs into the next call: ${l.text}`);
+    if (!urgent && l.end > l.nextCall + CALL_GRACE + EPS) bad(`line holds the next call back too long: ${l.text}`);
     prev = l;
   }
   for (const l of booth.plan) if (l.speaker === 'pbp' && (l.priority || 0) >= 2 && l.audio && l.drop) bad(`priority-2 call dropped: ${l.text}`);

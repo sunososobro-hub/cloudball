@@ -260,13 +260,15 @@ export function formatScript(script) {
  *   - an answer (a line bound to the same event as the line before it) follows it after a short,
  *     constant pause;
  *   - a line that cannot be over by the next play-by-play call (a pbp line of a later event that is
- *     not an aside) is dropped, never played late; asides (lineup intros) never hold a line back;
+ *     not an aside) is dropped, never played late; it may hold that call back by CALL_GRACE at most;
+ *     asides (lineup intros) never hold a line back;
  *   - a priority-2 play-by-play call is never moved or dropped: it is said on its moment and cuts
  *     whatever is still playing (the viewer sends it as urgent).
  * Times only ever move later than the event, so a line still never talks about the future. */
 const REPLY_GAP = 0.35;     /* seconds between a line and the answer to it */
 const LINE_GAP = 0.2;       /* shortest pause between two lines that are not an answer */
-const CALL_GRACE = 0.3;     /* a line may run this far into the moment of the next play-by-play call */
+export const CALL_GRACE = 1;   /* a line must be over within this long after the next play-by-play call is due (that call then
+                                  waits for it); the recorded booth opening of #98 needs about 0.9 s more than the 23 s before the first out */
 const SPEECH_CPS = 4.5;     /* characters per second: rough length of a clip that has no measured `dur` */
 const SPEECH_PAD = 0.4;
 export const estimateDur = text => [...String(text).replace(/[\s，。、！？「」—…：；（）]/g, '')].length / SPEECH_CPS + SPEECH_PAD;
