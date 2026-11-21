@@ -204,7 +204,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
     <p id="introStatus" hidden></p>
     <div class="pick" id="introTeam" hidden><button data-t="0"></button><button data-t="1"></button><button data-t="-1">中立看球</button></div>
     <div class="acts">
-      <button class="go" id="enter" disabled>進場（開聲音）</button>
+      <button class="go" id="enter" disabled>準備球場中…</button>
       <button id="enterHl" disabled>看精華</button>
       <button id="enterMute" disabled>靜音進場</button>
     </div>
@@ -244,6 +244,8 @@ window.COMMENTARY=await import('./commentary/index.js');try{window.COMMENTARY_BA
 /* highlights reel of the frozen game (#118): pure list from the recorded stream; missing file = no 「看精華」 button */
 window.HIGHLIGHTS=await import('./render/highlights.js').catch(e=>{console.warn('highlights failed to load',e);return null});
 await load('render/game.js');
+/* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
+await window.READY;document.getElementById('enter').textContent='進場（開聲音）';
 for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;
 </script>
 </body>
