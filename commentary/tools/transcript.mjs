@@ -31,3 +31,8 @@ export function words(s) {
 }
 
 export const sameWords = (transcript, text) => words(transcript) === words(text);
+
+/* Conversation lines only (#129): the clip may add fillers or bend small words, but every required word
+ * (name, number, score, punchline) must be in it. Returns the required words it does not say ([] = pass).
+ * Every other line keeps sameWords. */
+export const missingWords = (transcript, must) => { const said = words(transcript); return must.filter(w => !said.includes(words(w))); };

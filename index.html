@@ -67,6 +67,7 @@ body.edit #bug,body.edit #feed,body.edit #who,body.edit #gear,body.edit #tag{cur
 .seg{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
 button{font:inherit;font-size:15px;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--glass);color:var(--ink);cursor:pointer;white-space:nowrap}
 button[aria-pressed=true]{background:var(--ink);color:#0a0f1f}
+#gfx,#compat{white-space:normal;line-height:1.25;padding-top:5px;padding-bottom:5px}#gfx small{display:block;font-size:11px;color:var(--muted)}
 button:disabled{opacity:.45;cursor:not-allowed}
 button:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
 #tag{position:fixed;right:max(12px,env(safe-area-inset-right));top:calc(max(12px,env(safe-area-inset-top)) + 54px);font-size:12px;color:var(--muted);text-align:right;max-width:46vw}
@@ -160,8 +161,8 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
     <button id="zone" aria-pressed="true">好球帶</button>
     <button id="hist" aria-pressed="false">戰況紀錄</button>
     <button id="lineup" class="wide">先發名單</button>
-    <button id="gfx">畫質：高</button>
-    <button id="compat" aria-pressed="false">相容模式</button>
+    <button id="gfx" title="卡卡的就選順暢">畫面：精緻<small>卡卡的就選順暢</small></button>
+    <button id="compat" aria-pressed="false">畫面怪怪的？點這裡</button>
     <button id="editUI" class="wide">編輯版面（自己拖面板）</button>
   </div>
   <h4>聲音</h4>
@@ -183,6 +184,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
   <div id="plTrack" role="slider" tabindex="0" aria-label="比賽進度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><div class="rail"><div id="plFill"></div></div><div id="plMarks"></div><div id="plKnob"></div><div id="plTip" hidden></div></div>
   <span id="plTime" class="num">0:00 / 0:00</span>
 </div>
+<div id="hlCard" class="panel" hidden aria-live="polite"><small id="hlStep"></small><b id="hlText"></b><div id="hlEnd" hidden><button id="hlAgain">再看一次精華</button><button id="hlFull">看整場比賽</button></div></div>
 <div id="lu" class="panel" hidden></div>
 <div id="studio" class="panel dev-only" hidden>
   <div class="srow x"><b>🎬 動作片場</b><select id="stAct"></select><button id="stPrev" aria-label="上一個例子">◀</button><span id="stIdx"></span><button id="stNext" aria-label="下一個例子">▶</button></div>
@@ -203,7 +205,8 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
     <p id="introStatus" hidden></p>
     <div class="pick" id="introTeam" hidden><button data-t="0"></button><button data-t="1"></button><button data-t="-1">中立看球</button></div>
     <div class="acts">
-      <button class="go" id="enter" disabled>進場（開聲音）</button>
+      <button class="go" id="enter" disabled>準備球場中…</button>
+      <button id="enterHl" disabled>看精華</button>
       <button id="enterMute" disabled>靜音進場</button>
     </div>
     <small>季前熱身賽，成績不列入正史</small>
@@ -239,8 +242,12 @@ window.ENGINE=await import('./engine/index.js');
 /* The frozen first game: played instead of a live simulation. Missing or broken file: window.OPENING stays null and the page falls back to a live game. */
 window.OPENING=await fetch('league/preseason/opening.json').then(r=>r.ok?r.text():null).then(t=>t?import('./league/recording.js').then(m=>m.parseRecording(t)):null).catch(e=>{console.warn('frozen game failed to load',e);return null});
 window.COMMENTARY=await import('./commentary/index.js');try{window.COMMENTARY_BANK=await window.COMMENTARY.loadBank()}catch(e){console.warn('commentary bank failed to load; the booth stays silent',e);window.COMMENTARY_BANK=null}
+/* highlights reel of the frozen game (#118): pure list from the recorded stream; missing file = no 「看精華」 button */
+window.HIGHLIGHTS=await import('./render/highlights.js').catch(e=>{console.warn('highlights failed to load',e);return null});
 await load('render/game.js');
-for(const id of ['enter','enterMute'])document.getElementById(id).disabled=false;
+/* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
+await window.READY;document.getElementById('enter').textContent='進場（開聲音）';
+for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;
 </script>
 </body>
 </html>

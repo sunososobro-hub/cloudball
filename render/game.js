@@ -282,13 +282,13 @@ function setupPost(){try{const {pass,mrt,output,normalView,screenUV,length,smoot
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
-  pp.outputColorTransform=false;pp.outputNode=FX.fxaa(renderOutput(c));return pp}catch(e){console.error('post',e);return null}}
+  pp.outputColorTransform=false;pp.outputNode=FX.fxaa(renderOutput(c));pp.scenePass=sp;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
 PP=gfxLow?null:setupPost();
-$('gfx').textContent=gfxLow?'畫質：低':'畫質：高';
-$('gfx').onclick=()=>{gfxLow=!gfxLow;try{localStorage.setItem('zu_gfx',gfxLow?'low':'high')}catch(e){}PP=gfxLow?null:(PP||setupPost());if(typeof setTier==='function'){setTier(gfxLow?2:(IS_MOBILE?1:0));tierT0=performance.now()}$('gfx').textContent=gfxLow?'畫質：低':'畫質：高';note(gfxLow?'畫質低：關掉後製，比較順':'畫質高：開後製光影')};
-{const on=(()=>{try{return localStorage.getItem('zu_gl')==='1'}catch(e){return false}})();$('compat').setAttribute('aria-pressed',on);
- $('compat').onclick=()=>{try{localStorage.setItem('zu_gl',on?'0':'1')}catch(e){}note(on?'關閉相容模式，重新載入…':'改用相容模式（WebGL），重新載入…');setTimeout(()=>location.reload(),800)}}
+const gfxText=()=>{$('gfx').innerHTML=(gfxLow?'畫面：順暢':'畫面：精緻')+'<small>卡卡的就選順暢</small>'};gfxText();
+$('gfx').onclick=()=>{gfxLow=!gfxLow;try{localStorage.setItem('zu_gfx',gfxLow?'low':'high')}catch(e){}PP=gfxLow?null:(PP||setupPost());if(typeof setTier==='function'){setTier(gfxLow?2:(IS_MOBILE?1:0));tierT0=performance.now()}gfxText();note(gfxLow?'畫面順暢：簡化光影，比較不卡':'畫面精緻：開啟完整光影')};
+{const on=(()=>{try{return localStorage.getItem('zu_gl')==='1'}catch(e){return false}})();$('compat').setAttribute('aria-pressed',on);$('compat').textContent=on?'已切換相容畫面（點一下換回來）':'畫面怪怪的？點這裡';
+ $('compat').onclick=()=>{try{localStorage.setItem('zu_gl',on?'0':'1')}catch(e){}note(on?'換回一般畫面，重新載入…':'改用相容畫面，重新載入…');setTimeout(()=>location.reload(),800)}}
 /* ---------- Team logos: the owner's own team marks, assets/logos/<team id>_<px>.webp (see assets/SOURCES.md), found by team id.
    Replacing a logo is replacing its file (assets/tools/make_logos.py). A team without a file shows no logo, nothing breaks ---------- */
 const LOGO_DIR='assets/logos/',LOGO_PX=128,logoSrc=id=>`${LOGO_DIR}${id}_${LOGO_PX}.webp`;
@@ -626,6 +626,7 @@ function catcherThrow(e,u,S,sp){const C=fielders.C,catchAt=ARRIVE+CATCH_SNAP,xfe
   if(back>0){aimWorld(CR,CR.a0,-BAT_SHOULDER_X,0,MITT_REST_Y,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,0,MITT_REST_Y-.15,MITT_Z+.2)}
   else if(u-S.t0<THROW_FT_DUR)throwPose(C,tt,xfer,tgt);
   return r}
+const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 function poseScene(e,u,dt,ei){
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
   matDef.color.setHex(TEAMS[defT].color);matOff.color.setHex(TEAMS[off].color);
@@ -664,7 +665,7 @@ function poseScene(e,u,dt,ei){
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
   else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
-    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<3.4){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<4.3){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-3.4)/.9)}}
+    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
@@ -872,6 +873,9 @@ let talkDuck=1;/* crowd bed multiplier, CROWD_DUCK while somebody in the booth t
 const VOICE=window.COMMENTARY.createVoice({onTalk:talk=>{talkDuck=talk?window.COMMENTARY.CROWD_DUCK:1}}),WHO=['pbp','color'];
 let sayOn=false,booth=null,boothFor=null,hello=null;
 function say(who,text,urgent){if(sayOn)VOICE.say(WHO[who]||who,text,{urgent:!!urgent})}
+/* #133: one fetch per script, shared by the booth, the compact clock and the highlights, and started behind the entry card (createBooth copies the lines, so sharing the parsed script is safe) */
+const scriptP=new Map(),loadScript=seed=>{if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
+if(window.OPENING)loadScript(window.OPENING.seed).catch(()=>{});/* fetched while the park compiles, not after the click */
 function makeBooth(script){const g=game;return window.COMMENTARY.createBooth({stream:g.stream,seed:g.seed,bank:window.COMMENTARY_BANK,script,teams:g.teams.map(i=>TEAMS[i]),describe:x=>g.ev[x.f].desc})}
 function showAiTag(){const v=!(sayOn&&booth&&booth.recorded);if(aiTag.hidden!==v)aiTag.hidden=v}
 /* lines: [[who,text],...] said by the browser voice only if this game turns out to have no recorded voice */
@@ -879,7 +883,7 @@ function sayHello(lines){if(boothFor===game&&booth){if(!booth.recorded)for(const
 function setBooth(b,T0){booth=b;VOICE.setRecorded(b.recorded);b.due(T0-BOOTH_PRIME);showAiTag();
   const h=hello;hello=null;if(h&&!b.recorded)for(const [w,t] of h)say(w,t)}
 function commentary(T){if(!sayOn||!window.COMMENTARY_BANK)return;
-  if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);window.COMMENTARY.loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)})}
+  if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)})}
   if(!booth)return;showAiTag();
   for(const l of booth.due(T,{fast:mode!=='live'&&speed>1}))if(seekGame!==game||l.at>=seekFloor)VOICE.say(l.speaker,l.text,{urgent:l.priority>=2&&l.speaker==='pbp',audio:l.audio,cast:l.cast,aside:l.aside})}
 const sayBtn=$('say');
@@ -930,7 +934,12 @@ $('land').onclick=goLandscape;
 addEventListener('orientationchange',()=>setTimeout(()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);bugPlace()},300));
 /* Collapse the studio panel: keep only play and the timeline so it covers less of the view (stored in zu_stFold) */
 {let fold=false;try{fold=localStorage.getItem('zu_stFold')==='1'}catch(e){}const setFold=v=>{fold=v;$('studio').classList.toggle('fold',v);$('stFold').textContent=v?'▴':'▾';try{localStorage.setItem('zu_stFold',v?'1':'0')}catch(e){}};setFold(fold);$('stFold').onclick=()=>setFold(!fold)}
-$('report').onclick=async()=>{const code=`#BUG fps=${fpsAvg.toFixed(0)} tier=${gfxTier} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
+/* #133 entry log: what happened in the first seconds after the click (ms from the click), carried in the report code so a cold visit on a real
+   machine can be read back: f1 first drawn frame, gap longest stretch without a drawn frame in the first ENTRY_WATCH_MS, tA>B a quality drop (r = shaders rebuilt), wN warm-up ms */
+const ENTRY_WATCH_MS=15000;let entryT0=0,entryDraw=0,entryGap=0;const entryLog=[];
+const entryNote=x=>{if(entryT0&&entryLog.length<12)entryLog.push(`${x}@${Math.round(performance.now()-entryT0)}`)};
+function entryFrame(now){if(!entryT0||now-entryT0>ENTRY_WATCH_MS)return;if(!entryDraw)entryNote('f1');else entryGap=Math.max(entryGap,now-entryDraw);entryDraw=now}
+$('report').onclick=async()=>{const code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} fps=${fpsAvg.toFixed(0)} tier=${gfxTier} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
   try{await navigator.clipboard.writeText(code);note('已複製，貼給 Claude 就能重現這一刻')}catch(err){prompt('複製這行貼給 Claude：',code)}};
 const luEl=$('lu');
 function showLineup(){let h='<div class="cols">';for(let t=0;t<2;t++){const R=ROSTERS[t],f=game.ev.find(x=>x.k==='P'&&x.pit&&x.pit[0]===t),sp=f?R.pit[f.pit[1]]:R.pit[0];
@@ -953,7 +962,7 @@ const LIVE_ENABLED=false;
 function startPractice(){stopTalk();mode='practice';gameStart=Date.now();seedCur=(Math.random()*4294967296)>>>0;decisions={};myVotes={};resolving.clear();regen();lastIdx=-1;cues.clear();replayT=0;voteKey='';subscribeGame();
   $('seedTag').textContent=`開發版・種子 #${seedCur.toString(16)}`;$('spd').hidden=false;if(LIVE_ENABLED)$('mode').hidden=false;$('mode').textContent='回到直播'}
 /* The frozen first game (league/preseason/opening.json, loaded by index.html): the recorded stream is played from the top, nothing is simulated. */
-function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();
+function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();cpLoad(game);
   $('seedTag').textContent=`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
 $('practice').onclick=()=>{startPractice();note('新的一場：兩隊都由你調度，暫停時速度會自動回到 1×')};
 $('spd').onclick=e=>{speed=speed===1?4:speed===4?16:1;e.currentTarget.textContent=speed+'×'};
@@ -969,19 +978,20 @@ const halfTag=e=>e.k==='PRE'?'賽前':e.k==='END'?'終':`${e.s0.half?'▼':'▲'
 /* starts of every play (plus 0, the pregame) and one mark at the first pitch of each half inning */
 function plBuild(){plFor=game;plStarts=[0];const marks=[];let k='';
   for(const e of game.ev){if(e.k!=='P')continue;plStarts.push(e.t);const h=e.s0.inn+'|'+e.s0.half;if(h!==k){k=h;marks.push(e)}}
-  $('plMarks').innerHTML=marks.map(e=>`<i class="${e.s0.half?'bot':'top'}" style="left:${(e.t/game.dur*100).toFixed(3)}%"${e.s0.half?'':` data-inn="${e.s0.inn}"`}></i>`).join('');
-  plTrack.setAttribute('aria-valuemax',Math.round(game.dur));$('plTime').style.minWidth=`${2*fmtClock(game.dur).length+3}ch`/* the track must not change width as the clock grows */}
+  $('plMarks').innerHTML=marks.map(e=>`<i class="${e.s0.half?'bot':'top'}" style="left:${(cpView(e.t)/cpDur()*100).toFixed(3)}%"${e.s0.half?'':` data-inn="${e.s0.inn}"`}></i>`).join('');
+  plTrack.setAttribute('aria-valuemax',Math.round(cpDur()));$('plTime').style.minWidth=`${2*fmtClock(cpDur()).length+3}ch`/* the track must not change width as the clock grows */}
 function plNear(T){const a=plStarts;let lo=0,hi=a.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(a[m]<=T)lo=m;else hi=m-1}return lo<a.length-1&&a[lo+1]-T<T-a[lo]?lo+1:lo}
 const plSnap=T=>plStarts[plNear(clamp(T,0,game.dur))];
-function seekTo(T){const from=replayT,t=plSnap(T);replayT=t;plFresh=true;lastIdx=-1;cues.clear();bugKey=hudKey=feedKey='';
-  VOICE.stop();hello=null;const ei=findIdx(t),st=game.stream||[];let j=0;while(j<st.length&&st[j].f<ei)j++;seekFloor=j;seekGame=game;
+/* floorEv (highlights, #118): land exactly on T, not on a play start, and say only lines bound to event floorEv or later */
+function seekTo(T,floorEv){const from=replayT,t=floorEv==null?plSnap(T):clamp(T,0,game.dur);replayT=t;plFresh=true;lastIdx=-1;cues.clear();bugKey=hudKey=feedKey='';
+  VOICE.stop();hello=null;const ei=floorEv==null?findIdx(t):floorEv,st=game.stream||[];let j=0;while(j<st.length&&st[j].f<ei)j++;seekFloor=j;seekGame=game;
   if(booth&&boothFor===game)booth.due(t-SEEK_EPS);
   dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from,to:t}}))}
 function plSetPaused(v){paused=v;if(v)VOICE.stop();plLast=''}
-function plReset(){paused=scrubbing=false;seekFloor=0;seekGame=null;plFor=null;plLast=''}
-const plAt=x=>{const r=plTrack.getBoundingClientRect();return clamp((x-r.left)/Math.max(1,r.width),0,1)*game.dur};
-function plShowTip(t){const e=game.ev[findIdx(t)];plTip.textContent=`${halfTag(e)}・${fmtClock(t)}`;plTip.style.left=(t/game.dur*100)+'%';plTip.hidden=false}
-plPlay.onclick=()=>{if(mode!=='opening')return;if(replayT>=game.dur){seekTo(0);plSetPaused(false)}else plSetPaused(!paused)};
+function plReset(){paused=scrubbing=false;seekFloor=0;seekGame=null;plFor=null;plLast='';hlStop()}
+const plAt=x=>{const r=plTrack.getBoundingClientRect();return cpGame(clamp((x-r.left)/Math.max(1,r.width),0,1)*cpDur())};
+function plShowTip(t){const e=game.ev[findIdx(t)];plTip.textContent=`${halfTag(e)}・${fmtClock(cpView(t))}`;plTip.style.left=(cpView(t)/cpDur()*100)+'%';plTip.hidden=false}
+plPlay.onclick=()=>{if(mode!=='opening'||hl&&(hl.done||!hl.segs))return;if(replayT>=game.dur){seekTo(0);plSetPaused(false)}else plSetPaused(!paused)};
 plTrack.addEventListener('pointerdown',ev=>{if(mode!=='opening'||ev.button>0)return;ev.preventDefault();plTrack.setPointerCapture(ev.pointerId);scrubbing=true;plEl.classList.add('drag');VOICE.stop();dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from:replayT,to:null,drag:true}}));
   replayT=plSnap(plAt(ev.clientX));plShowTip(replayT)});
 plTrack.addEventListener('pointermove',ev=>{if(mode!=='opening')return;if(scrubbing)replayT=plSnap(plAt(ev.clientX));plShowTip(scrubbing?replayT:plSnap(plAt(ev.clientX)))});
@@ -992,10 +1002,76 @@ plTrack.addEventListener('keydown',ev=>{if(mode!=='opening')return;const i=plNea
   if(go===undefined)return;ev.preventDefault();seekTo(plStarts[clamp(go,0,plStarts.length-1)])});
 addEventListener('keydown',ev=>{if(mode!=='opening'||ev.key!==' '||!$('intro').hidden||ev.target.closest('button,input,select,textarea,[role=slider]'))return;ev.preventDefault();plPlay.click()});
 /* per frame: show the bar in the frozen game only, move the fill / handle, labels only when they change */
-function plUpdate(){const vis=mode==='opening'&&$('intro').hidden;if(plEl.hidden===vis){plEl.hidden=!vis;bugPlace()}if(!vis)return;if(plFor!==game)plBuild();
-  const t=clamp(replayT,0,game.dur),end=t>=game.dur,k=[Math.floor(t),paused,end].join('|');plEl.style.setProperty('--p',(t/game.dur).toFixed(5));
-  if(k===plLast)return;plLast=k;$('plTime').textContent=`${fmtClock(t)} / ${fmtClock(game.dur)}`;plTrack.setAttribute('aria-valuenow',Math.floor(t));plTrack.setAttribute('aria-valuetext',`${halfTag(game.ev[findIdx(t)])} ${fmtClock(t)}`);
+function plUpdate(){const vis=mode==='opening'&&!hl&&$('intro').hidden;/* the highlights reel has no bar: it is its own showing */if(plEl.hidden===vis){plEl.hidden=!vis;bugPlace()}if(!vis)return;if(plFor!==game)plBuild();
+  const t=clamp(replayT,0,game.dur),end=t>=game.dur,v=cpView(t),vd=cpDur(),k=[Math.floor(v),paused,end].join('|');plEl.style.setProperty('--p',(v/vd).toFixed(5));
+  if(k===plLast)return;plLast=k;$('plTime').textContent=`${fmtClock(v)} / ${fmtClock(vd)}`;plTrack.setAttribute('aria-valuenow',Math.floor(v));plTrack.setAttribute('aria-valuetext',`${halfTag(game.ev[findIdx(t)])} ${fmtClock(v)}`);
   const stop=paused||end;plPlay.textContent=stop?'▶':'❚❚';plPlay.setAttribute('aria-label',end?'從頭看':stop?'播放':'暫停')}
+/* ---------- compact showing (#126): the recorded game without its dead air. render/compact.js (pure) shortens every stretch where
+ * nothing on the field moves and the booth is quiet to a named minimum; this part says when the figures of each event stop moving
+ * (cpEvents) and carries the clock across the cuts. replayT stays game time everywhere (poses, booth, highlights, seeks, 'cloudball:seek');
+ * only the bar shows view time (cpView / cpGame / cpDur). A seek that lands inside a cut plays it in real time (the highlights lead).
+ * On by default; on the dev site the 「緊湊／原速」 button in the settings bar (zu_realTime) or ?rt=1 shows real time for review. */
+const PK_END=Math.max(...Object.values(PK).map(K=>K[K.length-1][0]));
+/* a pitch not put in play is still from here on: delivery and walk back to the rubber, return throw, strike call, bat to the shoulder,
+   runners back from their lead, mitt back to rest */
+const PITCH_STILL=Math.max(PK_END,BALL_BACK_AT+BALL_BACK_DUR,ARRIVE+CALL_HOLD+CALL_DOWN,ARRIVE+BAT_REST_AT+BAT_REST_DUR,
+  ARRIVE+window.ENGINE.LEAD_BACK_AT+window.ENGINE.LEAD_BACK_DUR,ARRIVE+CATCH_SNAP+MITT_HOLD+MITT_BACK);
+const CP_RUNNER_SETTLE=.6+SLIDE_HOLD+SLIDE_UP,CP_PEEL_STEP=.05,CP_PEEL_MAX=30;/* after a runner arrives (vanish / get up from a slide); peel search step and cap */
+const cpHere=document.currentScript&&document.currentScript.src;
+const COMPACT=import(new URL('compact.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).catch(err=>{console.warn('compact showing off',err);return null});
+function peelLen(team,tl){for(let t=0;t<CP_PEEL_MAX;t+=CP_PEEL_STEP)if(!peelAt(team,tl,t))return t;return CP_PEEL_MAX}
+const jogEnd=(from,t0)=>t0+Math.max(...FIELDER_KEYS.map(k=>jogRank(k)*JOG_GAP+Math.hypot(fielders[k].home[0]-from[0],fielders[k].home[1]-from[1])/JOG_SPEED));
+/* [{t, d, head, tail, kind}] for render/compact.js: nothing moves in [0, head) and [tail, d) of each event (event-local s). A ball in play,
+   a steal and a hit batsman are never cut (their motion depends on the whole plan). Scorers of earlier plays still peeling off to their
+   dugout (drawn until PEEL_LOOK s after their play) keep any event they cross moving. */
+function cpEvents(g){const ev=g.ev;
+  return ev.map((e,i)=>{const off=e.s0?e.s0.half:0;let pe=0,head=0,tail=e.d;
+    for(let j=i-1;j>=0&&e.t-ev[j].t<PEEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
+      for(const [,to,,tl] of q.moves||[])if(to===4)pe=Math.max(pe,Math.min(q.t+PEEL_LOOK,q.t+tl.arriveT+peelLen(off,tl))-e.t)}
+    if(e.k==='VOTE'||e.k==='CHG'){head=e.d;tail=0}
+    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=jogEnd(dugout(off),BRK_ON_AT)}
+    else if(e.k==='PRE')tail=jogEnd([dugout(1-off)[0],INTRO_Z],0);
+    else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
+      if(e.pa&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+Math.hypot(BAT_AWAY[0]-BAT_BOX[0],BAT_AWAY[1]-BAT_BOX[1])/BAT_AWAY_SPEED);/* strikeout: he walks off */
+      for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE))}/* walk: runners trot on */
+    if(pe>0){head=0;tail=Math.max(tail,pe)}
+    return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch'}})}
+let cpClock=null,cpFor=null,cpReal=false;
+try{cpReal=!!(window.SITE&&window.SITE.dev)&&(localStorage.getItem('zu_realTime')==='1'||new URLSearchParams(location.search).get('rt')==='1')}catch(e){}
+/* the cuts need the booth's line times, so they are known once the script has loaded (a second or so; real time until then) */
+function cpLoad(g){cpFor=g;cpClock=null;plFor=null;
+  Promise.all([COMPACT,loadScript(g.seed).catch(()=>null)]).then(([C,sc])=>{if(!C||cpFor!==g||game!==g)return;let ls=[];try{ls=makeBooth(sc).lines}catch(err){console.warn('compact: no booth lines',err)}
+    cpClock=C.compactClock(C.compactCuts(cpEvents(g),ls),g.dur);plFor=null;plLast=''})}
+const cpOn=()=>mode==='opening'&&!!cpClock&&cpFor===game&&!cpReal;
+const cpView=T=>cpOn()?cpClock.toView(T):T,cpGame=v=>cpOn()?cpClock.toGame(v):v,cpDur=()=>cpOn()?cpClock.dur:game.dur;
+if(window.SITE&&window.SITE.dev){const b=document.createElement('button');b.id='realTime';b.className='dev-only';b.title='重播的時間軸：緊湊（剪掉沒人動、沒人講話的空檔）或原速';
+  const lab=()=>{b.textContent=cpReal?'原速重播':'緊湊重播';b.setAttribute('aria-pressed',String(!cpReal))};lab();
+  b.onclick=()=>{cpReal=!cpReal;try{localStorage.setItem('zu_realTime',cpReal?'1':'0')}catch(e){}lab();plFor=null;plLast='';note(cpReal?'原速：照比賽的真實時間播':'緊湊：剪掉沒人動、沒人講話的空檔')};$('spd').after(b)}
+/* ---------- highlights showing (#118): the scoring plays and the last out of the frozen game, back to back, with the bar's seek.
+ * The list comes from render/highlights.js (window.HIGHLIGHTS, pure, from the recorded stream and the booth's lines). In: the
+ * 「看精華」 button of the entry screen or ?hl=1. A short card (inning and score before the play) after every jump; after the last
+ * segment the final score, and the reel stops. Every jump is a seekTo, so it fires 'cloudball:seek' like the bar. */
+const HL_CARD_S=3.2;/* s the card stays up after a jump (real time) */
+let hl=null;/* {segs, i, done, cardT}; segs is null while the booth's lines load */
+const hlCard=$('hlCard');
+const hlScore=sc=>`${TEAMS[0].short} ${sc[0]}：${sc[1]} ${TEAMS[1].short}`;
+function hlShow(step,text,end){$('hlStep').textContent=step;$('hlText').textContent=text;$('hlEnd').hidden=!end;hlCard.classList.toggle('end',!!end);
+  hlCard.hidden=false;hlCard.classList.remove('off');hl.cardT=end?Infinity:performance.now()+HL_CARD_S*1000}
+function hlStop(){hl=null;if(hlCard){hlCard.hidden=true;hlCard.classList.remove('end')}}
+function hlGo(){const s=hl.segs[hl.i],e=game.ev[s.first];if(Math.abs(replayT-s.start)>SEEK_EPS)seekTo(s.start,s.first);
+  hlShow(`精華 ${hl.i+1}／${hl.segs.length}`,`${e.s0.inn} 局${e.s0.half?'下':'上'}・${hlScore(e.s0.sc)}`)}
+function startHighlights(){const H=window.HIGHLIGHTS,g=game;if(mode!=='opening'||!H)return;hlStop();
+  const first=H.highlightSegments(g,[])[0];if(!first)return;/* the starts do not depend on the booth: jump now, play once the ends are known */
+  hl={segs:null,i:0,done:false,cardT:0};paused=true;seekTo(first.start,first.first);hlShow('精華','準備中…');
+  const go=lines=>{if(!hl||hl.segs||game!==g)return;hl.segs=H.highlightSegments(g,lines);paused=false;hlGo()};
+  loadScript(g.seed).then(sc=>{let ls=[];try{ls=makeBooth(sc).lines}catch(err){console.warn('highlights: no booth lines, fixed tails',err)}go(ls)},()=>go([]))}
+function hlTick(){if(!hl)return;if(mode!=='opening'){hlStop();return}
+  if(performance.now()>hl.cardT)hlCard.classList.add('off');
+  if(!hl.segs||hl.done||paused||replayT<hl.segs[hl.i].end)return;
+  if(hl.i+1<hl.segs.length){hl.i++;hlGo();return}
+  hl.done=true;plSetPaused(true);const fin=game.ev[game.ev.length-1];hlShow('終場',hlScore(fin.s0.sc),true)}
+$('hlAgain').onclick=()=>startHighlights();
+$('hlFull').onclick=()=>{hlStop();seekTo(0);plSetPaused(false)};
 function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart+CYCLE*1000;
   if(mode==='studio')return{cls:'',txt:'動作片場',sub:studio?`${studio.e.desc||''}・${studio.spd}×`:''};
   if(mode==='opening')return{cls:'',txt:'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
@@ -1003,8 +1079,13 @@ function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart
   if(mode==='replay')return{cls:'',txt:`重播中（${fmtT(gameStart)} 場）`,sub:`${speed}× 速度・不影響直播`};
   if(T<game.dur)return{cls:'live',txt:'直播中',sub:`${fmtT(gameStart)} 開打・下一場 ${fmtT(next)}`};
   const left=Math.max(0,Math.floor((next-now)/1000));return{cls:'',txt:`下一場 ${fmtT(next)} 開打`,sub:`倒數 ${Math.floor(left/60)} 分 ${left%60} 秒・可按「看重播」回顧上一場`}}
-const enter=snd=>{$('intro').hidden=true;if(!LIVE_ENABLED){if(window.OPENING)startOpening();else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');sayHello([[0,'歡迎來到雲端職棒'],[1,'今晚一起來看球']])}}};
-$('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);
+const enter=(snd,hlWant)=>{$('intro').hidden=true;entryT0=performance.now();entryDraw=entryGap=0;entryLog.length=0;fpsAcc=fpsN=0;tierT0=performance.now();/* #133: frames drawn under the blurred entry card are not the game's frame rate */if(!LIVE_ENABLED){if(window.OPENING){startOpening();if(hlWant)startHighlights()}else startPractice()}if(snd){startAudio();if(ac){ac.resume();sndBtn.setAttribute('aria-pressed','true')}if(VOICE.available){sayOn=true;sayBtn.setAttribute('aria-pressed','true');sayHello([[0,'歡迎來到雲端職棒'],[1,'今晚一起來看球']])}}};
+$('enter').onclick=()=>enter(true);$('enterMute').onclick=()=>enter(false);$('enterHl').onclick=()=>enter(true,true);
+$('enterHl').hidden=!(window.OPENING&&window.HIGHLIGHTS);
+/* ?hl=1 (#118): straight into the highlights, for a link in a post. Without a click the browser keeps the sound off: the first tap turns it on. */
+if(window.OPENING&&window.HIGHLIGHTS&&new URLSearchParams(location.search).get('hl')==='1')window.READY.then(()=>{enter(true,true);
+  const unlock=()=>{removeEventListener('pointerdown',unlock,true);removeEventListener('keydown',unlock,true);if(ac&&ac.state!=='running')ac.resume()};
+  addEventListener('pointerdown',unlock,true);addEventListener('keydown',unlock,true);setTimeout(()=>{if(!ac||ac.state!=='running')note('點一下畫面開聲音')},HL_CARD_S*1000)});
 
 
 /* ---------- Action studio: pick one kind of action, find examples in a fixed seed bank, loop it on its own ---------- */
@@ -1082,14 +1163,50 @@ addEventListener('keydown',e=>{if(!studio||e.target.tagName==='SELECT')return;if
 const IS_MOBILE=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches,FPS_WIN=90,FPS_BUDGET_MS=19,FPS_WARMUP_MS=4000,TIER_MAX=3;
 let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{const t=+localStorage.getItem('zu_tier');if(t>gfxTier&&t<=TIER_MAX)gfxTier=t}catch(e){}
 const blobShadows=[...Object.values(fielders),batter,ump,...runners].map(f=>{const m=new THREE.Mesh(GEO.shadow,shadowMat);m.rotation.x=-Math.PI/2;m.position.y=.02;m.scale.setScalar(.8);m.visible=false;f.g.add(m);return m});
-function setTier(n){gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
+function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
   renderer.setPixelRatio(Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
-  key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);if(key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
+  key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);/* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
   PP=gfxTier>=2||gfxLow?null:(PP||setupPost());
   const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;blobShadows.forEach(m=>m.visible=!sh);
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
-  scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}})}
+  /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
+     rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
+  const sig=`${sh}|${!!PP}`;entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
+  if(!first&&key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
+  scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
+  if(warmStarted)warmUp()}/* a drop in play rebuilds every material: compile it off the frame instead of freezing the tab (#125) */
+let tierSig=null;
 let envOn=true;
+/* ---------- cold start (#125) ----------
+   On a first visit the first frame built and compiled every material in one go: a frozen tab for seconds, right when the visitor presses enter.
+   Now the loop runs without drawing while compileAsync builds the whole park (it yields between objects; frustum culling is off for that call so
+   what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
+   then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
+const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk;window.READY=new Promise(ok=>readyOk=ok);setTimeout(()=>readyOk(),READY_MAX_MS);
+/* #133 progress bar: from the start of a warm-up (behind the entry card, or a quality drop in play) until the frames after it are drawn.
+   Real progress only: objects compiled / objects to compile (compileAsync's onProgress), then the WARM_BAR_FRAME_SHARE for the frames that
+   compile the shadow and post passes. It shows only once the wait passes WARM_BAR_DELAY_MS, so a warm visit does not flash it. */
+const WARM_BAR_DELAY_MS=700,WARM_BAR_FRAME_SHARE=.15,WARM_FRAMES=READY_FRAMES;let warmT0=0,warmLoaded=0,warmTotal=0,warmFramesLeft=0;
+const wbar=document.createElement('div');wbar.id='warmBar';wbar.hidden=true;wbar.setAttribute('role','progressbar');wbar.setAttribute('aria-valuemin','0');wbar.setAttribute('aria-valuemax','100');wbar.setAttribute('aria-label','球場準備中');
+wbar.style.cssText='position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none';
+wbar.innerHTML='<div style="height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden"><i style="display:block;height:100%;width:0;background:#f2c230;transition:width .2s linear"></i></div><p style="margin:8px 0 0;font-size:14px;color:#cfd8e8;text-shadow:0 1px 3px rgba(0,0,0,.6)">球場準備中…</p>';
+document.body.appendChild(wbar);const wbarFill=wbar.querySelector('i');
+function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wbar.hidden)wbar.hidden=true;return}
+  if(now-warmT0<WARM_BAR_DELAY_MS)return;
+  const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,pc=Math.round(100*f);
+  wbarFill.style.width=pc+'%';wbar.setAttribute('aria-valuenow',String(pc));if(wbar.hidden)wbar.hidden=false}
+async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();warmT0=w0;warmLoaded=warmTotal=0;warmFramesLeft=WARM_FRAMES;
+  const prog=ev=>{if(run!==warmRun)return;warmLoaded=ev.loaded;warmTotal=ev.total;warmBarTick(performance.now())};
+  scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
+  /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one */
+  const sp=PP&&PP.scenePass;let p=null;
+  /* the post path does what PassNode.compileAsync does (its target and MRT around the compile), so the progress callback can be passed */
+  try{if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;const rt=renderer.getRenderTarget(),mrt=renderer.getMRT();
+      renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT());p=renderer.compileAsync(sp.scene,sp.camera,null,prog).finally(()=>{renderer.setRenderTarget(rt);renderer.setMRT(mrt)})}
+    else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera,null,prog)}
+  catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true}
+  try{await p}catch(e){console.warn('warm-up failed',e)}
+  if(run!==warmRun)return;warming=false;entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
   if(performance.now()-tierT0>FPS_WARMUP_MS&&$('intro').hidden&&!document.hidden&&avg>FPS_BUDGET_MS&&gfxTier<TIER_MAX){setTier(gfxTier+1);tierT0=performance.now();note(`有點卡，自動降畫質（${gfxTier}/${TIER_MAX}）`)}}
 setTier(gfxTier);
@@ -1097,10 +1214,11 @@ setTier(gfxTier);
 /* ---------- loop ---------- */
 applyLayout();let lastNow=performance.now(),stKey='',outFixed=null,introVis=null;prewarmBodies();
 renderer.setAnimationLoop(()=>{
-  const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;fpsTick(dtMs);
+  const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
   if(mode==='studio')studioTick(dt);
-  else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed))}
+  else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));const prev=replayT;replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed));if(cpOn())replayT=cpClock.step(prev,replayT)}
+  hlTick();
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
   curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
@@ -1114,7 +1232,10 @@ renderer.setAnimationLoop(()=>{
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
   updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(envOn){updateBugs(now/1000);updateBlades()}
-  if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);
+  warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
+  if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
+  if(readyN<READY_FRAMES&&++readyN===READY_FRAMES)readyOk();
 });
+warmUp();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 }

@@ -3,18 +3,18 @@
 ## Done
 - Tools: `tools/studio_shot.py` (contact sheets; `npm i three@0.186.1`, THREE_DIR; one run at a time), `tools/studio_probe.py`.
 - #5 bunt/steal/tag/pitcher cover, 1B waits off the bag (`rtF`, PR #48); #36 acts `tag3`, `sf23` (PR #51); #33 (PRs #62, #63): seated crowd, cheer bodies, seat width .55 m, outfield bleachers r 111.5, fov cap (`fitFov`), `CROWD_DENSITY`.
-- #43 HBP (PR #49: `hbpSpot`, `hbpReact`, `hbpBall`, act `hbp`); plate pose (PR #69: C_HIGH_*, BAT_REST, act `hiball`).
-- #47 player bar (feat/47-bar, mode `opening` only): `seekTo` snaps to a play start, `seekFloor` drops lines bound before the jump,
-  `paused`/`scrubbing` stop time and booth; markup in index.html, `ui/player.css`; fires `cloudball:seek` (stats side: #117).
-- #43 item 4 overlaps at the plate (fix/43-overlap): scorers peel off to their dugout (`peelAt`, also drawn in later events), C and plate ump stand after contact and re-crouch before the play ends, ump steps aside (`placeUmp`), walk arc in front. Act `homeplay`.
-- #101 (fix/101): recorded game = no browser voice (`sayHello` waits for the script, `setBooth` -> `VOICE.setRecorded`), crowd `talkDuck`, "AI 語音" tag; #70 (fix/70): `cast`/`aside` passed to `VOICE.say`.
+- #47 player bar (feat/47-bar, mode `opening` only): `seekTo` snaps to a play start, `seekFloor` drops lines bound before the jump, `paused`/`scrubbing` stop time and booth; markup in index.html, `ui/player.css`; fires `cloudball:seek` (stats side: #117).
+- #43 HBP (PR #49, act `hbp`); plate pose (PR #69, act `hiball`); item 4 overlaps at the plate (fix/43-overlap): scorers peel off to their dugout (`peelAt`, also drawn in later events), C and plate ump stand after contact and re-crouch before the play ends, ump steps aside (`placeUmp`), walk arc in front. Act `homeplay`.
+- #101: recorded game = no browser voice (`sayHello` waits for the script, `setBooth` -> `VOICE.setRecorded`), crowd `talkDuck`, "AI 語音" tag; #70: `cast`/`aside` to `VOICE.say`. #125 (fix/125): cold start. `warmUp()` compiles the park (compileAsync, post scene pass, frustum off) with the loop not drawing (`warming`); `window.READY` after `READY_FRAMES` drawn -> index.html wakes the buttons (「準備球場中…」 before). Tier changes warm too. Probe: `tools/enter_probe.py`.
+- #126 compact showing (feat/126): `render/compact.js` (pure cuts + clock, CP_* gaps), `cpEvents` in game.js says when each event stops moving (`PITCH_STILL`, walk-off, walks, BRK/PRE jogs, peelers); loop `cpClock.step`, bar in view time (`cpView`/`cpGame`/`cpDur`). Dev: 「緊湊／原速」 button, `?rt=1`. Seed 704: 100.7 -> 74.5 min. Probe: `tools/compact_probe.py`.
+- #118 highlights (feat/118): `render/highlights.js` (pure list, HL_* constants, window.HIGHLIGHTS), `startHighlights`/`hlTick` in game.js, `seekTo(T, floorEv)` lands exactly; 「看精華」 + `?hl=1`; seed 704 = 10 segments, 5:14. #133 half (fix/133): probe counts compiles/fetches after the click (0 left); a drop that keeps shadows and post (0->1) rebuilds nothing (`tierSig`); fps window restarts on enter; one early `loadScript` per seed; report code `entry=` (f1, gap, tA>B, r = rebuilt, wN = warm-up ms). Bar `#warmBar` (built in game.js, no index.html lines): every warm-up, compileAsync onProgress + WARM_FRAMES share, after WARM_BAR_DELAY_MS.
 
 ## Next
-- #43 items 2, 3, 5 (HBP thud: `wip/43-hbp-pickup`), #42, #105 (tools), then #57/#73. 21:00 showing is not render's.
+- #133 rest (pick up here): bar look never seen on screen (headless blocks paint in frames); read an owner `entry=` code from a cold real visit; if an `r` drop (1->2 post off, 2->3 shadows off) lands in the first seconds, settle the tier behind the poster or skip tiers in one rebuild. Then #132 items 1-2, #121 (curve on the bar: place it with `cpView`), #123 (mitt pop), #124 (strike calls); then #43 items 2, 3, 5 (`wip/43-hbp-pickup`), #42, #105, #57/#73.
 
 ## Traps
-- Batter-local frame: +z faces the plate, +x faces the pitcher. World: pitcher at -z, catcher at +z (MITT_Z), righty at x=-.9.
+- Batter-local frame: +z faces the plate, +x faces the pitcher. World: pitcher at -z, catcher at +z (MITT_Z), righty at x=-.9. game.js is one block: headless hooks must be injected (`window.__t`).
 - Engine sets `e.swing=true` on bunts; guard with `e.play.bunt`. Shell env does not persist: re-export THREE_DIR each call.
-- Node materials multiply instanceColor into every vertex (crowd: instanced 'shirt' + 'tint' mask). Swiftshader frame ~90 s.
-- Booth is null while its script loads (silent on purpose); `BOOTH_PRIME` keeps the t 0 recorded hello. Headless frames >6 s = seek, no lines.
+- Node materials multiply instanceColor into every vertex (crowd: instanced 'shirt' + 'tint' mask). Swiftshader frame ~90 s. Booth is null while its script loads (silent on purpose); `BOOTH_PRIME` keeps the t 0 recorded hello. Headless frames >6 s = seek, no lines. Headless tools must wait for `#enter` enabled (warm-up, 10-15 s on swiftshader); swiftshader JITs shaders at first draw, so its first frame stays slow.
+- Compact cuts trust `cpEvents`: new motion in a pitch/BRK/PRE frame must extend it, or `tools/compact_probe.py` reports it moved.
 - Runner pool is 6. Peelers vanish if the half inning changes before the dugout. Default camera collapses depth near the plate. Poses are a pure function of (event, time): keep it so (a jump must equal playing there; bar test compared both).

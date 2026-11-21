@@ -19,3 +19,14 @@
 @media(orientation:landscape) and (max-height:520px){#player{bottom:max(4px,env(safe-area-inset-bottom));padding:0 12px 0 0}#player #plPlay{min-height:40px}#plTime{font-size:13px}}
 @media(max-width:560px){#plMarks i[data-inn]::after{display:none}#plTime{font-size:13px}}
 body.studio #player{display:none}
+/* Highlights showing (#118): card above the field after every jump, final score card with two buttons; a third button on the entry screen.
+ * Markup in index.html, behaviour in render/game.js (startHighlights, hlTick). */
+#intro .acts button{flex-basis:170px}
+#hlCard{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 58px);left:50%;transform:translateX(-50%);z-index:8;padding:8px 22px 10px;text-align:center;
+  max-width:calc(100vw - 24px);pointer-events:none;transition:opacity .45s}
+#hlCard.off{opacity:0}
+#hlCard small{display:block;font-size:12px;letter-spacing:.16em;color:var(--muted)}
+#hlCard b{display:block;font:700 clamp(20px,3.4vw,32px)/1.25 'Barlow Condensed','Noto Sans TC',sans-serif;white-space:nowrap}
+#hlCard.end{top:50%;transform:translate(-50%,-50%);padding:16px 24px 18px;pointer-events:auto}
+#hlEnd{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}#hlEnd[hidden]{display:none}
+body.studio #hlCard{display:none}

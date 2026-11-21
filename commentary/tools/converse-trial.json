@@ -1,0 +1,35 @@
+{
+  "_note": "Conversation trial (#129): three exchanges of the frozen game, rewritten to be said out loud, voiced in order with each speaker hearing the clips before his. `old` = the sheet id of the line it replaces (its clip is the A side); `must` = words the clip has to say (names, numbers, score, punchline); every other word is free. Nothing here is wired into the game.",
+  "_license": "角色對白為保留素材，未授權，詳見 /TRADEMARKS.md",
+  "sheet": "scripts/preseason-opening.tts.json",
+  "audio": "audio/preseason-opening",
+  "exchanges": [
+    {
+      "at": 30, "moment": "big", "what": "1st inning, 陳冠霖 solo home run",
+      "lines": [
+        { "id": "c30-1", "role": "pbp", "old": "pbp-c27064a939", "text": "打出去了——出去了！陳冠霖！右外野陽春全壘打！帝雉一比零，領先貓頭鷹！", "must": ["陳冠霖", "右外野", "全壘打", "帝雉", "1比0", "貓頭鷹"] },
+        { "id": "c30-2", "role": "color", "old": "color-dcbde0f4f3", "text": "哈，明凱，這次沒喊錯喔，真的有出去了。", "must": ["明凱", "沒喊錯", "出去"] },
+        { "id": "c30-3", "role": "fan_owls", "old": "fan_owls-005c137878", "text": "蛤……這分我不承認啦。", "must": ["不承認"] },
+        { "id": "c30-4", "role": "pbp", "old": "pbp-994b1fcad5", "text": "阿辰，記分板承認了喔。", "must": ["阿辰", "記分板", "承認"] }
+      ]
+    },
+    {
+      "at": 142, "moment": "big", "what": "strikeout, runners on second and third left on",
+      "lines": [
+        { "id": "c142-1", "role": "pbp", "old": "pbp-aa17172448", "text": "直球——揮空！三振！二、三壘的跑者，貓頭鷹一個都沒帶回來。", "must": ["直球", "三振", "二三壘", "貓頭鷹", "回來"] },
+        { "id": "c142-2", "role": "fan_owls", "old": "fan_owls-e01f1f7fa3", "text": "厚——我熬夜來看你欸，不是來看你揮空的啦！", "must": ["熬夜", "揮空"] },
+        { "id": "c142-3", "role": "color", "old": "color-010a07a3f5", "text": "阿辰，人家纏了那麼多球欸，才出局，比你上班還認真啦。", "must": ["阿辰", "纏", "出局", "上班", "認真"] }
+      ]
+    },
+    {
+      "at": 1296, "moment": "big", "what": "10th inning, 邱子翔 two-run home run ties it",
+      "lines": [
+        { "id": "c1296-1", "role": "pbp", "old": "pbp-788e5b04d7", "text": "出去了出去了！邱子翔！兩分全壘打！四比四！貓頭鷹又追平啦！", "must": ["邱子翔", "兩分", "全壘打", "4比4", "貓頭鷹", "追平"] },
+        { "id": "c1296-2", "role": "fan_owls", "old": "fan_owls-fd4e11ecf0", "text": "值得啦！今天加班到半夜都值得了啦！", "must": ["值得", "加班", "半夜"] },
+        { "id": "c1296-3", "role": "color", "old": "color-742e71652b", "text": "兩壞一好嘛，投手不想再投壞，一百三十七的直球進來，邱子翔就在等這一顆。", "must": ["兩壞一好", "137", "直球", "邱子翔", "等"] },
+        { "id": "c1296-4", "role": "pbp", "old": "pbp-3985e8fc3b", "text": "周哥周哥，這次我沒有太早喊了吧？", "must": ["周哥", "太早喊"] },
+        { "id": "c1296-5", "role": "color", "old": "color-5415a74d30", "text": "這次喔，你是喊太晚了啦，球都快落地了。", "must": ["太晚", "落地"] }
+      ]
+    }
+  ]
+}
