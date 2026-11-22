@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.1';
+export const ENGINE_VERSION = '0.4.2';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;

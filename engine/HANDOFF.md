@@ -1,16 +1,16 @@
 # engine/ handoff
 
 ## Done
-- #6 (0.4.0): tuned against MLB 2025; pitches and swings follow the count; `run.mjs` plays all 12
-  pairings and fails when the default sample leaves the tolerance around the reference league.
-- #35 (0.4.1): tag spot at second moved beside the lane from first (`SECOND_TAG_OFF`). Results are
-  unchanged, only cover times on steals move (under 0.1 s). `run.mjs` now fails when a fielder
-  waits to tag closer than `TAG_LANE_CLEAR` to the arriving runner's lane.
+- #6 (0.4.0): tuned against MLB 2025 by count; `run.mjs` fails outside the reference tolerances.
+- #35 (0.4.1): tag spot at second beside the lane from first; `run.mjs` checks `TAG_LANE_CLEAR`.
+- #7 (0.4.2, PR open): `sinCosDeg` (`+ - * /` only) replaces `Math.sin`/`Math.cos`; streams are the
+  same but for the version. `run.mjs` bans `Math.sin`, `Math.pow`, `**` in `engine/`, pins `TRIG_PRINT`.
 
 ## Next
-1. #23 catcher holds the ball on steals. Not fixable in `engine/` alone, numbers are in the issue.
-2. #38 advancement not modelled (wild pitch first): the last 0.25 runs/game. Needs a render animation.
-3. #7 determinism across JavaScript engines (`Math.sin`/`Math.cos` in `rules/field.js`).
+1. `fix/7` and `fix/59` (PR #277: #59, #65) stay red until #276 is merged; then merge `dev` into each,
+   rerun, push. Both say 0.4.2 and both rewrite this file: the second to land takes 0.4.3, keeps both.
+2. #23 catcher holds the ball on steals. Not fixable in `engine/` alone, numbers are in the issue.
+3. #38 advancement not modelled (wild pitch first): the last 0.25 runs/game. Needs a render animation.
 4. Called third strikes are about 19% of strikeouts; real baseball is nearer a quarter.
 
 ## Known traps
