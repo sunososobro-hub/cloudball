@@ -722,6 +722,30 @@ function buntContact(){batter.g.updateMatrixWorld(true);_ugs.set(0,BUNT_SWEET,0)
 const BAT_HAND_GAP=.09,BUNT_CRACK=.3,HIT0=[0,1,.3];/* HIT0: where a swung-at ball leaves the bat */
 /* Six runner bodies: up to four movers or base runners of this play plus scorers of earlier plays still jogging off to their dugout (#43) */
 const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
+/* #42 slice 1, on-deck batter: the next batter waits on his team's on-deck circle (DECK in render/props/ondeck.js: |x| 11.3, z 1.2; the
+   circle is drawn on `max` only, the figure on every tier). Once the plate appearance before his is over (OD_GO_AT after a pitch that ends
+   it, or the last seconds of a ball in play) he walks up to BAT_FROM, the spot the first-pitch walk-in (batterWalk) starts from, going
+   round behind the umpire (OD_BEHIND_Z) when his box is on the other side; at the same moment the batter after him walks out of the
+   dugout to the circle. So nobody appears at the plate between two batters of one half inning. Only when the next event is a pitch to
+   the same team (not after the third out, not before a vote or a change). Pure function of (event, time, next event). */
+const OD_AT=[11.3,1.2],OD_GO_AT=ARRIVE+1.5,OD_WALK_V=1.8,OD_JOG_V=2.4,OD_HOLD=.6,OD_MIN_DUR=.5,OD_BEHIND_Z=4.2;
+const odSpot=t=>[(t===0?1:-1)*OD_AT[0],OD_AT[1]];/* team 0 (road) on +x, like dugout(0) */
+const odNext=figure(matOff,pants,false,{head:'helmet'}),odDeck=figure(matOff,pants,false,{head:'helmet'});
+function odPath(pts){const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));return{pts,cum,L:cum[cum.length-1]}}
+function odAt(P,k){const d=k*P.L;let i=1;while(i<P.pts.length-1&&P.cum[i]<d)i++;const a=P.pts[i-1],b=P.pts[i],s=P.cum[i]-P.cum[i-1],t=s>0?sat01((d-P.cum[i-1])/s):1;
+  return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),b[0]-a[0],b[1]-a[1]]}
+function odPlan(ev,i){const e=ev[i],n=ev[i+1];if(!e||e.k!=='P'||!e.pa||!e.bat||!n||n.k!=='P'||!n.bat||n.bat[0]!==e.bat[0])return null;
+  const t=e.bat[0],R=ROSTERS[t].bat,nb=R[n.bat[1]],lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]],G=dugout(t);
+  const walk=odPath(Math.sign(D[0])===Math.sign(A[0])?[D,A]:[D,[0,OD_BEHIND_Z],A]),jog=odPath([G,D]);
+  const go=e.r==='inplay'?Math.max(0,e.d-OD_HOLD-Math.max(walk.L/OD_WALK_V,jog.L/OD_JOG_V)):OD_GO_AT,room=Math.max(e.d-OD_HOLD-go,OD_MIN_DUR);
+  return{go,walk,jog,t1:Math.min(walk.L/OD_WALK_V,room),t2:Math.min(jog.L/OD_JOG_V,room),box:[lf?-BAT_BOX[0]:BAT_BOX[0],BAT_BOX[1]],nb,nn:R[(n.bat[1]+1)%R.length]}}
+function poseOnDeck(e,u,ei){odNext.g.visible=odDeck.g.visible=false;if(e.k!=='P'||!e.bat||!game)return;
+  const t=e.bat[0],R=ROSTERS[t].bat,pl=odPlan(game.ev,ei),D=odSpot(t);
+  const put=(f,p,x,z,fx,fz)=>{resetPose(f);f.noAnim=false;f.g.visible=true;f.g.position.set(x,0,z);setNum(f,p?p.num:undefined);dress(f,p);face(f,fx,fz)};
+  if(!pl||u<pl.go){put(odDeck,R[(e.bat[1]+1)%R.length],D[0],D[1],-D[0],-D[1]);return}/* waiting on the circle, facing the plate */
+  const k1=sat01((u-pl.go)/pl.t1),k2=sat01((u-pl.go)/pl.t2),[ax,az,adx,adz]=odAt(pl.walk,k1),[bx,bz,bdx,bdz]=odAt(pl.jog,k2);
+  if(k1<1)put(odNext,pl.nb,ax,az,adx,adz);else put(odNext,pl.nb,ax,az,pl.box[0]-ax,pl.box[1]-az);
+  if(k2<1)put(odDeck,pl.nn,bx,bz,bdx,bdz);else put(odDeck,pl.nn,bx,bz,-bx,-bz)}
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
 const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
@@ -972,6 +996,7 @@ function poseScene(e,u,dt,ei){
     if(tt<1)face(f,f.home[0]-sx,f.home[1]-sz);else face(f,-f.home[0],-f.home[1])})}
   batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
+  poseOnDeck(e,u,ei);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
   const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
@@ -1374,6 +1399,7 @@ function cpEvents(g){const ev=g.ev;
     else if(e.k==='PRE')tail=jogEnd([dugout(1-off)[0],INTRO_Z],0);
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
       if(e.pa&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+Math.hypot(BAT_AWAY[0]-BAT_BOX[0],BAT_AWAY[1]-BAT_BOX[1])/BAT_AWAY_SPEED);/* strikeout: he walks off */
+      const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE))}/* walk: runners trot on */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
     return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch'}})}
@@ -1672,7 +1698,7 @@ renderer.setAnimationLoop(()=>{
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
   const s=poseScene(e,u,dt,i);
   if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
-  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});if(!ump.noAnim)animate(ump,dt);
+  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck].forEach(f=>{if(f.g.visible)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);
   hud(e,u,s);if(mode!=='studio'&&!scrubbing)commentary(T);renderVote(voteEv,T);plUpdate();
   {const iv=!$('intro').hidden;if(iv!==introVis){introVis=iv;$('bug').style.visibility=iv?'hidden':''}}/* Hide the scorebug on the intro screen */
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
