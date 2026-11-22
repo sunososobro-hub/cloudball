@@ -9,12 +9,16 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { simGame, TEAMS } from '../engine/index.js';
+import { OPENING_ROSTERS } from '../league/preseason/rosters-opening.js';
 import { createBooth } from './player.js';
 import { banterScores, topBanter, exchangesOf, MIN_GAP_SEC, TOP_DEFAULT } from './banter.js';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const GAMES = Number(process.env.GAMES || 20), problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 const bank = JSON.parse(readFileSync(path.join(DIR, 'lines.json'), 'utf8'));
+/* the demonstration game was recorded against the rosters of its day (#171) */
+const openingSeed = JSON.parse(readFileSync(path.join(DIR, '../league/preseason/opening.json'), 'utf8')).seed;
+const rostersOf = seed => (seed === openingSeed ? { rosters: OPENING_ROSTERS } : {});
 
 function check(name, script, stream) {
   const L = script.lines, opts = { bank, stream };
@@ -49,14 +53,14 @@ function check(name, script, stream) {
 const index = JSON.parse(readFileSync(path.join(DIR, 'scripts', 'index.json'), 'utf8')).scripts;
 let frozen = null;
 for (const [seed, file] of Object.entries(index)) {
-  const script = JSON.parse(readFileSync(path.join(DIR, 'scripts', file), 'utf8')), g = simGame(Number(seed), {});
+  const script = JSON.parse(readFileSync(path.join(DIR, 'scripts', file), 'utf8')), g = simGame(Number(seed), {}, rostersOf(Number(seed)));
   const top = check(file, script, g.stream);
   if (!frozen) frozen = { file, script, top, g };
 }
 /* bank drafts: the viewer's own scripts for games without one */
 let drafted = 0;
 for (let seed = 1; seed <= GAMES; seed++) {
-  const g = simGame(seed, {}), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
+  const g = simGame(seed, {}, rostersOf(seed)), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
   const lines = createBooth({ stream: g.stream, seed, bank, teams, describe }).lines;
   drafted += topBanter({ lines }, { bank, stream: g.stream }).length;
   check(`draft ${seed}`, { lines }, g.stream);
