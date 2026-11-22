@@ -873,7 +873,7 @@ function makeRealPlayer(opts, A) {
   for (const [k, bn, ch, grip] of [['handL', B.handL, C.aL, 'gripL'], ['handR', B.handR, C.aR, 'gripR']]) {
     sockets[k].position.copy(V3(J[grip]).sub(V3(J[k]))); sockets[k].quaternion.copy(ch.R0l).invert(); bones[bn].add(sockets[k]);
   }
-  bones[B.spine].add(sockets.back); sockets.back.position.set(0, D.NUM_Y - J.spine[1], A.backZ - J.spine[2]);
+  bones[B.chest].add(sockets.back); sockets.back.position.set(0, D.NUM_Y - J.chest[1], A.backZ - J.chest[2]);   /* #185: back marks ride the chest, so they turn with it (chest rests at identity: same spot as before) */
   bones[B.pelvis].add(sockets.pelvis);
   const hb = A.head, hcz = (hb.z0 + hb.z1) / 2;
   /* Head socket and cap ride the head bone; neckToHead keeps them at their old neck-local spots (the bone rests at identity) */
@@ -882,13 +882,13 @@ function makeRealPlayer(opts, A) {
   const capRoot = new THREE.Object3D(); capRoot.position.copy(neckToHead); bones[B.head].add(capRoot);   /* The cap geometry is already in neck-local coordinates */
   const numMesh = new THREE.Mesh(new THREE.PlaneGeometry(.2, .2), numMat(0)); numMesh.position.z = -NUM_GAP; numMesh.rotation.y = Math.PI; numMesh.visible = false; sockets.back.add(numMesh);
   let cap = null, glove = null;
-  /* #204 marks: chest logo, front number and back name ride the back socket (spine); `deco.scale.x` undoes the mirror like the back number */
+  /* #204 marks: chest logo, front number and back name ride the back socket (chest); `deco.scale.x` undoes the mirror like the back number */
   const deco = new THREE.Group(), plane = (w, h) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), numMat(0));
   const chestLogo = plane(LOGO_CHEST.size, LOGO_CHEST.size), numFront = plane(NUM_FRONT.size, NUM_FRONT.size), nameBack = plane(NAME_BACK.w, NAME_BACK.h), capLogo = plane(CAP_LOGO.size, CAP_LOGO.size);
   nameBack.rotation.y = Math.PI; deco.add(chestLogo, numFront, nameBack); sockets.back.add(deco);
   for (const o of [chestLogo, numFront, nameBack, capLogo]) o.visible = false;
   const placeDeco = () => {   /* Per build: the socket follows this build's back depth, front decals its chest depth */
-    sockets.back.position.set(0, D.NUM_Y - J.spine[1], A.backZ - J.spine[2]);
+    sockets.back.position.set(0, D.NUM_Y - J.chest[1], A.backZ - J.chest[2]);
     chestLogo.position.set(LOGO_CHEST.x, LOGO_CHEST.y - D.NUM_Y, A.logoZ - A.backZ + DECAL_GAP);
     numFront.position.set(NUM_FRONT.x, NUM_FRONT.y - D.NUM_Y, A.fnumZ - A.backZ + DECAL_GAP);
     nameBack.position.set(0, NAME_BACK.dy, -NUM_GAP);
