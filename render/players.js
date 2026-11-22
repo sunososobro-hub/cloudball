@@ -255,6 +255,7 @@ const CAP_LOGO = { size: .055, ringA: 3, ringB: 8, out: .004 }, DECAL_GAP = .006
  * the torso centre, so only its curved front shows (y0..y1 model height, arc in radians, out = gap over the chest, sx = width stretch, bottom = belly flare).
  * Shin guards: tapered tubes along knee->ankle, pushed forward, with a knee cap */
 const PROTECTOR = { y0: 1.1, y1: 1.46, arc: 1.5, out: .03, sx: 1.25, bottom: .97, seg: 14 };
+const ARM_GEAR = { bandR: .043, bandH: .034, bandAt: .84, padR: .058, padLen: .42, padAt: .3, padFwd: .006, seg: 10 };   /* forearm radius is ~.035: the band sits proud of it; fractions of forearm length */
 const SHIN_GUARD = { r: .058, rBot: .047, len: .82, fwd: .016, knee: 1.05, seg: 10 };
 /* setKit(kit, team, home): team = a TEAMS entry (color, color2); cheap to call every frame (only recolours on a change) */
 export function setKit(kit, team, home) {
@@ -603,9 +604,9 @@ const skinKeyOf = head => SKIN_KEYS[Math.floor((head | 0) / HEAD_SHAPES.length) 
 const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
 /* Get (cached) the geometry for a build, plus head shape (for the cap) and back depth (for the number) */
 function realAsset(build, head = 0) {
-  const look = PACK.uv ? faceLookOf(head) : 0;   /* #207 step 2: facial hair and brows per player, only on the UV (max) pack */
+  const look = PACK.uv ? faceLookOf(head) : 0, eye = gearOf(head).eye;   /* #207 step 2: facial hair and brows per player, only on the UV (max) pack */
   head = (head | 0) % HEAD_SHAPES.length;
-  const key = buildKey(build) + (head ? '|h' + head : '') + (look ? '|f' + look : ''); if (PACK.geos.has(key)) return PACK.geos.get(key);
+  const key = buildKey(build) + (head ? '|h' + head : '') + (look ? '|f' + look : '') + (eye ? '|e' : ''); if (PACK.geos.has(key)) return PACK.geos.get(key);
   const { H, P0, D: Dl, SI, SW, DG, DW, IX } = PACK, J = H.joints, n = H.n;
   const w = typeof build === 'string' ? (build === 'normal' ? {} : { [build]: 1 }) : build || {};
   const P = new Float32Array(P0);
@@ -619,7 +620,7 @@ function realAsset(build, head = 0) {
   geo.setAttribute('skinIndex', PACK.att.si); geo.setAttribute('skinWeight', PACK.att.sw);
   if (PACK.att.uv) { geo.setAttribute('uv', PACK.att.uv); geo.setAttribute('skinAttr', PACK.att.sk) }
   geo.setIndex(PACK.att.ix);
-  geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P, look), 4, true));
+  geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P, look, eye), 4, true));
   for (const [start, count, name] of PACK.groups) geo.addGroup(start, count, R_SLOTS.indexOf(name));
   geo.computeVertexNormals(); geo.computeBoundingSphere();
   if (PACK.seam) {   /* UV seam copies: one normal shared by a vertex and its copies, so the seam does not show in the light */
@@ -684,10 +685,18 @@ export function headOf(id) {
   const v = ((Math.imul(h ^ (h >>> 7), 3266489917) >>> 0) % 10007) / 10007, w = (v * 6151) % 1;
   let fh = 0; for (let c = 0, k = 0; k < FACE_HAIR.length; k++) { c += FACE_HAIR[k].share; if (v < c) { fh = k; break } }
   const look = fh + FACE_HAIR.length * Math.min(BROWS.length - 1, Math.floor(w * BROWS.length));
-  return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * (map + SKIN_KEYS.length * look);
+  /* #151 second PR: a fourth draw picks his gear (GEAR_SHARES); it rides above the look digit */
+  const q = ((Math.imul(h ^ (h >>> 11), 668265263) >>> 0) % 10007) / 10007, pick = (u, sh) => { let c = 0; for (let k = 0; k < sh.length; k++) { c += sh[k]; if (u < c) return k } return sh.length - 1 };
+  const gear = pick(q, GEAR_SHARES.wrist) + GEAR_SHARES.wrist.length * (pick((q * 6151) % 1, GEAR_SHARES.elbow) + GEAR_SHARES.elbow.length * pick((q * 4093) % 1, GEAR_SHARES.eye));
+  return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * (map + SKIN_KEYS.length * (look + FACE_LOOKS * gear));
 }
 /* Look digit of a head index: facial hair + FACE_HAIR.length x brow weight */
-const faceLookOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length));
+const FACE_LOOKS = FACE_HAIR.length * BROWS.length;
+const faceLookOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length)) % FACE_LOOKS;
+/* Gear digit of a head index (#151 second PR): wrist 0 none / 1 left / 2 right / 3 both; elbow guard 0 none / 1 left / 2 right; eye black 0 / 1 */
+export const GEAR_SHARES = { wrist: [.55, .15, .15, .15], elbow: [.72, .14, .14], eye: [.82, .18] };
+export const gearOf = head => { let g = Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS)); const W = GEAR_SHARES.wrist.length, E = GEAR_SHARES.elbow.length;
+  return { wrist: g % W, elbow: Math.floor(g / W) % E, eye: Math.floor(g / (W * E)) % GEAR_SHARES.eye.length } };
 function shapeHead(P, S) {
   if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin) return;
   const { DG, DW, H } = PACK, n = H.n;
@@ -704,6 +713,7 @@ function shapeHead(P, S) {
 }
 /* Face paint as RGBA8 multipliers (white = skin as is): cap shadow over the eyes, eye sockets, brows, lips and mouth line, nostrils, a little cheek colour */
 const FACE_PAINT = { capShade: .34, socket: .28, brow: .75, mouth: .55, nostril: .35, chinShade: .18 };
+const EYE_BLACK = { k: .82, dy: .016, h: .0055, w: .019 };   /* darkening, metres under the eye line, half height, half width */
 const LIP_RGB = [.82, .56, .56], CHEEK_RGB = [1, .9, .88];
 /* #207 step 2 (max pack only): facial hair painted over the skin map as a multiplier, per player from headOf. `k` = how much the skin is
  * darkened at full cover, `grain` = share of that broken up per vertex (stubble reads as dots, not a stain). Zones: jaw (cheeks down to the
@@ -728,7 +738,7 @@ function faceHair(x, y, z, ax, eyeY, H) {
   const m = Math.min(1, Math.max(jaw * (H.jaw || 0), lip * (H.lip || 0), chin * (H.chin || 0)));
   return m * H.k * (1 - (H.grain || 0) * grain(x, y, z));
 }
-function faceColors(P, look = 0) {
+function faceColors(P, look = 0, eye = 0) {
   const { DG, H } = PACK, n = H.n, C = new Uint8Array(n * 4).fill(255), J = H.joints, eyeY = J.eyeL[1], F = FACE_PAINT;
   for (let i = 0; i < n; i++) {
     if (DG[i] !== B.neck) continue;
@@ -745,6 +755,7 @@ function faceColors(P, look = 0) {
     mul(1 - F.mouth * g1(y, FACE.mouthY, .0028) * g1(x, 0, .019) * fr);                                          /* Mouth line */
     mul(1 - F.nostril * g1(y, FACE.nostrilY, .004) * g1(ax, .011, .006) * fr);                                     /* Nostrils / under the nose */
     const ck = g1(y, FACE.cheekY - .006, .016) * g1(ax, .052, .016) * fr; mul(1, 1 - (1 - CHEEK_RGB[0]) * ck, 1 - (1 - CHEEK_RGB[1]) * ck, 1 - (1 - CHEEK_RGB[2]) * ck);
+    if (eye) mul(1 - EYE_BLACK.k * g1(y, eyeY - EYE_BLACK.dy, EYE_BLACK.h) * g1(ax, FACE.eyeX, EYE_BLACK.w) * fr);   /* #151: eye black under both eyes */
     mul(1 - F.chinShade * ramp(y, FACE.chinY - .005, FACE.chinY - .035) * fr);                                          /* Under the chin */
     const FH = FACE_HAIR[look % FACE_HAIR.length]; if (look && FH.k) { const d = faceHair(x, y, z, ax, eyeY, FH); mul(1 - d, 1 - d * STUBBLE_RGB[0], 1 - d * STUBBLE_RGB[1], 1 - d * STUBBLE_RGB[2]) }
     C[i * 4] = Math.round(r * 255); C[i * 4 + 1] = Math.round(g * 255); C[i * 4 + 2] = Math.round(b * 255);
@@ -1038,6 +1049,18 @@ function makeRealPlayer(opts, A) {
     }
     pro.castShadow = true;
   };
+  /* #151 second PR: wristbands, elbow guard per player (gearOf of the head index); meshes on the forearm bones, re-seated per setBuild */
+  const armGear = []; let gearHead = 0;
+  const placeArmGear = () => {
+    for (const m of armGear.splice(0)) m.parent.remove(m);
+    const G = gearOf(gearHead), lk = bd.limb || 1, band = kit ? kit.trim : stdMat(0xf2f0ea, .6), pad = kit ? kit.gear : stdMat(0x1a1a1e, .45);
+    for (const [i, el, hd] of [[0, 'elL', 'handL'], [1, 'elR', 'handR']]) {
+      const off = V3(J[hd]).sub(V3(J[el])), len = off.length(), dir = off.clone().normalize(), q = new THREE.Quaternion().setFromUnitVectors(_Y, dir);
+      const put = (geo, mat, t, z = 0) => { const m = new THREE.Mesh(geo, mat); m.quaternion.copy(q); m.position.copy(dir).multiplyScalar(len * t).add(new THREE.Vector3(0, 0, z)); m.castShadow = true; bones[B[el]].add(m); armGear.push(m) };
+      if (G.wrist === 3 || G.wrist === i + 1) put(new THREE.CylinderGeometry(ARM_GEAR.bandR * lk, ARM_GEAR.bandR * lk, ARM_GEAR.bandH, ARM_GEAR.seg), band, ARM_GEAR.bandAt);
+      if (G.elbow === i + 1) put(new THREE.CylinderGeometry(ARM_GEAR.padR * lk, ARM_GEAR.padR * .8 * lk, len * ARM_GEAR.padLen, ARM_GEAR.seg), pad, ARM_GEAR.padAt, ARM_GEAR.padFwd);
+    }
+  };
   placeDeco();
   const dressSync = s => {   /* Every sync: follow the kit's team logo and the back number (game.js sets numMesh directly) */
     deco.scale.x = capLogo.scale.x = s;
@@ -1079,7 +1102,7 @@ function makeRealPlayer(opts, A) {
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
     setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; f.buildArgs = [build, height, head]; if (f.buildKey === k) return; f.buildKey = k;
-      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); gearHead = head; placeArmGear(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
