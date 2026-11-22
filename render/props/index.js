@@ -12,6 +12,8 @@ export const PROPS_ON=t=>t===0;
 export const PROPS=[
   /* the home team's dugout: dugout(1) in game.js is where the home side leaves the field. Never existed before: nothing to hide. */
   {name:'homeDugout',build:c=>{const [x,z]=c.dugout(1);return buildDugout({x,z,colors:c.park()})},old:()=>[]},
+  /* the road team's dugout at dugout(0), first-base side: same shell mirrored, plus the visitors' gear. Never existed before either. */
+  {name:'roadDugout',build:c=>{const [x,z]=c.dugout(0);return buildDugout({x,z,colors:c.park(),name:'roadDugout',road:true})},old:()=>[]},
 ];
 
 /* ctx from game.js: {scene, tier: () => current quality tier, dugout: team -> [x, z], park: () => {pad, trim} of the home park} */
