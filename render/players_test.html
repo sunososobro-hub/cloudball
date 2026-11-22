@@ -55,7 +55,7 @@ footer input{flex:1;accent-color:var(--a);height:40px}
 <script type="module">
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { makePlayer, makeBat, BUILDS, loadPlayerAssets } from './players.js';
+import { makePlayer, makeBat, BUILDS, loadPlayerAssets, loadClip, footDrift, rigFootDrift } from './players.js';
 {
 
 const $ = id => document.getElementById(id), Q = new URLSearchParams(location.search);
@@ -173,8 +173,17 @@ function frame(now) {
   if (playing) { u += dt * speed; if (u > DUR[mode]) u = 0 }
   $('u').value = u; $('t').textContent = u.toFixed(2) + 's';
   pose(u); ctl.update(); renderer.render(scene, cam); placeLabels();
-  $('info').textContent = `${renderer.backend.isWebGPUBackend ? 'WebGPU' : 'WebGL'}・${throwsL ? '左投' : '右投'}・紅點 = 舊 pitchTipAt 出手點`;
+  $('info').textContent = `${renderer.backend.isWebGPUBackend ? 'WebGPU' : 'WebGL'}・${throwsL ? '左投' : '右投'}・紅點 = 舊 pitchTipAt 出手點${driftTxt}`;
 }
+/* #186: planted-foot drift of the pitch clip (hip heights x 0.95 m), measured once */
+let driftTxt = '';
+loadClip('../assets/mocap/pitch_124_01.json').then(c => { const d = footDrift(c, 0.3, 3.0), cm = v => (v * 95).toFixed(1);
+  driftTxt = `・腳底滑動（clip）左 ${cm(d.L.max)} cm／右 ${cm(d.R.max)} cm`;
+  /* Same check on a retargeted rig figure, over the game's span of the clip (PM_START 1.2 s to PM_END 4.6 s) */
+  const f = makePlayer({ jersey: 0xffffff, num: 1, build: 'normal', throws: 'L', glove: true, head: 'cap' });
+  const r = rigFootDrift(f, c, 1.2, 4.6, 1 / 30, c.release.hand === 'right'), cl = footDrift(c, 1.2, 4.6, 1 / 30, c.release.hand === 'right'); f.setMocap(null);
+  window.footRig = { rig: r, clip: cl };
+  driftTxt += `・綁到骨架後 左 ${(r.L.max * 100).toFixed(1)} cm／右 ${(r.R.max * 100).toFixed(1)} cm（clip 同段 ${cm(cl.L.max)}／${cm(cl.R.max)} cm）` }).catch(() => {});
 renderer.setAnimationLoop(frame);
 /* For headless tests */
 window.T = { setMode, pose: v => { u = v; pose(v) }, render: () => { renderer.render(scene, cam); placeLabels() }, players: () => players, cam, ctl, setHand: L => { throwsL = L; build() }, stop: () => { playing = false }, tipErr: () => maxTipErr,

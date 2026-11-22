@@ -890,6 +890,58 @@ function clipSample(c, t, mirror, out) {
   if (mirror) out.p.x = -out.p.x;
   return out;
 }
+/* #186: where the clip's ankles and toes are at time t, by forward kinematics on the clip's own skeleton (the target the retarget aims at).
+ * Returns {L:[x,y,z], R:[x,y,z], tL, tR} in hip heights, world (hips travel included); L/R = the performer's own sides, mirror swaps them.
+ * Pure function of (clip, t, mirror): footDrift() below turns it into the per-frame planted-foot check. */
+export function clipFeet(c, t, mirror = false) {
+  const o = { q: c.names.map(() => new THREE.Quaternion()), p: new THREE.Vector3() }; clipSample(c, t, false, o);
+  const W = c.names.map(() => new THREE.Quaternion()), P = c.names.map(() => new THREE.Vector3()), r = new THREE.Vector3();
+  for (let j = 0; j < c.nj; j++) {   /* clip joints come parent first */
+    const pj = c.parent[j];
+    if (pj < 0) { W[j].copy(o.q[j]); P[j].copy(o.p) }
+    else { W[j].copy(W[pj]).multiply(o.q[j]); P[j].copy(P[pj]).add(r.fromArray(c.rest[j]).applyQuaternion(W[pj])) }
+  }
+  const at = n => { const j = c.names.indexOf(n); return P[j].toArray().map((v, i) => mirror && i === 0 ? -v : v) };
+  const A = mirror ? ['Right', 'Left'] : ['Left', 'Right'];
+  return { L: at('foot' + A[0]), R: at('foot' + A[1]), tL: at('toe' + A[0]), tR: at('toe' + A[1]) };
+}
+/* Planted-foot check over [t0, t1] at step dt. The clip's hips y carries a constant offset (about +1 hip height, tool data quirk), so the
+ * floor is taken as the lowest ankle of the range. A foot counts as planted while its ankle is within PLANT_Y (hip heights) of that floor and
+ * slower than PLANT_V (hip heights per s). Returns per foot the worst travel inside any planted run (hip heights; x hip height in m for metres). */
+export const PLANT_Y = .08, PLANT_V = .3;
+export function footDrift(c, t0 = 0, t1 = c.dur, dt = 1 / c.fps, mirror = false) {
+  const F = []; for (let t = t0; t <= t1 + 1e-9; t += dt) F.push(clipFeet(c, t, mirror));
+  return plantedDrift(F, t0, dt, 1);
+}
+/* Shared by footDrift (clip skeleton, hip heights) and rigFootDrift (our rig, metres: scale = the figure's hip height in m) */
+function plantedDrift(F, t0, dt, scale) {
+  const floor = Math.min(...F.map(f => Math.min(f.L[1], f.R[1]))), py = PLANT_Y * scale, pv = PLANT_V * scale;
+  const out = { floor, L: { max: 0, at: 0, runs: 0, frames: 0 }, R: { max: 0, at: 0, runs: 0, frames: 0 } };
+  for (const s of ['L', 'R']) {
+    let anchor = null;
+    for (let i = 1; i < F.length; i++) {
+      const a = F[i - 1][s], b = F[i][s], v = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / dt;
+      if (b[1] - floor < py && v < pv) {
+        if (!anchor) { anchor = b; out[s].runs++ }
+        out[s].frames++;
+        const d = Math.hypot(b[0] - anchor[0], b[2] - anchor[2]); if (d > out[s].max) { out[s].max = d; out[s].at = t0 + i * dt }
+      } else anchor = null;
+    }
+  }
+  return out;
+}
+/* #186: the same planted-foot check on the retargeted rig: figure f (makePlayer, real rig) driven by setMocap at clip times t0..t1, ankle bones
+ * read in world space after the skinning sync. Same thresholds scaled to this figure (hip height x f.k). Returns metres. L/R = our bones ftL/ftR.
+ * Compare with footDrift(): the difference is what the retarget adds. Moves the figure's mocap state (call setMocap(null) afterwards). */
+export function rigFootDrift(f, c, t0 = 0, t1 = c.dur, dt = 1 / c.fps, mirror = false) {
+  const nm = {}; f.g.traverse(o => { if (o.name === 'ftL' || o.name === 'ftR') nm[o.name] = o });
+  const F = [], v = new THREE.Vector3();
+  for (let t = t0; t <= t1 + 1e-9; t += dt) {
+    f.setMocap(c, t, 1, mirror, t0, 0); f.g.updateMatrixWorld(true);
+    F.push({ L: nm.ftL.getWorldPosition(v).toArray(), R: nm.ftR.getWorldPosition(v).toArray() });
+  }
+  return plantedDrift(F, t0, dt, D.PELVIS_Y * (f.k || 1));
+}
 /* Per (clip, mirror): target bone index per clip joint and the rest-direction fix of each target bone (same skeleton for every build) */
 function clipFix(c, mirror, J) {
   const key = mirror ? 'm' : 'n'; if (c.fix[key]) return c.fix[key];
