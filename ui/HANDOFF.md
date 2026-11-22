@@ -8,9 +8,8 @@ Agent: the interface window: `ui/`, `functions/`, root files.
 
 ## Next
 - #197 half (`feat/197`, items 1-4): `ui/guide.js` star strip per team (best overall, pitcher or not) + nav chip 「球星 N」; from 1000 px a dense sortable table per group (`.tbl`, row tap = bio + 比較), 1500 px puts fielders and pitchers side by side; cards below 1000 px, compact under 700 px. `body.wide` + `agent.css` widen agent.html (forms 980 px, free-agent list 3 columns from 1400 px). Shots `ui/guide-1900.jpg`, `ui/guide-390.jpg`. Left: dense table for the `agent.html` free-agent list (still cards); no guard in `tests/` (roster window's folder).
-- #179 after merge: open the dev site, make one agent and one player by hand (the first real D1 run: tables are created on the first call).
 - #332 (mini-game port) is first in the queue but BLOCKED: its source repo `yunlian-temple` is outside this session's GitHub scope. Needs the owner/manager to copy `docs/design/baseball_9grid/index.html` + `src/7xbs_baseball9.js` into this repo (or grant the repo). Do not rewrite it from scratch.
-- #4 HUD out of `render/game.js` (needs the render window idle), #47 round 2 / #55. Queue lives in issue #68.
+- #4 HUD out of `render/game.js` (needs the render window idle), #47 round 2 / #55. Queue lives in issue #68. #179: after merge, make one agent by hand on dev (first real D1 run).
 
 ## Traps
 - Preview must stay a read-only user of `render/players.js`; heights are drawn at creation, so a choice previews the middle of the build's range.
