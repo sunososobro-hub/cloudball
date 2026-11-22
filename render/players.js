@@ -255,6 +255,7 @@ const CAP_LOGO = { size: .055, ringA: 3, ringB: 8, out: .004 }, DECAL_GAP = .006
  * the torso centre, so only its curved front shows (y0..y1 model height, arc in radians, out = gap over the chest, sx = width stretch, bottom = belly flare).
  * Shin guards: tapered tubes along knee->ankle, pushed forward, with a knee cap */
 const PROTECTOR = { y0: 1.1, y1: 1.46, arc: 1.5, out: .03, sx: 1.25, bottom: .97, seg: 14 };
+const BAT_GLOVE = { r: .05, sy: .8, sz: 1.05, y: -.02, seg: 10 };   /* batting glove: a squashed sphere over each hand socket, in the kit's gear colour */
 const ARM_GEAR = { bandR: .043, bandH: .034, bandAt: .84, padR: .058, padLen: .42, padAt: .3, padFwd: .006, seg: 10 };   /* forearm radius is ~.035: the band sits proud of it; fractions of forearm length */
 const SHIN_GUARD = { r: .058, rBot: .047, len: .82, fwd: .016, knee: 1.05, seg: 10 };
 /* setKit(kit, team, home): team = a TEAMS entry (color, color2); cheap to call every frame (only recolours on a change) */
@@ -687,16 +688,19 @@ export function headOf(id) {
   const look = fh + FACE_HAIR.length * Math.min(BROWS.length - 1, Math.floor(w * BROWS.length));
   /* #151 second PR: a fourth draw picks his gear (GEAR_SHARES); it rides above the look digit */
   const q = ((Math.imul(h ^ (h >>> 11), 668265263) >>> 0) % 10007) / 10007, pick = (u, sh) => { let c = 0; for (let k = 0; k < sh.length; k++) { c += sh[k]; if (u < c) return k } return sh.length - 1 };
-  const gear = pick(q, GEAR_SHARES.wrist) + GEAR_SHARES.wrist.length * (pick((q * 6151) % 1, GEAR_SHARES.elbow) + GEAR_SHARES.elbow.length * pick((q * 4093) % 1, GEAR_SHARES.eye));
+  const gear = pick(q, GEAR_SHARES.wrist) + GEAR_SHARES.wrist.length * (pick((q * 6151) % 1, GEAR_SHARES.elbow) + GEAR_SHARES.elbow.length * (pick((q * 4093) % 1, GEAR_SHARES.eye) + GEAR_SHARES.eye.length * (pick((q * 2909) % 1, GEAR_SHARES.glove) + GEAR_SHARES.glove.length * pick((q * 1327) % 1, GEAR_SHARES.hair))));
   return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * (map + SKIN_KEYS.length * (look + FACE_LOOKS * gear));
 }
 /* Look digit of a head index: facial hair + FACE_HAIR.length x brow weight */
 const FACE_LOOKS = FACE_HAIR.length * BROWS.length;
 const faceLookOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length)) % FACE_LOOKS;
-/* Gear digit of a head index (#151 second PR): wrist 0 none / 1 left / 2 right / 3 both; elbow guard 0 none / 1 left / 2 right; eye black 0 / 1 */
-export const GEAR_SHARES = { wrist: [.55, .15, .15, .15], elbow: [.72, .14, .14], eye: [.82, .18] };
+/* Gear digit of a head index (#151 second PR): wrist 0 none / 1 left / 2 right / 3 both; elbow guard 0 none / 1 left / 2 right; eye black 0 / 1;
+   batting gloves 0 none / 1 both hands; hair colour = index into HAIR_TONES */
+export const GEAR_SHARES = { wrist: [.55, .15, .15, .15], elbow: [.72, .14, .14], eye: [.82, .18], glove: [.7, .3], hair: [.4, .22, .18, .1, .1] };
+export const HAIR_TONES = [0x1c1612, 0x3a2618, 0x5a3b22, 0x7a4a26, 0x6b6760];   /* black-brown (the old default), dark brown, brown, chestnut, greying */
 export const gearOf = head => { let g = Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS)); const W = GEAR_SHARES.wrist.length, E = GEAR_SHARES.elbow.length;
-  return { wrist: g % W, elbow: Math.floor(g / W) % E, eye: Math.floor(g / (W * E)) % GEAR_SHARES.eye.length } };
+  const Y = GEAR_SHARES.eye.length, L = GEAR_SHARES.glove.length;
+  return { wrist: g % W, elbow: Math.floor(g / W) % E, eye: Math.floor(g / (W * E)) % Y, glove: Math.floor(g / (W * E * Y)) % L, hair: Math.floor(g / (W * E * Y * L)) % GEAR_SHARES.hair.length } };
 function shapeHead(P, S) {
   if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin) return;
   const { DG, DW, H } = PACK, n = H.n;
@@ -972,6 +976,7 @@ function makeRealPlayer(opts, A) {
   const bd = { h: opts.height || buildHeight(opts.build || 'normal') };
   const jersey = asMat(opts.jersey ?? 0xffffff, .55), pants = asMat(opts.pants ?? 0xeeeeee, .75); let skin = asMat(opts.skin ?? 0xc99572, .62);
   const dark = stdMat(0x1a1a1e, .5), sock = asMat(opts.sock ?? jersey, .6), hair = asMat(opts.hair ?? 0x1c1612, .8), leather = stdMat(0x8a5a2b, .6);
+  const ownHair = opts.hair == null;   /* #151: hair colour per player from his head index, unless the caller gave a colour or a material */
   const kit = opts.kit;   /* #204: shared side kit (makeKit); without one, trim = jersey and belt = dark as before */
   let throws = opts.throws || 'R', mirrored = opts.role !== 'batter' && throws === 'R', headKind = opts.head || 'cap';
   const J = A.J;
@@ -1058,6 +1063,7 @@ function makeRealPlayer(opts, A) {
       const off = V3(J[hd]).sub(V3(J[el])), len = off.length(), dir = off.clone().normalize(), q = new THREE.Quaternion().setFromUnitVectors(_Y, dir);
       const put = (geo, mat, t, z = 0) => { const m = new THREE.Mesh(geo, mat); m.quaternion.copy(q); m.position.copy(dir).multiplyScalar(len * t).add(new THREE.Vector3(0, 0, z)); m.castShadow = true; bones[B[el]].add(m); armGear.push(m) };
       if (G.wrist === 3 || G.wrist === i + 1) put(new THREE.CylinderGeometry(ARM_GEAR.bandR * lk, ARM_GEAR.bandR * lk, ARM_GEAR.bandH, ARM_GEAR.seg), band, ARM_GEAR.bandAt);
+      if (G.glove) { const gl = new THREE.Mesh(new THREE.SphereGeometry(BAT_GLOVE.r * lk, BAT_GLOVE.seg, 8), pad); gl.scale.set(1, BAT_GLOVE.sy, BAT_GLOVE.sz); gl.position.y = BAT_GLOVE.y; gl.castShadow = true; sockets[hd].add(gl); armGear.push(gl) }
       if (G.elbow === i + 1) put(new THREE.CylinderGeometry(ARM_GEAR.padR * lk, ARM_GEAR.padR * .8 * lk, len * ARM_GEAR.padLen, ARM_GEAR.seg), pad, ARM_GEAR.padAt, ARM_GEAR.padFwd);
     }
   };
@@ -1102,7 +1108,7 @@ function makeRealPlayer(opts, A) {
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
     setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; f.buildArgs = [build, height, head]; if (f.buildKey === k) return; f.buildKey = k;
-      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); gearHead = head; placeArmGear(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); gearHead = head; placeArmGear(); if (ownHair) hair.color.setHex(HAIR_TONES[gearOf(head).hair]); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
