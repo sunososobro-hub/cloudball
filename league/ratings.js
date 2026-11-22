@@ -18,11 +18,14 @@ export const BEST_WEIGHT = 1;
 const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
 const sd = a => { const m = mean(a); return Math.sqrt(mean(a.map(x => (x - m) ** 2))) || 1; };
 const quantile = (a, q) => { const s = [...a].sort((x, y) => x - y), i = q * (s.length - 1), j = Math.floor(i); return s[j] + (s[Math.min(j + 1, s.length - 1)] - s[j]) * (i - j); };
-/* maps a raw value onto 1..100 by the mean and the two quantiles of the factory values */
+/* maps a raw value onto 1..100 by the mean and the two quantiles of the factory values; .raw is the inverse
+ * (a display number back to the raw value it reads as, so a whole number goes there and back unchanged) */
 const mapper = v => {
   const m = mean(v), hi = quantile(v, TOP_Q), lo = quantile(v, LOW_Q);
-  return x => Math.max(RATING_MIN, Math.min(RATING_MAX, Math.round(x >= m ? RATING_MID + (RATING_TOP - RATING_MID) * (x - m) / ((hi - m) || 1)
+  const f = x => Math.max(RATING_MIN, Math.min(RATING_MAX, Math.round(x >= m ? RATING_MID + (RATING_TOP - RATING_MID) * (x - m) / ((hi - m) || 1)
     : RATING_MID - (RATING_MID - RATING_LOW) * (m - x) / ((m - lo) || 1))));
+  f.raw = d => d >= RATING_MID ? m + (d - RATING_MID) * ((hi - m) || 1) / (RATING_TOP - RATING_MID) : m - (RATING_MID - d) * ((m - lo) || 1) / (RATING_MID - RATING_LOW);
+  return f;
 };
 const scaleOf = (players, weights) => {
   const keys = [...Object.keys(weights), 'pot'], s = {}, map = {};
@@ -32,13 +35,16 @@ const scaleOf = (players, weights) => {
   return { keys, map, sum, ovr: mapper(players.map(sum)) };
 };
 
-/* ratingScale(rosters) -> ratingsOf on the scale of those rosters (used by league/tools/abilities.mjs on a draw) */
+/* ratingScale(rosters) -> ratingsOf on the scale of those rosters (used by league/tools/abilities.mjs on a draw);
+ * its .raw(isPitcher, key, display) gives the raw value a display number stands for (league/freeagents.js, #178) */
 export function ratingScale(rosters) {
   const BAT = scaleOf(rosters.flatMap(t => t.bat), BAT_WEIGHTS), PIT = scaleOf(rosters.flatMap(t => t.pit), PIT_WEIGHTS);
-  return p => {
+  const rate = p => {
     const S = p.role ? PIT : BAT, out = { ovr: S.ovr(S.sum(p)) };
     for (const k of S.keys) out[k] = S.map[k](p[k]);
     return out;
   };
+  rate.raw = (isPitcher, key, d) => (isPitcher ? PIT : BAT).map[key].raw(d);
+  return rate;
 }
 export const ratingsOf = ratingScale(ROSTERS);
