@@ -1,17 +1,18 @@
-/* render/props/bases.js: bases, home plate and pitcher's rubber (#215 polish lane, round 1). Polish rounds edit only this file (and add to render/pbr.js).
+/* render/props/bases.js: bases, home plate and pitcher's rubber (#215 polish lane, round 1). Polish rounds edit only this file (slot rule #237).
  * Before: no geometry at all. The three bags, the plate and the rubber were white shapes painted into the field map (game.js fieldTex),
  * flat on the dirt, so from the low cameras they had no edge, no thickness and no shadow. Nothing to hide: old() is [].
  * Shape: every piece is one "rounded slab": its outline (square bag, pentagon plate, rectangle rubber) inset by the edge radius, a top
  * that crowns a little, a rolled edge (quarter circle, corners rounded too) and a side wall that sinks just under the dirt.
  *   bags: BAG_H tall, soft rolled edge and a piped welt around the top (the stitched seam of a real bag), contact shadow on the dirt.
  *   plate: nearly flush with the dirt, a narrow bevel; rubber: a low slab on the mound line.
- * Surface: pbr.js kinds baseVinyl (pebble grain, a soft sheen) and whiteRubber (scuffed relief: cleat scratches, pits); UVs in metres.
+ * Surface: kinds basesVinyl (pebble grain, a soft sheen) and basesRubber (relief basesScuffed: cleat scratches, pits), registered into
+ *   pbr.js's KINDS/RELIEFS from this file (pbr.js itself stays read-only, slot rule); UVs in metres.
  * Wear, baked per vertex from seeded noise (same picture every load): dirt specks on the tops, heavier near the edges, a dirt band
  * climbing the sides, cleat scuffs where the runners' feet land on the bags and where the pitcher's foot pushes off the rubber.
  * Frame: world. Bag centres are the engine's BASES (the painted squares are centred there too), plate at home, rubber at RUBBER_Z. */
 import * as THREE from 'three/webgpu';
 import {BASES} from '../../engine/index.js';
-import {mat} from '../pbr.js';
+import {mat,KINDS,RELIEFS} from '../pbr.js';
 
 export const BASE={
   BAG_W:.44,BAG_H:.09,BAG_R:.03,BAG_CROWN:.008,WELT_R:.0055,/* bag: side (m, = the painted square), height, edge roll, crown, piping radius */
@@ -26,6 +27,22 @@ function hash(x,y,k){let h=Math.imul(x*73856093^y*19349663^k*83492791,2654435761
 function vn(x,y,k){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy),
   a=hash(xi,yi,k),b=hash(xi+1,yi,k),c=hash(xi,yi+1,k),e=hash(xi+1,yi+1,k);return a+(b-a)*sx+(c-a)*sy+(a-b-c+e)*sx*sy}
 const sat=x=>x<0?0:x>1?1:x,smooth=(a,b,x)=>{const t=sat((x-a)/(b-a));return t*t*(3-2*t)};
+
+/* tileable noise for the relief below (period p cells; the same family as pbr.js, which keeps its own private) */
+function tvn(x,y,k,p){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy),
+  H=(a,b)=>hash(((a%p)+p)%p,((b%p)+p)%p,k),a=H(xi,yi),b=H(xi+1,yi),c=H(xi,yi+1),e=H(xi+1,yi+1);return a+(b-a)*sx+(c-a)*sy+(a-b-c+e)*sx*sy}
+function tfbm(u,v,k,p,oct=4){let s=0,a=.5,n=0;for(let o=0;o<oct;o++){s+=tvn(u*p,v*p,k+o,p)*a;n+=a;a*=.5;p*=2}return s/n}
+function tcell(u,v,k,p){const x=u*p,y=v*p,xi=Math.floor(x),yi=Math.floor(y);let d=9;
+  for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++){const cx=xi+i,cy=yi+j,wx=((cx%p)+p)%p,wy=((cy%p)+p)%p,px=cx+hash(wx,wy,k),py=cy+hash(wx,wy,k+1);d=Math.min(d,Math.hypot(px-x,py-y))}
+  return Math.min(1,d)}
+/* this object's own relief and kinds, added to the shared registry under names only this file uses (never replaces one) */
+RELIEFS.basesScuffed??={m:.6,n:1.1,h:(u,v)=>{/* worn whitened rubber (plate, pitcher's rubber): soft unevenness, cleat scratches, small pits */
+  let sc=0;for(let i=0;i<12;i++){const a=hash(i,0,111)*Math.PI,ca=Math.cos(a),sa=Math.sin(a),du=u-hash(i,1,111),dv=v-hash(i,3,111),
+    d=Math.abs(du*sa-dv*ca),t=Math.abs(du*ca+dv*sa),L=.04+.12*hash(i,4,111);/* short cleat scratches: a segment, fading toward its ends */
+    sc=Math.max(sc,(1-smooth(0,.004,d))*(1-smooth(L*.6,L,t))*.14*(.4+.6*hash(i,2,111)))}
+  return sat(.84+.1*tfbm(u,v,112,6)-sc-(tcell(u,v,113,40)<.06?.18:0))}};
+KINDS.basesVinyl??={color:0xf7f6f1,rough:.5, metal:0,relief:'grain',       rv:.15};/* rubber-coated vinyl base bag: pebble grain, a soft sheen */
+KINDS.basesRubber??={color:0xf4f3ee,rough:.72,metal:0,relief:'basesScuffed',rv:.12};/* whitened rubber: home plate, pitcher's rubber */
 
 /* outline (convex, either direction, local x/z) inset by r -> points with outward normals; each corner becomes a fan of
    normals at one point, so offsetting by r*n afterwards rounds the corner exactly */
@@ -81,7 +98,7 @@ function shadowTex(){if(SHADOW_TEX)return SHADOW_TEX;const N=64,c=document.creat
   return SHADOW_TEX=new THREE.CanvasTexture(c)}
 
 export function buildBases(){const B=BASE,g=new THREE.Group();g.name='prop:bases';
-  const vinyl=mat('baseVinyl').clone(),rub=mat('whiteRubber').clone();vinyl.vertexColors=rub.vertexColors=true;
+  const vinyl=mat('basesVinyl').clone(),rub=mat('basesRubber').clone();vinyl.vertexColors=rub.vertexColors=true;
   const shM=new THREE.MeshBasicMaterial({color:0x000000,alphaMap:shadowTex(),transparent:true,opacity:B.SHADOW_A,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   const add=(geo,m,x,z,ry)=>{const ms=new THREE.Mesh(geo,m);ms.position.set(x,0,z);ms.rotation.y=ry;ms.castShadow=ms.receiveShadow=true;g.add(ms);return ms};
   /* bags: square turned 45 degrees (corners on the base paths), welt piping along the top of the rolled edge */
@@ -103,3 +120,6 @@ export function buildBases(){const B=BASE,g=new THREE.Group();g.name='prop:bases
   const rw=B.RUBBER_W/2,rd=B.RUBBER_D/2,rr=[[-rw,-rd],[-rw,rd],[rw,rd],[rw,-rd]];
   add(slab(rr,B.RUBBER_H,B.RUBBER_R,B.RUBBER_CROWN,rub.userData.tileM||1,wearFn(500,B.RUBBER_H,[[-.08,-rd,.14],[.1,-rd,.1]])),rub,0,B.RUBBER_Z,0);
   return g}
+
+/* slot descriptor (render/props/index.js): painted on the field map before, so there are no old meshes to hide */
+export const PROPS=[{name:'bases',build:()=>buildBases(),old:()=>[]}];

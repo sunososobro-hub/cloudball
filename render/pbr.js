@@ -48,11 +48,6 @@ export const RELIEFS={
   vinyl:   {m:1.4, n:1.5,h:(u,v)=>{/* vinyl over foam, one tile = one wall pad (u across, v up): soft dents and sag creases, a dashed stitch inset at each side */
     const crease=.12*smooth(.6,1,fbm(u*.5,v,101,6,3))*Math.abs(Math.sin(v*Math.PI*7+3*fbm(u,v,102,3))),st=(Math.abs(u-.03)<.004||Math.abs(u-.97)<.004)&&((v*90|0)%2===0)?.3:0;
     return sat(.75+.18*fbm(u,v,103,5)-crease-st)}},
-  scuffed: {m:.6,  n:1.1,h:(u,v)=>{/* worn whitened rubber (plate, pitcher's rubber): soft unevenness, cleat scratches, small pits */
-    let sc=0;for(let i=0;i<12;i++){const a=hash(i,0,111)*Math.PI,ca=Math.cos(a),sa=Math.sin(a),du=u-hash(i,1,111),dv=v-hash(i,3,111),
-      d=Math.abs(du*sa-dv*ca),t=Math.abs(du*ca+dv*sa),L=.04+.12*hash(i,4,111);/* short cleat scratches: a segment, fading toward its ends */
-      sc=Math.max(sc,(1-smooth(0,.004,d))*(1-smooth(L*.6,L,t))*.14*(.4+.6*hash(i,2,111)))}
-    return sat(.84+.1*fbm(u,v,112,6)-sc-(cell(u,v,113,40)<.06?.18:0))}},
 };
 
 /* ---------- material kinds ---------- */
@@ -66,8 +61,6 @@ export const KINDS={
   rubber:       {color:0x1a1b1e,rough:.85,metal:0,  relief:'rubber',  rv:.1},
   dirt:         {color:0x8a6a4a,rough:.98,metal:0,  relief:'dirt',    rv:.05},
   gloss:        {color:0x223355,rough:.22,metal:.05,relief:'plain',   rv:.08},/* gloss shell plastic: helmets, coolers */
-  baseVinyl:    {color:0xf7f6f1,rough:.5, metal:0,  relief:'grain',   rv:.15},/* rubber-coated vinyl base bag: pebble grain, a soft sheen */
-  whiteRubber:  {color:0xf4f3ee,rough:.72,metal:0,  relief:'scuffed', rv:.12},/* whitened rubber: home plate, pitcher's rubber */
 };
 
 const TEX={},MAT={};

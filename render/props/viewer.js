@@ -6,7 +6,7 @@
  * Nothing here changes a prop: it calls the same build() and old() that mountProps calls. */
 import * as THREE from 'three/webgpu';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {PROPS} from './index.js';
+import {loadProps,withCtx} from './index.js';
 
 export const VIEW={FIELD:[0,-20],FOV:35,FLOOR_R:6,FLOOR_C:0x8a8d92,BG:0x5c6066,DIST:1.6,MIN_R:.4,READY_WAIT_MS:20000,SHADOW_PX:2048};
 /* FIELD: a point on the infield (x, z), the side every prop shows to the cameras; FLOOR_R / DIST: floor radius and start distance in object radii; READY_WAIT_MS: a warm-up that never ends must not keep the viewer away */
@@ -16,7 +16,7 @@ function copyOld(o){o.updateWorldMatrix(true,true);const c=o.clone(true);o.matri
   c.traverse(m=>{m.visible=true});return c}
 
 /* ctx from game.js: {name, renderer, scene, tier, max, dugout, park} (the mountProps ctx plus the name asked for and the renderer) */
-export async function startViewer(ctx){
+export async function startViewer(ctx){withCtx(ctx);const PROPS=await loadProps();/* #237: every slot's descriptors */
   await Promise.race([window.READY||Promise.resolve(),new Promise(ok=>setTimeout(ok,VIEW.READY_WAIT_MS))]);
   const R=ctx.renderer,cv=R.domElement,vs=new THREE.Scene();vs.background=new THREE.Color(VIEW.BG);
   vs.environment=ctx.scene.environment||null;

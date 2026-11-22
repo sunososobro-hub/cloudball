@@ -4,11 +4,11 @@
 - #50 names, #52 staff, #47 recorder, #113 slots, #137/#102 banter + audio, #71 fan slots, #54 wave 1 bios (28).
 - #169 halves (PRs #172, #173): frozen rosters of seed 704, `tools/abilities.mjs`, `ratings.js`. #178: `freeagents.js` (drawName, CREATE budget, validateCreate, makePlayer), `namepool.js`, `ratingsOf.raw`.
 - #169 written (PR #188): seed 201, rating knees (stars 95..98, nobody 1 or 100), CREATE bat 305/70, pit 183/66.
-- #54 wave 2 (PR feat/54-wave2): the other 44 lines; bios.check now needs all 72 players.
+- #54 wave 2 (PR #194): the other 44 lines; bios.check now needs all 72 players. #37: `tests/replay/README.md` rewritten.
 
 ## Next
 1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes.
-2. #37. Queue order lives in issue #68.
+2. Nothing else queued for this window; order lives in issue #68.
 
 ## Known traps
 - The engine looks players up by `name`: full names must stay unique per team or games change.

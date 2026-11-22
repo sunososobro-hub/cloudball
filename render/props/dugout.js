@@ -1,4 +1,4 @@
-/* render/props/dugout.js: both dugouts (#215: home round 0, the proof object; road round 1). Polish rounds edit only this file (and add to render/pbr.js).
+/* render/props/dugout.js: both dugouts (#215: home round 0, the proof object; road round 1). Polish rounds edit only this file (#237: render/pbr.js is read-only, new materials live here; round notes in this header and on the #215 board).
  * Field-level dugout set into the front of the foul-line stand: raised concrete floor with steps in the opening, low front wall with a
  * padded rail cap and a galvanised lean rail, back wall with a pad band, wooden bench, bat rack, helmet shelf, corrugated roof underside
  * with lamp strips, roof fascia in the home team's trim colour (same colour inputs as #203's PARKS: pad, trim).
@@ -84,3 +84,10 @@ function roadGear(add,shell){const {L,D,F,OPEN,WALL_T,FRONT_H,BENCH_D}=DUG,{COOL
   for(let i=0;i<TOWELS;i++){const x=OPEN/2+2.4+i*1.5;for(const s of [-1,1]){const t=add(box(.38,.42,.012,T(cloth)),cloth,x,DUG.RAIL_H-.2,WALL_T/2+s*.035);t.rotation.x=s*.08}}
   /* the bench end nearest the plate gets a second helmet on the bench, a visitor's spare */
   const hg=new THREE.SphereGeometry(.13,16,10,0,Math.PI*2,0,Math.PI*.55);add(hg,shell,L/2-2.2,F+DUG.BENCH_H+.03,D-.12-BENCH_D/2)}
+
+/* slot descriptors (#237): dugout(1) in game.js is where the home side leaves the field, dugout(0) the road side (first base):
+   same shell mirrored, plus the visitors' gear. Neither existed before: nothing to hide. */
+export const PROPS=[
+  {name:'homeDugout',build:c=>{const [x,z]=c.dugout(1);return buildDugout({x,z,colors:c.park()})},old:()=>[]},
+  {name:'roadDugout',build:c=>{const [x,z]=c.dugout(0);return buildDugout({x,z,colors:c.park(),name:'roadDugout',road:true})},old:()=>[]},
+];
