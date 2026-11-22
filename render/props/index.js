@@ -6,6 +6,7 @@
 import {buildDugout} from './dugout.js';
 import {buildField} from './field.js';
 import {buildWall} from './wall.js';
+import {buildBases} from './bases.js';
 
 /* Polished props are drawn on the `max` tier only (manager 11/22 10:30, #211): game.js imports this file only once max is on,
    and max can still go off later (the tier button, a drop below tier 0), so the swap follows it. Takes the ctx below. */
@@ -18,6 +19,8 @@ export const PROPS=[
   {name:'homeDugout',build:c=>{const [x,z]=c.dugout(1);return buildDugout({x,z,colors:c.park()})},old:()=>[]},
   /* outfield wall pads and fence top: replaces the field face of the old wall and its flat top band (game.js names them old:wall, old:wall:top) */
   {name:'wall',build:c=>buildWall({colors:c.park(),old:c.scene.getObjectByName('old:wall')}),old:c=>['old:wall','old:wall:top'].map(n=>c.scene.getObjectByName(n)).filter(Boolean)},
+  /* bases, home plate and pitcher's rubber: only painted into the field map before (no geometry), so nothing to hide */
+  {name:'bases',build:()=>buildBases(),old:()=>[]},
 ];
 
 /* ctx from game.js: {scene, tier: () => current quality tier, max: () => true while the `max` tier is on, dugout: team -> [x, z], park: () => {pad, trim} of the home park} */
