@@ -5,10 +5,11 @@
 - #169 halves (PRs #172, #173): frozen rosters of seed 704, `tools/abilities.mjs`, `ratings.js`. #178: `freeagents.js` (drawName, CREATE budget, validateCreate, makePlayer), `namepool.js`, `ratingsOf.raw`.
 - #169 written (PR feat/169-write): seed 201 in `players.js`, rating knees (stars 95..98, nobody 1 or 100),
   CREATE retuned to bat 305/cap 70, pit 183/cap 66 (overall 50..58), 3 bio lines rewritten for the owner.
+- #54 wave 2 (PR feat/54-wave2): the other 44 lines; bios.check now needs all 72 players.
 
 ## Next
-1. If the owner strikes a rewritten bio line in the #169 PR, rewrite only that line. Then close #169.
-2. #54 wave 2 (wave 1 stays; write on the new abilities), then #37. Queue order lives in issue #68.
+1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes.
+2. #37. Queue order lives in issue #68.
 
 ## Known traps
 - The engine looks players up by `name`: full names must stay unique per team or games change.
