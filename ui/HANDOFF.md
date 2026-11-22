@@ -1,20 +1,17 @@
-# ui / root files: HANDOFF (2026-11-22)
-Agent: the interface window: `ui/` and root files.
+# ui / root files / functions: HANDOFF (2026-11-22)
+Agent: the interface window: `ui/`, `functions/`, root files.
 
 ## Done
-- #60 rename, #25 entry screen, #58 poster, #53 part 1 (guide page), #89 viewing counts (PR #91), #117 jumps do not count as watched innings (`ui/stats.js` listens to `cloudball:seek`). #122 plain menu words (`畫面：精緻/順暢`, `畫面怪怪的？點這裡`).
-- #47 round 1: `league/tools/record.mjs 704 --write` made `league/preseason/opening.json`; enter starts it (`startOpening`, mode `opening`, no votes). `ui/site.js` = dev/production by host (class `dev-only`).
-  Guards: `tests/opening.check.mjs`, `tests/site.check.mjs`. Guide page staff block fixed (`staffOf`, `ROLES`).
-- #170 guide page: 1 to 100 ratings from `league/ratings.js` (overall first, sorted by overall); needs keys ovr, con, pow, eye, spd, arm, stuff, ctrl, pot.
+- #60, #25, #58, #53 part 1, #89 (PR #91), #117, #122 menu words, #47 round 1 (opening.json, `ui/site.js` dev/production by host, class `dev-only`).
+- #179 (PR feat/179): fan agents on D1 `DB` (Preview only). Routes `functions/api/{agent,player,freeagents}.js`, `agent/draw.js`; all logic in `functions/lib/agents.js`; page `agent.html` + `ui/agent.js`. Guard `tests/agent.check.mjs` (fake D1 over `node:sqlite`).
 
 ## Next
-- #47 round 2 / #55: 21:00 synchronized showing + countdown (A3), viewing-count flag for the two kinds of showing. Pregame segments come from #55's `league/` timeline module. #53 part 2: box score from `boxFromStream` on `opening.json`.
-- #122 menu wording: waits for the render window's open PRs on `render/game.js` (two lines there).
-- #4 HUD/voting out of `render/game.js`: not started (needs the render agent idle on that file).
+- #179 after merge: open the dev site, make one agent and one player by hand (the first real D1 run: tables are created on the first call).
+- #47 round 2 / #55 (21:00 showing), #53 part 2 (box score), #4 HUD out of `render/game.js` (needs the render window idle). Queue lives in issue #68.
 
 ## Traps
-- `ui/stats.js` (#117): `prev`/`live` state; the seek event fires before the scorebug changes, and a same-inning jump is learned by a 600 ms timer. No guard in `tests/` yet (that folder is the roster window's).
-- `render/game.js` hooks of #47 (all `mode==='opening'`): `subscribeGame` early return, `findVote` returns null, no `resolveVote`, `startOpening`, `statusText`, `enter`.
-- Re-recording is a remaster: `--remaster` plus the pin `FROZEN` in `tests/opening.check.mjs`. JSON turns `Infinity` into null; use `league/recording.js` to read or write the game.
-- New development control? Give it class `dev-only` and add its id to `DEV_ONLY_IDS` in `tests/site.check.mjs`.
-- `#introStatus` stays hidden on purpose. The scorebug footer still says 「開發版」 on production (owner's call).
+- Production has no `DB`: the API also answers closed by host (`isDev` in `functions/lib/agents.js` must equal `ui/site.js`; the check compares them).
+- Abuse caps (`AGENTS_PER_DAY`, `AGENTS_PER_ADDRESS_PER_DAY`) and the name-draw cap (`DRAW_CAP`) are named in that file. Address hash: per-day salt in `reg_salt`, rows in `reg_seen` (day + hash only), older days deleted on the next sign-up.
+- New development control? Class `dev-only` + add its id to `DEV_ONLY_PAGES` in `tests/site.check.mjs`. `ui/stats.js`: `prev`/`live` state, seek fires before the scorebug changes.
+- Re-recording opening.json is a remaster (`--remaster`, pin `FROZEN` in `tests/opening.check.mjs`); read it through `league/recording.js`.
+- `#introStatus` stays hidden on purpose; the scorebug footer says 「開發版」 on production (owner's call).

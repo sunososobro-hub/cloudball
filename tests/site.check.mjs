@@ -31,24 +31,36 @@ for (const h of DEV_HOSTS) { const r = siteOf(h); if (r.dev !== true || r.mark !
 
 /* A tiny tag scanner (no dependencies): for each id, is the element or an ancestor marked dev-only? */
 const VOID = new Set(['br', 'img', 'input', 'meta', 'link', 'hr', 'source']);
-const stack = [], found = {};
-for (const m of read('index.html').replace(/<!--[\s\S]*?-->/g, '').replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '').matchAll(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/g)) {
-  const [, close, tag0, attrs] = m, tag = tag0.toLowerCase();
-  if (close) { while (stack.length && stack.pop().tag !== tag); continue; }
-  const id = (/\bid\s*=\s*"([^"]*)"/.exec(attrs) || [])[1], cls = ((/\bclass\s*=\s*"([^"]*)"/.exec(attrs) || [])[1] || '').split(/\s+/);
-  const node = { tag, dev: cls.includes('dev-only') };
-  if (id) found[id] = node.dev || stack.some(n => n.dev);
-  if (!VOID.has(tag) && !/\/\s*$/.test(attrs)) stack.push(node);
+const scan = file => {
+  const stack = [], found = {};
+  for (const m of read(file).replace(/<!--[\s\S]*?-->/g, '').replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '').matchAll(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/g)) {
+    const [, close, tag0, attrs] = m, tag = tag0.toLowerCase();
+    if (close) { while (stack.length && stack.pop().tag !== tag); continue; }
+    const id = (/\bid\s*=\s*"([^"]*)"/.exec(attrs) || [])[1], cls = ((/\bclass\s*=\s*"([^"]*)"/.exec(attrs) || [])[1] || '').split(/\s+/);
+    const node = { tag, dev: cls.includes('dev-only') };
+    if (id) found[id] = node.dev || stack.some(n => n.dev);
+    if (!VOID.has(tag) && !/\/\s*$/.test(attrs)) stack.push(node);
+  }
+  return found;
+};
+/* The fan-agent pages (#179): the entry link on the guide page and the whole content of agent.html. Each page loads ui/site.js
+ * in <head> and carries the CSS rule (inline in index.html, in a stylesheet for the others). The API answers closed on a production
+ * host by itself (functions/lib/agents.js, checked by tests/agent.check.mjs). */
+export const DEV_ONLY_PAGES = { 'index.html': DEV_ONLY_IDS, 'guide.html': ['agentLink'], 'agent.html': ['agentMain'] };
+const HIDE_RULE = /html\[data-site="production"\]\s+\.dev-only\s*\{[^}]*display\s*:\s*none\s*!important/;
+for (const [file, ids] of Object.entries(DEV_ONLY_PAGES)) {
+  const found = scan(file), html = read(file);
+  for (const id of ids) {
+    if (!(id in found)) bad(`${file} has no element #${id} (update DEV_ONLY_PAGES if it was removed on purpose)`);
+    else if (!found[id]) bad(`${file}: #${id} is a development tool but is not inside class "dev-only": it would show on production`);
+  }
+  const css = html + [...html.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="(ui\/[^"]+)"/g)].map(m => read(m[1])).join('\n');
+  if (!HIDE_RULE.test(css)) bad(`${file} lost the CSS rule that hides .dev-only on data-site="production"`);
+  if (!/<script\s+src="ui\/site\.js"><\/script>/.test(html.split('</head>')[0])) bad(`ui/site.js must be loaded in <head> of ${file}`);
 }
-for (const id of DEV_ONLY_IDS) {
-  if (!(id in found)) bad(`index.html has no element #${id} (update DEV_ONLY_IDS if it was removed on purpose)`);
-  else if (!found[id]) bad(`#${id} is a development tool but is not inside class "dev-only": it would show on production`);
-}
-if (!/html\[data-site="production"\]\s+\.dev-only\s*\{[^}]*display\s*:\s*none\s*!important/.test(read('index.html'))) bad('index.html lost the CSS rule that hides .dev-only on data-site="production"');
-if (!/<script\s+src="ui\/site\.js"><\/script>/.test(read('index.html').split('</head>')[0])) bad('ui/site.js must be loaded in <head> of index.html');
 
 const game = read('render/game.js').split('\n');
 game.forEach((l, i) => { if (l.includes('開發模式') && !/SITE/.test(l)) bad(`render/game.js:${i + 1} writes the dev status text without checking SITE.dev`); });
 
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
-console.log(`OK: ${PRODUCTION_HOSTS.length} production and ${DEV_HOSTS.length} dev host names, ${DEV_ONLY_IDS.length} development controls hidden on production.`);
+console.log(`OK: ${PRODUCTION_HOSTS.length} production and ${DEV_HOSTS.length} dev host names, ${Object.values(DEV_ONLY_PAGES).flat().length} development controls on ${Object.keys(DEV_ONLY_PAGES).length} pages hidden on production.`);

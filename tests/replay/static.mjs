@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const problems = [], seen = new Set(), queue = ['index.html', 'render/players_test.html'];
+const problems = [], seen = new Set(), queue = ['index.html', 'render/players_test.html', 'guide.html', 'agent.html'];
 const isLocal = ref => ref && !/^(https?:|data:|blob:|#|three($|\/))/.test(ref);
 const refsOf = (file, src) => {
   const out = [], dir = path.dirname(file), push = (ref, base = dir) => { if (isLocal(ref)) out.push(path.normalize(path.join(base, ref.split(/[?#]/)[0]))); };
@@ -47,7 +47,7 @@ if (existsSync(wf)) for (const f of readdirSync(wf)) if (!['ci.yml', 'merge-gate
 const rules = readFileSync(path.join(ROOT, '.agent/rules.md'), 'utf8').split('\n').length - 1;
 if (rules > 50) problems.push(`.agent/rules.md has ${rules} lines (cap is 50)`);
 if (readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8').trimEnd().split('\n').length !== 3) problems.push('CLAUDE.md must be exactly 3 lines');
-for (const check of ['tests/names.check.mjs', 'tests/staff.check.mjs', 'tests/bios.check.mjs', 'tests/ratings.check.mjs', 'tests/freeagents.check.mjs', 'tests/opening.check.mjs', 'tests/site.check.mjs']) {
+for (const check of ['tests/names.check.mjs', 'tests/staff.check.mjs', 'tests/bios.check.mjs', 'tests/ratings.check.mjs', 'tests/freeagents.check.mjs', 'tests/opening.check.mjs', 'tests/site.check.mjs', 'tests/agent.check.mjs']) {
   const res = spawnSync(process.execPath, [path.join(ROOT, check)], { encoding: 'utf8' });
   process.stdout.write(res.stdout || ''); process.stderr.write(res.stderr || '');
   if (res.status !== 0) problems.push(`${check} failed (exit ${res.status === null ? 'killed by ' + res.signal : res.status})`);
