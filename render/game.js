@@ -511,7 +511,7 @@ const BACKDROPS={
   city:{ridges:[{r:440,a:[-180,180],h:[26,48],c:0x334034,seed:4}],
     blocks:{n:130,r:[135,215],a:[[-120,120],[120,240]],w:[6,9],d:[11,16],h:[9,16],c:[0xd8cdb8,0xbfb5a3,0xe2d9c8,0xa9a294,0xc9b79c]},
     blocks2:{n:34,r:[225,330],a:[[-100,100],[135,225]],w:[16,26],d:[14,22],h:[26,62],c:[0xb4b8bc,0x9ea4aa,0xc8c4ba]}},
-  lake:{ridges:[{r:430,a:[-75,75],h:[20,40],c:0x41604a,seed:5},{r:380,a:[80,280],h:[14,30],c:0x3a5a40,seed:6}],
+  lake:{ridges:[{r:430,a:[-75,75],h:[34,60],c:0x41604a,seed:5},{r:380,a:[80,280],h:[14,30],c:0x3a5a40,seed:6}],
     water:{r:[146,395],a:[-68,68],c:0x355a66},trees:{n:260,r:[126,148],a:[[-80,80]],s:[4,8],c:[0x2f5a2a,0x3c6a30,0x27502a,0x4a7034]},
     trees2:{n:140,r:[395,412],a:[[-72,72]],s:[6,11],c:[0x2f5a2a,0x3c6a30,0x27502a]}},
   mountains:{ridges:[{r:330,a:[-180,180],h:[34,78],c:0x2c4a30,seed:7},{r:470,a:[-180,180],h:[100,170],c:0x3e5668,seed:8}],
@@ -529,12 +529,12 @@ function bdMaterials(){if(bdMats)return bdMats;
     block.emissiveNode=color(LC(BD_WIN_C)).mul(win.mul(lit).mul(bdWinU).mul(BD_WIN_I))}
   return bdMats={ridge,tree,water,block}}
 function bdRidge(R0){const {r,h:[h0,h1],c,seed}=R0,a0=R0.a[0]*D2R,a1=R0.a[1]*D2R,full=R0.a[1]-R0.a[0]>=360,N=Math.max(24,Math.round((a1-a0)/D2R*1.2)),rnd=mulberry32(seed+BD_SEED),
-    ph=[rnd()*6.283,rnd()*6.283,rnd()*6.283],col=new THREE.Color(c),pos=[],cols=[],idx=[];
+    ph=[rnd()*6.283,rnd()*6.283,rnd()*6.283],col=new THREE.Color(c),pos=[],cols=[],uvs=[],idx=[];
   for(let i=0;i<=N;i++){const t=i/N,a=a0+(a1-a0)*t,k=.5+.5*(.55*Math.sin(a*3+ph[0])+.3*Math.sin(a*7+ph[1])+.15*Math.sin(a*17+ph[2])),
       edge=full?1:Math.min(1,Math.min(t,1-t)*10),h=(h0+(h1-h0)*k)*edge,rb=r-h*.9,s=Math.sin(a),q=-Math.cos(a);
-    pos.push(s*rb,BD_BASE_Y,q*rb,s*r,h,q*r);cols.push(col.r*.55,col.g*.55,col.b*.55,col.r,col.g,col.b);
+    pos.push(s*rb,BD_BASE_Y,q*rb,s*r,h,q*r);cols.push(col.r*.55,col.g*.55,col.b*.55,col.r,col.g,col.b);uvs.push(t,0,t,1);
     if(i<N){const j=i*2;idx.push(j,j+1,j+2,j+1,j+3,j+2)}}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));g.setIndex(idx);g.computeVertexNormals();
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(idx);g.computeVertexNormals();
   return new THREE.Mesh(g,bdMats.ridge)}
 /* n instances spread over the ranges (radius, angle sets in degrees), rejected near a light tower or an earlier instance */
 function bdScatter(S,geo,mat,seed,place){const rnd=mulberry32(seed+BD_SEED),m=new THREE.InstancedMesh(geo,mat,S.n),o=new THREE.Object3D(),done=[],c=new THREE.Color();let k=0;
