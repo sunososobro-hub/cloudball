@@ -492,12 +492,13 @@ const PARKS={
   muntjacs:{pad:'#0e2450',trim:0x7fb0ff,sky:'morning'}};
 /* #203 item 5: PARKS[id].shape = how the four parks differ in shape and surroundings (shape and size only: no real names or marks).
    Slice 1 reads `backdrop` only (the kit beyond the outfield and behind the stands, BACKDROPS below); stand levels, roof, bullpen,
-   light towers and turf look are the next slices and join this block. The field and the engine never change. */
+   light towers and turf look are the next slices and join this block (slice 3 added `links`). The field and the engine never change. */
 PARKS.pheasants.shape={backdrop:'hills',upper:'low'};/* 台北: hillside district, apartment blocks, hills behind; low two-level stands */
-PARKS.owls.shape={backdrop:'city',upper:'block'};/* 新竹: dense town of row houses and mid-rise blocks, low hills far east; roofed four-level infield block */
+PARKS.owls.shape={backdrop:'city',upper:'block',links:'bridges'};/* 新竹: dense town of row houses and mid-rise blocks, low hills far east; roofed four-level infield block,
+   glazed bridges from the infield building to the outfield stands, a tight row of houses packed against the outfield stands */
 PARKS.macaques.shape={backdrop:'lake',upper:'tall'};/* 高雄: a lake beyond the outfield, trees on its shore, low hills across; the tallest stands */
 PARKS.muntjacs.shape={backdrop:'mountains',upper:'arcade',roof:false};/* 台東: open sky, two mountain ridges; small park, arcade gallery on the home stand */
-const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night',shape:{backdrop:null,upper:null}};
+const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night',shape:{backdrop:null,upper:null,links:null}};
 /* ---------- #203 item 5 slice 1: backdrop kits. Built once on first use (applyPark), then only shown or hidden: no recompile on a park change
    after the first. Four materials in all (ridge, block, tree, water); nothing casts or takes the key shadow. Buildings: instanced boxes, the
    windows are drawn by the material from world position (BD_FLOOR x BD_BAY cells, BD_LIT of them lit, lit strength follows the sky's lamp
@@ -613,6 +614,36 @@ function applyUpper(P){const sh=P.shape||{},want=OFF.has('upper')?null:sh.upper;
   if(!upRoofs.length){const L=[];scene.traverse(o=>{if(o.name==='old:roof'||o.name==='old:roof:fascia')L.push(o)});for(const o of L){const p=o.parent;
     if(!p.userData.roofHold){const h=new THREE.Group();h.name='stand:roofHold';h.visible=false;h.userData.stand=p.userData.stand;p.add(h);p.userData.roofHold=h}upRoofs.push({o,p,h:p.userData.roofHold})}}
   const off=sh.roof===false&&!OFF.has('upper');for(const R of upRoofs){const to=off?R.h:R.p;if(R.o.parent!==to)to.add(R.o)}}
+/* ---------- #203 item 5 slice 3: links between the stands and the town (PARKS[id].shape.links). Additive like the kits above: built once on
+   first use, then shown or hidden; the stands, the fans and render/props/ are not touched. Kit:
+   bridges (新竹) one glazed sky bridge per side, from the outer end of the infield building (the block kit's inset end, half its depth back)
+          to the near end of the closest outfield stand at that stand's back, deck at LK_DECK_Y (about one floor over both stand tops),
+          on LK_PIERS plain piers; the glass body uses the backdrop block material, so its one floor of windows lights with the sky like the
+          town. Plus LK_HOUSES: a tight ring of two- and three-floor houses right behind the outfield stands, roofs just under their back wall
+          top, so the stands read as built over the neighbours (not in front of the scoreboard: LK_HOUSES.a skips its arc).
+   Draw calls: 3 (glass, slabs and piers, houses). Nothing casts or takes the key shadow. ?off=links (dev) = none. */
+const LK_DECK_Y=12.6,LK_W=4.2,LK_H=3.2,LK_SLAB=.5,LK_ROOF_OVER=.4,LK_PIER=1.1,LK_PIERS=3,LK_C={slab:0xc9ccd0,pier:0x9a9ea4},
+  LK_HOUSES={n:70,r:[123,133],a:[[-47,-37],[-18,47]],w:[5,8],d:[8,11],h:[5.5,10],c:[0xd9cdb5,0xc2b59c,0xe6dccb,0xb3a892,0xcbbfa6,0x9f9a8e]};
+const lkKits={};
+function lkEnds(){const inf=[],of=[];scene.traverse(o=>{const u=o.name==='stand'&&o.userData.stand;if(!u)return;(u.base?of:inf).push({g:o,u})});
+  const W=(st,x,z)=>new THREE.Vector3(x,0,z).applyMatrix4(st.g.matrixWorld),out=[];
+  for(const s of inf){if(s.u.side===2)continue;const x=s.u.len/2-UP_BLOCK_INSET,z=s.u.rows*ROW_D+1+UP_BLOCK_D/2,a=W(s,x,z),b=W(s,-x,z),A=a.length()>b.length()?a:b;
+    let best=null;for(const o of of)for(const sg of[1,-1]){const B=W(o,sg*o.u.len/2,o.u.rows*ROW_D+.5),d=A.distanceTo(B);if(!best||d<best.d)best={d,B}}
+    if(best)out.push([A,best.B])}
+  return out}
+function lkBuild(id){if(id!=='bridges')return null;const E=lkEnds(),g=new THREE.Group(),o=new THREE.Object3D();g.name='links:'+id;
+  const glass=new THREE.InstancedMesh(upBoxGeo,bdMaterials().block,E.length),plain=new THREE.MeshStandardMaterial({roughness:.7,metalness:.2}),
+    slabs=new THREE.InstancedMesh(upBoxGeo,plain,E.length*(2+LK_PIERS));let k=0;
+  const put=(m,i,x,y,z,yaw,w,h,d,c)=>{o.position.set(x,y,z);o.rotation.set(0,yaw,0);o.scale.set(w,h,d);o.updateMatrix();m.setMatrixAt(i,o.matrix);m.setColorAt(i,upCol.set(c))};
+  E.forEach(([A,B],i)=>{const dx=B.x-A.x,dz=B.z-A.z,L=Math.hypot(dx,dz),yaw=Math.atan2(dx,dz),mx=(A.x+B.x)/2,mz=(A.z+B.z)/2;
+    put(glass,i,mx,LK_DECK_Y+LK_H/2,mz,yaw,LK_W,LK_H,L,0xdde3e8);
+    put(slabs,k++,mx,LK_DECK_Y-LK_SLAB/2,mz,yaw,LK_W+LK_ROOF_OVER,LK_SLAB,L,LK_C.slab);
+    put(slabs,k++,mx,LK_DECK_Y+LK_H+LK_SLAB/2,mz,yaw,LK_W+2*LK_ROOF_OVER,LK_SLAB,L+LK_ROOF_OVER,LK_C.slab);
+    for(let p=1;p<=LK_PIERS;p++){const t=p/(LK_PIERS+1),h=LK_DECK_Y-LK_SLAB;put(slabs,k++,A.x+dx*t,h/2,A.z+dz*t,yaw,LK_PIER,h,LK_PIER,LK_C.pier)}});
+  for(const m of[glass,slabs]){m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();g.add(m)}
+  g.add(bdBlocks(LK_HOUSES,15));
+  g.traverse(o=>{o.castShadow=o.receiveShadow=false});g.updateMatrixWorld(true);scene.add(g);return g}
+function applyLinks(P){const want=OFF.has('links')?null:(P.shape||{}).links;if(want&&!(want in lkKits))lkKits[want]=lkBuild(want);for(const k in lkKits)if(lkKits[k])lkKits[k].visible=k===want}
 let skyCur=SKIES.night;
 function applySky(S){skyCur=S;renderer.toneMappingExposure=S.exposure;key.intensity=S.key*Math.PI;key.color.set(S.keyC);fill.intensity=S.fill*Math.PI;fill.color.set(S.fillC);
   hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
@@ -635,7 +666,7 @@ function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PAR
   if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
 function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
   const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
-  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);applyUpper(P);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);applyUpper(P);applyLinks(P);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
 parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
