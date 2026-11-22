@@ -75,12 +75,14 @@ function findIdx(T){const ev=game.ev;let lo=0,hi=ev.length-1;while(lo<hi){const 
 const EXPOSURE=.75,KEY_I=1.1*Math.PI,FILL_I=.25*Math.PI,HEMI_I=.12*Math.PI,HEMI_GROUND=0x141a12,KEY_SHADOW_I=.7;/* KEY_SHADOW_I: the contact shadows carry the planting now, the real shadow must not double them */
 const SKY_HORIZON=[.02,.025,.04],SKY_ZENITH=[.002,.003,.007],SKY_GLOW=[.025,.02,.012];
 /* #203 item 2: one sky per home park (台北 night, 新竹 dusk, 高雄 afternoon, 台東 morning). Colours, intensities (x PI) and exposure only;
-   the night set is the #132 look above. Applied live by applySky (uniforms and light values: nothing recompiles). Sky colours are linear. */
+   the night set is the #132 look above. Applied live by applySky (uniforms and light values: nothing recompiles). Sky colours are linear.
+   #208: fogD = depth haze at the ground (thins with height, see HAZE_H), hazeSky = how far the haze colour leans to the sky horizon; halo = wide lamp
+   aureole in the haze, motes = dust drifting in the tower beams (both night and dusk; boosted on max). */
 const SKIES={
-  night:{exposure:EXPOSURE,key:1.1,keyC:0xfff1dc,fill:.25,fillC:0xd6e2ff,hemi:.12,hemiC:0x9fb4e6,ground:HEMI_GROUND,horizon:SKY_HORIZON,zenith:SKY_ZENITH,glow:SKY_GLOW,fog:0x0d1220,fogD:.0032,tower:.16,beam:.025,lamp:1,stars:true,bugs:true},
-  dusk:{exposure:.78,key:1.5,keyC:0xffc08a,fill:.3,fillC:0xa89ad8,hemi:.22,hemiC:0xc79a9a,ground:0x1c1a12,horizon:[.42,.17,.07],zenith:[.025,.03,.09],glow:[.3,.11,.03],fog:0x3a2830,fogD:.0026,tower:.12,beam:.012,lamp:.7,stars:false,bugs:true},
-  afternoon:{exposure:.68,key:2.7,keyC:0xfff6e6,fill:.55,fillC:0xcfe0ff,hemi:.5,hemiC:0xb8d4ff,ground:0x2a3420,horizon:[.46,.56,.7],zenith:[.05,.16,.58],glow:[.2,.18,.12],fog:0x9fb2c6,fogD:.0016,tower:.03,beam:0,lamp:.15,stars:false,bugs:false},
-  morning:{exposure:.72,key:2.1,keyC:0xffe6c8,fill:.45,fillC:0xc8dcff,hemi:.45,hemiC:0xa8c8ff,ground:0x26301e,horizon:[.42,.58,.82],zenith:[.04,.14,.48],glow:[.14,.14,.12],fog:0x8aa4c8,fogD:.0016,tower:.03,beam:0,lamp:.15,stars:false,bugs:false}};
+  night:{exposure:EXPOSURE,key:1.1,keyC:0xfff1dc,fill:.25,fillC:0xd6e2ff,hemi:.12,hemiC:0x9fb4e6,ground:HEMI_GROUND,horizon:SKY_HORIZON,zenith:SKY_ZENITH,glow:SKY_GLOW,fog:0x0d1220,fogD:.0056,hazeSky:.3,tower:.16,beam:.025,lamp:1,halo:.16,motes:1,stars:true,bugs:true},
+  dusk:{exposure:.78,key:1.5,keyC:0xffc08a,fill:.3,fillC:0xa89ad8,hemi:.22,hemiC:0xc79a9a,ground:0x1c1a12,horizon:[.42,.17,.07],zenith:[.025,.03,.09],glow:[.3,.11,.03],fog:0x3a2830,fogD:.006,hazeSky:.35,tower:.12,beam:.016,lamp:.7,halo:.1,motes:.6,stars:false,bugs:true},
+  afternoon:{exposure:.68,key:2.7,keyC:0xfff6e6,fill:.55,fillC:0xcfe0ff,hemi:.5,hemiC:0xb8d4ff,ground:0x2a3420,horizon:[.46,.56,.7],zenith:[.05,.16,.58],glow:[.2,.18,.12],fog:0x9fb2c6,fogD:.0031,hazeSky:.4,tower:.03,beam:0,lamp:.15,halo:0,motes:0,stars:false,bugs:false},
+  morning:{exposure:.72,key:2.1,keyC:0xffe6c8,fill:.45,fillC:0xc8dcff,hemi:.45,hemiC:0xa8c8ff,ground:0x26301e,horizon:[.42,.58,.82],zenith:[.04,.14,.48],glow:[.14,.14,.12],fog:0x8aa4c8,fogD:.0036,hazeSky:.4,tower:.03,beam:0,lamp:.15,halo:0,motes:0,stars:false,bugs:false}};
 const LAMP_RGB=[5,4.8,4.4],BEAM_DEFAULT=.025;
 const renderer=window.RENDERER;
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
@@ -91,6 +93,12 @@ const TXL=new THREE.TextureLoader(),TX={};
 function tex(name,srgb){if(TX[name])return TX[name];const t=TXL.load('assets/tex/'+name+'.jpg');t.wrapS=t.wrapT=THREE.RepeatWrapping;if(srgb)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return TX[name]=t}/* r152+ colour management: hex is treated as sRGB and converted to linear */
 $('stage').appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* Thin night-stadium haze: the distance fades out, adding depth */
+/* #208 item 1, depth haze (all tiers: one fog node, uniforms only, no extra pass). Exp2 haze whose density thins with the mean height of the
+   view ray (HAZE_H m e-folding, never below HAZE_FLOOR), so the wall, the stands and the towers sit back in the air while a fly ball high
+   up stays clear. Colour and density come from the park sky (applySky); scene.fog keeps the same values for anything that reads it. */
+const HAZE_H=38,HAZE_FLOOR=.35,hazeU={color:TSL.uniform(new THREE.Color(0x0d1220)),dens:TSL.uniform(.0056)};
+{const {positionView,positionWorld,cameraPosition,exp,max,fog}=TSL;const y=max(positionWorld.y.add(cameraPosition.y).mul(.5),0),m=hazeU.dens.mul(max(exp(y.div(-HAZE_H)),HAZE_FLOOR)).mul(positionView.z.negate());
+  scene.fogNode=fog(hazeU.color,m.mul(m).negate().exp().oneMinus())}
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,800);camera.rotation.order='YXZ';
 const rig=new THREE.Group();rig.add(camera);scene.add(rig);
 const hemi=new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I);scene.add(hemi);
@@ -317,12 +325,21 @@ const TOWER_I=.16*Math.PI,BEAM_K=BEAM_DEFAULT,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TO
 const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(...LAMP_RGB),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
 const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
-const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,color,positionView,length,smoothstep}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
-  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(skyU.beam).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
+/* #208 item 2, light you can see: on max the beams are stronger (BEAM_MAX_K) and carry slow drifting dust (3D noise scrolled by time: decoration,
+   like the bugs), each lamp gets a wide aureole in the haze (haloMat) and dust motes drift through every beam (motes). Below max: the old faint beam and a fainter aureole. */
+const BEAM_MAX_K=2.4,BEAM_DUST=.9,BEAM_DUST_SCALE=.09,BEAM_DUST_DRIFT=.35,HALO_SCALE=95,HALO_LOW=.35,MOTE_PER=140,MOTE_CORE=.45,MOTE_FALL=.18;
+const beamK=TSL.uniform(1).onFrameUpdate(()=>gfxMax?BEAM_MAX_K:1),dustK=TSL.uniform(0).onFrameUpdate(()=>gfxMax?BEAM_DUST:0);
+const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,vec3,color,positionView,positionWorld,length,smoothstep,mx_noise_float,time}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
+  const e=pow(abs(dot(normalView,positionViewDirection)),2),dust=mx_noise_float(positionWorld.mul(BEAM_DUST_SCALE).add(vec3(time.mul(BEAM_DUST_DRIFT*.6),time.mul(-BEAM_DUST_DRIFT),time.mul(BEAM_DUST_DRIFT*.3)))).mul(dustK).add(1).max(0);
+  m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(skyU.beam).mul(beamK).mul(dust).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
+const haloK=TSL.uniform(0).onFrameUpdate(()=>skyCur.halo*(gfxMax?1:HALO_LOW));
+const haloMat=(()=>{const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});const t=new THREE.CanvasTexture(glowC);
+  m.colorNode=TSL.texture(t).mul(haloK);m.toneMapped=false;return m})();
 const towerSpots=[];
 for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.position.set(x,23,z);scene.add(m);
   const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
+  const ha=new THREE.Sprite(haloMat);ha.position.set(x,46,z);ha.scale.set(HALO_SCALE,HALO_SCALE,1);scene.add(ha);
   const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),aim=new THREE.Vector3(TOWER_AIM[0]+x*TOWER_AIM_K,0,TOWER_AIM[1]+(z-TOWER_AIM[1])*TOWER_AIM_K),dir=lamp.clone().sub(tgt),L=dir.length();
   const beam=new THREE.Mesh(new THREE.ConeGeometry(L*.32,L,32,1,true),beamMat);beam.position.copy(lamp.clone().add(tgt).multiplyScalar(.5));beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());scene.add(beam);
   /* Light-tower spots: lit areas and dark corners (no shadows, for performance; the key light still casts the main shadow) */
@@ -336,9 +353,19 @@ const bugs=(()=>{const n=LAMPS.length*BUG_PER,pos=new Float32Array(n*3),seed=[];
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
   const pts=new THREE.Points(g,new THREE.PointsMaterial({color:new THREE.Color(3,2.8,2.2),size:BUG_SIZE,sizeAttenuation:true,transparent:true,opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,fog:false}));
   pts.frustumCulled=false;scene.add(pts);return{pts,pos,seed}})();
+/* #208 motes (max only): MOTE_PER points in the core of each tower beam (between 20 % and 90 % of the way down), sinking slowly and swirling; seeded, no Math.random */
+const moteK=TSL.uniform(0).onFrameUpdate(()=>envOn&&gfxMax?skyCur.motes:0);/* max only: on WebGL the points draw as big flakes (snow) */
+const motes=(()=>{const n=LAMPS.length*MOTE_PER,pos=new Float32Array(n*3),seed=[];let r=11;const rnd=()=>(r=(r*16807)%2147483647)/2147483647;
+  for(let i=0;i<n;i++){const [x,z]=LAMPS[Math.floor(i/MOTE_PER)],lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),f=.2+rnd()*.7,c=lamp.clone().lerp(tgt,f),R=lamp.distanceTo(tgt)*.32*f*MOTE_CORE*Math.sqrt(rnd());
+    seed.push({c:[c.x,c.y,c.z],R,a:rnd()*6.28,w:(.05+rnd()*.12)*(rnd()<.5?-1:1),h:rnd()*8,ph:rnd()*6.28})}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));const m=new THREE.PointsNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});
+  m.colorNode=TSL.color(new THREE.Color(2.4,2.2,1.8)).mul(moteK);m.toneMapped=false;const pts=new THREE.Points(g,m);pts.frustumCulled=false;scene.add(pts);return{pts,pos,seed}})();
+function updateMotes(t){const {pos,seed}=motes;for(let i=0;i<seed.length;i++){const q=seed[i],a=q.a+t*q.w,y=((q.h-t*MOTE_FALL)%8+8)%8-4;
+  pos[i*3]=q.c[0]+Math.cos(a)*q.R;pos[i*3+1]=q.c[1]+y+Math.sin(t*.4+q.ph)*.3;pos[i*3+2]=q.c[2]+Math.sin(a)*q.R}
+  motes.pts.geometry.attributes.position.needsUpdate=true}
 function updateBugs(t){const {pos,seed}=bugs;for(let i=0;i<seed.length;i++){const q=seed[i],a=q.a+t*q.w1,b=q.b+t*q.w2;
   pos[i*3]=q.c[0]+Math.cos(a)*q.r+Math.sin(t*7+i)*.15;pos[i*3+1]=q.c[1]+Math.sin(b)*q.r*.6;pos[i*3+2]=q.c[2]+Math.sin(a)*q.r*Math.cos(b)}
-  bugs.pts.geometry.attributes.position.needsUpdate=true}
+  bugs.pts.geometry.attributes.position.needsUpdate=true;if(skyCur.motes&&gfxMax)updateMotes(t)}/* motes ride the bugs' call: tiers 0-1 only (envOn) */
 /* Close-up grass blades: blades only where the camera looks (closer than BLADE_SHOW m), placed by a world-grid hash so they do not jitter as the camera moves. Grass areas of the field map only */
 const BLADE_N=16000,BLADE_R=6,BLADE_SHOW=15,BLADE_CELL=.08,BLADE_SNAP=1;
 const blades=(()=>{const geo=new THREE.BufferGeometry(),w=.006;geo.setAttribute('position',new THREE.Float32BufferAttribute([-w,0,0,w,0,0,0,1,.15,w,0,0,-w,0,0,0,1,.15],3));geo.setAttribute('normal',new THREE.Float32BufferAttribute([0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0],3));/* Two faces, both normals pointing up (with DoubleSide the back normal flips down and goes black) *//* Normals point up: lit like the ground, so individual blades do not turn black */
@@ -394,6 +421,7 @@ const MAX_GI_SLICES=2,MAX_GI_STEPS=8,MAX_GI_RADIUS=4,MAX_GI_I=4,MAX_GI_AO=1,MAX_
 const MAX_SHADOW_MAP=4096,MAX_SHADOW_RADIUS=2.5,TIER_SHADOW_RADIUS=1,MAX_AO_RES=1,AO_RES=.5,MAX_IBL_I=.6,SKY_ENV_FAR=1000,SKY_ENV_MIN_R=400;
 let maxWish=false;try{if(IS_DEV){const q=new URLSearchParams(location.search).get('q');if(q!==null)localStorage.setItem('zu_max',q==='max'?'1':'0');maxWish=localStorage.getItem('zu_max')==='1'}}catch(e){}
 let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
+if(window.PL&&PL.SKIN)PL.SKIN.on=()=>gfxMax;/* #207: the real skin maps follow max (players.js polls it; nothing extra loads while max is off) */
 const maxSave=v=>{maxWish=v;try{localStorage.setItem('zu_max',v?'1':'0')}catch(e){}};
 /* the max modules are fetched only when max is on; each one may fail alone (max then keeps FXAA / GTAO / no reflections). ?off=traa,ssgi,ssr skips one on dev */
 const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode']];
@@ -453,7 +481,7 @@ const PARKS={
 const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night'};
 let skyCur=SKIES.night;
 function applySky(S){skyCur=S;renderer.toneMappingExposure=S.exposure;key.intensity=S.key*Math.PI;key.color.set(S.keyC);fill.intensity=S.fill*Math.PI;fill.color.set(S.fillC);
-  hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog);scene.fog.density=S.fogD;
+  hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
   skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
   for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
   stars.visible=S.stars;bugs.pts.material.visible=S.bugs;/* material switch: the tier code keeps owning bugs.pts.visible */
