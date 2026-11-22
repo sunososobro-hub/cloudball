@@ -3,8 +3,7 @@
 ## Done
 - #50 names, #52 staff, #47 recorder, #113 slots, #137/#102 banter + audio, #71 fan slots, #54 wave 1 bios (28).
 - #169 halves (PRs #172, #173): frozen rosters of seed 704, `tools/abilities.mjs`, `ratings.js`. #178: `freeagents.js` (drawName, CREATE budget, validateCreate, makePlayer), `namepool.js`, `ratingsOf.raw`.
-- #169 written (PR feat/169-write): seed 201 in `players.js`, rating knees (stars 95..98, nobody 1 or 100),
-  CREATE retuned to bat 305/cap 70, pit 183/cap 66 (overall 50..58), 3 bio lines rewritten for the owner.
+- #169 written (PR #188): seed 201, rating knees (stars 95..98, nobody 1 or 100), CREATE bat 305/70, pit 183/66.
 - #54 wave 2 (PR feat/54-wave2): the other 44 lines; bios.check now needs all 72 players.
 
 ## Next
