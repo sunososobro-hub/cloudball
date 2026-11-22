@@ -207,10 +207,10 @@ const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;con
   g.beginPath();g.moveTo(0,0);g.lineTo(64,64);g.moveTo(64,0);g.lineTo(0,64);g.stroke();
   const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(NET_W/NET_CELL,NET_H/NET_CELL);t.anisotropy=8;t.colorSpace=THREE.SRGBColorSpace;
   const m=new THREE.Mesh(new THREE.PlaneGeometry(NET_W,NET_H),new THREE.MeshBasicMaterial({map:t,transparent:true,opacity:NET_OPACITY,depthWrite:false,side:THREE.DoubleSide,fog:true}));
-  m.position.set(0,NET_H/2,NET_Z);m.renderOrder=2;scene.add(m);
+  m.name='old:backstop';m.position.set(0,NET_H/2,NET_Z);m.renderOrder=2;scene.add(m);
   const steel=new THREE.MeshStandardMaterial({color:LC(0x2a2f38),roughness:.7,metalness:.5,map:paintTex(),roughnessMap:paintTex()});
-  for(const x of [-NET_W/2,-NET_W/6,NET_W/6,NET_W/2]){const pl=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,NET_H,8),steel);pl.position.set(x,NET_H/2,NET_Z+.05);scene.add(pl)}
-  const top=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,NET_W,6),steel);top.rotation.z=Math.PI/2;top.position.set(0,NET_H,NET_Z);scene.add(top);return m})();
+  for(const x of [-NET_W/2,-NET_W/6,NET_W/6,NET_W/2]){const pl=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,NET_H,8),steel);pl.name='old:backstop';pl.position.set(x,NET_H/2,NET_Z+.05);scene.add(pl)}
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,NET_W,6),steel);top.name='old:backstop';top.rotation.z=Math.PI/2;top.position.set(0,NET_H,NET_Z);scene.add(top);return m})();
 
 /* stands + crowd */
 /* #150 concrete wear: broad water stains (low noise) and rain streaks (noise stretched downwards) darken the tinted concrete */

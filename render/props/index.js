@@ -7,6 +7,7 @@ import {buildDugout} from './dugout.js';
 import {buildField} from './field.js';
 import {buildWall} from './wall.js';
 import {buildFoulPoles} from './foulpoles.js';
+import {buildBackstop,oldBackstop} from './backstop.js';
 
 /* Polished props are drawn on the `max` tier only (manager 11/22 10:30, #211): game.js imports this file only once max is on,
    and max can still go off later (the tier button, a drop below tier 0), so the swap follows it. Takes the ctx below. */
@@ -23,6 +24,8 @@ export const PROPS=[
   {name:'foulPoles',build:c=>buildFoulPoles({colors:c.park()}),old:c=>[-1,1].map(s=>c.scene.getObjectByName('old:foulpole:'+s)).filter(Boolean)},
   /* the road team's dugout at dugout(0), first-base side: same shell mirrored, plus the visitors' gear. Never existed before either. */
   {name:'roadDugout',build:c=>{const [x,z]=c.dugout(0);return buildDugout({x,z,colors:c.park(),name:'roadDugout',road:true})},old:()=>[]},
+  /* the backstop behind the plate (wall, net, posts, cables): replaces game.js's old net, posts and top cable, all named 'old:backstop' */
+  {name:'backstop',build:c=>buildBackstop({old:oldBackstop(c.scene),colors:c.park()}),old:c=>oldBackstop(c.scene)},
 ];
 
 /* ctx from game.js: {scene, tier: () => current quality tier, max: () => true while the `max` tier is on, dugout: team -> [x, z], park: () => {pad, trim} of the home park} */
