@@ -1,6 +1,7 @@
 /* 1 to 100 display ratings (league/ratings.js, #169 item 8). Fails when
  *   - a player's overall or an ability is not a whole number from 1 to 100, or a key is missing,
  *   - the league overall mean is outside LEAGUE_MEAN,
+ *   - two teams' best players (the stars) share an overall, or anybody reads 1 or 100 (the knees of #169),
  *   - engine/ imports league/ratings.js (display only, rule 10), or the file uses Math.random or Date.
  * static.mjs runs this file.
  * Usage: node tests/ratings.check.mjs */
@@ -12,11 +13,14 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LEAGUE_MEAN = [60, 66];
 const { ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'league/players.js')));
 const { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } = await import(pathToFileURL(path.join(ROOT, 'league/ratings.js')));
-const problems = [], all = [];
+const problems = [], all = [], tops = [];
+for (const t of ROSTERS) tops.push(Math.max(...[...t.bat, ...t.pit].map(p => ratingsOf(p).ovr)));
+if (new Set(tops).size !== tops.length) problems.push(`team stars share an overall: ${tops.join(' ')}`);
 for (const t of ROSTERS) for (const p of [...t.bat, ...t.pit]) {
   const r = ratingsOf(p), keys = ['ovr', ...Object.keys(p.role ? PIT_WEIGHTS : BAT_WEIGHTS), 'pot'];
   for (const k of keys) if (!Number.isInteger(r[k]) || r[k] < 1 || r[k] > 100) problems.push(`${p.id}: ${k} is ${r[k]}`);
   all.push(r.ovr);
+  for (const k of keys) if (r[k] === 1 || r[k] === 100) problems.push(`${p.id}: ${k} reads ${r[k]}, an end of the scale`);
 }
 const m = all.reduce((a, b) => a + b, 0) / all.length;
 if (m < LEAGUE_MEAN[0] || m > LEAGUE_MEAN[1]) problems.push(`league overall mean ${m.toFixed(1)} outside ${LEAGUE_MEAN.join('..')}`);

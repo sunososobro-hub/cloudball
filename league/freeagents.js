@@ -42,9 +42,9 @@ export const CREATE = {
   look: { head: [0, 7], skin: [0, 5], hair: [0, 9] },
   keys: { bat: Object.keys(BAT_WEIGHTS), pit: Object.keys(PIT_WEIGHTS) },
   /* the one fixed budget per kind, and the floor and cap of each ability (display points, 1 to 100) */
-  budget: { bat: 325, pit: 180 },
+  budget: { bat: 305, pit: 183 },
   floor: 40,
-  cap: { bat: 72, pit: 68 },
+  cap: { bat: 70, pit: 66 },
   maxNameDraw: 999,
 };
 /* drawn, not chosen */

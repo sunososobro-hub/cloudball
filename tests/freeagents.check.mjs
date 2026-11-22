@@ -34,15 +34,15 @@ if (JSON.stringify([...expect].sort()) !== JSON.stringify([...BLOCKED].sort())) 
 
 /* rules */
 const look = { head: 3, skin: 2, hair: 5 };
-const BAT = { kind: 'bat', pos: 'SS', bats: 'L', build: 'slim', look, points: { con: 72, pow: 40, eye: 70, spd: 72, arm: 71 }, nameDraw: 0 };
-const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points: { stuff: 68, ctrl: 62, arm: 50 } };
+const BAT = { kind: 'bat', pos: 'SS', bats: 'L', build: 'slim', look, points: { con: 70, pow: 40, eye: 65, spd: 70, arm: 60 }, nameDraw: 0 };
+const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points: { stuff: 66, ctrl: 62, arm: 55 } };
 for (const c of [BAT, PIT]) { const w = validateCreate(c); if (w.length) bad(`valid ${c.kind} choice refused: ${w.join('; ')}`); }
 const off = {
   'over budget': { ...BAT, points: { ...BAT.points, pow: 41 } },
-  'under budget': { ...PIT, points: { ...PIT.points, arm: 49 } },
-  'below floor': { ...BAT, points: { con: 72, pow: 39, eye: 71, spd: 72, arm: 71 } },
-  'above cap': { ...PIT, points: { stuff: 69, ctrl: 61, arm: 50 } },
-  'not whole': { ...PIT, points: { stuff: 67.5, ctrl: 62.5, arm: 50 } },
+  'under budget': { ...PIT, points: { ...PIT.points, arm: 54 } },
+  'below floor': { ...BAT, points: { con: 70, pow: 39, eye: 66, spd: 70, arm: 60 } },
+  'above cap': { ...PIT, points: { stuff: 67, ctrl: 61, arm: 55 } },
+  'not whole': { ...PIT, points: { stuff: 65.5, ctrl: 62.5, arm: 55 } },
   'missing ability': { ...PIT, points: { stuff: 90, ctrl: 90 } },
   'potential chosen': { ...BAT, points: { ...BAT.points, pot: 99 } },
   'free-text name': { ...BAT, name: '王建民' },
