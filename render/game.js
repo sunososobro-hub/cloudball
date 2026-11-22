@@ -441,7 +441,7 @@ function addMask(f){if(!f.sockets||!f.sockets.head)return;const g=new THREE.Grou
   for(const x of [-.095,-.03,.03,.095]){const m=new THREE.Mesh(new THREE.BoxGeometry(.012,.19,.012),steel);m.position.set(x,-.065,.112-Math.abs(x)*.25);m.rotation.y=-x*2.2;g.add(m)}
   for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(.03,.17,.06),pad);m.position.set(s*.105,-.06,.075);g.add(m)}
   g.traverse(o=>{if(o.isMesh)o.castShadow=true});f.sockets.head.add(g);f.mask=g;return g}
-if(window.PL){fielders.C.setHead('helmet');addMask(fielders.C);addMask(ump)}
+if(window.PL){fielders.C.setHead('helmet');if(fielders.C.setGear)fielders.C.setGear('catcher');addMask(fielders.C);addMask(ump)}/* #204: catcher's gear in the defence's team colour */
 const BR=rigUpper(batter),CR=rigUpper(fielders.C),UR=rigUpper(ump),PR=rigUpper(fielders.P);
 const batPivot=new THREE.Group();BR.up.add(batPivot);
 const bat=window.PL?PL.makeBat(0xc9a06a):new THREE.Mesh(new THREE.CylinderGeometry(.04,.022,.85,8),SM(0xc9a06a,.45));if(!window.PL)bat.position.y=.42;bat.castShadow=true;batPivot.add(bat);
