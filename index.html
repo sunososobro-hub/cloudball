@@ -113,7 +113,6 @@ button:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
 .side.nologo .mark{border-radius:18px;background:linear-gradient(160deg,var(--tc),rgba(7,11,22,.9));font:700 clamp(26px,6.5vw,80px)/1.1 'Noto Sans TC',sans-serif;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.5);width:min(37vw,44vh,360px)}
 .vs{font:700 clamp(34px,6vw,88px)/1 'Barlow Condensed','Noto Sans TC',sans-serif;letter-spacing:.04em;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.7);align-self:center;margin-bottom:clamp(30px,5vh,56px)}
 .card p{color:var(--muted);margin:0}
-#introMatch{color:var(--ink);font-weight:600;font-size:clamp(17px,2.2vw,26px)}
 .acts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;width:min(100%,620px)}
 .acts button{flex:1 1 220px;min-height:58px;font-size:18px;border-radius:14px}
 .card .go{background:#f2c230;color:#14110a;border-color:transparent;font-weight:700;padding:0 22px}
@@ -230,7 +229,6 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
       <div class="vs" aria-label="對">VS</div>
       <figure class="side" id="sideB"><div class="mark"></div><figcaption></figcaption></figure>
     </div>
-    <p id="introMatch"></p>
     <p id="introStatus" hidden></p>
     <div class="pick" id="introTeam" hidden><button data-t="0"></button><button data-t="1"></button><button data-t="-1">中立看球</button></div>
     <div class="acts">
@@ -246,7 +244,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
 <script type="module">
 /* The intro line comes straight from league/ and does not wait for three.js. */
 import {TEAMS as LEAGUE_TEAMS} from './league/teams.js';
-const [teamA,teamB]=LEAGUE_TEAMS;document.getElementById('introMatch').textContent=`今晚 ${teamA.name} 對 ${teamB.name}`;
+const [teamA,teamB]=LEAGUE_TEAMS;
 const pick=document.getElementById('introTeam').children;pick[0].textContent=`我挺${teamA.short}`;pick[1].textContent=`我挺${teamB.short}`;
 /* Poster: away team left, home team right (same order as render/game.js). A logo that fails to load leaves a team-colour tile with the short name. */
 for(const [id,T] of [['sideA',teamA],['sideB',teamB]]){
