@@ -806,12 +806,26 @@ function crewNums(seed){if(!staffM||!staffM.crewFor)return null;if(!stCrew.has(s
 const stPath=(i,team)=>{const side=i?-1:1,B=lineXZ(side,ST_BOX),G=dugout(team);return odPath(Math.sign(G[0])===side?[G,B]:[G,[0,ST_BEHIND_Z],B])};
 const stJogDur=(team,i)=>stPath(i,team).L/ST_JOG_V,stJogEnd=(team,t0)=>t0+Math.max(stJogDur(team,0),stJogDur(team,1));/* cpEvents: they move until here */
 function poseStaff(e,u){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{const [x,z]=stUmpAt[i];resetPose(f);f.noAnim=false;f.g.visible=true;f.g.position.set(x,0,z);face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined)});
+  umpB.forEach((f,i)=>{const [x,z]=stUmpAt[i];resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
-    resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
+    resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.gw=!walk?1:leave?0:sat01((k-GW_ARRIVE)/(1-GW_ARRIVE));f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
     setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name)})}
+/* #42 slice 6 (item 3: "step out of the way ... rather than be walked through"): after the frame is posed, each base umpire and base
+   coach is pushed off his post by every visible runner, fielder or batter closer than GW_R, by GW_MAX x smoothstep(1 - d/GW_R) along the
+   line from that mover to the post, leaned GW_OUT toward foul ground for the line staff (U2 behind second has no foul side); the sum is
+   capped at GW_MAX. Pure function of the posed frame, so of (event, time): a seek lands where playing would; animate() gives the step its
+   legs. Throws are not dodged (the ball passes over or beside the posts). */
+const GW_R=4,GW_MAX=1.5,GW_OUT=.6,GW_ARRIVE=.8;/* a coach on his jog gives no way (f.gw 0: the dugout is where catchers and fielders vanish, a snap); it fades in over the last fifth of the jog to the box */
+const gwFoul=[[Math.SQRT1_2,Math.SQRT1_2],null,[-Math.SQRT1_2,Math.SQRT1_2]],gwCoachFoul=[gwFoul[0],gwFoul[2]];/* foul-side unit normal of each line */
+function staffGiveWay(){const mv=[...FIELDER_KEYS.map(k=>fielders[k]),...runners,batter].filter(m=>m.g.visible);let most=0;
+  const push=(f,out)=>{if(!f.g.visible)return;const p=f.g.position;let ox=0,oz=0;
+    for(const m of mv){let dx=p.x-m.g.position.x,dz=p.z-m.g.position.z;const d=Math.hypot(dx,dz);if(d>=GW_R)continue;
+      const w=1-d/GW_R,k=GW_MAX*w*w*(3-2*w);if(d>1e-4){dx/=d;dz/=d}else{dx=0;dz=0}
+      if(out){dx+=out[0]*GW_OUT;dz+=out[1]*GW_OUT}const n=Math.hypot(dx,dz)||1;ox+=dx/n*k;oz+=dz/n*k}
+    const o=Math.hypot(ox,oz);if(o>GW_MAX){ox*=GW_MAX/o;oz*=GW_MAX/o}const g=f.gw===undefined?1:f.gw;ox*=g;oz*=g;p.x+=ox;p.z+=oz;most=Math.max(most,Math.hypot(ox,oz))};
+  umpB.forEach((f,i)=>push(f,gwFoul[i]));coaches.forEach((f,i)=>push(f,gwCoachFoul[i]));return most}
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
 const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
@@ -1775,7 +1789,7 @@ renderer.setAnimationLoop(()=>{
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
   curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
-  const s=poseScene(e,u,dt,i);
+  const s=poseScene(e,u,dt,i);staffGiveWay();/* #42: staff step off their posts for runners and fielders */
   if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump,...umpB,...coaches]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
   for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck,...umpB,...coaches].forEach(f=>{if(f.g.visible)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);
   hud(e,u,s);if(mode!=='studio'&&!scrubbing)commentary(T);renderVote(voteEv,T);plUpdate();
