@@ -42,6 +42,9 @@ export const RELIEFS={
   ribbed:  {m:.2,  n:2.4,h:(u,v)=>{/* corrugated steel deck (roof underside): ribs along u */const r=Math.abs(((v*1)%1)-.5)*2;return sat(.15+.85*smooth(.35,.65,r))+.04*fbm(u,v,61,8)}},
   rubber:  {m:.3,  n:1.3,h:(u,v)=>{/* rubber floor mat: raised round studs */const d=Math.hypot(((u*6)%1)-.5,((v*6)%1)-.5);return sat(.3+.6*(1-smooth(.22,.3,d))+.08*fbm(u,v,71,16))}},
   dirt:    {m:.8,  n:.8, h:(u,v)=>sat(.4+.5*fbm(u,v,81,10)-(cell(u,v,82,30)<.08?.3:0))},/* chalked dirt: lumps and tiny pits */
+  vinyl:   {m:1.4, n:1.5,h:(u,v)=>{/* vinyl over foam, one tile = one wall pad (u across, v up): soft dents and sag creases, a dashed stitch inset at each side */
+    const crease=.12*smooth(.6,1,fbm(u*.5,v,101,6,3))*Math.abs(Math.sin(v*Math.PI*7+3*fbm(u,v,102,3))),st=(Math.abs(u-.03)<.004||Math.abs(u-.97)<.004)&&((v*90|0)%2===0)?.3:0;
+    return sat(.75+.18*fbm(u,v,103,5)-crease-st)}},
 };
 
 /* ---------- material kinds ---------- */

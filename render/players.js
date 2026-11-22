@@ -16,6 +16,7 @@
  * With the inner mirror, get the world release point from f.handWorld(1), not the old pitchTipAt +x formula.
  */
 import * as THREE from 'three/webgpu';
+import { ROSTERS } from '../league/players.js';   /* #207: ages pick who gets the old skin map */
 
 /* ---------- Dimensions (unscaled body coordinates, aligned with the old block figure) ---------- */
 export const REF_H = 1.86;               /* Top-of-head height when unscaled; a player of height h is scaled by h/REF_H */
@@ -461,20 +462,25 @@ function cutKitGroups(H, P0, IX) {
   const [dk, dc] = split('dark', t => cen(t, 1) > BELT_MIN_Y);
   return H.groups.flatMap(gr => gr[2] === 'jersey' ? [jk, [...jc, 'trim']] : gr[2] === 'dark' ? [dk, [...dc, 'belt']] : [gr]).filter(gr => gr[1] > 0);
 }
-/* ---------- Skin (#207 round 2): colour map x per-player tone, roughness that varies over the face, pores that fade with distance,
- * wrapped diffuse and a warm glow through thin parts (ears, nostrils, fingers). One material per tone: no extra draw call.
- * SKIN.full is the #211 spot: today on for every tier (owner 09:39: his desktop first); when the `max` tier lands, set it from the tier
- * BEFORE loadPlayerAssets (false = no UV download, plain colour and painted face as before).
- * SKIN.map loads by file name, in the MakeHuman base-mesh UV layout (assets/skin_uv.b64.txt). Today a code-drawn stand-in
- * (assets/tools/skin_placeholder.py, near-white multiplier); the CC0 MakeHuman community skins drop in by changing `map`, with
- * `ref` = the map's average skin colour (the tone is divided by it, so the product stays the player's tone) and lips/brows = what it paints. */
-export const SKIN = { full: true, map: 'tex/skin_placeholder.jpg', ref: 0xffffff, lips: true, brows: true };
+/* ---------- Skin (#207): the real CC0 skin maps (MakeHuman community Skins 02, assets/SOURCES.md), roughness that varies over the face,
+ * pores that fade with distance, wrapped diffuse and a warm glow through thin parts (ears, nostrils, fingers).
+ * The maps are the full skin colour (not multipliers): a player's tone only shifts his map a little (SKIN.shift of tone / map average `ref`,
+ * each channel within 1 +- SKIN.shiftMax,
+ * so the map's own lips, stubble and shading survive). One material per map and tone: no extra draw call.
+ * Each player gets one of the three maps in headOf: the SKIN.oldPerTeam oldest of each roster (league ages) old, then a fixed hash of his id
+ * (SKIN.darkShare dark, the rest light), since #151 has no per-player tone yet; `ref` = each map's measured average over its painted skin.
+ * SKIN.full follows the `max` tier (#211): game.js sets SKIN.on = () => gfxMax. While it is off nothing extra loads (no UV file, no maps)
+ * and the players keep the plain tone and the painted face. When it turns on, the UVs and the three maps load once, every live body
+ * is rebuilt with UVs and gets its map; when it turns off again the plain material comes back (the UV geometry stays). */
+export const SKIN = { full: false, on: () => false, lips: true, brows: false, shift: .3, shiftMax: .1, oldPerTeam: 3, oldShare: .15, darkShare: .2,
+  maps: { light: { file: 'tex/skin_light.jpg', ref: 0xd48c60 }, dark: { file: 'tex/skin_dark.jpg', ref: 0x3e281d }, old: { file: 'tex/skin_old.jpg', ref: 0xc98e6c } } };
+const SKIN_KEYS = ['light', 'dark', 'old'], SKIN_POLL_MS = 500;
 const SKIN_ROUGH = { base: .6, oily: .4, matte: .72 };                   /* Forehead and nose shinier, cheeks matte */
 const SKIN_WRAP = .4, SKIN_WRAP_K = .6;                                  /* Light wraps past the terminator: (N.L + w) / (1 + w), extra share */
 const SSS_WARM = [1, .4, .25], SSS_DIST = .3, SSS_POW = 4, SSS_SCALE = .6, SSS_AMB = .015;   /* Back-light through thin parts, tinted blood red */
 const PORE_FREQ = 700, PORE_AMP = .09, PORE_ROUGH = .06, PORE_NEAR = 1.2, PORE_FAR = 5;       /* UV-space noise; gone beyond PORE_FAR metres */
 const EAR_X = [.062, .076], EAR_DY = .05, HAND_THIN = [.04, .1], HAND_THIN_MAX = .45, NOSE_THIN = .35;
-let skinTex = null; const skinMats = new Map();
+const skinTexs = {}, skinMats = new Map(), LIVE = new Set();   /* LIVE: WeakRefs to every real body, so a max switch can reach them */
 class SkinLighting extends THREE.PhysicalLightingModel {
   direct(inp, builder) {
     const T = THREE.TSL, { lightDirection: L, lightColor, reflectedLight } = inp, N = T.normalView, dc = T.diffuseColor.rgb;
@@ -487,18 +493,18 @@ class SkinLighting extends THREE.PhysicalLightingModel {
   }
 }
 class SkinMaterial extends THREE.MeshStandardNodeMaterial { setupLightingModel() { return new SkinLighting() } }
-/* Skin material for a tone (hex, sRGB), or null when the full skin is off or its UVs did not load */
-function skinMat(hex) {
-  if (!PACK || !PACK.uv) return null;
-  let m = skinMats.get(hex); if (m) return m;
-  const T = THREE.TSL, ref = new THREE.Color().setHex(SKIN.ref, THREE.SRGBColorSpace), c = new THREE.Color().setHex(hex, THREE.SRGBColorSpace);
-  c.r /= Math.max(ref.r, .05); c.g /= Math.max(ref.g, .05); c.b /= Math.max(ref.b, .05);
+/* Skin material for a tone (hex, sRGB) on map `key`, or null when the full skin is off or its UVs / maps did not load */
+function skinMat(hex, key = 'light') {
+  if (!SKIN.full || !PACK || !PACK.uv || !skinTexs[key]) return null;
+  const mk = key + ':' + hex; let m = skinMats.get(mk); if (m) return m;
+  const T = THREE.TSL, skinTex = skinTexs[key], ref = new THREE.Color().setHex(SKIN.maps[key].ref, THREE.SRGBColorSpace), c = new THREE.Color().setHex(hex, THREE.SRGBColorSpace);
+  for (const ch of ['r', 'g', 'b']) c[ch] = Math.min(1 + SKIN.shiftMax, Math.max(1 - SKIN.shiftMax, 1 + SKIN.shift * (c[ch] / Math.max(ref[ch], .01) - 1)));   /* a small shift toward the tone, never a re-colour */
   m = new SkinMaterial({ color: c, roughness: SKIN_ROUGH.base, metalness: 0 }); m.vertexColors = true;
   const a = T.attribute('skinAttr', 'vec2'), u = T.uv(), fade = T.float(1).sub(T.smoothstep(PORE_NEAR, PORE_FAR, T.positionView.z.negate()));
   m.colorNode = T.materialColor.mul(T.texture(skinTex, u).rgb);
   m.normalNode = T.normalViewGeometry.add(T.mx_noise_vec3(T.vec3(u.mul(PORE_FREQ), 0)).mul(fade.mul(PORE_AMP))).normalize();
   m.roughnessNode = a.y.add(T.mx_noise_float(T.vec3(u.mul(PORE_FREQ * .5), 1)).mul(fade.mul(PORE_ROUGH)));
-  skinMats.set(hex, m); return m;
+  skinMats.set(mk, m); return m;
 }
 /* Join skin_uv.b64.txt to the pack (format in assets/tools/skin_uv.py): seam vertices get copies (same position, weights, offsets)
  * carrying their other UV, and the listed corners point at the copies. Returns the grown arrays, or null if the files do not match. */
@@ -546,7 +552,6 @@ let PACK = null;
 export async function loadPlayerAssets(base = './assets/') {
   LOGO_BASE = base;
   /* Hosting only accepts common extensions, so the binary is stored as base64 text (.b64.txt, about 800 KB) */
-  const uvTxt = SKIN.full ? fetch(base + 'skin_uv.b64.txt').then(r => r.ok ? r.text() : null).catch(() => null) : null;
   const b64 = await (await fetch(base + 'players.b64.txt')).text(), bin = atob(b64.trim()), u8 = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
   const buf = u8.buffer;
@@ -558,18 +563,43 @@ export async function loadPlayerAssets(base = './assets/') {
   const JI = take(Uint8Array, n * 4), WQ = take(Uint8Array, n * 4), IX = take(Uint16Array, H.ni);
   let P0 = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) P0[i] = H.lo[i % 3] + Pq[i] * H.ps[i % 3];
   let SI = new Uint16Array(JI), SW = new Float32Array(n * 4), Wq = WQ, Dk = Dl, UVJ = null; for (let i = 0; i < n * 4; i++) SW[i] = WQ[i] / 255;
-  const uvT = await uvTxt; if (uvT) { UVJ = joinSkinUV(uvT, H, { P0, SI, SW, WQ, D: Dl, IX }); if (UVJ) ({ P0, SI, SW, WQ: Wq, D: Dk } = UVJ) }
-  if (UVJ) { skinTex = new THREE.TextureLoader().load(base + SKIN.map); skinTex.colorSpace = THREE.SRGBColorSpace; skinTex.anisotropy = 4 }
   const names = Object.keys(B);
   if (H.v !== PACK_VERSION || H.bones.join() !== names.join() || H.parent.join() !== B_PARENT.join()) throw new Error('players.bin: rig does not match players.js');
+  RAW = { H, P0, SI, SW, WQ, D: Dl, IX, base };
+  makePack(H, P0, Dk, SI, SW, Wq, IX, UVJ);
+  if (!skinWatch) skinWatch = setInterval(skinTick, SKIN_POLL_MS);
+  return ASSETS;
+}
+/* The pack the bodies are built from: without UVs (UVJ null), or grown by joinSkinUV */
+function makePack(H, P0, Dk, SI, SW, Wq, IX, UVJ) {
   /* Face and head code reads the old 16-bone split: DG = old bone (group) of the dominant slot, DW = that group's total weight */
   const N = H.n, DG = new Uint8Array(N), DW = new Float32Array(N);
   for (let i = 0; i < N; i++) { const g = H.group[SI[i * 4]]; let w = 0; for (let k = 0; k < 4; k++) if (H.group[SI[i * 4 + k]] === g) w += Wq[i * 4 + k]; DG[i] = g; DW[i] = w / 255 }
   PACK = { H, P0, D: Dk, SI, SW, DG, DW, IX, geos: new Map(), groups: cutKitGroups(H, P0, IX),
     uv: UVJ && UVJ.uv, seam: UVJ && UVJ.seam, n0: UVJ ? UVJ.n0 : N, sk: UVJ && skinAttrs(P0, N, DG, H.joints) };
   for (const k of H.kinds) ASSETS.set(k, realAsset(k));
-  return ASSETS;
 }
+/* #207 max switch: once on, fetch the UVs and the three maps (once), rebuild every live body with UVs, give each its map; off = plain skin */
+let RAW = null, skinWatch = 0, skinUp = null, skinWas = false;
+function skinUpgrade() {
+  if (skinUp) return skinUp;
+  const { H, P0, SI, SW, WQ, D, IX, base } = RAW, tl = new THREE.TextureLoader();
+  return skinUp = Promise.all([fetch(base + 'skin_uv.b64.txt').then(r => r.ok ? r.text() : null),
+    ...SKIN_KEYS.map(k => tl.loadAsync(base + SKIN.maps[k].file).then(t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; skinTexs[k] = t }))])
+    .then(([txt]) => { const H2 = { ...H }, IX2 = IX.slice();   /* joinSkinUV grows H.n and rewrites indices: copies, the live bodies keep theirs until rebuilt */
+      const UVJ = txt && joinSkinUV(txt, H2, { P0, SI, SW, WQ, D, IX: IX2 }); if (!UVJ) throw new Error('skin UVs did not load');
+      makePack(H2, UVJ.P0, UVJ.D, UVJ.SI, UVJ.SW, UVJ.WQ, IX2, UVJ); return true })
+    .catch(e => { console.warn('full skin off (UVs or maps missing)', e); return false });
+}
+function skinTick() {
+  let on = false; try { on = !!SKIN.on() } catch (e) { }
+  if (on === skinWas) return; skinWas = on;
+  if (!on) { SKIN.full = false; eachLive(f => f.applySkin()); return }
+  skinUpgrade().then(ok => { if (!ok || !skinWas) return; const fresh = !SKIN.full; SKIN.full = true; eachLive(f => { if (fresh) f.rebuild(); f.applySkin() }) });
+}
+function eachLive(fn) { for (const r of LIVE) { const f = r.deref(); if (!f) { LIVE.delete(r); continue } try { fn(f) } catch (e) { console.warn('skin switch', e) } } }
+/* Map key of a head index from headOf (shape + HEAD_SHAPES.length x map) */
+const skinKeyOf = head => SKIN_KEYS[Math.floor((head | 0) / HEAD_SHAPES.length) % SKIN_KEYS.length];
 const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
 /* Get (cached) the geometry for a build, plus head shape (for the cap) and back depth (for the number) */
 function realAsset(build, head = 0) {
@@ -633,11 +663,23 @@ export const HEAD_SHAPES = [
 const HEAD_FRONT = [.02, .09];           /* z range over which face offsets fade in (behind it the skull stays as is, so caps still fit) */
 const g1 = (v, c, s) => Math.exp(-(((v - c) / s) ** 2));
 const ramp = (v, a, b) => Math.min(1, Math.max(0, (v - a) / (b - a)));
+let OLD_IDS = null;   /* id -> true (one of his roster's oldest) / false (in a roster, not among them) */
+function oldIds() {
+  if (OLD_IDS) return OLD_IDS; OLD_IDS = new Map();
+  for (const R of ROSTERS || []) { const all = [...(R.bat || []), ...(R.pit || [])].filter(p => p && p.id != null);
+    all.slice().sort((a, b) => (b.age || 0) - (a.age || 0) || String(a.id).localeCompare(String(b.id))).forEach((p, i) => OLD_IDS.set(String(p.id), i < SKIN.oldPerTeam)) }
+  return OLD_IDS;
+}
 /* Fixed hash of a player id -> head shape index (FNV-1a; no Math.random, same man in every game and after a jump) */
 export function headOf(id) {
   let h = 2166136261; const s = String(id ?? '');
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) }
-  return (h >>> 0) % HEAD_SHAPES.length;
+  /* #207: the skin map rides on top of the shape (realAsset only reads head % HEAD_SHAPES.length): old = the SKIN.oldPerTeam oldest of his
+     roster by age; else a second draw from the same hash (no per-player tone yet, #151): SKIN.darkShare dark, the rest light.
+     Ids outside the rosters (free agents) use the draw alone, SKIN.oldShare of them old. */
+  const u = ((Math.imul(h ^ (h >>> 13), 2246822519) >>> 0) % 1000) / 1000, old = oldIds().get(String(id ?? ''));
+  const map = old === undefined && u < SKIN.oldShare || old === true ? 2 : ((u * 7919) % 1) < SKIN.darkShare ? 1 : 0;   /* second digit of the draw for dark */
+  return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * map;
 }
 function shapeHead(P, S) {
   if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin) return;
@@ -854,7 +896,8 @@ function makeRealPlayer(opts, A) {
   names.forEach((n, i) => { const p = V3(J[n]); if (PAR[i] >= 0) { p.sub(V3(J[names[PAR[i]]])); bones[PAR[i]].add(bones[i]) } bones[i].position.copy(p) });
   mir.add(bones[0]);
   skin.vertexColors = true;   /* Face paint lives in the geometry's colour attribute (faceColors); white everywhere else */
-  const sk = skinMat(opts.skin && opts.skin.isMaterial ? opts.skin.color.getHex(THREE.SRGBColorSpace) : opts.skin ?? 0xc99572);   /* #207: full skin when on */
+  const plainSkin = skin, tone = opts.skin && opts.skin.isMaterial ? opts.skin.color.getHex(THREE.SRGBColorSpace) : opts.skin ?? 0xc99572;
+  const sk = skinMat(tone, 'light');   /* #207: full skin when on (the map follows the head index in setBuild) */
   if (sk) skin = sk;
   const mesh = new THREE.SkinnedMesh(A.geo, kit ? [kit.jersey, kit.pants, skin, dark, kit.sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3), kit.trim, kit.belt]
     : [jersey, pants, skin, dark, sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3), jersey, dark]);
@@ -873,7 +916,7 @@ function makeRealPlayer(opts, A) {
   for (const [k, bn, ch, grip] of [['handL', B.handL, C.aL, 'gripL'], ['handR', B.handR, C.aR, 'gripR']]) {
     sockets[k].position.copy(V3(J[grip]).sub(V3(J[k]))); sockets[k].quaternion.copy(ch.R0l).invert(); bones[bn].add(sockets[k]);
   }
-  bones[B.spine].add(sockets.back); sockets.back.position.set(0, D.NUM_Y - J.spine[1], A.backZ - J.spine[2]);
+  bones[B.chest].add(sockets.back); sockets.back.position.set(0, D.NUM_Y - J.chest[1], A.backZ - J.chest[2]);   /* #185: back marks ride the chest, so they turn with it (chest rests at identity: same spot as before) */
   bones[B.pelvis].add(sockets.pelvis);
   const hb = A.head, hcz = (hb.z0 + hb.z1) / 2;
   /* Head socket and cap ride the head bone; neckToHead keeps them at their old neck-local spots (the bone rests at identity) */
@@ -882,13 +925,13 @@ function makeRealPlayer(opts, A) {
   const capRoot = new THREE.Object3D(); capRoot.position.copy(neckToHead); bones[B.head].add(capRoot);   /* The cap geometry is already in neck-local coordinates */
   const numMesh = new THREE.Mesh(new THREE.PlaneGeometry(.2, .2), numMat(0)); numMesh.position.z = -NUM_GAP; numMesh.rotation.y = Math.PI; numMesh.visible = false; sockets.back.add(numMesh);
   let cap = null, glove = null;
-  /* #204 marks: chest logo, front number and back name ride the back socket (spine); `deco.scale.x` undoes the mirror like the back number */
+  /* #204 marks: chest logo, front number and back name ride the back socket (chest); `deco.scale.x` undoes the mirror like the back number */
   const deco = new THREE.Group(), plane = (w, h) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), numMat(0));
   const chestLogo = plane(LOGO_CHEST.size, LOGO_CHEST.size), numFront = plane(NUM_FRONT.size, NUM_FRONT.size), nameBack = plane(NAME_BACK.w, NAME_BACK.h), capLogo = plane(CAP_LOGO.size, CAP_LOGO.size);
   nameBack.rotation.y = Math.PI; deco.add(chestLogo, numFront, nameBack); sockets.back.add(deco);
   for (const o of [chestLogo, numFront, nameBack, capLogo]) o.visible = false;
   const placeDeco = () => {   /* Per build: the socket follows this build's back depth, front decals its chest depth */
-    sockets.back.position.set(0, D.NUM_Y - J.spine[1], A.backZ - J.spine[2]);
+    sockets.back.position.set(0, D.NUM_Y - J.chest[1], A.backZ - J.chest[2]);
     chestLogo.position.set(LOGO_CHEST.x, LOGO_CHEST.y - D.NUM_Y, A.logoZ - A.backZ + DECAL_GAP);
     numFront.position.set(NUM_FRONT.x, NUM_FRONT.y - D.NUM_Y, A.fnumZ - A.backZ + DECAL_GAP);
     nameBack.position.set(0, NAME_BACK.dy, -NUM_GAP);
@@ -946,10 +989,14 @@ function makeRealPlayer(opts, A) {
     /* Change handedness: 'R' mirrors the inner node (old keyframes -> right-handed), 'L' does not. Batters unchanged */
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
-    setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; if (f.buildKey === k) return; f.buildKey = k;
-      A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+    setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; f.buildArgs = [build, height, head]; if (f.buildKey === k) return; f.buildKey = k;
+      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
-  f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0';
+  f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
+  /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
+  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2])) || plainSkin; if (mesh.material[MAT.skin] !== m) { mesh.material[MAT.skin] = m; mesh.material = mesh.material.slice() } };
+  f.rebuild = () => { f.buildKey = null; f.setBuild(...f.buildArgs) };
+  LIVE.add(new WeakRef(f));
   if (opts.num != null) f.setNum(opts.num);
 
   /* Coordinate conversion from the up proxy (origin at the old .95) to the spine bone (origin at the real lumbar spine) */

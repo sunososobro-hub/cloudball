@@ -75,12 +75,14 @@ function findIdx(T){const ev=game.ev;let lo=0,hi=ev.length-1;while(lo<hi){const 
 const EXPOSURE=.75,KEY_I=1.1*Math.PI,FILL_I=.25*Math.PI,HEMI_I=.12*Math.PI,HEMI_GROUND=0x141a12,KEY_SHADOW_I=.7;/* KEY_SHADOW_I: the contact shadows carry the planting now, the real shadow must not double them */
 const SKY_HORIZON=[.02,.025,.04],SKY_ZENITH=[.002,.003,.007],SKY_GLOW=[.025,.02,.012];
 /* #203 item 2: one sky per home park (台北 night, 新竹 dusk, 高雄 afternoon, 台東 morning). Colours, intensities (x PI) and exposure only;
-   the night set is the #132 look above. Applied live by applySky (uniforms and light values: nothing recompiles). Sky colours are linear. */
+   the night set is the #132 look above. Applied live by applySky (uniforms and light values: nothing recompiles). Sky colours are linear.
+   #208: fogD = depth haze at the ground (thins with height, see HAZE_H), hazeSky = how far the haze colour leans to the sky horizon; halo = wide lamp
+   aureole in the haze, motes = dust drifting in the tower beams (both night and dusk; boosted on max). */
 const SKIES={
-  night:{exposure:EXPOSURE,key:1.1,keyC:0xfff1dc,fill:.25,fillC:0xd6e2ff,hemi:.12,hemiC:0x9fb4e6,ground:HEMI_GROUND,horizon:SKY_HORIZON,zenith:SKY_ZENITH,glow:SKY_GLOW,fog:0x0d1220,fogD:.0032,tower:.16,beam:.025,lamp:1,stars:true,bugs:true},
-  dusk:{exposure:.78,key:1.5,keyC:0xffc08a,fill:.3,fillC:0xa89ad8,hemi:.22,hemiC:0xc79a9a,ground:0x1c1a12,horizon:[.42,.17,.07],zenith:[.025,.03,.09],glow:[.3,.11,.03],fog:0x3a2830,fogD:.0026,tower:.12,beam:.012,lamp:.7,stars:false,bugs:true},
-  afternoon:{exposure:.68,key:2.7,keyC:0xfff6e6,fill:.55,fillC:0xcfe0ff,hemi:.5,hemiC:0xb8d4ff,ground:0x2a3420,horizon:[.46,.56,.7],zenith:[.05,.16,.58],glow:[.2,.18,.12],fog:0x9fb2c6,fogD:.0016,tower:.03,beam:0,lamp:.15,stars:false,bugs:false},
-  morning:{exposure:.72,key:2.1,keyC:0xffe6c8,fill:.45,fillC:0xc8dcff,hemi:.45,hemiC:0xa8c8ff,ground:0x26301e,horizon:[.42,.58,.82],zenith:[.04,.14,.48],glow:[.14,.14,.12],fog:0x8aa4c8,fogD:.0016,tower:.03,beam:0,lamp:.15,stars:false,bugs:false}};
+  night:{exposure:EXPOSURE,key:1.1,keyC:0xfff1dc,fill:.25,fillC:0xd6e2ff,hemi:.12,hemiC:0x9fb4e6,ground:HEMI_GROUND,horizon:SKY_HORIZON,zenith:SKY_ZENITH,glow:SKY_GLOW,fog:0x0d1220,fogD:.0056,hazeSky:.3,tower:.16,beam:.025,lamp:1,halo:.16,motes:1,stars:true,bugs:true},
+  dusk:{exposure:.78,key:1.5,keyC:0xffc08a,fill:.3,fillC:0xa89ad8,hemi:.22,hemiC:0xc79a9a,ground:0x1c1a12,horizon:[.42,.17,.07],zenith:[.025,.03,.09],glow:[.3,.11,.03],fog:0x3a2830,fogD:.006,hazeSky:.35,tower:.12,beam:.016,lamp:.7,halo:.1,motes:.6,stars:false,bugs:true},
+  afternoon:{exposure:.68,key:2.7,keyC:0xfff6e6,fill:.55,fillC:0xcfe0ff,hemi:.5,hemiC:0xb8d4ff,ground:0x2a3420,horizon:[.46,.56,.7],zenith:[.05,.16,.58],glow:[.2,.18,.12],fog:0x9fb2c6,fogD:.0031,hazeSky:.4,tower:.03,beam:0,lamp:.15,halo:0,motes:0,stars:false,bugs:false},
+  morning:{exposure:.72,key:2.1,keyC:0xffe6c8,fill:.45,fillC:0xc8dcff,hemi:.45,hemiC:0xa8c8ff,ground:0x26301e,horizon:[.42,.58,.82],zenith:[.04,.14,.48],glow:[.14,.14,.12],fog:0x8aa4c8,fogD:.0036,hazeSky:.4,tower:.03,beam:0,lamp:.15,halo:0,motes:0,stars:false,bugs:false}};
 const LAMP_RGB=[5,4.8,4.4],BEAM_DEFAULT=.025;
 const renderer=window.RENDERER;
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
@@ -91,6 +93,12 @@ const TXL=new THREE.TextureLoader(),TX={};
 function tex(name,srgb){if(TX[name])return TX[name];const t=TXL.load('assets/tex/'+name+'.jpg');t.wrapS=t.wrapT=THREE.RepeatWrapping;if(srgb)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return TX[name]=t}/* r152+ colour management: hex is treated as sRGB and converted to linear */
 $('stage').appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* Thin night-stadium haze: the distance fades out, adding depth */
+/* #208 item 1, depth haze (all tiers: one fog node, uniforms only, no extra pass). Exp2 haze whose density thins with the mean height of the
+   view ray (HAZE_H m e-folding, never below HAZE_FLOOR), so the wall, the stands and the towers sit back in the air while a fly ball high
+   up stays clear. Colour and density come from the park sky (applySky); scene.fog keeps the same values for anything that reads it. */
+const HAZE_H=38,HAZE_FLOOR=.35,hazeU={color:TSL.uniform(new THREE.Color(0x0d1220)),dens:TSL.uniform(.0056)};
+{const {positionView,positionWorld,cameraPosition,exp,max,fog}=TSL;const y=max(positionWorld.y.add(cameraPosition.y).mul(.5),0),m=hazeU.dens.mul(max(exp(y.div(-HAZE_H)),HAZE_FLOOR)).mul(positionView.z.negate());
+  scene.fogNode=fog(hazeU.color,m.mul(m).negate().exp().oneMinus())}
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,800);camera.rotation.order='YXZ';
 const rig=new THREE.Group();rig.add(camera);scene.add(rig);
 const hemi=new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I);scene.add(hemi);
@@ -148,7 +156,7 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
   const nG=texture(tex('grass_n'),gUV),nD=texture(tex('dirt_n'),dUV);
   m.normalNode=normalMap(mix(nD,nG,isGrass),vec2(mix(float(1.2),float(.8),isGrass)));
   const oG=texture(tex('grass_orm'),gUV),oD=texture(tex('dirt_orm'),dUV);const orm=mix(oD,oG,isGrass);
-  m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
+  m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.name='old:field';ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
 /* #150: code-generated surface detail (no download). genTex(size, w, h, fn) fills a canvas pixel by pixel: fn(u, v) -> [r, g, b] in 0..1.
    srgb = colour map; otherwise data (normal / roughness). Cached by key. */
 /* #162: PARK_SHADERS = the shader side of #150 (noise on the outer ground and the stand concrete, painted-steel maps, pillowed pad normals).
@@ -182,7 +190,7 @@ const adC=document.createElement('canvas');adC.width=2048;adC.height=96;function
   let r=777;for(let i=0;i<PAD_SCUFFS;i++){r=(r*1103515245+12345)&0x7fffffff;const x=r%2048;r=(r*1103515245+12345)&0x7fffffff;const y=96-(r%30),a=.08+(r%7)/60;g.fillStyle=`rgba(70,52,34,${a})`;g.fillRect(x,y,3+(r%9),2+(r%4))}}
 drawAds('#1d4d2a');
 const adTex=new THREE.CanvasTexture(adC);adTex.colorSpace=THREE.SRGBColorSpace;adTex.wrapS=THREE.RepeatWrapping;adTex.repeat.set(-4,1);
-const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.position.y=1.5;scene.add(fence);
+const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.name='old:wall';fence.position.y=1.5;scene.add(fence);
 {const bt=adTex.clone();bt.repeat.set(4,1);bt.needsUpdate=true;const fm=fence.material.clone();fm.map=bt;fm.emissiveMap=bt;fm.side=THREE.FrontSide;fence.material.side=THREE.BackSide;const fb=new THREE.Mesh(fence.geometry,fm);fb.position.y=1.5;scene.add(fb)}/* A second, unmirrored ad on the back of the wall, so text reads correctly from the outfield stands */
 /* #150 pillowed pads: height = rounded edges on every pad side, normal from its slope; one image column = one pad */
 {const hp=(u,v)=>{const e=x=>{const a=Math.min(x,1-x);return a>PAD_EDGE?1:Math.sin(a/PAD_EDGE*Math.PI/2)};return e(u)*Math.min(1,v/PAD_TOP>1?1:Math.sin(v/PAD_TOP*Math.PI/2))},D=1/64;
@@ -191,8 +199,8 @@ const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.P
  if(PARK_SHADERS)for(const o of scene.children)if(o.geometry===fence.geometry){o.material.normalMap=padN;o.material.normalScale.set(1,1);o.material.roughness=.6}}
 /* #150 round 2: fence top and foul poles are painted steel (streaks, chips) instead of flat unlit yellow; YELLOW_GLOW keeps them reading at night */
 const YELLOW_GLOW=.35,yellowPaint=new THREE.MeshStandardMaterial({color:0xf2c230,roughness:.55,metalness:.2,map:paintTex(),roughnessMap:paintTex(),emissive:0xf2c230,emissiveIntensity:YELLOW_GLOW,side:THREE.DoubleSide});
-const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),yellowPaint);fenceTop.position.y=3;scene.add(fenceTop);
-for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),yellowPaint);p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);scene.add(p)}
+const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),yellowPaint);fenceTop.name='old:wall:top';fenceTop.position.y=3;scene.add(fenceTop);
+for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),yellowPaint);p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);p.name='old:foulpole:'+s;scene.add(p)}
 /* Backstop: textured net (5 cm diamond mesh; mipmaps fade it to a thin veil at distance) plus top cable and posts */
 const NET_W=40,NET_H=9,NET_Z=20,NET_CELL=.05,NET_OPACITY=.55;
 const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.strokeStyle='rgba(220,226,235,.85)';g.lineWidth=3;
@@ -242,7 +250,8 @@ stand(0,24,0,48,16,2,true);stand(46.7,-24.1,Q,72,14,1,true);stand(-46.7,-24.1,-Q
 const OF_R=111.5,OF_BASE=2.4,OF_ROWS=10,OF_SEAT_ROW=5;
 for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.cos(t)*OF_R,Math.atan2(Math.sin(t),-Math.cos(t)),20,OF_ROWS,a<0?0:a>0?1:2,false,OF_BASE)}
 /* #215: polished props (render/props/, materials in render/pbr.js) swap in on the tiers props/index.js allows; any failure keeps the old park */
-import(new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>M.mountProps({scene,tier:()=>gfxTier,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err));
+{const PROPS_POLL_MS=1000,url=new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;/* max only (#215 10:30): nothing is fetched until max is on; gfxMax is declared further down, so the first look waits a tick */
+  const go=()=>{let on=false;try{on=gfxMax}catch(e){}if(!on)return void setTimeout(go,PROPS_POLL_MS);import(url).then(M=>M.mountProps({scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err))};setTimeout(go,0)}
 const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
   {x:0,y:OF_BASE+FRONT_H+OF_SEAT_ROW*ROW_RISE+.55,z:-(OF_R+OF_SEAT_ROW*ROW_D+ROW_D/2+.12),tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
 const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
@@ -316,12 +325,21 @@ const TOWER_I=.16*Math.PI,BEAM_K=BEAM_DEFAULT,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TO
 const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(...LAMP_RGB),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
 const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
-const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,color,positionView,length,smoothstep}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
-  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(skyU.beam).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
+/* #208 item 2, light you can see: on max the beams are stronger (BEAM_MAX_K) and carry slow drifting dust (3D noise scrolled by time: decoration,
+   like the bugs), each lamp gets a wide aureole in the haze (haloMat) and dust motes drift through every beam (motes). Below max: the old faint beam and a fainter aureole. */
+const BEAM_MAX_K=2.4,BEAM_DUST=.9,BEAM_DUST_SCALE=.09,BEAM_DUST_DRIFT=.35,HALO_SCALE=95,HALO_LOW=.35,MOTE_PER=140,MOTE_CORE=.45,MOTE_FALL=.18;
+const beamK=TSL.uniform(1).onFrameUpdate(()=>gfxMax?BEAM_MAX_K:1),dustK=TSL.uniform(0).onFrameUpdate(()=>gfxMax?BEAM_DUST:0);
+const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,vec3,color,positionView,positionWorld,length,smoothstep,mx_noise_float,time}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
+  const e=pow(abs(dot(normalView,positionViewDirection)),2),dust=mx_noise_float(positionWorld.mul(BEAM_DUST_SCALE).add(vec3(time.mul(BEAM_DUST_DRIFT*.6),time.mul(-BEAM_DUST_DRIFT),time.mul(BEAM_DUST_DRIFT*.3)))).mul(dustK).add(1).max(0);
+  m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(skyU.beam).mul(beamK).mul(dust).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
+const haloK=TSL.uniform(0).onFrameUpdate(()=>skyCur.halo*(gfxMax?1:HALO_LOW));
+const haloMat=(()=>{const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});const t=new THREE.CanvasTexture(glowC);
+  m.colorNode=TSL.texture(t).mul(haloK);m.toneMapped=false;return m})();
 const towerSpots=[];
 for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.position.set(x,23,z);scene.add(m);
   const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
+  const ha=new THREE.Sprite(haloMat);ha.position.set(x,46,z);ha.scale.set(HALO_SCALE,HALO_SCALE,1);scene.add(ha);
   const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),aim=new THREE.Vector3(TOWER_AIM[0]+x*TOWER_AIM_K,0,TOWER_AIM[1]+(z-TOWER_AIM[1])*TOWER_AIM_K),dir=lamp.clone().sub(tgt),L=dir.length();
   const beam=new THREE.Mesh(new THREE.ConeGeometry(L*.32,L,32,1,true),beamMat);beam.position.copy(lamp.clone().add(tgt).multiplyScalar(.5));beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());scene.add(beam);
   /* Light-tower spots: lit areas and dark corners (no shadows, for performance; the key light still casts the main shadow) */
@@ -335,9 +353,19 @@ const bugs=(()=>{const n=LAMPS.length*BUG_PER,pos=new Float32Array(n*3),seed=[];
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
   const pts=new THREE.Points(g,new THREE.PointsMaterial({color:new THREE.Color(3,2.8,2.2),size:BUG_SIZE,sizeAttenuation:true,transparent:true,opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,fog:false}));
   pts.frustumCulled=false;scene.add(pts);return{pts,pos,seed}})();
+/* #208 motes (max only): MOTE_PER points in the core of each tower beam (between 20 % and 90 % of the way down), sinking slowly and swirling; seeded, no Math.random */
+const moteK=TSL.uniform(0).onFrameUpdate(()=>envOn&&gfxMax?skyCur.motes:0);/* max only: on WebGL the points draw as big flakes (snow) */
+const motes=(()=>{const n=LAMPS.length*MOTE_PER,pos=new Float32Array(n*3),seed=[];let r=11;const rnd=()=>(r=(r*16807)%2147483647)/2147483647;
+  for(let i=0;i<n;i++){const [x,z]=LAMPS[Math.floor(i/MOTE_PER)],lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),f=.2+rnd()*.7,c=lamp.clone().lerp(tgt,f),R=lamp.distanceTo(tgt)*.32*f*MOTE_CORE*Math.sqrt(rnd());
+    seed.push({c:[c.x,c.y,c.z],R,a:rnd()*6.28,w:(.05+rnd()*.12)*(rnd()<.5?-1:1),h:rnd()*8,ph:rnd()*6.28})}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));const m=new THREE.PointsNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});
+  m.colorNode=TSL.color(new THREE.Color(2.4,2.2,1.8)).mul(moteK);m.toneMapped=false;const pts=new THREE.Points(g,m);pts.frustumCulled=false;scene.add(pts);return{pts,pos,seed}})();
+function updateMotes(t){const {pos,seed}=motes;for(let i=0;i<seed.length;i++){const q=seed[i],a=q.a+t*q.w,y=((q.h-t*MOTE_FALL)%8+8)%8-4;
+  pos[i*3]=q.c[0]+Math.cos(a)*q.R;pos[i*3+1]=q.c[1]+y+Math.sin(t*.4+q.ph)*.3;pos[i*3+2]=q.c[2]+Math.sin(a)*q.R}
+  motes.pts.geometry.attributes.position.needsUpdate=true}
 function updateBugs(t){const {pos,seed}=bugs;for(let i=0;i<seed.length;i++){const q=seed[i],a=q.a+t*q.w1,b=q.b+t*q.w2;
   pos[i*3]=q.c[0]+Math.cos(a)*q.r+Math.sin(t*7+i)*.15;pos[i*3+1]=q.c[1]+Math.sin(b)*q.r*.6;pos[i*3+2]=q.c[2]+Math.sin(a)*q.r*Math.cos(b)}
-  bugs.pts.geometry.attributes.position.needsUpdate=true}
+  bugs.pts.geometry.attributes.position.needsUpdate=true;if(skyCur.motes&&gfxMax)updateMotes(t)}/* motes ride the bugs' call: tiers 0-1 only (envOn) */
 /* Close-up grass blades: blades only where the camera looks (closer than BLADE_SHOW m), placed by a world-grid hash so they do not jitter as the camera moves. Grass areas of the field map only */
 const BLADE_N=16000,BLADE_R=6,BLADE_SHOW=15,BLADE_CELL=.08,BLADE_SNAP=1;
 const blades=(()=>{const geo=new THREE.BufferGeometry(),w=.006;geo.setAttribute('position',new THREE.Float32BufferAttribute([-w,0,0,w,0,0,0,1,.15,w,0,0,-w,0,0,0,1,.15],3));geo.setAttribute('normal',new THREE.Float32BufferAttribute([0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0],3));/* Two faces, both normals pointing up (with DoubleSide the back normal flips down and goes black) *//* Normals point up: lit like the ground, so individual blades do not turn black */
@@ -360,15 +388,27 @@ function updateBlades(){const cp=camera.getWorldPosition(_cw),dir=camera.getWorl
 /* ---------- Post-processing: AO (contact shadows) + bloom + vignette + FXAA; lightweight version for the WebGL fallback or phones ---------- */
 const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend))&&!/Mobi|Android/i.test(navigator.userAgent);
 let PP=null;
-function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4}=TSL;
-  const mx=gfxMax&&HQ&&!!FX.traa,pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass */
-  if(HQ){sp.setMRT(mrt(mx?{output,normal:normalView,velocity}:{output,normal:normalView}));const aoN=FX.ao(sp.getTextureNode('depth'),sp.getTextureNode('normal'),camera);aoN.resolutionScale=mx?MAX_AO_RES:AO_RES;aoN.radius.value=.6;aoN.distanceFallOff.value=1;
-    c=sp.getTextureNode('output');c=vec4(c.rgb.mul(mix(float(.35),float(1),aoN.getTextureNode().sample(screenUV).r)),c.a);
-    if(mx)c=FX.traa(c,sp.getTextureNode('depth'),sp.getTextureNode('velocity'),camera)}
+/* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
+   fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
+const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgr' = all three, '-' = not loaded or ?off= */
+function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4,diffuseColor,metalness,roughness,step,blendColor}=TSL;
+  const key=fxKey(),mx=key[0]==='t',gi=key[1]==='g',sr=key[2]==='r',pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass */
+  if(HQ){/* WebGPU allows 32 colour bytes per pixel (four 8-byte targets), so the SSR inputs ride in spare channels: normal.a = gloss mask
+      (SSR's metalness input: 0, skipped, unless the surface is smoother than MAX_SSR_ROUGH: helmets, wet or polished props), diffuse.a = roughness */
+    const ch={output,normal:sr?vec4(normalView,step(roughness,float(MAX_SSR_ROUGH)).mul(metalness.max(MAX_SSR_F0))):normalView};if(mx)ch.velocity=velocity;
+    if(gi||sr)ch.diffuse=vec4(diffuseColor.rgb,roughness);sp.setMRT(mrt(ch));if(ch.diffuse)sp.getTexture('diffuse').type=THREE.UnsignedByteType;/* 8-bit is enough here */
+    const dep=sp.getTextureNode('depth'),nor=sp.getTextureNode('normal');c=sp.getTextureNode('output');
+    if(gi){const g=FX.ssgi(c,dep,nor,camera);g.sliceCount.value=MAX_GI_SLICES;g.stepCount.value=MAX_GI_STEPS;g.radius.value=MAX_GI_RADIUS;g.giIntensity.value=MAX_GI_I;g.aoIntensity.value=MAX_GI_AO;
+      c=vec4(c.rgb.mul(g.a).add(sp.getTextureNode('diffuse').rgb.mul(g.rgb)),c.a)}
+    else{const aoN=FX.ao(dep,nor,camera);aoN.resolutionScale=gfxMax?MAX_AO_RES:AO_RES;aoN.radius.value=.6;aoN.distanceFallOff.value=1;
+      c=vec4(c.rgb.mul(mix(float(.35),float(1),aoN.getTextureNode().sample(screenUV).r)),c.a)}
+    if(sr){const r=FX.ssr(sp.getTextureNode('output'),dep,nor,{metalnessNode:nor.a,roughnessNode:sp.getTextureNode('diffuse').a,camera});
+      r.resolutionScale=MAX_SSR_RES;r.maxDistance.value=MAX_SSR_DIST;r.thickness.value=MAX_SSR_THICK;r.quality.value=MAX_SSR_Q;c=blendColor(c,r)}
+    if(mx)c=FX.traa(c,dep,sp.getTextureNode('velocity'),camera)}
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
-  pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.traa=mx;return pp}catch(e){console.error('post',e);return null}}
+  pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.fx=key;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
 /* ---------- max tier (#211): the owner's desktop, above tier 0 ----------
    Dev site only: ?q=max (or the 畫面 button's 最高 step) turns it on and zu_max remembers it; ?q=<anything else> turns it off. WebGPU backend
@@ -376,11 +416,16 @@ let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
    no automatic drop, TRAA instead of FXAA, full-resolution AO, a MAX_SHADOW_MAP key shadow map with a wider PCF radius, image-based light from
    the sky (skyEnv). TRAA's module is fetched only when max is on, so the default download does not grow. Tiers 0-3 are untouched. */
 const IS_GPU=!!(renderer.backend&&renderer.backend.isWebGPUBackend),IS_DEV=!!(window.SITE&&window.SITE.dev);
+/* SSGI presets: three's "medium with temporal filtering" (TRAA is on); radius in metres. SSR: half resolution, rays up to MAX_SSR_DIST m. */
+const MAX_GI_SLICES=2,MAX_GI_STEPS=8,MAX_GI_RADIUS=4,MAX_GI_I=4,MAX_GI_AO=1,MAX_SSR_ROUGH=.35,MAX_SSR_F0=.04,MAX_SSR_RES=.5,MAX_SSR_DIST=25,MAX_SSR_THICK=.05,MAX_SSR_Q=.5;
 const MAX_SHADOW_MAP=4096,MAX_SHADOW_RADIUS=2.5,TIER_SHADOW_RADIUS=1,MAX_AO_RES=1,AO_RES=.5,MAX_IBL_I=.6,SKY_ENV_FAR=1000,SKY_ENV_MIN_R=400;
 let maxWish=false;try{if(IS_DEV){const q=new URLSearchParams(location.search).get('q');if(q!==null)localStorage.setItem('zu_max',q==='max'?'1':'0');maxWish=localStorage.getItem('zu_max')==='1'}}catch(e){}
 let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
+if(window.PL&&PL.SKIN)PL.SKIN.on=()=>gfxMax;/* #207: the real skin maps follow max (players.js polls it; nothing extra loads while max is off) */
 const maxSave=v=>{maxWish=v;try{localStorage.setItem('zu_max',v?'1':'0')}catch(e){}};
-const maxLoad=()=>FX.traa?Promise.resolve():import('three/addons/tsl/display/TRAANode.js').then(m=>{FX.traa=m.traa}).catch(e=>console.warn('TRAA failed to load; max keeps FXAA',e));
+/* the max modules are fetched only when max is on; each one may fail alone (max then keeps FXAA / GTAO / no reflections). ?off=traa,ssgi,ssr skips one on dev */
+const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode']];
+const maxLoad=()=>Promise.all(MAX_MODS.map(([k,f])=>FX[k]?0:import(`three/addons/tsl/display/${f}.js`).then(m=>{FX[k]=m[k]}).catch(e=>console.warn(`${f} failed to load; max goes on without it`,e))));
 /* image-based light: the sky mesh is drawn alone into a PMREM. One entry point: applySky (#203 park skies) calls skyEnv() again after it changes the sky. */
 let skyEnvRT=null;
 function skySource(){let s=null;scene.traverse(o=>{const g=o.geometry&&o.geometry.parameters;if(!s&&o.isMesh&&o.material&&o.material.side===THREE.BackSide&&o.material.fog===false&&g&&g.radius>=SKY_ENV_MIN_R)s=o});return s}
@@ -389,7 +434,7 @@ function skyEnv(){if(skyEnvRT){skyEnvRT.dispose();skyEnvRT=null}scene.environmen
     scene.environment=skyEnvRT.texture;scene.environmentIntensity=MAX_IBL_I}catch(e){console.warn('sky env failed',e);scene.environment=null}}
 window.skyEnv=skyEnv;
 PP=gfxLow?null:setupPost();
-if(gfxMax)maxLoad().then(()=>{if(gfxMax&&FX.traa&&typeof setTier==='function')setTier(0)});
+if(gfxMax)maxLoad().then(()=>{if(gfxMax&&typeof setTier==='function')setTier(0)});
 const gfxText=()=>{$('gfx').innerHTML=(gfxLow?'畫面：順暢':gfxMax?'畫面：最高':'畫面：精緻')+'<small>卡卡的就選順暢</small>'};gfxText();
 $('gfx').onclick=()=>{
   /* dev: 精緻 -> 最高 (WebGPU only) -> 順暢 -> 精緻; production keeps the two steps */
@@ -436,12 +481,13 @@ const PARKS={
 const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night'};
 let skyCur=SKIES.night;
 function applySky(S){skyCur=S;renderer.toneMappingExposure=S.exposure;key.intensity=S.key*Math.PI;key.color.set(S.keyC);fill.intensity=S.fill*Math.PI;fill.color.set(S.fillC);
-  hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog);scene.fog.density=S.fogD;
+  hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
   skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
   for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
   stars.visible=S.stars;bugs.pts.material.visible=S.bugs;/* material switch: the tier code keeps owning bugs.pts.visible */
   if(scene.environment)skyEnv()}/* #211 max: the image-based light follows the new sky; only once setTier has turned it on (renderer ready), same shaders, new texture */
 const PARK_Q=(()=>{try{return new URLSearchParams(location.search).get('park')||''}catch(e){return''}})();
+const PROP_Q=(()=>{try{return new URLSearchParams(location.search).get('prop')}catch(e){return null}})();if(PROP_Q!==null)import(new URL('props/viewer.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>M.startViewer({name:PROP_Q,renderer,scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('prop viewer off',err));/* #215: ?prop=<object> = one polished prop alone on a neutral floor (render/props/viewer.js, imported only with the switch) */
 let parkCur=null;
 const parkLogoC=document.createElement('canvas');parkLogoC.width=parkLogoC.height=PARK_LOGO_PX;
 const parkLogoTex=new THREE.CanvasTexture(parkLogoC);parkLogoTex.colorSpace=THREE.SRGBColorSpace;parkLogoTex.anisotropy=8;
@@ -576,6 +622,24 @@ function poseBatter(e,u){
   const gap=lerp(BAT_HAND_GAP,BUNT.gap,bn);
   /* Hands apart on the bat: bottom hand (arms[1], a right-handed batter's left hand) on the handle, top hand (arms[0]) BAT_HAND_GAP toward the barrel */
   aimArm(BR.a0,-BAT_SHOULDER_X,gx+_bv.x*gap,gy+_bv.y*gap,gz+_bv.z*gap);aimArm(BR.a1,BAT_SHOULDER_X,gx,gy,gz)}
+/* #185 act 1: the real swing (CMU 124_07, assets/mocap) on the skinned batter, over the keyframes above. Clip time runs at real speed
+   with the clip's contact frame (SW_CONTACT, set by hand: the clip's auto release frame is noise for a swing) exactly at ARRIVE, held
+   between SW_START (stance) and SW_END (follow-through held). Blends in from the stance (SW_IN before the load starts) and out to the
+   run (in play, SW_OUT_HIT) or to the take and bat rest (SW_OUT). No clip mirror: a left-handed batter is the whole figure mirrored
+   (batterWalk), so the clip follows. While it holds, the bat leaves the keyframe pivot: handle in the bottom hand, axis through the top
+   hand. Called after batterWalk (the clip holds only while the proxies stay as set). Dev switch ?off=mocap. */
+const SWING_CLIP_URL='assets/mocap/swing_124_07.json',SW_FPS=30,SW_CONTACT=85/SW_FPS,SW_START=1.6,SW_END=3.6,SW_IN=.4,SW_OUT=[ARRIVE+.6,ARRIVE+1.1],SW_OUT_HIT=[ARRIVE+.2,ARRIVE+.35],SW_HAND_GAP_MIN=.03;
+let swingClip=null,swingClipP=null;const _sw0=new THREE.Vector3(),_sw1=new THREE.Vector3(),_swm=new THREE.Matrix4();
+const swTime=u=>Math.max(SW_START,Math.min(SW_END,SW_CONTACT+(u-ARRIVE)));
+function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
+  return Math.min(ease(sat01((u-a)/SW_IN)),1-ease(sat01((u-o[0])/(o[1]-o[0]))))}
+function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
+  if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
+  const w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return;
+  batter.handWorld(1,_sw0);batter.handWorld(0,_sw1);/* bottom hand (arms[1]) holds the handle, top hand (arms[0]) gives the axis */
+  const up=batPivot.parent;up.updateMatrixWorld(true);_sw1.sub(_sw0);const L=_sw1.length();
+  up.worldToLocal(_sw0);batPivot.position.lerp(_sw0,w);
+  if(L>SW_HAND_GAP_MIN){_swm.copy(up.matrixWorld).invert();_sw1.transformDirection(_swm);_bv.set(0,1,0).applyQuaternion(batPivot.quaternion).lerp(_sw1,w).normalize();batPivot.quaternion.setFromUnitVectors(_up,_bv)}}
 /* World position of the bat's sweet spot (call after batterWalk has placed the batter): a bunted pitch ends here and the bunted ball starts here */
 function buntContact(){batter.g.updateMatrixWorld(true);_ugs.set(0,BUNT_SWEET,0);bat.localToWorld(_ugs);buntPt[0]=_ugs.x;buntPt[1]=_ugs.y;buntPt[2]=_ugs.z;return buntPt}
 const BAT_HAND_GAP=.09,BUNT_CRACK=.3,HIT0=[0,1,.3];/* HIT0: where a swung-at ball leaves the bat */
@@ -830,7 +894,7 @@ function poseScene(e,u,dt,ei){
   const moving=new Set((e.moves||[]).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n))standRunner(i,u,n)}
   const contact=e.r==='inplay'||e.r==='foul';
-  poseBatter(e,u);batterWalk(e,u);placeUmp(e,u);
+  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);
   const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
@@ -1121,7 +1185,7 @@ addEventListener('orientationchange',()=>setTimeout(()=>{camera.aspect=innerWidt
 const ENTRY_WATCH_MS=15000;let entryT0=0,entryDraw=0,entryGap=0;const entryLog=[];
 const entryNote=x=>{if(entryT0&&entryLog.length<12)entryLog.push(`${x}@${Math.round(performance.now()-entryT0)}`)};
 function entryFrame(now){if(!entryT0||now-entryT0>ENTRY_WATCH_MS)return;if(!entryDraw)entryNote('f1');else entryGap=Math.max(entryGap,now-entryDraw);entryDraw=now}
-$('report').onclick=async()=>{const B=window.BOOT,code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} boot=${B&&B.str?B.str()||'-':'-'}${OFF.size?` off=${[...OFF].join('+')}`:''} fps=${fpsAvg.toFixed(0)} tier=${gfxMax?'max':gfxTier}${maxWish&&!gfxMax?`(max-${IS_GPU?'off':'gl'})`:''} be=${IS_GPU?'gpu':'gl'} px=${renderer.domElement.width}x${renderer.domElement.height} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
+$('report').onclick=async()=>{const B=window.BOOT,code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} boot=${B&&B.str?B.str()||'-':'-'}${OFF.size?` off=${[...OFF].join('+')}`:''} fps=${fpsAvg.toFixed(0)} tier=${gfxMax?`max(${PP?PP.fx:'nopost'})`:gfxTier}${maxWish&&!gfxMax?`(max-${IS_GPU?'off':'gl'})`:''} be=${IS_GPU?'gpu':'gl'} px=${renderer.domElement.width}x${renderer.domElement.height} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
   try{await navigator.clipboard.writeText(code);note('已複製，貼給 Claude 就能重現這一刻')}catch(err){prompt('複製這行貼給 Claude：',code)}};
 const luEl=$('lu');
 function showLineup(){let h='<div class="cols">';for(let t=0;t<2;t++){const R=ROSTERS[t],f=game.ev.find(x=>x.k==='P'&&x.pit&&x.pit[0]===t),sp=f?R.pit[f.pit[1]]:R.pit[0];
@@ -1367,12 +1431,12 @@ function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
 function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
   renderer.setPixelRatio(gfxMax?devicePixelRatio:Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
-  PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.traa===(gfxMax&&HQ&&!!FX.traa)?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
+  PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.fx===fxKey()?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
   const sh=gfxTier<3&&!OFF.has('shadowmap');renderer.shadowMap.enabled=sh;key.castShadow=sh;
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
-  const sig=`${sh}|${!!PP}|${gfxMax}|${!!(PP&&PP.traa)}`;/* max: environment map + velocity MRT change every shader */entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
+  const sig=`${sh}|${!!PP}|${gfxMax}|${PP?PP.fx:''}`;/* max: environment map + velocity/diffuse MRT change every shader */entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
   if(!first&&key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
   if(warmStarted)warmUp()}/* a drop in play rebuilds every material: compile it off the frame instead of freezing the tab (#125) */
