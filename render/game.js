@@ -397,12 +397,15 @@ let PP=null;
 /* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
    fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
 const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgr' = all three, '-' = not loaded or ?off= */
+/* #267: side targets blend like the material (opaque: no blending, as before), so a see-through overlay can leave the ground's normal, albedo
+   and velocity under it by writing alpha 0 there (contact shadows, csMrt). Outputs with alpha 1 (normalView, velocity) still replace. */
+const MRT_KEEP=['normal','diffuse','velocity'];
 function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4,diffuseColor,metalness,roughness,step,blendColor}=TSL;
   const key=fxKey(),mx=key[0]==='t',gi=key[1]==='g',sr=key[2]==='r',pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass */
   if(HQ){/* WebGPU allows 32 colour bytes per pixel (four 8-byte targets), so the SSR inputs ride in spare channels: normal.a = gloss mask
       (SSR's metalness input: 0, skipped, unless the surface is smoother than MAX_SSR_ROUGH: helmets, wet or polished props), diffuse.a = roughness */
     const ch={output,normal:sr?vec4(normalView,step(roughness,float(MAX_SSR_ROUGH)).mul(metalness.max(MAX_SSR_F0))):normalView};if(mx)ch.velocity=velocity;
-    if(gi||sr)ch.diffuse=vec4(diffuseColor.rgb,roughness);sp.setMRT(mrt(ch));if(ch.diffuse)sp.getTexture('diffuse').type=THREE.UnsignedByteType;/* 8-bit is enough here */
+    if(gi||sr)ch.diffuse=vec4(diffuseColor.rgb,roughness);const M=mrt(ch),kb=new THREE.BlendMode(THREE.MaterialBlending);MRT_KEEP.forEach(n=>{if(ch[n])M.setBlendMode(n,kb)});sp.setMRT(M);if(ch.diffuse)sp.getTexture('diffuse').type=THREE.UnsignedByteType;/* 8-bit is enough here */
     const dep=sp.getTextureNode('depth'),nor=sp.getTextureNode('normal');c=sp.getTextureNode('output');
     if(gi){const g=FX.ssgi(c,dep,nor,camera);g.sliceCount.value=MAX_GI_SLICES;g.stepCount.value=MAX_GI_STEPS;g.radius.value=MAX_GI_RADIUS;g.giIntensity.value=MAX_GI_I;g.aoIntensity.value=MAX_GI_AO;
       /* #256: bounce light is capped at MAX_GI_CAP before it meets the albedo, so a white plate, bag or chalk line next to lit dirt can not
@@ -1445,7 +1448,14 @@ let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{
 const CS_R=.3,CS_R_CROUCH=.42,CS_PATCH_A=.45,CS_FAN_OP=.12,CS_FAN_W=.5,CS_BODY_H=1.85,LAMP_H=46,CS_FAN_MIN=1.2,CS_FAN_MAX=5,CS_Y=.02,CS_TEX=64;
 const csFigs=[...Object.values(fielders),batter,ump,...runners],csBig=new Set([fielders.C,ump]);
 const csTex=draw=>{const c=document.createElement('canvas');c.width=c.height=CS_TEX;draw(c.getContext('2d'),CS_TEX);return new THREE.CanvasTexture(c)};
-const csMat=(map,opacity)=>new THREE.MeshBasicMaterial({color:0,map,opacity,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+/* #267: three gives the scene pass's side targets (normal for AO/SSGI, diffuse for SSGI, velocity for TRAA) no blending by default, so each
+   patch and fan quad overwrote the ground's normal, albedo and velocity over its whole rectangle, alpha-0 corners included: AO/GI/TRAA read a
+   different ground there and drew a pale star of 6 spokes around every figure. setupPost now blends those targets like the material
+   (MRT_KEEP); csMrt writes alpha 0 into them, so they keep the ground's values and only the colour target gets the shadow. Only while the
+   renderer has an MRT: three uses a material MRT alone when the pass has none (tiers without AO), and that would drop the colour output. */
+const csMrt=TSL.mrt(Object.fromEntries(MRT_KEEP.map(n=>[n,TSL.vec4(0)])));
+const csMat=(map,opacity)=>{const m=new THREE.MeshBasicNodeMaterial({color:0,map,opacity,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  Object.defineProperty(m,'mrtNode',{get:()=>renderer.getMRT()?csMrt:null,set(){}});return m};
 const csPatch=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),csMat(csTex((g,n)=>{const gr=g.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);
   gr.addColorStop(0,`rgba(0,0,0,${CS_PATCH_A})`);gr.addColorStop(.45,`rgba(0,0,0,${CS_PATCH_A*.7})`);gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)}),1),csFigs.length);
 const csFan=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2).translate(0,0,-.5),csMat(csTex((g,n)=>{/* canvas bottom = feet (v 0), fades to the tip and to both sides */
