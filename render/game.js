@@ -74,6 +74,14 @@ function findIdx(T){const ev=game.ev;let lo=0,hi=ev.length-1;while(lo<hi){const 
    the tower spots aim at the infield with a soft edge, so the infield is brightest and the corners sit lower. */
 const EXPOSURE=.75,KEY_I=1.1*Math.PI,FILL_I=.25*Math.PI,HEMI_I=.12*Math.PI,HEMI_GROUND=0x141a12,KEY_SHADOW_I=.7;/* KEY_SHADOW_I: the contact shadows carry the planting now, the real shadow must not double them */
 const SKY_HORIZON=[.02,.025,.04],SKY_ZENITH=[.002,.003,.007],SKY_GLOW=[.025,.02,.012];
+/* #203 item 2: one sky per home park (台北 night, 新竹 dusk, 高雄 afternoon, 台東 morning). Colours, intensities (x PI) and exposure only;
+   the night set is the #132 look above. Applied live by applySky (uniforms and light values: nothing recompiles). Sky colours are linear. */
+const SKIES={
+  night:{exposure:EXPOSURE,key:1.1,keyC:0xfff1dc,fill:.25,fillC:0xd6e2ff,hemi:.12,hemiC:0x9fb4e6,ground:HEMI_GROUND,horizon:SKY_HORIZON,zenith:SKY_ZENITH,glow:SKY_GLOW,fog:0x0d1220,fogD:.0032,tower:.16,beam:.025,lamp:1,stars:true,bugs:true},
+  dusk:{exposure:.78,key:1.5,keyC:0xffc08a,fill:.3,fillC:0xa89ad8,hemi:.22,hemiC:0xc79a9a,ground:0x1c1a12,horizon:[.42,.17,.07],zenith:[.025,.03,.09],glow:[.3,.11,.03],fog:0x3a2830,fogD:.0026,tower:.12,beam:.012,lamp:.7,stars:false,bugs:true},
+  afternoon:{exposure:.68,key:2.7,keyC:0xfff6e6,fill:.55,fillC:0xcfe0ff,hemi:.5,hemiC:0xb8d4ff,ground:0x2a3420,horizon:[.46,.56,.7],zenith:[.05,.16,.58],glow:[.2,.18,.12],fog:0x9fb2c6,fogD:.0016,tower:.03,beam:0,lamp:.15,stars:false,bugs:false},
+  morning:{exposure:.72,key:2.1,keyC:0xffe6c8,fill:.45,fillC:0xc8dcff,hemi:.45,hemiC:0xa8c8ff,ground:0x26301e,horizon:[.42,.58,.82],zenith:[.04,.14,.48],glow:[.14,.14,.12],fog:0x8aa4c8,fogD:.0016,tower:.03,beam:0,lamp:.15,stars:false,bugs:false}};
+const LAMP_RGB=[5,4.8,4.4],BEAM_DEFAULT=.025;
 const renderer=window.RENDERER;
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=EXPOSURE;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
@@ -85,13 +93,14 @@ $('stage').appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* Thin night-stadium haze: the distance fades out, adding depth */
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,800);camera.rotation.order='YXZ';
 const rig=new THREE.Group();rig.add(camera);scene.add(rig);
-scene.add(new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I));
+const hemi=new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I);scene.add(hemi);
 const key=new THREE.DirectionalLight(LC(0xfff1dc),KEY_I);key.position.set(-45,85,35);key.target.position.set(0,0,-38);scene.add(key,key.target);
 key.castShadow=true;Object.assign(key.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:10,far:260});key.shadow.mapSize.set(2048,2048);key.shadow.bias=-.0004;key.shadow.normalBias=.03;key.shadow.intensity=KEY_SHADOW_I;
 const fill=new THREE.DirectionalLight(LC(0xd6e2ff),FILL_I);fill.position.set(60,55,-110);scene.add(fill);
 /* sky dome */
+const skyU={horizon:TSL.uniform(new THREE.Vector3(...SKY_HORIZON)),zenith:TSL.uniform(new THREE.Vector3(...SKY_ZENITH)),glow:TSL.uniform(new THREE.Vector3(...SKY_GLOW)),beam:TSL.uniform(BEAM_DEFAULT)};
 {const {positionLocal,normalize,clamp:tc,mix,vec3,pow,exp,float}=TSL;const p=normalize(positionLocal),h=tc(p.y,0,1);
-  const c=mix(vec3(...SKY_HORIZON),vec3(...SKY_ZENITH),pow(h,.45)).add(vec3(...SKY_GLOW).mul(exp(h.mul(-14))));
+  const c=mix(skyU.horizon,skyU.zenith,pow(h,.45)).add(skyU.glow.mul(exp(h.mul(-14))));
   const m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,depthWrite:false,fog:false});m.colorNode=c;scene.add(new THREE.Mesh(new THREE.SphereGeometry(520,32,16),m))}
 
 /* field texture */
@@ -301,21 +310,22 @@ function updateCrowd(now,ex,batTeam,live){
   crowd.instanceMatrix.needsUpdate=true;crowdUp.instanceMatrix.needsUpdate=true;heads.instanceMatrix.needsUpdate=true;
 }
 /* light towers + sky */
-const TOWER_I=.16*Math.PI,BEAM_K=.025,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TOWER_AIM=[0,-24],TOWER_AIM_K=.1;/* Keep only a hint of light beam, so the camera passing through it does not white out */
-const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(5,4.8,4.4),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
+const TOWER_I=.16*Math.PI,BEAM_K=BEAM_DEFAULT,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TOWER_AIM=[0,-24],TOWER_AIM_K=.1;/* Keep only a hint of light beam, so the camera passing through it does not white out */
+const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(...LAMP_RGB),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
 const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
 const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,color,positionView,length,smoothstep}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
-  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(BEAM_K).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
+  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(skyU.beam).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
+const towerSpots=[];
 for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.position.set(x,23,z);scene.add(m);
   const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
   const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),aim=new THREE.Vector3(TOWER_AIM[0]+x*TOWER_AIM_K,0,TOWER_AIM[1]+(z-TOWER_AIM[1])*TOWER_AIM_K),dir=lamp.clone().sub(tgt),L=dir.length();
   const beam=new THREE.Mesh(new THREE.ConeGeometry(L*.32,L,32,1,true),beamMat);beam.position.copy(lamp.clone().add(tgt).multiplyScalar(.5));beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());scene.add(beam);
   /* Light-tower spots: lit areas and dark corners (no shadows, for performance; the key light still casts the main shadow) */
-  const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,TOWER_ANGLE,TOWER_PENUMBRA,0);spot.position.copy(lamp);spot.target.position.copy(aim);scene.add(spot,spot.target)}
+  const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,TOWER_ANGLE,TOWER_PENUMBRA,0);spot.position.copy(lamp);spot.target.position.copy(aim);scene.add(spot,spot.target);towerSpots.push(spot)}
 const sg=new THREE.BufferGeometry(),sp=[];for(let i=0;i<600;i++){const a=Math.random()*6.28,e=.15+Math.random()*1.2;sp.push(Math.cos(a)*Math.cos(e)*420,Math.sin(e)*420,Math.sin(a)*Math.cos(e)*420)}
-sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xaab8d8,size:1.1,fog:false,sizeAttenuation:true})));
+sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));const stars=new THREE.Points(sg,new THREE.PointsMaterial({color:0xaab8d8,size:1.1,fog:false,sizeAttenuation:true}));scene.add(stars);
 /* Bugs under the lights: a cloud of small dots in front of each tower, flying around (pure decoration, unrelated to the game) */
 const BUG_PER=70,BUG_R=5,BUG_SIZE=.18,LAMPS=[[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]];
 const bugs=(()=>{const n=LAMPS.length*BUG_PER,pos=new Float32Array(n*3),seed=[];let r=7;const rnd=()=>(r=(r*16807)%2147483647)/2147483647;
@@ -392,11 +402,17 @@ const SB_FRAME=14,PARK_LOGO_PX=512,PARK_LOGO_M=6,PARK_LOGO_R=109.85,PARK_LOGO_AL
   PLATE_LOGO_M=2.2,PLATE_LOGO_Y=1.4,PLATE_LOGO_Z=NET_Z-.15,PARK_LOGO_GLOW=.35;
 /* pad = wall vinyl behind the league boards, trim = fence top, foul poles and scoreboard frame (team colour, lifted to read at night) */
 const PARKS={
-  pheasants:{pad:'#0d3a35',trim:0x5fd8c9},
-  owls:{pad:'#2a1436',trim:0xd58cf0},
-  macaques:{pad:'#47200f',trim:0xffa463},
-  muntjacs:{pad:'#0e2450',trim:0x7fb0ff}};
-const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230};
+  pheasants:{pad:'#0d3a35',trim:0x5fd8c9,sky:'night'},
+  owls:{pad:'#2a1436',trim:0xd58cf0,sky:'dusk'},
+  macaques:{pad:'#47200f',trim:0xffa463,sky:'afternoon'},
+  muntjacs:{pad:'#0e2450',trim:0x7fb0ff,sky:'morning'}};
+const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night'};
+let skyCur=SKIES.night,envOn=true;/* envOn: tier 0-1 extras (bugs, grass blades); set by the tier code below */
+function applySky(S){skyCur=S;renderer.toneMappingExposure=S.exposure;key.intensity=S.key*Math.PI;key.color.set(S.keyC);fill.intensity=S.fill*Math.PI;fill.color.set(S.fillC);
+  hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog);scene.fog.density=S.fogD;
+  skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
+  for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
+  stars.visible=S.stars;bugs.pts.visible=envOn&&S.bugs}
 const PARK_Q=(()=>{try{return new URLSearchParams(location.search).get('park')||''}catch(e){return''}})();
 let parkCur=null;
 const parkLogoC=document.createElement('canvas');parkLogoC.width=parkLogoC.height=PARK_LOGO_PX;
@@ -411,7 +427,7 @@ function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PAR
   if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
 function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
   const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
-  drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+  applySky(SKIES[P.sky]||SKIES.night);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
 parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
@@ -1325,7 +1341,7 @@ function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);try{localStora
   key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);/* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
   PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP||setupPost());
   const sh=gfxTier<3&&!OFF.has('shadowmap');renderer.shadowMap.enabled=sh;key.castShadow=sh;
-  envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
+  envOn=gfxTier<2;bugs.pts.visible=envOn&&skyCur.bugs;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
   const sig=`${sh}|${!!PP}`;entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
@@ -1333,7 +1349,6 @@ function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);try{localStora
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
   if(warmStarted)warmUp()}/* a drop in play rebuilds every material: compile it off the frame instead of freezing the tab (#125) */
 let tierSig=null;
-let envOn=true;
 /* ---------- cold start (#125) ----------
    On a first visit the first frame built and compiled every material in one go: a frozen tab for seconds, right when the visitor presses enter.
    Now the loop runs without drawing while compileAsync builds the whole park (it yields between objects; frustum culling is off for that call so
@@ -1430,7 +1445,7 @@ renderer.setAnimationLoop(()=>{
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
+  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(CS_ON)updateContactShadows();if(envOn){if(skyCur.bugs)updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
   if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyNow()}
