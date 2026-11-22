@@ -1,8 +1,10 @@
-"""Merge the 4 player_<build>.gltf.json files into one assets/players.bin: shared topology/skeleton/weights,
+"""Merge the 4 player_<build>.gltf.json files (24-bone rig) into one assets/players.bin: shared topology/skeleton/weights,
 base build (normal) positions + int16 offsets for the other builds, so the browser can blend builds freely.
 Usage: python3 pack_players.py <assets folder>"""
 import sys, json, base64, struct, numpy as np
-A = sys.argv[1]; KINDS = ['normal', 'slim', 'power', 'heavy']
+A = sys.argv[1]
+JOINT_TOL = .01; NEW_JOINT_SLACK = ('chest', 'clL', 'clR')   # metres
+KINDS = ['normal', 'slim', 'power', 'heavy']
 def load(k):
     g = json.load(open(f'{A}/player_{k}.gltf.json')); b = base64.b64decode(g['buffers'][0]['uri'].split(',')[1]); return g, b
 def acc(g, b, i):
@@ -27,8 +29,13 @@ deltas = []
 for k in KINDS[1:]:
     g, b = load(k); Pk = acc(g, b, g['meshes'][0]['primitives'][0]['attributes']['POSITION']).astype(np.float64)
     d = np.floor((Pk - P0) / DS + .5); assert np.abs(d).max() < 32767, k; deltas.append(d.astype(np.int16))
-    assert g['extras']['joints'] == g0['extras']['joints']
-H = {'v': 1, 'n': len(P0), 'ni': len(idx), 'lo': lo.tolist(), 'ps': PS.tolist(), 'ds': DS, 'kinds': KINDS, 'groups': groups,
+    # One skeleton for every build: the old joints match exactly; the heavy build's torso depth moves the chest and clavicle
+    # pivots a few mm, and the normal build's pivots are used (they only matter once a pose turns those bones)
+    for j, p in g['extras']['joints'].items():
+        d = max(abs(a - b) for a, b in zip(p, g0['extras']['joints'][j]))
+        assert d == 0 or (j in NEW_JOINT_SLACK and d < JOINT_TOL), (k, j, d)
+X = g0['extras']   # v2: 24 bones; 'group' = old 16-bone index each bone moves with while it rests (players.js checks it)
+H = {'v': 2, 'bones': X['bones'], 'parent': X['parent'], 'group': X['group16'], 'n': len(P0), 'ni': len(idx), 'lo': lo.tolist(), 'ps': PS.tolist(), 'ds': DS, 'kinds': KINDS, 'groups': groups,
      'joints': g0['extras']['joints'], 'refH': g0['extras'].get('refH', 1.86), 'src': 'CC0, derived from MakeHuman CC0 assets'}
 hj = json.dumps(H, separators=(',', ':')).encode()
 while (8 + len(hj)) % 4: hj += b' '

@@ -1,4 +1,4 @@
-"""Convert a MakeHuman (CC0 assets) body into a cloudball glb: 16 bones, separate materials for jersey/pants/socks/shoes/skin/hair/eyes.
+"""Convert a MakeHuman (CC0 assets) body into a cloudball glb: 24 bones (the old 16 plus chest, clavicles, forearm twist, toes, head), separate materials for jersey/pants/socks/shoes/skin/hair/eyes.
 Usage: python3 build_players.py <makehuman repo path> <output folder>, then run python3 glb2gltf.py in.glb out.gltf.json on each glb (artifacts cannot hold .glb)
 Asset licence: the MakeHuman base mesh, targets and default rig/weights are all CC0 (see LICENSE.ASSETS.md in that repo).
 A sparse clone must include makehuman/data/3dobjs, rigs, targets/macrodetails, targets/stomach, targets/torso."""
@@ -28,10 +28,20 @@ CROTCH_ZMAX, CROTCH_KEEP = .095, .25   # Max forward bulge in z; fraction of the
 CROSS_Y0, CROSS_Y1, CROSS_X, CROSS_BACK, CROSS_UP = .74, .95, .085, .05, .04   # Pull the crotch between the legs back and up
 CLOTH_SMOOTH_ITERS, CLOTH_SMOOTH_K = 30, .6   # Smooth out muscle lines in clothed areas (Laplacian smoothing)   # Cloth offset from the skin (m, unscaled)
 
-# Our 16 bones (order = B in players.js)
-BONES = ['root', 'pelvis', 'spine', 'neck', 'shL', 'elL', 'handL', 'shR', 'elR', 'handR', 'thL', 'knL', 'ftL', 'thR', 'knR', 'ftR']
-PARENT = [-1, 0, 0, 2, 2, 4, 5, 2, 7, 8, 0, 10, 11, 0, 13, 14]
-BI = {n: i for i, n in enumerate(BONES)}
+# The old 16-bone rig. Materials and the old weight split are still computed on it, so the mesh and every old pose stay the same
+BONES16 = ['root', 'pelvis', 'spine', 'neck', 'shL', 'elL', 'handL', 'shR', 'elR', 'handR', 'thL', 'knL', 'ftL', 'thR', 'knR', 'ftR']
+BI = {n: i for i, n in enumerate(BONES16)}
+# Our 24 bones (order = B in players.js): the old 16 keep their indices, the new 8 are appended.
+# wrL/wrR = forearm twist (MakeHuman lowerarm02); the hand hangs under it, so hand turn and wrist bend are separate bones
+NEW_BONES = ['chest', 'clL', 'clR', 'wrL', 'wrR', 'toeL', 'toeR', 'head']
+BONES = BONES16 + NEW_BONES
+BI24 = {n: i for i, n in enumerate(BONES)}
+PARENT = [-1, 0, 0, BI24['chest'], BI24['clL'], 4, BI24['wrL'], BI24['clR'], 7, BI24['wrR'], 0, 10, 11, 0, 13, 14,
+          2, BI24['chest'], BI24['chest'], 5, 8, 12, 15, 3]
+# Old bone each new bone splits off from: while a new bone keeps its identity rest rotation it moves exactly with that bone
+GROUP16 = list(range(len(BONES16))) + [BI[b] for b in ('spine', 'spine', 'spine', 'elL', 'elR', 'ftL', 'ftR', 'neck')]
+MAX_INF = 4                         # Bone influences per vertex (three.js SkinnedMesh)
+W_Q = 255                           # Weights are stored as u8 (pack_players.py); the split below is done on those integers
 # MakeHuman .R = the figure's right hand = -x = our arms[0] (L index)
 SIDE = {'R': 'L', 'L': 'R'}
 
@@ -46,6 +56,40 @@ def map_bone(n):
     if base.startswith('lowerleg'): return 'kn' + s
     if base == 'foot' or base.startswith('toe'): return 'ft' + s
     return 'neck'
+
+def map_bone24(n):
+    """Same as map_bone, with the new bones split off (collapsing through GROUP16 gives map_bone back)."""
+    m = re.match(r'(.*)\.(L|R)$', n); base, s = (m.group(1), SIDE[m.group(2)]) if m else (n, '')
+    if base in ('spine02', 'spine01', 'breast'): return 'chest'
+    if base in ('clavicle', 'shoulder01'): return 'cl' + s
+    if base == 'lowerarm02': return 'wr' + s
+    if base.startswith('toe'): return 'toe' + s
+    old = map_bone(n)
+    return 'head' if old == 'neck' and not base.startswith('neck') else old
+
+def split_weights(idx, q, W24):
+    """Split each old (bone, u8 weight) slot over that bone's new sub-bones in proportion to MakeHuman's weights.
+    Group sums stay equal to the old integers, so with the new bones at identity every vertex lands where it did.
+    If more than MAX_INF influences result, the smallest sub-bone folds back into the biggest one of its own group.
+    Slot order: old slot order, biggest first inside a group (slot 0 is in the old dominant bone's group)."""
+    nv = len(idx); JI = np.zeros((nv, MAX_INF), 'u1'); WQ = np.zeros((nv, MAX_INF), np.int32)
+    members = {g: [b for b in range(len(BONES)) if GROUP16[b] == g] for g in range(len(BONES16))}
+    for v in range(nv):
+        ent = []                                  # [slot, bone, weight]
+        for k in range(MAX_INF):
+            g, w = int(idx[v, k]), int(q[v, k]); mb = members[g]; raw = W24[v, mb]
+            if len(mb) == 1 or w == 0 or raw.sum() <= 0: ent.append([k, mb[0] if raw.sum() <= 0 or len(mb) == 1 else mb[int(raw.argmax())], w]); continue
+            sh = w * raw / raw.sum(); fl = np.floor(sh).astype(int); r = w - fl.sum()
+            for j in np.argsort(-(sh - fl), kind='stable')[:r]: fl[j] += 1
+            got = [[k, mb[j], int(fl[j])] for j in range(len(mb)) if fl[j] > 0]
+            ent += got or [[k, mb[int(raw.argmax())], w]]
+        while len(ent) > MAX_INF:
+            multi = [e for e in ent if sum(1 for o in ent if o[0] == e[0]) > 1]
+            e = min(multi, key=lambda x: x[2]); ent.remove(e)
+            max((o for o in ent if o[0] == e[0]), key=lambda x: x[2])[2] += e[2]
+        ent.sort(key=lambda x: (x[0], -x[2]))
+        for k, (_, b, w) in enumerate(ent): JI[v, k], WQ[v, k] = b, w
+    return JI, WQ
 
 def load_obj(p):
     V, F, G, g = [], [], [], ''
@@ -145,15 +189,24 @@ def build(kind):
         J['th' + us] = jn('upperleg01.' + mh); J['kn' + us] = jn('lowerleg01.' + mh); J['ft' + us] = jn('foot.' + mh)
         J['grip' + us] = T(grips[mh])
         J['toe' + us] = jn('toe3-1.' + mh)
+        J['cl' + us] = jn('clavicle.' + mh); J['wr' + us] = jn('lowerarm02.' + mh)
+    J['chest'] = jn('spine02'); J['head'] = jn('head')
     J['eyeL'] = T(jpos(V, 'joint-r-eye')) if 'joint-r-eye' in SK['joints'] else jn('eye.R')
     J['eyeR'] = T(jpos(V, 'joint-l-eye')) if 'joint-l-eye' in SK['joints'] else jn('eye.L')
     # Collapse weights onto the 16 bones
-    n = len(used); W = np.zeros((n, len(BONES)))
+    n = len(used); W = np.zeros((n, len(BONES16)))
     for b, lst in WT.items():
         k = BI[map_bone(b)]
         for vi, w in lst:
             if vi in remap: W[remap[vi], k] += w
     W[W.sum(1) == 0, BI['spine']] = 1
+    W24 = np.zeros((n, len(BONES)))
+    for b, lst in WT.items():
+        k = BI24[map_bone24(b)]
+        for vi, w in lst:
+            if vi in remap: W24[remap[vi], k] += w
+    W24[W24.sum(1) == 0, BI24['spine']] = 1
+    assert np.allclose(np.stack([W24[:, [b for b in range(len(BONES)) if GROUP16[b] == g]].sum(1) for g in range(len(BONES16))], 1), W)
     # Material per face: jersey 0, pants 1, skin 2, dark 3, sock 4, hair 5
     # Boundaries come from a continuous per-vertex function (averaged per face); boundary vertices are then snapped to the zero line of that function, so edges are not jagged
     fc = [[remap[i] for i in F[k]] for k in body]
@@ -168,7 +221,7 @@ def build(kind):
     def hemY(side): kn, ft = J['kn' + side], J['ft' + side]; return ft[1] + HEM_T * (kn[1] - ft[1])
     mat = []
     for f in fc:
-        Pf = P[f]; c = Pf.mean(0); b = BONES[np.bincount(dom[f], minlength=16).argmax()]
+        Pf = P[f]; c = Pf.mean(0); b = BONES16[np.bincount(dom[f], minlength=len(BONES16)).argmax()]
         side = 'L' if c[0] < 0 else 'R'
         if b.startswith('ft') or (c[1] < J['ft' + side][1] + .035): m = 3
         elif b.startswith('kn') or b.startswith('th') or (b == 'pelvis' and c[1] < beltY):
@@ -248,10 +301,14 @@ def build(kind):
     allN = np.vstack([N, np.zeros((len(extraP), 3))])
     if extraP:
         for k in range(n, len(allP)): v = allP[k] - (J['eyeL'] if allP[k][0] < 0 else J['eyeR']); allN[k] = v / (np.linalg.norm(v) + 1e-9)
-    # Top four weights
-    Wall = np.vstack([W, np.zeros((len(extraP), len(BONES)))])
+    # Top four weights on the old 16 bones, quantised exactly as pack_players.py did, then split over the 24 bones
+    Wall = np.vstack([W, np.zeros((len(extraP), len(BONES16)))])
     for k, b in enumerate(extraW): Wall[n + k, b] = 1
-    idx = np.argsort(-Wall, 1)[:, :4]; wv = np.take_along_axis(Wall, idx, 1); wv /= wv.sum(1, keepdims=True)
+    idx = np.argsort(-Wall, 1)[:, :MAX_INF]; wv = np.take_along_axis(Wall, idx, 1); wv /= wv.sum(1, keepdims=True)
+    wf = wv.astype('f4'); q = np.floor(wf * W_Q + np.float32(.5)).astype(np.int32); q[:, 0] += W_Q - q.sum(1); q = q.clip(0, W_Q)
+    W24all = np.vstack([W24, np.zeros((len(extraP), len(BONES)))])
+    for k, b in enumerate(extraW): W24all[n + k, BI24['head'] if b == BI['neck'] else b] = 1
+    idx, q = split_weights(idx, q, W24all); wv = q / W_Q
     # Triangulate (one primitive per material)
     prims = {m: [] for m in range(8)}
     for f, m in zip(fc + extraF[6] + extraF[7], mat + [6] * len(extraF[6]) + [7] * len(extraF[7])):
@@ -291,7 +348,7 @@ def write_glb(path, P, N, JI, WV, prims, J, kind):
           'meshes': [{'name': 'player_' + kind, 'primitives': P_}], 'materials': mats,
           'skins': [{'joints': list(range(1, len(BONES) + 1)), 'skeleton': 1, 'inverseBindMatrices': ib}],
           'accessors': accs, 'bufferViews': views, 'buffers': [{'byteLength': len(bin_)}],
-          'extras': {'joints': {k: [round(float(x), 5) for x in v] for k, v in J.items()}, 'refH': REF_H}}
+          'extras': {'joints': {k: [round(float(x), 5) for x in v] for k, v in J.items()}, 'refH': REF_H, 'bones': BONES, 'parent': PARENT, 'group16': GROUP16}}
     js = json.dumps(gl, separators=(',', ':')).encode()
     while len(js) % 4: js += b' '
     while len(bin_) % 4: bin_.append(0)

@@ -40,9 +40,15 @@ export const BUILDS = {
 };
 
 /* ---------- Bone indices ---------- */
-const B = { root: 0, pelvis: 1, spine: 2, neck: 3, shL: 4, elL: 5, handL: 6, shR: 7, elR: 8, handR: 9, thL: 10, knL: 11, ftL: 12, thR: 13, knR: 14, ftR: 15 };
+/* Real player rig (#185): 24 bones. The old 16 keep their indices; chest, clavicles, forearm twist (wr), toes and head are appended.
+ * Every new bone rests at identity and nothing turns it yet, so it moves exactly with its parent and old poses look the same.
+ * Hierarchy: spine > chest > neck > head, chest > cl > sh > el > wr > hand, ft > toe. */
+const B = { root: 0, pelvis: 1, spine: 2, neck: 3, shL: 4, elL: 5, handL: 6, shR: 7, elR: 8, handR: 9, thL: 10, knL: 11, ftL: 12, thR: 13, knR: 14, ftR: 15,
+  chest: 16, clL: 17, clR: 18, wrL: 19, wrR: 20, toeL: 21, toeR: 22, head: 23 };
+const B_PARENT = [-1, 0, 0, 16, 17, 4, 19, 18, 7, 20, 0, 10, 11, 0, 13, 14, 2, 16, 16, 5, 8, 12, 15, 3];
+const PACK_VERSION = 2;
 /* 'L/R' means local -x / +x (= arms[0] / arms[1]), not the figure's left/right hand */
-const NB = 16;
+const NB = 16;                           /* The block figure (no assets) keeps the old 16 bones */
 
 const sm = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) };
 function prof(keys, y) {            /* keys: [[y, v...]] sorted by increasing y; smooth interpolation */
@@ -388,7 +394,12 @@ export async function loadPlayerAssets(base = './assets/') {
   const JI = take(Uint8Array, n * 4), WQ = take(Uint8Array, n * 4), IX = take(Uint16Array, H.ni);
   const P0 = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) P0[i] = H.lo[i % 3] + Pq[i] * H.ps[i % 3];
   const SI = new Uint16Array(JI), SW = new Float32Array(n * 4); for (let i = 0; i < n * 4; i++) SW[i] = WQ[i] / 255;
-  PACK = { H, P0, D: Dl, SI, SW, IX, geos: new Map() };
+  const names = Object.keys(B);
+  if (H.v !== PACK_VERSION || H.bones.join() !== names.join() || H.parent.join() !== B_PARENT.join()) throw new Error('players.bin: rig does not match players.js');
+  /* Face and head code reads the old 16-bone split: DG = old bone (group) of the dominant slot, DW = that group's total weight */
+  const DG = new Uint8Array(n), DW = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const g = H.group[SI[i * 4]]; let w = 0; for (let k = 0; k < 4; k++) if (H.group[SI[i * 4 + k]] === g) w += WQ[i * 4 + k]; DG[i] = g; DW[i] = w / 255 }
+  PACK = { H, P0, D: Dl, SI, SW, DG, DW, IX, geos: new Map() };
   for (const k of H.kinds) ASSETS.set(k, realAsset(k));
   return ASSETS;
 }
@@ -397,7 +408,7 @@ const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
 function realAsset(build, head = 0) {
   head = (head | 0) % HEAD_SHAPES.length;
   const key = buildKey(build) + (head ? '|h' + head : ''); if (PACK.geos.has(key)) return PACK.geos.get(key);
-  const { H, P0, D: Dl, SI, SW, IX } = PACK, J = H.joints, n = H.n;
+  const { H, P0, D: Dl, SI, SW, DG, DW, IX } = PACK, J = H.joints, n = H.n;
   const w = typeof build === 'string' ? (build === 'normal' ? {} : { [build]: 1 }) : build || {};
   const P = new Float32Array(P0);
   for (const k in w) { const d = Dl[k], a = w[k] * H.ds; if (!d || !a) continue; for (let i = 0; i < n * 3; i++) P[i] += d[i] * a }
@@ -416,7 +427,7 @@ function realAsset(build, head = 0) {
   const eyeY = J.eyeL[1], pts = [];
   for (let i = 0; i < n; i++) {
     const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
-    if (SI[i * 4] === B.neck && SW[i * 4] > .9 && y > eyeY - .01) {
+    if (DG[i] === B.neck && DW[i] > .9 && y > eyeY - .01) {
       pts.push(x, y, z); hb.top = Math.max(hb.top, y);
       if (y > eyeY + CAP_EAR_CLEAR) { hb.x0 = Math.min(hb.x0, x); hb.x1 = Math.max(hb.x1, x) }
       hb.z0 = Math.min(hb.z0, z); hb.z1 = Math.max(hb.z1, z);
@@ -453,10 +464,10 @@ export function headOf(id) {
 }
 function shapeHead(P, S) {
   if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin) return;
-  const { SI, SW, H } = PACK, n = H.n;
+  const { DG, DW, H } = PACK, n = H.n;
   for (let i = 0; i < n; i++) {
-    if (SI[i * 4] !== B.neck) continue;
-    const wt = SW[i * 4], x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], fr = ramp(z, HEAD_FRONT[0], HEAD_FRONT[1]) * wt;
+    if (DG[i] !== B.neck) continue;
+    const wt = DW[i], x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], fr = ramp(z, HEAD_FRONT[0], HEAD_FRONT[1]) * wt;
     if (!fr || y > FACE.browY + .03 || y < FACE.chinY - .06) continue;
     const nose = g1(x, 0, .014) * g1(y, FACE.noseY + .008, .022) * ramp(z, .15, .175);
     let sx = 1 + S.jaw * g1(y, FACE.chinY + .02, .03) * fr + S.cheek * g1(y, FACE.cheekY, .022) * fr + S.noseW * nose;
@@ -469,9 +480,9 @@ function shapeHead(P, S) {
 const FACE_PAINT = { capShade: .34, socket: .28, brow: .75, mouth: .55, nostril: .35, chinShade: .18 };
 const LIP_RGB = [.82, .56, .56], CHEEK_RGB = [1, .9, .88];
 function faceColors(P) {
-  const { SI, H } = PACK, n = H.n, C = new Uint8Array(n * 4).fill(255), J = H.joints, eyeY = J.eyeL[1], F = FACE_PAINT;
+  const { DG, H } = PACK, n = H.n, C = new Uint8Array(n * 4).fill(255), J = H.joints, eyeY = J.eyeL[1], F = FACE_PAINT;
   for (let i = 0; i < n; i++) {
-    if (SI[i * 4] !== B.neck) continue;
+    if (DG[i] !== B.neck) continue;
     const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], ax = Math.abs(x), fr = ramp(z, FACE.faceZ - .03, FACE.faceZ);
     if (!fr) continue;
     let r = 1, g = 1, b = 1; const mul = (k, cr = k, cg = k, cb = k) => { r *= cr; g *= cg; b *= cb };
@@ -604,7 +615,7 @@ function makeRealPlayer(opts, A) {
 
   /* Real skeleton (positions = glb joint points) */
   const names = Object.keys(B), bones = names.map(n => { const b = new THREE.Bone(); b.name = n; return b });
-  const PAR = [-1, 0, 0, 2, 2, 4, 5, 2, 7, 8, 0, 10, 11, 0, 13, 14];
+  const PAR = B_PARENT;
   names.forEach((n, i) => { const p = V3(J[n]); if (PAR[i] >= 0) { p.sub(V3(J[names[PAR[i]]])); bones[PAR[i]].add(bones[i]) } bones[i].position.copy(p) });
   mir.add(bones[0]);
   skin.vertexColors = true;   /* Face paint lives in the geometry's colour attribute (faceColors); white everywhere else */
@@ -627,8 +638,10 @@ function makeRealPlayer(opts, A) {
   bones[B.spine].add(sockets.back); sockets.back.position.set(0, D.NUM_Y - J.spine[1], A.backZ - J.spine[2]);
   bones[B.pelvis].add(sockets.pelvis);
   const hb = A.head, hcz = (hb.z0 + hb.z1) / 2;
-  bones[B.neck].add(sockets.head); sockets.head.position.set(0, J.eyeL[1] - J.neck[1] + CAP_BAND_FRONT, hcz - J.neck[2]);   /* Old attachment points, kept for external use */
-  const capRoot = new THREE.Object3D(); bones[B.neck].add(capRoot);   /* The cap geometry is already in neck-local coordinates */
+  /* Head socket and cap ride the head bone; neckToHead keeps them at their old neck-local spots (the bone rests at identity) */
+  const neckToHead = V3(J.neck).sub(V3(J.head));
+  bones[B.head].add(sockets.head); sockets.head.position.set(0, J.eyeL[1] - J.neck[1] + CAP_BAND_FRONT, hcz - J.neck[2]).add(neckToHead);   /* Old attachment points, kept for external use */
+  const capRoot = new THREE.Object3D(); capRoot.position.copy(neckToHead); bones[B.head].add(capRoot);   /* The cap geometry is already in neck-local coordinates */
   const numMesh = new THREE.Mesh(new THREE.PlaneGeometry(.2, .2), numMat(0)); numMesh.position.z = -NUM_GAP; numMesh.rotation.y = Math.PI; numMesh.visible = false; sockets.back.add(numMesh);
   let cap = null, glove = null;
   const putHead = kind => {
