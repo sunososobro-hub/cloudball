@@ -656,6 +656,14 @@ const BAT_REST={yaw:-.1,hx:.02,hy:.3,hz:.28,bx:-.6,by:.55,bz:-.55},BAT_REST_AT=1
    the clip blends out), then he walks off from BAT_AWAY_AT at BAT_K_WALK_V, picking up to BAT_AWAY_SPEED over BAT_K_RAMP s (batAwayD).
    A dropped third strike (he runs to first) is not this. */
 const BAT_K_REST_AT=[.35,.8],BAT_K_REST_DUR=.6,BAT_K_WALK_V=1.3,BAT_K_RAMP=1.8;
+/* #124 round 2. Called K: a beat looking back at the plate umpire (head BAT_LOOK_HEAD, chest BAT_LOOK_YAW, absolute in his ground frame:
+   0 = facing the plate, + = toward the pitcher) from BAT_LOOK_AT s after the pitch arrives, eased in over BAT_LOOK_IN, out over BAT_LOOK_OUT
+   so he faces his walk when it starts at BAT_AWAY_AT. Swinging K: after the swing clip is out the top hand lets go (BAT_ONE_AT, over
+   BAT_ONE_DUR) and the bat hangs from the bottom hand at his side, barrel down and forward (BAT_ONE), the free arm hangs (BAT_FREE_HAND);
+   he carries it like that on the walk off. Upper-body frame like BAT_REST. */
+const BAT_LOOK_AT=.45,BAT_LOOK_IN=.3,BAT_LOOK_OUT=.35,BAT_LOOK_HEAD=-.8,BAT_LOOK_YAW=-.3;
+const BAT_ONE={hx:.33,hy:-.02,hz:.12,bx:.08,by:-.8,bz:.5},BAT_ONE_AT=1.15,BAT_ONE_DUR=.45,BAT_FREE_HAND=[-.32,-.02,.04];
+const batLookW=(e,u)=>e.r!=='cstr'?0:Math.min(ease(sat01((u-(ARRIVE+BAT_LOOK_AT))/BAT_LOOK_IN)),1-ease(sat01((u-(BAT_AWAY_AT-BAT_LOOK_OUT))/BAT_LOOK_OUT)));
 const batKOut=e=>!!(e.pa&&e.bat&&(e.r==='cstr'||e.r==='sstr')&&!(e.moves||[]).some(m=>m[0]===0));
 const BAT_LOAD_LEAD=.9,BAT_LOAD_DUR=.6,BAT_SWING_LEAD=.22,BAT_SWING_DUR=.3,BAT_FT_DELAY=.06,BAT_FT_DUR=.3,BAT_ARM_LEN=.6,BAT_SHOULDER_X=.3,BAT_SHOULDER_Y=.57;
 const _bv=new THREE.Vector3(),_bq=new THREE.Quaternion(),_dn=new THREE.Vector3(0,-1,0),_up=new THREE.Vector3(0,1,0),sat01=t=>Math.max(0,Math.min(1,t)),ease=t=>t*t*(3-2*t);
@@ -688,13 +696,15 @@ function poseBatter(e,u){
   const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing&&!bn?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing&&!bn?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
   const K=(k,c)=>{const a=BK[k];let v=lerp(a[0],a[1],ld);v=lerp(v,c===undefined?a[2]:c,sw);return lerp(v,a[3],ft)};
   const stay=!(e.pa&&e.r!=='ibb'),kOut=batKOut(e),rw=kOut?ease(sat01((u-(ARRIVE+BAT_K_REST_AT[e.r==='sstr'?1:0]))/BAT_K_REST_DUR)):stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
-  const yaw=lerp(K('yaw'),BAT_REST.yaw,rw),py=.45+e.zy*.75,dyC=Math.max(-.7,Math.min(.2,(py-1.33)/.85));
-  const byaw=lerp(yaw,BUNT.yaw,bn);const hb=e.r==='hbp'?hbpReact(u):0;BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn)+HBP_LEAN*hb,byaw+HBP_YAW*hb,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(K('head'),BUNT.head,bn)-byaw;
+  const lk=kOut?batLookW(e,u):0,oh=kOut&&e.r==='sstr'?ease(sat01((u-(ARRIVE+BAT_ONE_AT))/BAT_ONE_DUR)):0;
+  const yaw=lerp(lerp(K('yaw'),BAT_REST.yaw,rw),BAT_LOOK_YAW,lk),py=.45+e.zy*.75,dyC=Math.max(-.7,Math.min(.2,(py-1.33)/.85));
+  const byaw=lerp(yaw,BUNT.yaw,bn);const hb=e.r==='hbp'?hbpReact(u):0;BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn)+HBP_LEAN*hb,byaw+HBP_YAW*hb,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(lerp(K('head'),BUNT.head,bn),BAT_LOOK_HEAD,lk)-byaw;
   BR.l0.rotation.z=K('back');BR.l1.rotation.z=lerp(lerp(BK.stride[0],BK.stride[1],ld),BK.stride[2],sw);
   /* Knees bend with the square-around, deeper for a low pitch so the bat stays level instead of chopping down */
   const knee=Math.max(clamp(BUNT_KNEE+(BUNT_KNEE_REF-py)*BUNT_KNEE_LOW,BUNT_KNEE_MIN,BUNT_KNEE_MAX)*bn,HBP_KNEE*hb);buntK=bn;buntDrop=LEG_LEN*knee*(batter.k||1);BR.l0.scale.y=BR.l1.scale.y=1-knee;
-  let gx=lerp(K('hx'),BAT_REST.hx,rw),gy=lerp(K('hy'),BAT_REST.hy,rw),gz=lerp(K('hz'),BAT_REST.hz,rw);
-  _bv.set(lerp(K('bx'),BAT_REST.bx,rw),lerp(K('by',dyC),BAT_REST.by,rw),lerp(K('bz'),BAT_REST.bz,rw)).normalize();
+  const RK=k=>lerp(BAT_REST[k],BAT_ONE[k],oh);
+  let gx=lerp(K('hx'),RK('hx'),rw),gy=lerp(K('hy'),RK('hy'),rw),gz=lerp(K('hz'),RK('hz'),rw);
+  _bv.set(lerp(K('bx'),RK('bx'),rw),lerp(K('by',dyC),RK('by'),rw),lerp(K('bz'),RK('bz'),rw)).normalize();
   if(bn>0){const give=BUNT_GIVE*ease(sat01((u-ARRIVE)/BUNT_GIVE_DUR)),L=Math.hypot(...BUNT_DIR),sl=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L'?-1:1;
     /* Sweet spot on the pitch line: world x = e.zx, height = pitch height (ground frame is lowered by the knee bend) */
     const sx=BUNT_SWEET_X,sz=-BAT_BOX[0]+sl*e.zx,sy=clamp(py,BUNT_HAND_MIN,BUNT_HAND_MAX)+buntDrop;
@@ -704,7 +714,8 @@ function poseBatter(e,u){
   batPivot.position.set(gx,gy,gz);batPivot.quaternion.setFromUnitVectors(_up,_bv);
   const gap=lerp(BAT_HAND_GAP,BUNT.gap,bn);
   /* Hands apart on the bat: bottom hand (arms[1], a right-handed batter's left hand) on the handle, top hand (arms[0]) BAT_HAND_GAP toward the barrel */
-  aimArm(BR.a0,-BAT_SHOULDER_X,gx+_bv.x*gap,gy+_bv.y*gap,gz+_bv.z*gap);aimArm(BR.a1,BAT_SHOULDER_X,gx,gy,gz)}
+  const tx=gx+_bv.x*gap,ty=gy+_bv.y*gap,tz=gz+_bv.z*gap;/* top hand on the bat, or (swinging K, oh) let go and hanging at his side */
+  aimArm(BR.a0,-BAT_SHOULDER_X,lerp(tx,BAT_FREE_HAND[0],oh),lerp(ty,BAT_FREE_HAND[1],oh),lerp(tz,BAT_FREE_HAND[2],oh));aimArm(BR.a1,BAT_SHOULDER_X,gx,gy,gz)}
 /* #185 act 1: the real swing (CMU 124_07, assets/mocap) on the skinned batter, over the keyframes above. Clip time runs at real speed
    with the clip's contact frame (SW_CONTACT, set by hand: the clip's auto release frame is noise for a swing) exactly at ARRIVE, held
    between SW_START (stance) and SW_END (follow-through held). Blends in from the stance (SW_IN before the load starts) and out to the
