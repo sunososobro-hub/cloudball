@@ -812,7 +812,7 @@ function poseOnDeck(e,u,ei){odNext.g.visible=odDeck.g.visible=false;if(!game)ret
    jogs out from BRK_ON_AT (round behind home plate, ST_BEHIND_Z, when the box is on the far side); at PRE they jog out, at END they jog off.
    Posts are [s, d]: s metres from home along the base line, d metres into foul ground, so one pair of numbers mirrors to third.
    Pure function of (event, time); the names wait for the module (no number until it is in). */
-const ST_UMP_POST=[32,1.2],ST_U2_POST=[-2.5,-47],ST_BOX=[24,5.5],ST_JOG_V=4,ST_BEHIND_Z=5;
+const ST_UMP_POST=[32,1.2],ST_U2_POST=[-2.5,-47],ST_U2_IN=[-3,-30],ST_U2_V=4,ST_U2_SETTLE=.3,ST_BOX=[24,5.5],ST_JOG_V=4,ST_BEHIND_Z=5;
 const lineXZ=(side,[s,d])=>[side*(s+d)*Math.SQRT1_2,(d-s)*Math.SQRT1_2];/* side +1 = first-base line, -1 = third */
 const stUmpAt=[lineXZ(1,ST_UMP_POST),ST_U2_POST,lineXZ(-1,ST_UMP_POST)],ST_CREW=['first','second','third'],ST_ROLE=['first','third'];
 const umpB=stUmpAt.map(()=>{const f=figure(matUmp,matUmp,false);f.g.scale.y=.95;return f}),coaches=ST_ROLE.map(()=>figure(matCo,pants,false));
@@ -822,8 +822,26 @@ const stCrew=new Map(),teamIdOf=t=>{const T=TEAMS[game&&game.teams?game.teams[t]
 function crewNums(seed){if(!staffM||!staffM.crewFor)return null;if(!stCrew.has(seed)){const c=staffM.crewFor(seed),o={};for(const k in c){const u=staffM.umpire(c[k]);o[k]=u?u.num:undefined}stCrew.set(seed,o)}return stCrew.get(seed)}
 const stPath=(i,team)=>{const side=i?-1:1,B=lineXZ(side,ST_BOX),G=dugout(team);return odPath(Math.sign(G[0])===side?[G,B]:[G,[0,ST_BEHIND_Z],B])};
 const stJogDur=(team,i)=>stPath(i,team).L/ST_JOG_V,stJogEnd=(team,t0)=>t0+Math.max(stJogDur(team,0),stJogDur(team,1));/* cpEvents: they move until here */
-function poseStaff(e,u){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{const [x,z]=stUmpAt[i];resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u)});
+/* #42 slice 9: with a runner on base the second-base umpire works inside, on the infield grass between the mound and second on the
+   shortstop's side (ST_U2_IN, off the catcher-to-second throw line x = 0), and goes back behind the bag (ST_U2_POST) when the bases
+   empty. He never jumps: an event whose base state differs from the next event's ends with his jog (ST_U2_V) from one spot to the
+   other, starting ST_U2_SETTLE after the last runner of the play arrives (on a half-inning break: out at BRK_OFF_AT, in at BRK_ON_AT
+   when the next half starts with a runner, the extra-inning runner on second), and finishing inside the event (cpEvents keeps it on
+   screen). Base state = e.s0.b of the event; END ends empty.
+   Pure function of (event list, index, time). */
+const u2In=e=>!!(e&&e.k!=='PRE'&&e.s0&&e.s0.b&&e.s0.b.some(Boolean)),u2Cache=new WeakMap();
+const u2Spot=inside=>inside?ST_U2_IN:ST_U2_POST,u2Dur=()=>Math.hypot(ST_U2_IN[0]-ST_U2_POST[0],ST_U2_IN[1]-ST_U2_POST[1])/ST_U2_V;
+function u2Plan(ev,i){const e=ev[i];if(!e)return null;if(u2Cache.has(e))return u2Cache.get(e);
+  const a=u2In(e),b=e.k==='END'?false:i+1<ev.length?u2In(ev[i+1]):a;let pl=null;
+  if(a!==b){const T=u2Dur();let go=e.k!=='BRK'?0:b?BRK_ON_AT:BRK_OFF_AT;for(const m of e.moves||[])if(m[3]&&Number.isFinite(m[3].arriveT))go=Math.max(go,m[3].arriveT+ST_U2_SETTLE);
+    if(e.k==='P'&&e.r==='inplay')go=Math.max(go,ARRIVE+ST_U2_SETTLE);if(Number.isFinite(e.d))go=Math.max(0,Math.min(go,e.d-T));
+    pl={go,t:T,path:odPath([u2Spot(a),u2Spot(b)])}}
+  const r={a,b,pl};u2Cache.set(e,r);return r}
+const u2End=(ev,i)=>{const q=u2Plan(ev,i);return q&&q.pl?q.pl.go+q.pl.t:0};/* cpEvents: he moves until here */
+function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
+  const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
+function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
@@ -1166,7 +1184,7 @@ function poseScene(e,u,dt,ei){
     if(tt<1)face(f,f.home[0]-sx,f.home[1]-sz);else face(f,-f.home[0],-f.home[1])})}
   batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
-  poseOnDeck(e,u,ei);poseStaff(e,u);
+  poseOnDeck(e,u,ei);poseStaff(e,u,ei);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
   const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
@@ -1565,12 +1583,13 @@ function cpEvents(g){const ev=g.ev;
     for(let j=i-1;j>=0&&e.t-ev[j].t<PEEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
       for(const [,to,,tl] of q.moves||[])if(to===4)pe=Math.max(pe,Math.min(q.t+PEEL_LOOK,q.t+tl.arriveT+peelLen(off,tl))-e.t)}
     if(e.k==='VOTE'||e.k==='CHG'){head=e.d;tail=0}
-    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
+    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
     else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),stJogEnd(off,0),odEnd(ev,i));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE))}/* walk: runners trot on */
+    if(e.k==='P')tail=Math.max(tail,u2End(ev,i));/* #42 slice 9: U2 jogs between his inside spot and his post */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
     return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch'}})}
 let cpClock=null,cpFor=null,cpReal=false;
