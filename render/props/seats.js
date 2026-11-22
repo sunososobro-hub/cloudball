@@ -1,10 +1,16 @@
-/* render/props/seats.js: seats, front rails and aisle ends of every stand (#215 round 1). Polish rounds edit only this file (and add to render/pbr.js).
- * Replaces game.js's flat seat (two boxes per seat, the instanced `old:seats`) and the front rail of each stand (one painted box, `old:rail`).
+/* render/props/seats.js: seats, rails and aisles of every stand (#215 slot; round 1). Polish rounds edit only this file (slot rule #237);
+ * round notes go here and on the #215 board.
+ * Replaces game.js's flat seat (two boxes per seat, the instanced `old:seats:chair`) and the front rail of each stand (one painted box, `old:seats:rail`).
+ * The stepped rows (`old:seats`) and back walls (`old:seats:back`) stay game.js's: nosings and end walls are added on them, not swapped.
  * The people in the seats are not touched (no fans' geometry): the new seats reuse the old seats' instance matrices and colours one for one,
  * so every person still sits in the same place, and the seats the crowd density leaves empty are the same ones.
  * Shape: a moulded plastic shell (seat pan dished, front lip rolled down, back curved and leaning back, real thickness), on a painted steel
  *   standard bolted to the tread (leg, pivot arm under the pan, armrest with a dark cap; one per seat, the neighbour's covers the other side).
- *   Front rail: steel parapet panel with a rolled top, posts and a tube handrail at the old rail height, a kick plate at the foot.
+ *   Seat pan and back are two mouldings with a hinge gap (a folding bottom, shown down; empty seats are not known here, the crowd is game.js's).
+ *   Front rail: steel parapet panel with a rolled top and a vinyl pad on its field face (home park pad colour), posts and a tube handrail
+ *   at the old rail height, a kick plate at the foot.
+ * Round 1 notes (still gives it away): no aisle stairs inside a stand (every seat column has a person, and the fans are not touched),
+ *   no seat numbers, scuffs or fade on the shells, empty seats are not folded up, little change at broadcast distance.
  *   Rows: a steel nosing strip on the front edge of every tread. Ends: a sloped concrete end wall following the rake, with a handrail on it.
  * Frame: seat local = old seat local (person faces +z, origin on the tread); rail local = old rail box local (centre of the box). */
 import * as THREE from 'three/webgpu';
@@ -15,11 +21,11 @@ export const SEATS={W:.44,/* shell width (m), seat pitch is .55 */TH:.022,/* she
   SHELL_C:0x1d4f8f,SHELL_ROUGH:.38,FRAME_C:0x2a2f38,CAP_C:0x16181c,
   ARM_Y:.6,ARM_X:-.265,/* armrest height and side (left of the person; the neighbour's arm is on the right) */
   PANEL_H:.86,TUBE_R:.034,POST_R:.024,POST_M:1.5,HAND_R:.024,KICK_H:.12,
-  NOSE_H:.045,NOSE_D:.06,END_T:.2,END_UP:.35,/* end wall thickness and height above the treads */ROW_D:.9,ROW_RISE:.55};
+  PAD_H:.46,PAD_T:.07,NOSE_H:.045,NOSE_D:.06,END_T:.2,END_UP:.35,/* end wall thickness and height above the treads */ROW_D:.9,ROW_RISE:.55};
 
 /* shell centreline in the seat's own (z forward, y up) plane, front lip to the top of the back */
 const LINE=[[.215,.37],[.21,.415],[.18,.44],[.1,.445],[0,.437],[-.1,.432],[-.17,.44],[-.215,.47],[-.24,.53],[-.255,.62],[-.27,.72],[-.285,.82],[-.295,.87]];
-function shellGeo(){const {W,TH}=SEATS,P=LINE.map(([z,y])=>new THREE.Vector2(z,y)),up=[],dn=[];
+function moulding(pts){const {W,TH}=SEATS,P=pts.map(([z,y])=>new THREE.Vector2(z,y)),up=[],dn=[];
   for(let i=0;i<P.length;i++){const a=P[Math.max(0,i-1)],b=P[Math.min(P.length-1,i+1)],t=b.clone().sub(a).normalize(),n=new THREE.Vector2(-t.y,t.x);
     up.push(P[i].clone().addScaledVector(n,TH/2));dn.push(P[i].clone().addScaledVector(n,-TH/2))}
   const sh=new THREE.Shape([...up,...dn.reverse()]);
@@ -28,7 +34,9 @@ function shellGeo(){const {W,TH}=SEATS,P=LINE.map(([z,y])=>new THREE.Vector2(z,y
   const m=new THREE.Matrix4().set(0,0,-1,0, 0,1,0,0, 1,0,0,0, 0,0,0,1);g.applyMatrix4(m);g.translate((W-.03)/2,0,0);
   /* the pan sags a little in the middle of the width (moulded dish) */
   const p=g.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i);if(z>-.2)p.setY(i,p.getY(i)-.012*(1-(2*x/W)**2)*Math.max(0,1-Math.abs(z)/.22))}
-  g.computeVertexNormals();return g}
+  g.computeVertexNormals();return g.index?g.toNonIndexed():g}
+/* folding bottom: the pan (front lip to its pivot) and the back are separate mouldings with a hinge gap between them */
+const shellGeo=()=>mergeGeometries([moulding(LINE.slice(0,7)),moulding(LINE.slice(8))]);
 
 function at(g,x,y,z,rx=0,ry=0,rz=0){g.rotateX(rx);g.rotateY(ry);g.rotateZ(rz);g.translate(x,y,z);return g}
 /* standard: leg from the tread to the pan pivot, foot plate, pivot arm under the pan, armrest post and bar (bar cap is a separate material) */
@@ -59,6 +67,8 @@ function standParts(rail,M){const {PANEL_H,TUBE_R,POST_R,POST_M,HAND_R,KICK_H,NO
     galv.push(at(cyl(POST_R,POST_R,H-PANEL_H,8,.5),x,y0+PANEL_H+(H-PANEL_H)/2,-.03));
     steel.push(at(box(.09,PANEL_H-.05,.012,.5),x,y0+(PANEL_H-.05)/2,.002))}/* panel stiffener behind each post */
   galv.push(at(cyl(HAND_R,HAND_R,L+.04,14,.5),0,y0+H,-.03,0,0,Math.PI/2));/* handrail */
+  const pad=new THREE.Mesh(box(L-.04,SEATS.PAD_H,SEATS.PAD_T,M.pad.userData.tileM),M.pad);/* vinyl pad on the field face of the parapet */
+  pad.position.set(0,y0+PANEL_H-TUBE_R-SEATS.PAD_H/2-.01,-.055-SEATS.PAD_T/2);pad.castShadow=pad.receiveShadow=true;pad.userData.pad=true;g.add(pad);
   /* rows: the stepped boxes of the same stand (depth = one row) */
   const rows=rail.parent?rail.parent.children.filter(o=>o.isMesh&&o.geometry.type==='BoxGeometry'&&Math.abs(o.geometry.parameters.depth-SEATS.ROW_D)<.02&&Math.abs(o.geometry.parameters.width-L)<.01):[];
   const ry=rail.position.y,rz=rail.position.z;let topY=0,backZ=0,frontZ=0,botY=0;
@@ -75,14 +85,18 @@ function standParts(rail,M){const {PANEL_H,TUBE_R,POST_R,POST_M,HAND_R,KICK_H,NO
   for(const [arr,m] of [[steel,M.steel],[galv,M.galv],[conc,M.conc],[nose,M.nose]])if(arr.length){const me=new THREE.Mesh(mergeGeometries(arr.map(q=>q.index?q.toNonIndexed():q)),m);me.castShadow=me.receiveShadow=true;g.add(me)}
   rail.updateWorldMatrix(true,false);g.matrixAutoUpdate=false;g.matrix.copy(rail.matrixWorld);return g}
 
-export function oldSeats(scene){const a=[];scene.traverse(o=>{if(o.name==='old:seats'||o.name==='old:rail')a.push(o)});return a}
+export function oldSeats(scene){const a=[];scene.traverse(o=>{if(o.name==='old:seats:chair'||o.name==='old:seats:rail')a.push(o)});return a}
 
 /* old: the meshes oldSeats() found. Returns the group standing where they stood. */
-export function buildSeats({old=[]}={}){const g=new THREE.Group();g.name='seats';
+export function buildSeats({old=[],colors={}}={}){const g=new THREE.Group();g.name='seats';
   const M={shell:mat('gloss',{color:SEATS.SHELL_C,rough:SEATS.SHELL_ROUGH}),frame:mat('paintedSteel',{color:SEATS.FRAME_C}),cap:mat('rubber',{color:SEATS.CAP_C}),
-    steel:mat('paintedSteel'),galv:mat('galvSteel'),conc:mat('concrete',{color:0x5a5f6a}),nose:mat('galvSteel',{color:0x5c6168,rough:.78,metal:.45})};
+    steel:mat('paintedSteel'),galv:mat('galvSteel'),conc:mat('concrete',{color:0x5a5f6a}),nose:mat('galvSteel',{color:0x5c6168,rough:.78,metal:.45}),
+    pad:mat('vinylPad',colors.pad!==undefined?{color:colors.pad}:{})};
   for(const o of old){
-    if(o.name==='old:seats'&&o.isInstancedMesh){g.add(instanced(shellGeo(),M.shell,o,true),instanced(frameGeo(),M.frame,o,false),instanced(capGeo(),M.cap,o,false))}
-    else if(o.name==='old:rail'&&o.isMesh)g.add(standParts(o,M))}
+    if(o.name==='old:seats:chair'&&o.isInstancedMesh){g.add(instanced(shellGeo(),M.shell,o,true),instanced(frameGeo(),M.frame,o,false),instanced(capGeo(),M.cap,o,false))}
+    else if(o.name==='old:seats:rail'&&o.isMesh)g.add(standParts(o,M))}
   if(!g.children.length)throw new Error('seats: no old seats or rails found');
+  g.userData.recolor=p=>{if(!p||p.pad===undefined)return;const m=mat('vinylPad',{color:p.pad});g.traverse(o=>{if(o.userData.pad)o.material=m})};
   return g}
+
+export const PROPS=[{name:'seats',build:c=>buildSeats({old:oldSeats(c.scene),colors:c.park()}),old:c=>oldSeats(c.scene)}];

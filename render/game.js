@@ -231,13 +231,13 @@ const fasciaMat0=new THREE.MeshStandardMaterial({color:LC(0x9aa3b5),roughness:.6
 const fasciaMat=L=>{if(FASCIA_M[L])return FASCIA_M[L];const m=fasciaMat0.clone();for(const t of ['map','emissiveMap']){m[t]=m[t].clone();m[t].repeat.set(Math.round(L/FASCIA_LAMP_M),1);m[t].needsUpdate=true}return FASCIA_M[L]=m};
 const ribGeo=d=>new THREE.BoxGeometry(RIB_W,RIB_H,d),ribMat=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()}),ribO=new THREE.Object3D();
 function stand(px,pz,rotY,len,rows,side,roof,base=0){
-  const g=new THREE.Group();g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
-  for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.position.set(0,h/2,d);g.add(b);
+  const g=new THREE.Group();g.name='stand';g.userData.stand={px,pz,rotY,len,rows,side,roof,base};g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
+  for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.name='old:seats';b.position.set(0,h/2,d);g.add(b);
     for(let x=-len/2+.4;x<len/2-.3;x+=SEAT_W)fans.push({g,x,y:h,z:d,side,empty:Math.random()<CROWD_EMPTY})}
-  const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
-  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.name='old:rail';rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
-  if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
-    const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,FASCIA_H,.25),fasciaMat(len+2));lip.position.set(0,top+7.4-FASCIA_H/2+.12,-4.9);g.add(lip);
+  const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.name='old:seats:back';w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.name='old:seats:rail';rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
+  if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.name='old:roof';rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
+    const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,FASCIA_H,.25),fasciaMat(len+2));lip.name='old:roof:fascia';lip.position.set(0,top+7.4-FASCIA_H/2+.12,-4.9);g.add(lip);
     const n=Math.floor((len+2)/RIB_GAP),ribs=new THREE.InstancedMesh(ribGeo(rows*.9+6),ribMat,n);/* #150 round 3: steel ribs under the roof, one draw call per stand */
     for(let i=0;i<n;i++){ribO.position.set(-(len+2)/2+RIB_GAP*(i+.5),-.25-RIB_H/2,0);ribO.updateMatrix();ribs.setMatrixAt(i,ribO.matrix)}
     rf.add(ribs)}
@@ -249,7 +249,9 @@ stand(0,24,0,48,16,2,true);stand(46.7,-24.1,Q,72,14,1,true);stand(-46.7,-24.1,-Q
    at ground level, so the first rows peeked over the wall and made it look small. */
 const OF_R=111.5,OF_BASE=2.4,OF_ROWS=10,OF_SEAT_ROW=5;
 for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.cos(t)*OF_R,Math.atan2(Math.sin(t),-Math.cos(t)),20,OF_ROWS,a<0?0:a>0?1:2,false,OF_BASE)}
-/* #215: polished props (render/props/, materials in render/pbr.js) swap in on the tiers props/index.js allows; any failure keeps the old park */
+/* #215: polished props (render/props/, materials in render/pbr.js) swap in on the tiers props/index.js allows; any failure keeps the old park.
+   #237: every old park mesh a slot replaces is named old:<slot>[:<part>] above (field, wall, foulpole, backstop, seats, roof, towers, scoreboard);
+   polish rounds never edit this file: an object file finds its old meshes with ctx.old('<slot>'). */
 {const PROPS_POLL_MS=1000,url=new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;/* max only (#215 10:30): nothing is fetched until max is on; gfxMax is declared further down, so the first look waits a tick */
   const go=()=>{let on=false;try{on=gfxMax}catch(e){}if(!on)return void setTimeout(go,PROPS_POLL_MS);import(url).then(M=>M.mountProps({scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err))};setTimeout(go,0)}
 const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
@@ -285,7 +287,7 @@ for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-
 const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty);
 for(let i=people.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[people[i],people[j]]=[people[j],people[i]]}/* random order: a lower quality tier draws a prefix, i.e. a random subset */
 people.forEach((f,i)=>f.pi=i);const cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
-const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.55}),fans.length);seats.name='old:seats';
+const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.55}),fans.length);seats.name='old:seats:chair';
 /* #150 round 3: moulded seats are not one flat blue: each seat a little lighter or darker (SEAT_VAR), higher rows sun-faded (SEAT_FADE per metre),
    a few newer replacement seats (SEAT_NEW share). Seats only: the people on them are untouched. */
 const SEAT_VAR=.16,SEAT_FADE=.018,SEAT_NEW=.03;
@@ -336,8 +338,8 @@ const haloK=TSL.uniform(0).onFrameUpdate(()=>skyCur.halo*(gfxMax?1:HALO_LOW));
 const haloMat=(()=>{const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});const t=new THREE.CanvasTexture(glowC);
   m.colorNode=TSL.texture(t).mul(haloK);m.toneMapped=false;return m})();
 const towerSpots=[];
-for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.position.set(x,23,z);scene.add(m);
-  const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
+for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.name='old:towers';m.position.set(x,23,z);scene.add(m);
+  const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.name='old:towers:lamp';l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
   const ha=new THREE.Sprite(haloMat);ha.position.set(x,46,z);ha.scale.set(HALO_SCALE,HALO_SCALE,1);scene.add(ha);
   const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),aim=new THREE.Vector3(TOWER_AIM[0]+x*TOWER_AIM_K,0,TOWER_AIM[1]+(z-TOWER_AIM[1])*TOWER_AIM_K),dir=lamp.clone().sub(tgt),L=dir.length();

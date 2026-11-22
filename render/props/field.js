@@ -1,4 +1,4 @@
-/* render/props/field.js: turf and infield dirt (#215 polish lane, round 1). Polish rounds edit only this file (and add to render/pbr.js).
+/* render/props/field.js: turf and infield dirt (#215 polish lane, round 1). Polish rounds edit only this file (#237: render/pbr.js is read-only, new materials live here; round notes in this header and on the #215 board).
  * The field is one plane in game.js ('old:field': field-map canvas + CC0 grass/dirt scans). This prop does not redraw the map: it
  * clones that material and changes how it answers light, which is what flat turf lacked:
  *   - mowing stripes from blade direction: each 6 m band of the fair outfield (the bands of the field map) has its blades combed
@@ -64,3 +64,6 @@ export function buildField(ctx){const old=ctx.scene.getObjectByName('old:field')
   m.needsUpdate=true;
   const g=new THREE.Mesh(old.geometry,m);g.name='prop:field';g.position.copy(old.position);g.rotation.copy(old.rotation);g.scale.copy(old.scale);
   g.receiveShadow=true;g.renderOrder=old.renderOrder;return g}
+
+/* slot descriptor (#237): the field plane of game.js, same map, new light response */
+export const PROPS=[{name:'field',build:c=>buildField(c),old:c=>c.old('field')}];

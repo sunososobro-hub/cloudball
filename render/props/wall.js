@@ -1,4 +1,4 @@
-/* render/props/wall.js: outfield wall pads and fence top (#215 round 1). Polish rounds edit only this file (and add to render/pbr.js).
+/* render/props/wall.js: outfield wall pads and fence top (#215 round 1). Polish rounds edit only this file (#237: render/pbr.js is read-only, new materials live here; round notes in this header and on the #215 board).
  * Replaces the old field face of the wall (one flat open cylinder, `old:wall`) and the flat yellow band on top (`old:wall:top`).
  * The back face seen from the outfield stands (old mesh behind r WALL_R) stays as it is.
  * Shape: WALL_PADS separate vinyl pads (one per pad column of the ad image), each a real pillow: rounded on all four edges, crowned
@@ -61,3 +61,6 @@ export function buildWall(o){const {R,H,TH0,TH,PADS,T,TOP,CAP_GLOW,BOLT_R,AD_GLO
   /* colours from the home park: the pads come with the ad canvas (game.js redraws it); the cap takes the trim */
   g.userData.recolor=P=>{if(!P)return;const c=new THREE.Color(P.trim);capM.color.copy(c);capM.emissive.copy(c);capM.emissiveIntensity=CAP_GLOW};
   g.userData.recolor(o.colors);return g}
+
+/* slot descriptor (#237): replaces the field face of the old wall and its flat top band (old:wall, old:wall:top) */
+export const PROPS=[{name:'wall',build:c=>buildWall({colors:c.park(),old:c.scene.getObjectByName('old:wall')}),old:c=>c.old('wall')}];
