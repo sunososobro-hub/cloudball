@@ -9,6 +9,7 @@ import {buildWall} from './wall.js';
 import {buildFoulPoles} from './foulpoles.js';
 import {buildBackstop,oldBackstop} from './backstop.js';
 import {buildScoreboard} from './scoreboard.js';
+import {buildTowers} from './towers.js';
 
 /* Polished props are drawn on the `max` tier only (manager 11/22 10:30, #211): game.js imports this file only once max is on,
    and max can still go off later (the tier button, a drop below tier 0), so the swap follows it. Takes the ctx below. */
@@ -29,6 +30,8 @@ export const PROPS=[
   {name:'backstop',build:c=>buildBackstop({old:oldBackstop(c.scene),colors:c.park()}),old:c=>oldBackstop(c.scene)},
   /* the outfield scoreboard: new housing, bezel, LED grid, catwalk and columns; the score face of game.js stays (it is not old:scoreboard) */
   {name:'scoreboard',build:c=>buildScoreboard({old:oldOf(c,'scoreboard'),colors:c.park()}),old:c=>oldOf(c,'scoreboard')},
+  /* the six light towers: new masts, ladders, headframes and fixtures; the lenses reuse the old lamp material (sky sets the glow); spots and beams stay game.js's */
+  {name:'towers',build:c=>{const L=oldOf(c,'tower:lamp');return buildTowers({lampMat:L[0]&&L[0].material})},old:c=>[...oldOf(c,'tower:mast'),...oldOf(c,'tower:lamp')]},
 ];
 /* every mesh game.js named old:<name> (one object can be several meshes), in the order game.js made them */
 const oldOf=(c,n)=>{const a=[];c.scene.traverse(o=>{if(o.name==='old:'+n)a.push(o)});return a};
