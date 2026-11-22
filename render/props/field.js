@@ -1,5 +1,5 @@
 /* render/props/field.js: turf and infield dirt (#215 polish lane, round 1). Polish rounds edit only this file (and add to render/pbr.js).
- * The field is one plane in game.js ('old:ground': field-map canvas + CC0 grass/dirt scans). This prop does not redraw the map: it
+ * The field is one plane in game.js ('old:field': field-map canvas + CC0 grass/dirt scans). This prop does not redraw the map: it
  * clones that material and changes how it answers light, which is what flat turf lacked:
  *   - mowing stripes from blade direction: each 6 m band of the fair outfield (the bands of the field map) has its blades combed
  *     toward or away from home. The band looks light when the blades lean away from the eye and dark when they lean toward it, so the
@@ -24,8 +24,8 @@ export const FIELD={
   RAKE_M:.11,RAKE_WOBBLE:.25,RAKE_NEAR:5,RAKE_FAR:14,RAKE_TILT:.32,RAKE_AO:.14,/* rake: groove spacing, hand wobble (grooves), normal tilt, groove floor darkening */
 };
 
-/* ctx: {scene} -> THREE.Mesh, the polished field standing where 'old:ground' stands. Throws if the old plane is not there. */
-export function buildField(ctx){const old=ctx.scene.getObjectByName('old:ground');if(!old)throw new Error('old:ground not found');
+/* ctx: {scene} -> THREE.Mesh, the polished field standing where 'old:field' stands. Throws if the old plane is not there. */
+export function buildField(ctx){const old=ctx.scene.getObjectByName('old:field');if(!old)throw new Error('old:field not found');
   const F=FIELD,{positionWorld,cameraPosition,cameraViewMatrix,normalize,vec2,vec3,vec4,float,floor,fract,abs,length,sin,cos,max,min,mix,
     smoothstep,step,dot,mx_fractal_noise_float:fn}=TSL;
   const m=old.material.clone();m.name='prop:field';

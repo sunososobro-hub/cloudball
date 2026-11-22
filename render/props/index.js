@@ -13,7 +13,7 @@ export const PROPS_ON=c=>!!(c.max&&c.max());
 export const PROPS=[
   /* the home team's dugout: dugout(1) in game.js is where the home side leaves the field. Never existed before: nothing to hide. */
   /* turf and infield dirt: the field plane of game.js, same map, new light response (mowing stripes, watered and raked dirt) */
-  {name:'field',build:c=>buildField(c),old:c=>[c.scene.getObjectByName('old:ground')].filter(Boolean)},
+  {name:'field',build:c=>buildField(c),old:c=>[c.scene.getObjectByName('old:field')].filter(Boolean)},
   {name:'homeDugout',build:c=>{const [x,z]=c.dugout(1);return buildDugout({x,z,colors:c.park()})},old:()=>[]},
 ];
 
