@@ -10,6 +10,7 @@ import * as THREE from 'three/webgpu';
 
 export const PBR_PX=256;/* texture size of every relief (tileable, RepeatWrapping) */
 const OCC=.55;/* how much darker the deepest hollow gets in the albedo */
+const RM_FLOOR=.6;/* #256: lowest value of a roughness image (worn-smooth spot = 60% of the material's mean-normalised roughness) */
 
 /* ---------- seeded noise (same hash family as game.js hashG) ---------- */
 function hash(x,y,k){let h=Math.imul(x*73856093^y*19349663^k*83492791,2654435761);h^=h>>>15;h=Math.imul(h,2246822519);h^=h>>>13;return(h>>>0)/4294967296}
@@ -73,14 +74,19 @@ export function reliefMaps(name){if(TEX[name])return TEX[name];const R=RELIEFS[n
   const ao=canvasTex(N,d=>{for(let i=0;i<N*N;i++){const k=1-OCC*(1-H[i])**1.5;d[i*4]=d[i*4+1]=d[i*4+2]=k*255;d[i*4+3]=255}},true);
   const nm=canvasTex(N,d=>{for(let y=0;y<N;y++)for(let x=0;x<N;x++){const i=y*N+x,dx=(at(x+1,y)-at(x-1,y))*R.n*N/64,dy=(at(x,y+1)-at(x,y-1))*R.n*N/64,l=Math.hypot(dx,dy,1);
     d[i*4]=(.5-dx/l/2)*255;d[i*4+1]=(.5+dy/l/2)*255;d[i*4+2]=(.5+.5/l)*255;d[i*4+3]=255}});
-  /* roughness image: hollows hold dust (rougher), proud spots are worn smooth; G channel is what three.js reads */
-  const rm=canvasTex(N,d=>{for(let y=0;y<N;y++)for(let x=0;x<N;x++){const i=y*N+x,k=sat(.5+(.5-H[i])*.8+(vn(x/8,y/8,91,N/8)-.5)*.5);d[i*4]=d[i*4+1]=d[i*4+2]=k*255;d[i*4+3]=255}});
-  return TEX[name]={ao,nm,rm,m:R.m}}
+  /* roughness image: hollows hold dust (rougher), proud spots are worn smooth; G channel is what three.js reads.
+   * #256: three.js MULTIPLIES this image into material.roughness. The raw image averaged ~.2-.3 with texels at 0, so every prop came out a
+   * near-mirror and joined SSR on max (mask roughness < MAX_SSR_ROUGH .35): bases, mound, wall and stands mirrored the tower lamps into
+   * blown-out glow blobs. Now the image only darkens down to RM_FLOOR (a worn spot is at most that much smoother), and mat() divides the
+   * kind's roughness by the image mean (rmMean), so the AVERAGE roughness of a material is the `rough` its kind or caller names. */
+  let sum=0;const rm=canvasTex(N,d=>{for(let y=0;y<N;y++)for(let x=0;x<N;x++){const i=y*N+x,raw=sat(.5+(.5-H[i])*.8+(vn(x/8,y/8,91,N/8)-.5)*.5),k=RM_FLOOR+(1-RM_FLOOR)*raw;
+    sum+=k;d[i*4]=d[i*4+1]=d[i*4+2]=k*255;d[i*4+3]=255}});
+  return TEX[name]={ao,nm,rm,m:R.m,rmMean:sum/(N*N)}}
 
 /* mat(kind, {color, relief, rough, metal, emissive, emissiveIntensity}) -> cached MeshStandardMaterial */
 export function mat(kind,o={}){const K=KINDS[kind]||KINDS.paintedSteel,relief=o.relief||K.relief,color=o.color??K.color,
   key=[kind,relief,color,o.rough??'',o.metal??'',o.emissive??'',o.emissiveIntensity??''].join('|');if(MAT[key])return MAT[key];
-  const T=reliefMaps(relief),m=new THREE.MeshStandardMaterial({color:new THREE.Color(color),roughness:Math.min(1,(o.rough??K.rough)+K.rv*.5),metalness:o.metal??K.metal,
+  const T=reliefMaps(relief),m=new THREE.MeshStandardMaterial({color:new THREE.Color(color),roughness:Math.min(1,(o.rough??K.rough)+K.rv*.5)/T.rmMean,/* may exceed 1: three.js clamps the product to 1 per pixel */metalness:o.metal??K.metal,
     map:T.ao,normalMap:T.nm,roughnessMap:T.rm});
   if(o.emissive!==undefined){m.emissive=new THREE.Color(o.emissive);m.emissiveIntensity=o.emissiveIntensity??.3}
   m.userData.tileM=T.m;return MAT[key]=m}
