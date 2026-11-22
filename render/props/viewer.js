@@ -3,12 +3,20 @@
  * default download does not grow. Once the park is warm (window.READY) it takes the renderer's loop over and draws that one object
  * alone on a neutral floor under the current park's light (hemisphere, key and fill copied from the park, the `max` sky light too),
  * drag to orbit, wheel or pinch to zoom, a list to switch objects, and a toggle old / new. The game does not run behind it.
- * Nothing here changes a prop: it calls the same build() and old() that mountProps calls. */
+ * Nothing here changes a prop: it calls the same build() and old() that mountProps calls.
+ * #256 (owner saw stripes and a bare triangle on ?prop=field): a flat object as wide as the park (the field) is its own floor, so the
+ * grey floor is hidden for it (it lay in the same plane: depth fighting) and every other floor sits FLOOR_DROP radii under the object;
+ * the camera's near/far follow the object's size (near .02 at 460 m away gave the depth buffer no precision, far 500 cut the field's far
+ * half off); a flat object is framed from high behind home looking at the infield, like the broadcast camera, not from its corner,
+ * and is not moved to the origin (its shader works in park coordinates). */
 import * as THREE from 'three/webgpu';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {loadProps,withCtx} from './index.js';
 
-export const VIEW={FIELD:[0,-20],FOV:35,FLOOR_R:6,FLOOR_C:0x8a8d92,BG:0x5c6066,DIST:1.6,MIN_R:.4,READY_WAIT_MS:20000,SHADOW_PX:2048};
+export const VIEW={FIELD:[0,-20],FOV:35,FLOOR_R:6,FLOOR_C:0x8a8d92,BG:0x5c6066,DIST:1.6,MIN_R:.4,READY_WAIT_MS:20000,SHADOW_PX:2048,
+  NEAR_K:.0015,NEAR_MIN:.02,FAR_K:3,FLOOR_DROP:.002,FLAT_K:.05,WIDE_R:20,FLAT_UP:.42,FLAT_BACK:.6,FLAT_MIN_K:.01};
+/* NEAR_K/NEAR_MIN/FAR_K: camera near and far in object radii (far = FAR_K x the floor radius); FLOOR_DROP: floor this many radii under the object;
+   flat = height under FLAT_K radii and radius over WIDE_R m (the field): no floor, camera FLAT_UP radii up and FLAT_BACK radii behind home, zoom in to FLAT_MIN_K radii */
 /* FIELD: a point on the infield (x, z), the side every prop shows to the cameras; FLOOR_R / DIST: floor radius and start distance in object radii; READY_WAIT_MS: a warm-up that never ends must not keep the viewer away */
 
 /* world copy of an old mesh (or group) from the park: same geometry and materials, drawn where it stood */
@@ -47,12 +55,18 @@ export async function startViewer(ctx){withCtx(ctx);const PROPS=await loadProps(
   function frame(){/* fit the floor, the shadow box and the camera to what is drawn now */
     const bb=new THREE.Box3();for(const o of [cur.g,cur.old])if(o)bb.expandByObject(o);/* both, so old / new keeps the camera still */
     if(bb.isEmpty())bb.setFromCenterAndSize(new THREE.Vector3(),new THREE.Vector3(1,1,1));
-    const r=Math.max(VIEW.MIN_R,bb.getBoundingSphere(new THREE.Sphere()).radius);
-    floor.scale.setScalar(r*VIEW.FLOOR_R);
+    const r=Math.max(VIEW.MIN_R,bb.getBoundingSphere(new THREE.Sphere()).radius),sz=bb.getSize(new THREE.Vector3());
+    cur.flat=sz.y<r*VIEW.FLAT_K&&r>VIEW.WIDE_R;
+    floor.scale.setScalar(r*VIEW.FLOOR_R);floor.position.y=-r*VIEW.FLOOR_DROP;floor.visible=!cur.flat;
+    cam.near=Math.max(VIEW.NEAR_MIN,r*VIEW.NEAR_K);cam.far=r*VIEW.FLOOR_R*VIEW.FAR_K;cam.updateProjectionMatrix();
     for(const L of lights)if(L.isDirectionalLight){L.position.copy(L.userData.dir).multiplyScalar(r*4);const c=L.shadow&&L.shadow.camera;
       if(c&&c.isOrthographicCamera){c.left=c.bottom=-r*1.2;c.right=c.top=r*1.2;c.near=r*.5;c.far=r*8;c.updateProjectionMatrix()}}
-    ctl.target.set(0,bb.getCenter(new THREE.Vector3()).y,0);ctl.minDistance=r*.15;ctl.maxDistance=r*VIEW.FLOOR_R;return r}
-  function home(){/* from the field side, a little to the right and above, as the park's cameras see it */const r=frame(),d=r*VIEW.DIST*1.8,a=cur.face+Math.PI/7;
+    if(cur.flat)ctl.target.set(cur.look.x,0,cur.look.z);else ctl.target.set(0,bb.getCenter(new THREE.Vector3()).y,0);
+    ctl.minDistance=r*(cur.flat?VIEW.FLAT_MIN_K:.15);ctl.maxDistance=r*VIEW.FLOOR_R;return r}
+  function home(){const r=frame();
+    if(cur.flat){/* the field: high behind home plate (+z of the park), looking at the infield, as the broadcast camera sees it */
+      cam.position.set(cur.look.x,r*VIEW.FLAT_UP,cur.look.z+r*VIEW.FLAT_BACK);ctl.update();return}
+    /* from the field side, a little to the right and above, as the park's cameras see it */const d=r*VIEW.DIST*1.8,a=cur.face+Math.PI/7;
     cam.position.set(Math.sin(a)*d,r*.7,Math.cos(a)*d).add(ctl.target);ctl.update()}
   function show(){if(!cur)return;cur.g.visible=!showOld;if(cur.old)cur.old.visible=showOld;mark();
     $('pvNote').textContent=showOld&&!cur.oldN?'舊的：沒有（這個物件以前不存在）':cur.err?'新的做不出來，看主控台':'';frame()}
@@ -67,7 +81,12 @@ export async function startViewer(ctx){withCtx(ctx);const PROPS=await loadProps(
     /* stand it on the floor at the origin: the object keeps its park rotation, the viewer moves only the pair */
     const bb=new THREE.Box3().expandByObject(c.g.children.length?c.g:c.old),ctr=bb.isEmpty()?new THREE.Vector3():bb.getCenter(new THREE.Vector3());
     c.face=Math.atan2(VIEW.FIELD[0]-ctr.x,VIEW.FIELD[1]-ctr.z);
-    root.position.set(-ctr.x,bb.isEmpty()?0:-bb.min.y,-ctr.z);root.updateMatrixWorld(true);
+    const r0=bb.isEmpty()?0:bb.getBoundingSphere(new THREE.Sphere()).radius,flat=!bb.isEmpty()&&bb.getSize(new THREE.Vector3()).y<r0*VIEW.FLAT_K&&r0>VIEW.WIDE_R;
+    /* a flat park-wide object stays where the park put it: the field's shader reads world positions (map lookups, mowing bands, rake rings,
+       the blade disc), so moving it drew a second field 55 m off on top of the first (#256) */
+    if(flat){root.position.set(0,0,0);c.look=new THREE.Vector3(VIEW.FIELD[0],0,VIEW.FIELD[1])}
+    else{root.position.set(-ctr.x,bb.isEmpty()?0:-bb.min.y,-ctr.z);c.look=new THREE.Vector3(VIEW.FIELD[0]-ctr.x,0,VIEW.FIELD[1]-ctr.z)}
+    root.updateMatrixWorld(true);
     if(c.g.userData.recolor)c.g.userData.recolor(ctx.park());
     cur=c;show();home();
     try{const u=new URL(location.href);u.searchParams.set('prop',P.name);history.replaceState(null,'',u)}catch(e){}}
