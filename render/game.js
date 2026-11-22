@@ -20,9 +20,9 @@ const seedOf=gs=>(Math.imul((gs/1000)>>>0,2654435761)^0x5bd1e995)>>>0;
 /* ---------- schedule & game ---------- */
 let gameStart=0,game=null,mode='live',replayT=0,speed=1,lastIdx=-1,seedCur=0,decisions={},myVotes={};const cues=new Set();
 let myTeam=-1;try{const v=localStorage.getItem('zu_team');if(v!==null)myTeam=+v}catch(e){}
-let DB=null,UID=null,unsubDec=null,unsubVotes=null,voteDocs=[];
+let DB=null,UID=null,unsubDec=null,unsubVotes=null,voteDocs=[];let parkHook=null;/* #203: set once the park exists; reskins it for the home team of the game */
 const DEC_KEY=/^[PSI]\d+$/;
-function regen(){game=simGame(seedCur,decisions)}
+function regen(){game=simGame(seedCur,decisions);if(parkHook)parkHook()}
 function loadGame(gs){gameStart=gs;seedCur=seedOf(gs);decisions={};myVotes={};regen();$('seedTag').textContent=`引擎 ${ENGINE_VERSION}・種子 #${seedCur.toString(16)}`;lastIdx=-1;subscribeGame()}
 function subscribeGame(){if(unsubDec)unsubDec();if(unsubVotes)unsubVotes();unsubDec=unsubVotes=null;voteDocs=[];
   if(!DB||mode==='practice'||mode==='opening')return;const key=String(gameStart);
@@ -163,14 +163,15 @@ const outerMat=!PARK_SHADERS?new THREE.MeshStandardMaterial({color:LC(0x1a2018),
   m.colorNode=color(LC(0x1a2018)).mul(tc(k,.5,1.6));return m})();
 const outer=new THREE.Mesh(new THREE.PlaneGeometry(500,500),outerMat);outer.rotation.x=-Math.PI/2;outer.position.set(0,-.03,-55);scene.add(outer);
 const AD_DARK_TEXT_LUM=.5,PAD_PER_BOARD=5,PAD_SCUFFS=900,PAD_BOARDS=6,AD_REPEAT=4,PAD_EDGE=.1,PAD_TOP=.06,PAD_BULGE=3;
-const adC=document.createElement('canvas');adC.width=2048;adC.height=96;{const g=adC.getContext('2d');/* league boards plus one board per team (name on the team colour; dark text on a light colour) */
+const adC=document.createElement('canvas');adC.width=2048;adC.height=96;function drawAds(pad){const g=adC.getContext('2d');/* league boards plus one board per team (name on the team colour; dark text on a light colour) */
   const teamAd=T=>{const c=parseInt(T.css.slice(1),16),lum=(.2126*(c>>16)+.7152*(c>>8&255)+.0722*(c&255))/255;return[T.name,T.css,lum>AD_DARK_TEXT_LUM?'#06231f':'#ffffff']};
-  const ads=[['雲端職棒','#1d4d2a','#f2c230'],...TEAMS.slice(0,2).map(teamAd),['CLOUD BASEBALL','#1d4d2a','#ffffff'],...TEAMS.slice(2,4).map(teamAd)];
+  const ads=[['雲端職棒',pad,'#f2c230'],...TEAMS.slice(0,2).map(teamAd),['CLOUD BASEBALL',pad,'#ffffff'],...TEAMS.slice(2,4).map(teamAd)];
   ads.forEach(([t,bg,fg],i)=>{const w=2048/ads.length;g.fillStyle=bg;g.fillRect(i*w,0,w,96);g.fillStyle=fg;g.textAlign='center';g.textBaseline='middle';let fs=54;do{g.font=`700 ${fs}px "Noto Sans TC",sans-serif`;fs-=2}while(g.measureText(t).width>w-40&&fs>20);g.fillText(t,i*w+w/2,50);g.fillStyle='rgba(0,0,0,.35)';g.fillRect(i*w+w-3,0,3,96)})
   /* #150 padding: PAD_PER_BOARD vinyl pads per board, a seam between pads, the top roll lit and the bottom scuffed by the warning track */
   const pw=2048/(ads.length*PAD_PER_BOARD);for(let x=pw;x<2048;x+=pw){g.fillStyle='rgba(0,0,0,.5)';g.fillRect(Math.round(x)-1,0,2,96);g.fillStyle='rgba(255,255,255,.07)';g.fillRect(Math.round(x)+1,0,1,96)}
   let gr=g.createLinearGradient(0,0,0,96);gr.addColorStop(0,'rgba(255,255,255,.10)');gr.addColorStop(.12,'rgba(0,0,0,0)');gr.addColorStop(.8,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(40,28,16,.45)');g.fillStyle=gr;g.fillRect(0,0,2048,96);
   let r=777;for(let i=0;i<PAD_SCUFFS;i++){r=(r*1103515245+12345)&0x7fffffff;const x=r%2048;r=(r*1103515245+12345)&0x7fffffff;const y=96-(r%30),a=.08+(r%7)/60;g.fillStyle=`rgba(70,52,34,${a})`;g.fillRect(x,y,3+(r%9),2+(r%4))}}
+drawAds('#1d4d2a');
 const adTex=new THREE.CanvasTexture(adC);adTex.colorSpace=THREE.SRGBColorSpace;adTex.wrapS=THREE.RepeatWrapping;adTex.repeat.set(-4,1);
 const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.position.y=1.5;scene.add(fence);
 {const bt=adTex.clone();bt.repeat.set(4,1);bt.needsUpdate=true;const fm=fence.material.clone();fm.map=bt;fm.emissiveMap=bt;fm.side=THREE.FrontSide;fence.material.side=THREE.BackSide;const fb=new THREE.Mesh(fence.geometry,fm);fb.position.y=1.5;scene.add(fb)}/* A second, unmirrored ad on the back of the wall, so text reads correctly from the outfield stands */
@@ -379,7 +380,39 @@ let sbKey='';
 function drawBoard(s,txt){const k=s.sc.join()+txt;if(k===sbKey)return;sbKey=k;const g=sbC.getContext('2d');
   g.fillStyle='#05070d';g.fillRect(0,0,1024,400);g.font='600 64px "Noto Sans TC",sans-serif';g.textBaseline='middle';
   TEAMS.slice(0,2).forEach((T,i)=>{g.fillStyle=T.css;g.fillRect(40,70+i*120,18,80);const lg=logoImgs[T.id];if(lg&&lg.complete&&lg.naturalWidth)g.drawImage(lg,70,64+i*120,92,92);g.fillStyle='#fff';g.fillText(T.name,178,110+i*120);g.font='700 110px "Barlow Condensed",sans-serif';g.textAlign='right';g.fillStyle='#ffe28a';g.fillText(s.sc[i],980,112+i*120);g.textAlign='left';g.font='600 64px "Noto Sans TC",sans-serif'});
-  g.fillStyle='#9aa6bd';g.font='500 44px "Noto Sans TC",sans-serif';g.fillText(txt,80,350);sbTex.needsUpdate=true}
+  g.fillStyle='#9aa6bd';g.font='500 44px "Noto Sans TC",sans-serif';g.fillText(txt,80,350);
+  if(parkCur){const P=parkCur;g.strokeStyle=P.trimCss;g.lineWidth=SB_FRAME;g.strokeRect(SB_FRAME/2,SB_FRAME/2,1024-SB_FRAME,400-SB_FRAME);
+    g.textAlign='right';g.fillStyle=P.trimCss;g.font='600 40px "Noto Sans TC",sans-serif';g.fillText(`主場・${P.home}`,980,350);g.textAlign='left'}
+  sbTex.needsUpdate=true}
+/* ---------- #203 home parks: one park, four skins. The home team of the game picks the wall pads, the fence-top and foul-pole paint,
+   the scoreboard frame and three big wall logos (both power alleys and behind home plate). Colours only: no geometry, no new shader
+   (materials are made once, the logo is drawn into one shared canvas), so a reskin never recompiles. ?park=<team id> forces one. ---------- */
+/* power-alley logos are cut-out signs standing on the wall top (a 3 m wall would make them ~10 px from home plate) */
+const SB_FRAME=14,PARK_LOGO_PX=512,PARK_LOGO_M=6,PARK_LOGO_R=109.85,PARK_LOGO_ALLEY=Math.PI/7,PARK_LOGO_Y=3+PARK_LOGO_M/2-.4,
+  PLATE_LOGO_M=2.2,PLATE_LOGO_Y=1.4,PLATE_LOGO_Z=NET_Z-.15,PARK_LOGO_GLOW=.35;
+/* pad = wall vinyl behind the league boards, trim = fence top, foul poles and scoreboard frame (team colour, lifted to read at night) */
+const PARKS={
+  pheasants:{pad:'#0d3a35',trim:0x5fd8c9},
+  owls:{pad:'#2a1436',trim:0xd58cf0},
+  macaques:{pad:'#47200f',trim:0xffa463},
+  muntjacs:{pad:'#0e2450',trim:0x7fb0ff}};
+const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230};
+const PARK_Q=(()=>{try{return new URLSearchParams(location.search).get('park')||''}catch(e){return''}})();
+let parkCur=null;
+const parkLogoC=document.createElement('canvas');parkLogoC.width=parkLogoC.height=PARK_LOGO_PX;
+const parkLogoTex=new THREE.CanvasTexture(parkLogoC);parkLogoTex.colorSpace=THREE.SRGBColorSpace;parkLogoTex.anisotropy=8;
+const parkLogoMat=new THREE.MeshStandardMaterial({map:parkLogoTex,transparent:true,alphaTest:.5,roughness:.7,emissive:0xffffff,emissiveMap:parkLogoTex,emissiveIntensity:PARK_LOGO_GLOW,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+{const geo=new THREE.PlaneGeometry(PARK_LOGO_M,PARK_LOGO_M);
+ for(const sd of [-1,1]){const a=Math.PI+sd*PARK_LOGO_ALLEY,m=new THREE.Mesh(geo,parkLogoMat);m.position.set(Math.sin(a)*PARK_LOGO_R,PARK_LOGO_Y,Math.cos(a)*PARK_LOGO_R);m.lookAt(0,PARK_LOGO_Y,0);scene.add(m)}
+ const pm=new THREE.Mesh(new THREE.PlaneGeometry(PLATE_LOGO_M,PLATE_LOGO_M),parkLogoMat);pm.position.set(0,PLATE_LOGO_Y,PLATE_LOGO_Z);pm.lookAt(0,PLATE_LOGO_Y,0);scene.add(pm)}
+const parkLogoImgs={};
+function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PARK_LOGO_PX,PARK_LOGO_PX);let im=parkLogoImgs[id];
+  if(!im&&id){im=parkLogoImgs[id]=new Image();im.onload=()=>{if(parkCur&&parkCur.id===id)drawParkLogo(id)};im.src=`${LOGO_DIR}${id}_${PARK_LOGO_PX}.webp`}
+  if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
+function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
+  const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
+  drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
 const GEO={torso:new THREE.CylinderGeometry(.24,.19,.62,12),hips:new THREE.CylinderGeometry(.2,.22,.28,12),head:new THREE.SphereGeometry(.12,16,12),cap:new THREE.SphereGeometry(.13,16,8,0,Math.PI*2,0,Math.PI/2),brim:new THREE.BoxGeometry(.2,.02,.14),
