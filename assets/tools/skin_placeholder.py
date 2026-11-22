@@ -11,7 +11,7 @@ from PIL import Image, ImageFilter
 A = sys.argv[1]; S = int(sys.argv[2]) if len(sys.argv) > 2 else 1024
 # Face landmarks: the same numbers as FACE in render/players.js (normal build, unscaled, metres)
 FACE = dict(chinY=1.62, lipY=1.668, mouthY=1.676, noseY=1.697, browY=1.762, cheekY=1.708, eyeX=.033, faceZ=.12)
-LIP = np.array([.80, .52, .52]); BROW = np.array([.42, .36, .32]); WARM = np.array([1., .86, .82])
+LIP = np.array([.82, .6, .58]); BROW = np.array([.3, .26, .23]); WARM = np.array([1., .86, .82])
 BLOTCH = .05                  # Low-frequency lightness variation (fraction)
 DILATE = 6                    # Passes of seam fill
 
@@ -50,7 +50,7 @@ def paint(p):
         ramp(ax, .062, .075) * (np.abs(y - eyeY) < .05) * head * .9,                         # Ears
         np.clip(1 - np.linalg.norm(p - J['handL'], axis=1) / .12, 0, 1) * .5,    # Hands (knuckles)
         np.clip(1 - np.linalg.norm(p - J['handR'], axis=1) / .12, 0, 1) * .5])
-    col *= 1 - (1 - WARM) * warm[:, None] * .6
+    col *= 1 - (1 - WARM) * warm[:, None] * .3
     lip = g1(y, FACE['lipY'], .0072) * g1(x, 0, .021) * fr
     col = col * (1 - lip[:, None]) + col * LIP * lip[:, None]
     by = FACE['browY'] + .006 * g1(ax, .036, .018)

@@ -471,9 +471,9 @@ function cutKitGroups(H, P0, IX) {
 export const SKIN = { full: true, map: 'tex/skin_placeholder.jpg', ref: 0xffffff, lips: true, brows: true };
 const SKIN_ROUGH = { base: .6, oily: .4, matte: .72 };                   /* Forehead and nose shinier, cheeks matte */
 const SKIN_WRAP = .4, SKIN_WRAP_K = .6;                                  /* Light wraps past the terminator: (N.L + w) / (1 + w), extra share */
-const SSS_WARM = [1, .32, .18], SSS_DIST = .3, SSS_POW = 3, SSS_SCALE = 1.6, SSS_AMB = .08;   /* Back-light through thin parts, tinted blood red */
+const SSS_WARM = [1, .4, .25], SSS_DIST = .3, SSS_POW = 4, SSS_SCALE = .6, SSS_AMB = .015;   /* Back-light through thin parts, tinted blood red */
 const PORE_FREQ = 700, PORE_AMP = .09, PORE_ROUGH = .06, PORE_NEAR = 1.2, PORE_FAR = 5;       /* UV-space noise; gone beyond PORE_FAR metres */
-const EAR_X = [.062, .076], EAR_DY = .05, HAND_THIN = [.04, .1], HAND_THIN_MAX = .8, NOSE_THIN = .6;
+const EAR_X = [.062, .076], EAR_DY = .05, HAND_THIN = [.04, .1], HAND_THIN_MAX = .45, NOSE_THIN = .35;
 let skinTex = null; const skinMats = new Map();
 class SkinLighting extends THREE.PhysicalLightingModel {
   direct(inp, builder) {
