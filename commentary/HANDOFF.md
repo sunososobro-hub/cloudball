@@ -3,8 +3,7 @@
 ## Done
 - Bank (`lines.json`, gags, `validateBank`), personas 游明凱/周國棟 + four fans, frozen game script
   with pregame, sheet + `synth.mjs` (transcript gate #99, keyless cloud mode, `--cap` US$), wiring (#96).
-- #108 sheet `ctx`; #82 part 1 people slots; #115 whole game recorded (351 clips); #129 `--converse` dropped.
-- #171 (PR on `fix/171`): `audio.check.mjs` / `banter.check.mjs` simulate seed `opening.json .seed` with `OPENING_ROSTERS`.
+- #108 sheet `ctx`; #82 part 1 people slots; #115 whole game recorded (351 clips); #129 `--converse` dropped. #171: checks run seed 704 on `OPENING_ROSTERS`.
 - #134 step 1: `banter.js` (score per exchange, `topBanter` with gap and full line range) + check.
 - #140: `tools/post-trial.mjs` free A/B (gain per emotion, silence trim, tempo, turn gaps) on at 30/142/1296; files in `audio/_trial/post/` (force-added; `_trial/` is git-ignored).
 
