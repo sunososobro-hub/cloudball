@@ -461,12 +461,92 @@ function cutKitGroups(H, P0, IX) {
   const [dk, dc] = split('dark', t => cen(t, 1) > BELT_MIN_Y);
   return H.groups.flatMap(gr => gr[2] === 'jersey' ? [jk, [...jc, 'trim']] : gr[2] === 'dark' ? [dk, [...dc, 'belt']] : [gr]).filter(gr => gr[1] > 0);
 }
+/* ---------- Skin (#207 round 2): colour map x per-player tone, roughness that varies over the face, pores that fade with distance,
+ * wrapped diffuse and a warm glow through thin parts (ears, nostrils, fingers). One material per tone: no extra draw call.
+ * SKIN.full is the #211 spot: today on for every tier (owner 09:39: his desktop first); when the `max` tier lands, set it from the tier
+ * BEFORE loadPlayerAssets (false = no UV download, plain colour and painted face as before).
+ * SKIN.map loads by file name, in the MakeHuman base-mesh UV layout (assets/skin_uv.b64.txt). Today a code-drawn stand-in
+ * (assets/tools/skin_placeholder.py, near-white multiplier); the CC0 MakeHuman community skins drop in by changing `map`, with
+ * `ref` = the map's average skin colour (the tone is divided by it, so the product stays the player's tone) and lips/brows = what it paints. */
+export const SKIN = { full: true, map: 'tex/skin_placeholder.jpg', ref: 0xffffff, lips: true, brows: true };
+const SKIN_ROUGH = { base: .6, oily: .4, matte: .72 };                   /* Forehead and nose shinier, cheeks matte */
+const SKIN_WRAP = .4, SKIN_WRAP_K = .6;                                  /* Light wraps past the terminator: (N.L + w) / (1 + w), extra share */
+const SSS_WARM = [1, .32, .18], SSS_DIST = .3, SSS_POW = 3, SSS_SCALE = 1.6, SSS_AMB = .08;   /* Back-light through thin parts, tinted blood red */
+const PORE_FREQ = 700, PORE_AMP = .09, PORE_ROUGH = .06, PORE_NEAR = 1.2, PORE_FAR = 5;       /* UV-space noise; gone beyond PORE_FAR metres */
+const EAR_X = [.062, .076], EAR_DY = .05, HAND_THIN = [.04, .1], HAND_THIN_MAX = .8, NOSE_THIN = .6;
+let skinTex = null; const skinMats = new Map();
+class SkinLighting extends THREE.PhysicalLightingModel {
+  direct(inp, builder) {
+    const T = THREE.TSL, { lightDirection: L, lightColor, reflectedLight } = inp, N = T.normalView, dc = T.diffuseColor.rgb;
+    const ndl = N.dot(L), wrap = ndl.add(SKIN_WRAP).div(1 + SKIN_WRAP).saturate().sub(ndl.saturate());
+    reflectedLight.directDiffuse.addAssign(lightColor.mul(dc).mul(wrap.mul(SKIN_WRAP_K / Math.PI)));
+    const thin = T.attribute('skinAttr', 'vec2').x, h = L.add(N.mul(SSS_DIST)).normalize();
+    const sc = T.positionViewDirection.dot(h.negate()).saturate().pow(SSS_POW).mul(SSS_SCALE).add(SSS_AMB);
+    reflectedLight.directDiffuse.addAssign(lightColor.mul(dc).mul(T.vec3(...SSS_WARM)).mul(sc.mul(thin)));
+    super.direct(inp, builder);
+  }
+}
+class SkinMaterial extends THREE.MeshStandardNodeMaterial { setupLightingModel() { return new SkinLighting() } }
+/* Skin material for a tone (hex, sRGB), or null when the full skin is off or its UVs did not load */
+function skinMat(hex) {
+  if (!PACK || !PACK.uv) return null;
+  let m = skinMats.get(hex); if (m) return m;
+  const T = THREE.TSL, ref = new THREE.Color().setHex(SKIN.ref, THREE.SRGBColorSpace), c = new THREE.Color().setHex(hex, THREE.SRGBColorSpace);
+  c.r /= Math.max(ref.r, .05); c.g /= Math.max(ref.g, .05); c.b /= Math.max(ref.b, .05);
+  m = new SkinMaterial({ color: c, roughness: SKIN_ROUGH.base, metalness: 0 }); m.vertexColors = true;
+  const a = T.attribute('skinAttr', 'vec2'), u = T.uv(), fade = T.float(1).sub(T.smoothstep(PORE_NEAR, PORE_FAR, T.positionView.z.negate()));
+  m.colorNode = T.materialColor.mul(T.texture(skinTex, u).rgb);
+  m.normalNode = T.normalViewGeometry.add(T.mx_noise_vec3(T.vec3(u.mul(PORE_FREQ), 0)).mul(fade.mul(PORE_AMP))).normalize();
+  m.roughnessNode = a.y.add(T.mx_noise_float(T.vec3(u.mul(PORE_FREQ * .5), 1)).mul(fade.mul(PORE_ROUGH)));
+  skinMats.set(hex, m); return m;
+}
+/* Join skin_uv.b64.txt to the pack (format in assets/tools/skin_uv.py): seam vertices get copies (same position, weights, offsets)
+ * carrying their other UV, and the listed corners point at the copies. Returns the grown arrays, or null if the files do not match. */
+function joinSkinUV(txt, H, A) {
+  const bin = atob(txt.trim()), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const buf = u8.buffer; if (new TextDecoder().decode(u8.subarray(0, 4)) !== 'YDUV') return null;
+  const hl = new DataView(buf).getUint32(4, true), U = JSON.parse(new TextDecoder().decode(u8.subarray(8, 8 + hl)));
+  if (U.n !== H.n || U.ni !== H.ni) { console.warn('skin_uv.b64.txt does not match players.b64.txt: rerun assets/tools/skin_uv.py'); return null }
+  const n = H.n, ne = U.nExtra; let o = 8 + hl;
+  const UV = new Uint16Array(buf, o, n * 2); o += n * 4; const EX = new Uint16Array(buf.slice(o, o + ne * 6)); o += ne * 6; o += (4 - o % 4) % 4;
+  const FX = new Uint32Array(buf, o, U.nFix * 2), N = n + ne, grow = (a, k) => { const b = new a.constructor(N * k); b.set(a); return b };
+  const P0 = grow(A.P0, 3), SI = grow(A.SI, 4), SW = grow(A.SW, 4), WQ = grow(A.WQ, 4), D = {}, uv = new Float32Array(N * 2), seam = new Uint32Array(ne);
+  for (const k in A.D) D[k] = grow(A.D[k], 3);
+  for (let i = 0; i < n * 2; i++) uv[i] = UV[i] / U.q;
+  for (let e = 0; e < ne; e++) {
+    const v = EX[e * 3], j = n + e; seam[e] = v; uv[j * 2] = EX[e * 3 + 1] / U.q; uv[j * 2 + 1] = EX[e * 3 + 2] / U.q;
+    for (let k = 0; k < 3; k++) { P0[j * 3 + k] = P0[v * 3 + k]; for (const d in D) D[d][j * 3 + k] = D[d][v * 3 + k] }
+    for (let k = 0; k < 4; k++) { SI[j * 4 + k] = SI[v * 4 + k]; SW[j * 4 + k] = SW[v * 4 + k]; WQ[j * 4 + k] = WQ[v * 4 + k] }
+  }
+  for (let f = 0; f < U.nFix; f++) A.IX[FX[f * 2]] = n + FX[f * 2 + 1];
+  H.n = N; return { P0, SI, SW, WQ, D, uv, seam, n0: n };
+}
+/* Per-vertex skin values (rest pose, normal build): x = thinness (light passes through), y = roughness */
+function skinAttrs(P0, n, DG, J) {
+  const A = new Float32Array(n * 2), eyeY = J.eyeL[1], R = SKIN_ROUGH;
+  for (let i = 0; i < n; i++) {
+    const x = P0[i * 3], y = P0[i * 3 + 1], z = P0[i * 3 + 2], ax = Math.abs(x); let thin = 0, rough = R.base;
+    if (DG[i] === B.neck) {
+      const fr = ramp(z, FACE.faceZ - .03, FACE.faceZ);
+      thin = Math.max(ramp(ax, EAR_X[0], EAR_X[1]) * (Math.abs(y - eyeY) < EAR_DY ? 1 : 0), NOSE_THIN * g1(x, 0, .016) * g1(y, FACE.nostrilY + .004, .012) * ramp(z, .14, .17));
+      const oily = Math.max(g1(y, FACE.browY + .028, .02) * g1(x, 0, .05), g1(x, 0, .013) * g1(y, FACE.noseY + .01, .022) * ramp(z, .13, .17)) * fr;
+      const matte = g1(y, FACE.cheekY, .018) * g1(ax, .052, .02) * fr;
+      rough += (R.oily - R.base) * oily + (R.matte - R.base) * matte;
+    } else if (DG[i] === B.handL || DG[i] === B.handR) {
+      const h = J[DG[i] === B.handL ? 'handL' : 'handR'], d = Math.hypot(x - h[0], y - h[1], z - h[2]);
+      thin = HAND_THIN_MAX * ramp(d, HAND_THIN[0], HAND_THIN[1]);
+    }
+    A[i * 2] = thin; A[i * 2 + 1] = rough;
+  }
+  return A;
+}
 /* players.b64.txt (base64 of players.bin): shared topology/skeleton/weights + normal positions + slim/power/heavy offsets (made by tools/pack_players.py, replaces 4 gltf files).
  * Builds can be blended: pass a string like 'slim', or weights like {slim:.3,power:.5} (relative to normal). */
 let PACK = null;
 export async function loadPlayerAssets(base = './assets/') {
   LOGO_BASE = base;
   /* Hosting only accepts common extensions, so the binary is stored as base64 text (.b64.txt, about 800 KB) */
+  const uvTxt = SKIN.full ? fetch(base + 'skin_uv.b64.txt').then(r => r.ok ? r.text() : null).catch(() => null) : null;
   const b64 = await (await fetch(base + 'players.b64.txt')).text(), bin = atob(b64.trim()), u8 = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
   const buf = u8.buffer;
@@ -476,14 +556,17 @@ export async function loadPlayerAssets(base = './assets/') {
   const Pq = take(Uint16Array, n * 3), Dl = {};
   for (const k of H.kinds.slice(1)) Dl[k] = take(Int16Array, n * 3);
   const JI = take(Uint8Array, n * 4), WQ = take(Uint8Array, n * 4), IX = take(Uint16Array, H.ni);
-  const P0 = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) P0[i] = H.lo[i % 3] + Pq[i] * H.ps[i % 3];
-  const SI = new Uint16Array(JI), SW = new Float32Array(n * 4); for (let i = 0; i < n * 4; i++) SW[i] = WQ[i] / 255;
+  let P0 = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) P0[i] = H.lo[i % 3] + Pq[i] * H.ps[i % 3];
+  let SI = new Uint16Array(JI), SW = new Float32Array(n * 4), Wq = WQ, Dk = Dl, UVJ = null; for (let i = 0; i < n * 4; i++) SW[i] = WQ[i] / 255;
+  const uvT = await uvTxt; if (uvT) { UVJ = joinSkinUV(uvT, H, { P0, SI, SW, WQ, D: Dl, IX }); if (UVJ) ({ P0, SI, SW, WQ: Wq, D: Dk } = UVJ) }
+  if (UVJ) { skinTex = new THREE.TextureLoader().load(base + SKIN.map); skinTex.colorSpace = THREE.SRGBColorSpace; skinTex.anisotropy = 4 }
   const names = Object.keys(B);
   if (H.v !== PACK_VERSION || H.bones.join() !== names.join() || H.parent.join() !== B_PARENT.join()) throw new Error('players.bin: rig does not match players.js');
   /* Face and head code reads the old 16-bone split: DG = old bone (group) of the dominant slot, DW = that group's total weight */
-  const DG = new Uint8Array(n), DW = new Float32Array(n);
-  for (let i = 0; i < n; i++) { const g = H.group[SI[i * 4]]; let w = 0; for (let k = 0; k < 4; k++) if (H.group[SI[i * 4 + k]] === g) w += WQ[i * 4 + k]; DG[i] = g; DW[i] = w / 255 }
-  PACK = { H, P0, D: Dl, SI, SW, DG, DW, IX, geos: new Map(), groups: cutKitGroups(H, P0, IX) };
+  const N = H.n, DG = new Uint8Array(N), DW = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const g = H.group[SI[i * 4]]; let w = 0; for (let k = 0; k < 4; k++) if (H.group[SI[i * 4 + k]] === g) w += Wq[i * 4 + k]; DG[i] = g; DW[i] = w / 255 }
+  PACK = { H, P0, D: Dk, SI, SW, DG, DW, IX, geos: new Map(), groups: cutKitGroups(H, P0, IX),
+    uv: UVJ && UVJ.uv, seam: UVJ && UVJ.seam, n0: UVJ ? UVJ.n0 : N, sk: UVJ && skinAttrs(P0, N, DG, H.joints) };
   for (const k of H.kinds) ASSETS.set(k, realAsset(k));
   return ASSETS;
 }
@@ -500,12 +583,20 @@ function realAsset(build, head = 0) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
   /* Topology, weights and index are the same for every build/head: share the attribute objects so the GPU keeps one copy */
-  PACK.att = PACK.att || { si: new THREE.Uint16BufferAttribute(SI, 4), sw: new THREE.BufferAttribute(SW, 4), ix: new THREE.BufferAttribute(IX, 1) };
+  PACK.att = PACK.att || { si: new THREE.Uint16BufferAttribute(SI, 4), sw: new THREE.BufferAttribute(SW, 4), ix: new THREE.BufferAttribute(IX, 1),
+    uv: PACK.uv && new THREE.BufferAttribute(PACK.uv, 2), sk: PACK.sk && new THREE.BufferAttribute(PACK.sk, 2) };
   geo.setAttribute('skinIndex', PACK.att.si); geo.setAttribute('skinWeight', PACK.att.sw);
+  if (PACK.att.uv) { geo.setAttribute('uv', PACK.att.uv); geo.setAttribute('skinAttr', PACK.att.sk) }
   geo.setIndex(PACK.att.ix);
   geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P), 4, true));
   for (const [start, count, name] of PACK.groups) geo.addGroup(start, count, R_SLOTS.indexOf(name));
   geo.computeVertexNormals(); geo.computeBoundingSphere();
+  if (PACK.seam) {   /* UV seam copies: one normal shared by a vertex and its copies, so the seam does not show in the light */
+    const Nm = geo.attributes.normal.array, s = PACK.seam, n0 = PACK.n0, acc = new Float32Array(Nm.subarray(0, n0 * 3));
+    for (let e = 0; e < s.length; e++) for (let k = 0; k < 3; k++) acc[s[e] * 3 + k] += Nm[(n0 + e) * 3 + k];
+    const put = (j, v) => { const x = acc[v * 3], y = acc[v * 3 + 1], z = acc[v * 3 + 2], l = Math.hypot(x, y, z) || 1; Nm[j * 3] = x / l; Nm[j * 3 + 1] = y / l; Nm[j * 3 + 2] = z / l };
+    for (let e = 0; e < s.length; e++) { put(s[e], s[e]); put(n0 + e, s[e]) }
+  }
   /* Head extent: width / depth / top measured above the ears; the cap is sized from this */
   const hb = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9, top: -1e9 }; let backZ = 1e9, logoZ = -1e9, fnumZ = -1e9;
   const eyeY = J.eyeL[1], pts = [];
@@ -575,8 +666,8 @@ function faceColors(P) {
     const cap = ramp(y, eyeY - .035, eyeY + .03); mul(1 - F.capShade * cap * fr);                                  /* The cap brim's shadow on the upper face */
     const de = Math.hypot(ax - FACE.eyeX, (y - eyeY) * 1.3); mul(1 - F.socket * g1(de, 0, .021) * fr);              /* Eye sockets */
     const by = FACE.browY + .006 * g1(ax, .036, .018), brow = g1(y, by, .0055) * ramp(ax, .01, .018) * (1 - ramp(ax, .055, .066));
-    mul(1 - F.brow * brow * fr);                                                                                   /* Brows (skin darkened toward the hair) */
-    const lip = g1(y, FACE.lipY, .0075) * g1(x, 0, .02) * fr; mul(1, 1 - (1 - LIP_RGB[0]) * lip, 1 - (1 - LIP_RGB[1]) * lip, 1 - (1 - LIP_RGB[2]) * lip);
+    if (!(PACK.uv && SKIN.brows)) mul(1 - F.brow * brow * fr);                                                                                   /* Brows (skin darkened toward the hair) */
+    const lip = PACK.uv && SKIN.lips ? 0 : g1(y, FACE.lipY, .0075) * g1(x, 0, .02) * fr; mul(1, 1 - (1 - LIP_RGB[0]) * lip, 1 - (1 - LIP_RGB[1]) * lip, 1 - (1 - LIP_RGB[2]) * lip);
     mul(1 - F.mouth * g1(y, FACE.mouthY, .0028) * g1(x, 0, .019) * fr);                                          /* Mouth line */
     mul(1 - F.nostril * g1(y, FACE.nostrilY, .004) * g1(ax, .011, .006) * fr);                                     /* Nostrils / under the nose */
     const ck = g1(y, FACE.cheekY - .006, .016) * g1(ax, .052, .016) * fr; mul(1, 1 - (1 - CHEEK_RGB[0]) * ck, 1 - (1 - CHEEK_RGB[1]) * ck, 1 - (1 - CHEEK_RGB[2]) * ck);
@@ -691,7 +782,7 @@ const _q3 = new THREE.Quaternion(), _q4 = new THREE.Quaternion(), _v2 = new THRE
 const _Y = new THREE.Vector3(0, -1, 0);
 function makeRealPlayer(opts, A) {
   const bd = { h: opts.height || buildHeight(opts.build || 'normal') };
-  const jersey = asMat(opts.jersey ?? 0xffffff, .55), pants = asMat(opts.pants ?? 0xeeeeee, .75), skin = asMat(opts.skin ?? 0xc99572, .62);
+  const jersey = asMat(opts.jersey ?? 0xffffff, .55), pants = asMat(opts.pants ?? 0xeeeeee, .75); let skin = asMat(opts.skin ?? 0xc99572, .62);
   const dark = stdMat(0x1a1a1e, .5), sock = asMat(opts.sock ?? jersey, .6), hair = asMat(opts.hair ?? 0x1c1612, .8), leather = stdMat(0x8a5a2b, .6);
   const kit = opts.kit;   /* #204: shared side kit (makeKit); without one, trim = jersey and belt = dark as before */
   let throws = opts.throws || 'R', mirrored = opts.role !== 'batter' && throws === 'R', headKind = opts.head || 'cap';
@@ -713,6 +804,8 @@ function makeRealPlayer(opts, A) {
   names.forEach((n, i) => { const p = V3(J[n]); if (PAR[i] >= 0) { p.sub(V3(J[names[PAR[i]]])); bones[PAR[i]].add(bones[i]) } bones[i].position.copy(p) });
   mir.add(bones[0]);
   skin.vertexColors = true;   /* Face paint lives in the geometry's colour attribute (faceColors); white everywhere else */
+  const sk = skinMat(opts.skin && opts.skin.isMaterial ? opts.skin.color.getHex(THREE.SRGBColorSpace) : opts.skin ?? 0xc99572);   /* #207: full skin when on */
+  if (sk) skin = sk;
   const mesh = new THREE.SkinnedMesh(A.geo, kit ? [kit.jersey, kit.pants, skin, dark, kit.sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3), kit.trim, kit.belt]
     : [jersey, pants, skin, dark, sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3), jersey, dark]);
   mesh.castShadow = true; mesh.frustumCulled = false; mir.add(mesh);
