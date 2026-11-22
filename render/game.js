@@ -85,13 +85,14 @@ $('stage').appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* Thin night-stadium haze: the distance fades out, adding depth */
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,800);camera.rotation.order='YXZ';
 const rig=new THREE.Group();rig.add(camera);scene.add(rig);
-scene.add(new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I));
+const hemi=new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I);scene.add(hemi);
 const key=new THREE.DirectionalLight(LC(0xfff1dc),KEY_I);key.position.set(-45,85,35);key.target.position.set(0,0,-38);scene.add(key,key.target);
 key.castShadow=true;Object.assign(key.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:10,far:260});key.shadow.mapSize.set(2048,2048);key.shadow.bias=-.0004;key.shadow.normalBias=.03;key.shadow.intensity=KEY_SHADOW_I;
 const fill=new THREE.DirectionalLight(LC(0xd6e2ff),FILL_I);fill.position.set(60,55,-110);scene.add(fill);
-/* sky dome */
+/* sky dome; #203: the three sky colours are uniforms, so each home park sets its own sky without a recompile (applyPark) */
+const SKY_U=(()=>{const {uniform}=TSL;return{h:uniform(new THREE.Vector3(...SKY_HORIZON)),z:uniform(new THREE.Vector3(...SKY_ZENITH)),g:uniform(new THREE.Vector3(...SKY_GLOW))}})();
 {const {positionLocal,normalize,clamp:tc,mix,vec3,pow,exp,float}=TSL;const p=normalize(positionLocal),h=tc(p.y,0,1);
-  const c=mix(vec3(...SKY_HORIZON),vec3(...SKY_ZENITH),pow(h,.45)).add(vec3(...SKY_GLOW).mul(exp(h.mul(-14))));
+  const c=mix(SKY_U.h,SKY_U.z,pow(h,.45)).add(SKY_U.g.mul(exp(h.mul(-14))));
   const m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,depthWrite:false,fog:false});m.colorNode=c;scene.add(new THREE.Mesh(new THREE.SphereGeometry(520,32,16),m))}
 
 /* field texture */
@@ -305,17 +306,18 @@ const TOWER_I=.16*Math.PI,BEAM_K=.025,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TOWER_AIM=
 const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(5,4.8,4.4),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
 const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
+const BEAM_U=TSL.uniform(1),TOWER_SPOTS=[];/* #203: beam strength and tower spots follow the park's sky (0 = daytime, lamps off) */
 const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,color,positionView,length,smoothstep}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
-  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(BEAM_K).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
+  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(BEAM_K).mul(BEAM_U).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
 for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.position.set(x,23,z);scene.add(m);
   const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
   const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),aim=new THREE.Vector3(TOWER_AIM[0]+x*TOWER_AIM_K,0,TOWER_AIM[1]+(z-TOWER_AIM[1])*TOWER_AIM_K),dir=lamp.clone().sub(tgt),L=dir.length();
   const beam=new THREE.Mesh(new THREE.ConeGeometry(L*.32,L,32,1,true),beamMat);beam.position.copy(lamp.clone().add(tgt).multiplyScalar(.5));beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());scene.add(beam);
   /* Light-tower spots: lit areas and dark corners (no shadows, for performance; the key light still casts the main shadow) */
-  const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,TOWER_ANGLE,TOWER_PENUMBRA,0);spot.position.copy(lamp);spot.target.position.copy(aim);scene.add(spot,spot.target)}
+  const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,TOWER_ANGLE,TOWER_PENUMBRA,0);spot.position.copy(lamp);spot.target.position.copy(aim);scene.add(spot,spot.target);TOWER_SPOTS.push(spot)}
 const sg=new THREE.BufferGeometry(),sp=[];for(let i=0;i<600;i++){const a=Math.random()*6.28,e=.15+Math.random()*1.2;sp.push(Math.cos(a)*Math.cos(e)*420,Math.sin(e)*420,Math.sin(a)*Math.cos(e)*420)}
-sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xaab8d8,size:1.1,fog:false,sizeAttenuation:true})));
+sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));const stars=new THREE.Points(sg,new THREE.PointsMaterial({color:0xaab8d8,size:1.1,fog:false,sizeAttenuation:true}));scene.add(stars);
 /* Bugs under the lights: a cloud of small dots in front of each tower, flying around (pure decoration, unrelated to the game) */
 const BUG_PER=70,BUG_R=5,BUG_SIZE=.18,LAMPS=[[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]];
 const bugs=(()=>{const n=LAMPS.length*BUG_PER,pos=new Float32Array(n*3),seed=[];let r=7;const rnd=()=>(r=(r*16807)%2147483647)/2147483647;
@@ -392,11 +394,24 @@ const SB_FRAME=14,PARK_LOGO_PX=512,PARK_LOGO_M=6,PARK_LOGO_R=109.85,PARK_LOGO_AL
   PLATE_LOGO_M=2.2,PLATE_LOGO_Y=1.4,PLATE_LOGO_Z=NET_Z-.15,PARK_LOGO_GLOW=.35;
 /* pad = wall vinyl behind the league boards, trim = fence top, foul poles and scoreboard frame (team colour, lifted to read at night) */
 const PARKS={
-  pheasants:{pad:'#0d3a35',trim:0x5fd8c9},
-  owls:{pad:'#2a1436',trim:0xd58cf0},
-  macaques:{pad:'#47200f',trim:0xffa463},
-  muntjacs:{pad:'#0e2450',trim:0x7fb0ff}};
-const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230};
+  pheasants:{pad:'#0d3a35',trim:0x5fd8c9,sky:'night'},/* 台北: night under the lights */
+  owls:{pad:'#2a1436',trim:0xd58cf0,sky:'dusk'},/* 新竹: dusk */
+  macaques:{pad:'#47200f',trim:0xffa463,sky:'afternoon'},/* 高雄: clear hot afternoon */
+  muntjacs:{pad:'#0e2450',trim:0x7fb0ff,sky:'morning'}};/* 台東: blue morning */
+const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night'};
+/* #203 item 2, four skies: linear sky colours (horizon, zenith, low glow; see SKY_*), fog colour, exposure, [colour, intensity] of the key light
+   (main lamp at night, the sun by day), fill and hemisphere, lamps = tower spots, glow, beams and bugs (1 = night, 0 = day), stars on or off.
+   Lights and exposure are uniforms already: nothing recompiles. */
+const SKIES={
+  night:{h:SKY_HORIZON,z:SKY_ZENITH,g:SKY_GLOW,fog:0x0d1220,exp:EXPOSURE,key:[0xfff1dc,KEY_I],fill:[0xd6e2ff,FILL_I],hemi:[0x9fb4e6,HEMI_I],lamps:1,stars:true},
+  dusk:{h:[.30,.12,.05],z:[.025,.03,.09],g:[.35,.10,.02],fog:0x2a2030,exp:.8,key:[0xffc48a,.9*Math.PI],fill:[0x9fa8ff,.3*Math.PI],hemi:[0xc79aa8,.22*Math.PI],lamps:.8,stars:false},
+  afternoon:{h:[.62,.62,.6],z:[.10,.22,.55],g:[.25,.2,.12],fog:0xb8c0c4,exp:.62,key:[0xfff3e0,2*Math.PI],fill:[0xd6e2ff,.35*Math.PI],hemi:[0xbcd4ff,.6*Math.PI],lamps:0,stars:false},
+  morning:{h:[.38,.55,.8],z:[.04,.13,.45],g:[.15,.12,.08],fog:0x8fb0d4,exp:.7,key:[0xffe8cc,1.5*Math.PI],fill:[0xcfe0ff,.35*Math.PI],hemi:[0xa8c8ff,.5*Math.PI],lamps:0,stars:false}};
+const LAMP_RGB=[5,4.8,4.4],LAMP_DAY=.15,BUG_OP=.9;/* LAMP_DAY: the lamp boxes in daylight are switched-off grey panels, not black */
+function applySky(name){const S=SKIES[name]||SKIES.night;SKY_U.h.value.set(...S.h);SKY_U.z.value.set(...S.z);SKY_U.g.value.set(...S.g);
+  scene.fog.color.set(S.fog);renderer.toneMappingExposure=S.exp;key.color.set(S.key[0]);key.intensity=S.key[1];fill.color.set(S.fill[0]);fill.intensity=S.fill[1];
+  hemi.color.set(S.hemi[0]);hemi.intensity=S.hemi[1];for(const sp of TOWER_SPOTS)sp.intensity=TOWER_I*S.lamps;BEAM_U.value=S.lamps;glowMat.opacity=S.lamps;
+  bugs.pts.material.opacity=BUG_OP*S.lamps;lampMat.color.setRGB(...LAMP_RGB.map(v=>v*Math.max(LAMP_DAY,S.lamps)));stars.visible=S.stars}
 const PARK_Q=(()=>{try{return new URLSearchParams(location.search).get('park')||''}catch(e){return''}})();
 let parkCur=null;
 const parkLogoC=document.createElement('canvas');parkLogoC.width=parkLogoC.height=PARK_LOGO_PX;
@@ -411,7 +426,7 @@ function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PAR
   if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
 function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
   const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
-  drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+  drawAds(P.pad);adTex.needsUpdate=true;applySky(P.sky);yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
 parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
