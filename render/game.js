@@ -490,7 +490,72 @@ const PARKS={
   owls:{pad:'#2a1436',trim:0xd58cf0,sky:'dusk'},
   macaques:{pad:'#47200f',trim:0xffa463,sky:'afternoon'},
   muntjacs:{pad:'#0e2450',trim:0x7fb0ff,sky:'morning'}};
-const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night'};
+/* #203 item 5: PARKS[id].shape = how the four parks differ in shape and surroundings (shape and size only: no real names or marks).
+   Slice 1 reads `backdrop` only (the kit beyond the outfield and behind the stands, BACKDROPS below); stand levels, roof, bullpen,
+   light towers and turf look are the next slices and join this block. The field and the engine never change. */
+PARKS.pheasants.shape={backdrop:'hills'};/* 台北: hillside district, apartment blocks, hills behind */
+PARKS.owls.shape={backdrop:'city'};/* 新竹: dense town of row houses and mid-rise blocks, low hills far east */
+PARKS.macaques.shape={backdrop:'lake'};/* 高雄: a lake beyond the outfield, trees on its shore, low hills across */
+PARKS.muntjacs.shape={backdrop:'mountains'};/* 台東: open sky, two mountain ridges */
+const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night',shape:{backdrop:null}};
+/* ---------- #203 item 5 slice 1: backdrop kits. Built once on first use (applyPark), then only shown or hidden: no recompile on a park change
+   after the first. Four materials in all (ridge, block, tree, water); nothing casts or takes the key shadow. Buildings: instanced boxes, the
+   windows are drawn by the material from world position (BD_FLOOR x BD_BAY cells, BD_LIT of them lit, lit strength follows the sky's lamp
+   value: on at night, half at dusk, off by day). Angles: 0 = centre field (-z), as the outfield bleachers. ?off=backdrop (dev) = none. ---------- */
+const BD_FLOOR=3.2,BD_BAY=3.4,BD_LIT=.42,BD_WIN_I=1.6,BD_WIN_C=0xffd9a8,BD_GLASS=.42,BD_BASE_Y=-6,BD_TOWER_GAP=12,BD_SEED=2030,
+  BD_DAY_LAMP=.2;/* sky lamp value at or below which no window is lit */
+const D2R=Math.PI/180;
+const BACKDROPS={
+  hills:{ridges:[{r:300,a:[-115,115],h:[38,82],c:0x1f3a22,seed:1},{r:250,a:[115,245],h:[22,46],c:0x1d3420,seed:2},{r:420,a:[-180,180],h:[70,120],c:0x2a4436,seed:3}],
+    blocks:{n:70,r:[150,255],a:[[-110,110],[125,235]],w:[14,24],d:[10,16],h:[18,45],c:[0xb8b2a6,0x9a978f,0xcfc6b4,0x8c8a86]}},
+  city:{ridges:[{r:440,a:[-180,180],h:[26,48],c:0x334034,seed:4}],
+    blocks:{n:130,r:[135,215],a:[[-120,120],[120,240]],w:[6,9],d:[11,16],h:[9,16],c:[0xd8cdb8,0xbfb5a3,0xe2d9c8,0xa9a294,0xc9b79c]},
+    blocks2:{n:34,r:[225,330],a:[[-100,100],[135,225]],w:[16,26],d:[14,22],h:[26,62],c:[0xb4b8bc,0x9ea4aa,0xc8c4ba]}},
+  lake:{ridges:[{r:430,a:[-75,75],h:[34,60],c:0x41604a,seed:5},{r:380,a:[80,280],h:[14,30],c:0x3a5a40,seed:6}],
+    water:{r:[146,395],a:[-68,68],c:0x355a66},trees:{n:260,r:[126,148],a:[[-80,80]],s:[4,8],c:[0x2f5a2a,0x3c6a30,0x27502a,0x4a7034]},
+    trees2:{n:140,r:[395,412],a:[[-72,72]],s:[6,11],c:[0x2f5a2a,0x3c6a30,0x27502a]}},
+  mountains:{ridges:[{r:330,a:[-180,180],h:[34,78],c:0x2c4a30,seed:7},{r:470,a:[-180,180],h:[100,170],c:0x3e5668,seed:8}],
+    trees:{n:90,r:[126,150],a:[[-85,85]],s:[4,7],c:[0x2f5a2a,0x3c6a30,0x4a7034]}}};
+const bdWinU=TSL.uniform(1),bdKits={};let bdMats=null;
+const bdTowers=[[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]];/* same spots as the light towers below */
+function bdMaterials(){if(bdMats)return bdMats;
+  const ridge=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide}),tree=new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),
+    water=new THREE.MeshStandardMaterial({color:LC(0xffffff),roughness:.2,metalness:0});
+  let block;if(!PARK_SHADERS)block=new THREE.MeshStandardMaterial({roughness:.9});else{const {positionWorld:p,normalWorld:n,fract,floor,sin,dot,vec2,vec3,step,abs,mix,float,color}=TSL;
+    const u=dot(p.xz,vec2(n.z.negate(),n.x)).div(BD_BAY),v=p.y.div(BD_FLOOR),cell=floor(vec2(u,v)),f=fract(vec2(u,v));
+    const win=step(.2,f.x).mul(step(f.x,.8)).mul(step(.3,f.y)).mul(step(f.y,.82)).mul(step(abs(n.y),.5)).mul(step(1,p.y)),
+      lit=step(1-BD_LIT,fract(sin(dot(cell,vec2(12.9898,78.233))).mul(43758.5453)));
+    block=new THREE.MeshStandardNodeMaterial({roughness:.85});block.colorNode=vec3(mix(float(1),float(BD_GLASS),win));
+    block.emissiveNode=color(LC(BD_WIN_C)).mul(win.mul(lit).mul(bdWinU).mul(BD_WIN_I))}
+  return bdMats={ridge,tree,water,block}}
+function bdRidge(R0){const {r,h:[h0,h1],c,seed}=R0,a0=R0.a[0]*D2R,a1=R0.a[1]*D2R,full=R0.a[1]-R0.a[0]>=360,N=Math.max(24,Math.round((a1-a0)/D2R*1.2)),rnd=mulberry32(seed+BD_SEED),
+    ph=[rnd()*6.283,rnd()*6.283,rnd()*6.283],col=new THREE.Color(c),pos=[],cols=[],uvs=[],idx=[];
+  for(let i=0;i<=N;i++){const t=i/N,a=a0+(a1-a0)*t,k=.5+.5*(.55*Math.sin(a*3+ph[0])+.3*Math.sin(a*7+ph[1])+.15*Math.sin(a*17+ph[2])),
+      edge=full?1:Math.min(1,Math.min(t,1-t)*10),h=(h0+(h1-h0)*k)*edge,rb=r-h*.9,s=Math.sin(a),q=-Math.cos(a);
+    pos.push(s*rb,BD_BASE_Y,q*rb,s*r,h,q*r);cols.push(col.r*.55,col.g*.55,col.b*.55,col.r,col.g,col.b);uvs.push(t,0,t,1);
+    if(i<N){const j=i*2;idx.push(j,j+1,j+2,j+1,j+3,j+2)}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(idx);g.computeVertexNormals();
+  return new THREE.Mesh(g,bdMats.ridge)}
+/* n instances spread over the ranges (radius, angle sets in degrees), rejected near a light tower or an earlier instance */
+function bdScatter(S,geo,mat,seed,place){const rnd=mulberry32(seed+BD_SEED),m=new THREE.InstancedMesh(geo,mat,S.n),o=new THREE.Object3D(),done=[],c=new THREE.Color();let k=0;
+  for(let tries=0;k<S.n&&tries<S.n*12;tries++){const A=S.a[Math.floor(rnd()*S.a.length)],a=(A[0]+(A[1]-A[0])*rnd())*D2R,r=S.r[0]+(S.r[1]-S.r[0])*rnd(),x=Math.sin(a)*r,z=-Math.cos(a)*r,
+      sz=place(o,x,z,rnd);if(bdTowers.some(([tx,tz])=>Math.hypot(tx-x,tz-z)<BD_TOWER_GAP+sz)||done.some(([dx,dz,ds])=>Math.hypot(dx-x,dz-z)<(ds+sz)*.6))continue;
+    o.updateMatrix();m.setMatrixAt(k,o.matrix);m.setColorAt(k,c.set(S.c[Math.floor(rnd()*S.c.length)]));done.push([x,z,sz]);k++}
+  m.count=k;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;m.computeBoundingSphere();return m}
+const bdSpan=(v,t)=>v[0]+(v[1]-v[0])*t;
+function bdBlocks(S,seed){return bdScatter(S,new THREE.BoxGeometry(1,1,1).translate(0,.5,0),bdMats.block,seed,(o,x,z,rnd)=>{const w=bdSpan(S.w,rnd()),d=bdSpan(S.d,rnd()),h=bdSpan(S.h,rnd());
+  o.position.set(x,0,z);o.rotation.set(0,Math.atan2(x,z)+(rnd()-.5)*.3,0);o.scale.set(w,h,d);return Math.max(w,d)/2})}
+function bdTrees(S,seed){return bdScatter(S,new THREE.IcosahedronGeometry(1,0).scale(.8,1,.8).translate(0,1.1,0),bdMats.tree,seed,(o,x,z,rnd)=>{const s=bdSpan(S.s,rnd());
+  o.position.set(x,0,z);o.rotation.set(0,rnd()*6.283,0);o.scale.set(s,s*(1+rnd()*.5),s);return s*.8})}
+function bdBuild(id){const K=BACKDROPS[id];if(!K)return null;bdMaterials();const g=new THREE.Group();g.name='backdrop:'+id;
+  for(const R of K.ridges||[])g.add(bdRidge(R));
+  if(K.blocks)g.add(bdBlocks(K.blocks,11));if(K.blocks2)g.add(bdBlocks(K.blocks2,12));if(K.trees)g.add(bdTrees(K.trees,13));if(K.trees2)g.add(bdTrees(K.trees2,14));
+  if(K.water){const W=K.water,len=(W.a[1]-W.a[0])*D2R,geo=new THREE.RingGeometry(W.r[0],W.r[1],64,1,Math.PI/2-W.a[1]*D2R,len);/* ring in XY laid flat: x = cos theta, z = -sin theta, so theta = 90 deg - angle */
+    const wm=bdMats.water.clone();wm.color.set(W.c);const m=new THREE.Mesh(geo,wm);m.rotation.x=-Math.PI/2;m.position.y=.03;g.add(m)}
+  g.traverse(o=>{o.castShadow=o.receiveShadow=false});g.updateMatrixWorld(true);scene.add(g);return g}
+function applyBackdrop(P,S){const want=OFF.has('backdrop')?null:(P.shape||{}).backdrop;
+  if(want&&!bdKits[want])bdKits[want]=bdBuild(want);for(const k in bdKits)if(bdKits[k])bdKits[k].visible=k===want;
+  bdWinU.value=Math.max(0,(S.lamp-BD_DAY_LAMP)/(1-BD_DAY_LAMP))}
 let skyCur=SKIES.night;
 function applySky(S){skyCur=S;renderer.toneMappingExposure=S.exposure;key.intensity=S.key*Math.PI;key.color.set(S.keyC);fill.intensity=S.fill*Math.PI;fill.color.set(S.fillC);
   hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
@@ -513,7 +578,7 @@ function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PAR
   if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
 function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
   const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
-  applySky(SKIES[P.sky]||SKIES.night);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
 parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
