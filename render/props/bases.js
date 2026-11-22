@@ -22,6 +22,7 @@ export const BASE={
   RINGS:9,EDGE_SEG:5,CORNER_SEG:4,SIDE_M:.04,/* top rings, points per quarter-circle edge, per corner, side subdivision (m) */
   SPECK:.15,EDGE_DIRT:.2,SIDE_DIRT:.32,SCUFF:.22,/* how dark (fraction) dirt specks, edge dirt, the side band and cleat scuffs get */
   SHADOW_K:1.55,SHADOW_A:.55,/* contact shadow: size in bag widths, darkest alpha */
+  BAG_ROUGH:.58,RUBBER_ROUGH:.78,/* #256: flat roughness, no roughness map (see the note above buildBases) */
 };
 function hash(x,y,k){let h=Math.imul(x*73856093^y*19349663^k*83492791,2654435761);h^=h>>>15;h=Math.imul(h,2246822519);h^=h>>>13;return(h>>>0)/4294967296}
 function vn(x,y,k){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy),
@@ -97,8 +98,14 @@ function shadowTex(){if(SHADOW_TEX)return SHADOW_TEX;const N=64,c=document.creat
   gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(.55,'rgba(0,0,0,.45)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,N,N);
   return SHADOW_TEX=new THREE.CanvasTexture(c)}
 
+/* #256 (two white blobs on home plate in the max broadcast shot): pbr.js's roughness image is multiplied into the kind's roughness, and
+   for these reliefs it averages .19 (basesScuffed) and .27 (grain) with texels at 0, so the "rough .72" plate came out about .15 with
+   mirror spots: SSR on max took it (its gloss mask is roughness under .35), it mirrored the tower lamps and halos (HDR > the 1.6 bloom
+   threshold) and bloom grew them past the plate. Here the map is dropped and the roughness set flat; the wear stays in the vertex colours,
+   the grain and scuffs in the normal map. Diffuse alone under key + fill + towers is about 1.06 from the broadcast seat: under 1.6. */
 export function buildBases(){const B=BASE,g=new THREE.Group();g.name='prop:bases';
   const vinyl=mat('basesVinyl').clone(),rub=mat('basesRubber').clone();vinyl.vertexColors=rub.vertexColors=true;
+  vinyl.roughnessMap=rub.roughnessMap=null;vinyl.roughness=B.BAG_ROUGH;rub.roughness=B.RUBBER_ROUGH;
   const shM=new THREE.MeshBasicMaterial({color:0x000000,alphaMap:shadowTex(),transparent:true,opacity:B.SHADOW_A,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   const add=(geo,m,x,z,ry)=>{const ms=new THREE.Mesh(geo,m);ms.position.set(x,0,z);ms.rotation.y=ry;ms.castShadow=ms.receiveShadow=true;g.add(ms);return ms};
   /* bags: square turned 45 degrees (corners on the base paths), welt piping along the top of the rolled edge */
