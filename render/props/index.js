@@ -5,6 +5,7 @@
  * A build that throws leaves the old meshes as they are (the park never loses an object). */
 import {buildDugout} from './dugout.js';
 import {buildField} from './field.js';
+import {buildWall} from './wall.js';
 import {buildFoulPoles} from './foulpoles.js';
 
 /* Polished props are drawn on the `max` tier only (manager 11/22 10:30, #211): game.js imports this file only once max is on,
@@ -16,6 +17,8 @@ export const PROPS=[
   /* turf and infield dirt: the field plane of game.js, same map, new light response (mowing stripes, watered and raked dirt) */
   {name:'field',build:c=>buildField(c),old:c=>[c.scene.getObjectByName('old:field')].filter(Boolean)},
   {name:'homeDugout',build:c=>{const [x,z]=c.dugout(1);return buildDugout({x,z,colors:c.park()})},old:()=>[]},
+  /* outfield wall pads and fence top: replaces the field face of the old wall and its flat top band (game.js names them old:wall, old:wall:top) */
+  {name:'wall',build:c=>buildWall({colors:c.park(),old:c.scene.getObjectByName('old:wall')}),old:c=>['old:wall','old:wall:top'].map(n=>c.scene.getObjectByName(n)).filter(Boolean)},
   /* both foul poles: the two plain cylinders at the ends of the fence arc in game.js */
   {name:'foulPoles',build:c=>buildFoulPoles({colors:c.park()}),old:c=>[-1,1].map(s=>c.scene.getObjectByName('old:foulpole:'+s)).filter(Boolean)},
 ];

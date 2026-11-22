@@ -182,7 +182,7 @@ const adC=document.createElement('canvas');adC.width=2048;adC.height=96;function
   let r=777;for(let i=0;i<PAD_SCUFFS;i++){r=(r*1103515245+12345)&0x7fffffff;const x=r%2048;r=(r*1103515245+12345)&0x7fffffff;const y=96-(r%30),a=.08+(r%7)/60;g.fillStyle=`rgba(70,52,34,${a})`;g.fillRect(x,y,3+(r%9),2+(r%4))}}
 drawAds('#1d4d2a');
 const adTex=new THREE.CanvasTexture(adC);adTex.colorSpace=THREE.SRGBColorSpace;adTex.wrapS=THREE.RepeatWrapping;adTex.repeat.set(-4,1);
-const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.position.y=1.5;scene.add(fence);
+const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.name='old:wall';fence.position.y=1.5;scene.add(fence);
 {const bt=adTex.clone();bt.repeat.set(4,1);bt.needsUpdate=true;const fm=fence.material.clone();fm.map=bt;fm.emissiveMap=bt;fm.side=THREE.FrontSide;fence.material.side=THREE.BackSide;const fb=new THREE.Mesh(fence.geometry,fm);fb.position.y=1.5;scene.add(fb)}/* A second, unmirrored ad on the back of the wall, so text reads correctly from the outfield stands */
 /* #150 pillowed pads: height = rounded edges on every pad side, normal from its slope; one image column = one pad */
 {const hp=(u,v)=>{const e=x=>{const a=Math.min(x,1-x);return a>PAD_EDGE?1:Math.sin(a/PAD_EDGE*Math.PI/2)};return e(u)*Math.min(1,v/PAD_TOP>1?1:Math.sin(v/PAD_TOP*Math.PI/2))},D=1/64;
@@ -191,7 +191,7 @@ const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.P
  if(PARK_SHADERS)for(const o of scene.children)if(o.geometry===fence.geometry){o.material.normalMap=padN;o.material.normalScale.set(1,1);o.material.roughness=.6}}
 /* #150 round 2: fence top and foul poles are painted steel (streaks, chips) instead of flat unlit yellow; YELLOW_GLOW keeps them reading at night */
 const YELLOW_GLOW=.35,yellowPaint=new THREE.MeshStandardMaterial({color:0xf2c230,roughness:.55,metalness:.2,map:paintTex(),roughnessMap:paintTex(),emissive:0xf2c230,emissiveIntensity:YELLOW_GLOW,side:THREE.DoubleSide});
-const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),yellowPaint);fenceTop.position.y=3;scene.add(fenceTop);
+const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),yellowPaint);fenceTop.name='old:wall:top';fenceTop.position.y=3;scene.add(fenceTop);
 for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),yellowPaint);p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);p.name='old:foulpole:'+s;scene.add(p)}
 /* Backstop: textured net (5 cm diamond mesh; mipmaps fade it to a thin veil at distance) plus top cable and posts */
 const NET_W=40,NET_H=9,NET_Z=20,NET_CELL=.05,NET_OPACITY=.55;
