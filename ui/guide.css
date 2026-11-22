@@ -40,3 +40,5 @@ h1{font:700 clamp(26px,5vw,40px)/1.15 'Barlow Condensed','Noto Sans TC',sans-ser
 .crew .line{display:block;color:var(--muted);font-size:13px}
 footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
 @media(min-width:700px){.roster{grid-template-columns:1fr 1fr}}
+html[data-site="production"] .dev-only{display:none!important}
+.agent-entry{margin:0 0 12px;font-size:14px}
