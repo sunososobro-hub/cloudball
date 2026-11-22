@@ -27,7 +27,8 @@
      then render/game.js takes the same element over for the park compile (BOOT.share of the bar is loading, the rest is compiling) -->
 <script>
 /* #162: fail() = a load the page cannot start without broke: say so in plain words instead of 「準備球場中…」 forever */
-window.BOOT={share:.5,n:0,N:11,own:false,failed:false,fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
+/* #162: t = ms from page open at which each boot stage ended (mark keeps the first); str() is the 🐞 report's boot= field */
+window.BOOT={share:.5,n:0,N:11,own:false,failed:false,t:{},mark(k){if(!(k in this.t))this.t[k]=Math.round(performance.now())},str(){return Object.entries(this.t).map(([k,v])=>k+'@'+v).join(',')},fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
 </script>
 <style>
 #warmBar{position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none;opacity:0;animation:wbIn .2s .3s forwards}
@@ -256,29 +257,29 @@ for(const [id,T] of [['sideA',teamA],['sideB',teamB]]){
 </script>
 <script type="module">
 /* #133: every load starts at once (they used to wait for each other); each finished stage moves the bar (BOOT.N stages counted). */
-const B=window.BOOT,st=p=>p.then(v=>{B.step();return v},e=>{B.step();throw e});
-const pThree=st(import('three/webgpu')),pTsl=st(import('three/tsl')),
-  pFx=st(Promise.all([import('three/addons/tsl/display/BloomNode.js'),import('three/addons/tsl/display/GTAONode.js'),import('three/addons/tsl/display/FXAANode.js')])),
-  pEngine=st(import('./engine/index.js')),
+const B=window.BOOT,st=(k,p)=>p.then(v=>{B.mark(k);B.step();return v},e=>{B.mark(k+'!');B.step();throw e});/* k = the stage name in BOOT.t (! = failed) */
+const pThree=st('three',import('three/webgpu')),pTsl=st('tsl',import('three/tsl')),
+  pFx=st('fx',Promise.all([import('three/addons/tsl/display/BloomNode.js'),import('three/addons/tsl/display/GTAONode.js'),import('three/addons/tsl/display/FXAANode.js')])),
+  pEngine=st('engine',import('./engine/index.js')),
   /* The frozen first game: played instead of a live simulation. Missing or broken file: window.OPENING stays null and the page falls back to a live game. */
-  pOpening=st(fetch('league/preseason/opening.json').then(r=>r.ok?r.text():null).then(t=>t?import('./league/recording.js').then(m=>m.parseRecording(t)):null)).catch(e=>{console.warn('frozen game failed to load',e);return null}),
-  pComm=st(import('./commentary/index.js')),
-  pBank=st(pComm.then(m=>m.loadBank())).catch(e=>{console.warn('commentary bank failed to load; the booth stays silent',e);return null}),
+  pOpening=st('opening',fetch('league/preseason/opening.json').then(r=>r.ok?r.text():null).then(t=>t?import('./league/recording.js').then(m=>m.parseRecording(t)):null)).catch(e=>{console.warn('frozen game failed to load',e);return null}),
+  pComm=st('comm',import('./commentary/index.js')),
+  pBank=st('bank',pComm.then(m=>m.loadBank())).catch(e=>{console.warn('commentary bank failed to load; the booth stays silent',e);return null}),
   /* highlights reel of the frozen game (#118): pure list from the recorded stream; missing file = no 「看精華」 button */
-  pHl=st(import('./render/highlights.js')).catch(e=>{console.warn('highlights failed to load',e);return null}),
+  pHl=st('hl',import('./render/highlights.js')).catch(e=>{console.warn('highlights failed to load',e);return null}),
   /* 骨架球員(render/players.js)：先載 assets/players.b64.txt；載不到就用程式生成的骨架人（一樣的關節介面） */
-  pPl=st(import('./render/players.js')).then(PL=>st(PL.loadPlayerAssets('assets/')).catch(e=>console.warn('players 素材載入失敗，改用程式生成人體',e)).then(()=>PL)).catch(e=>{console.error('players.js 載入失敗',e);return null});
+  pPl=st('players',import('./render/players.js')).then(PL=>st('bodies',PL.loadPlayerAssets('assets/')).catch(e=>console.warn('players 素材載入失敗，改用程式生成人體',e)).then(()=>PL)).catch(e=>{console.error('players.js 載入失敗',e);return null});
 const halt=e=>{B.fail(e);return new Promise(()=>{})};/* #162: a failed must-have load stops here with the failure line */
 const [THREE,TSL,[{bloom},{ao},{fxaa}]]=await Promise.all([pThree,pTsl,pFx]).catch(halt);
 window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
-const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await st(R.init())}catch(e){console.error(e)}window.RENDERER=R;
+const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await st('gpu',R.init())}catch(e){console.error(e)}window.RENDERER=R;
 /* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
 window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
-await load('render/game.js').catch(halt);
+await load('render/game.js').catch(halt);B.mark('game');
 /* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
 await window.READY;document.getElementById('enter').textContent='進場（開聲音）';
-for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;
+for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;B.mark('button');
 </script>
 </body>
 </html>

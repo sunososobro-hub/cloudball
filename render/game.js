@@ -5,6 +5,12 @@
 const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,
   runDist,runTime,leadAt,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
 const $=id=>document.getElementById(id);
+/* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park
+   shadows = #152 contact shadows, faces = #157 head shapes (every player on head 0), warm = no compileAsync (the frames compile it), prog = the old
+   PassNode.compileAsync path without the #149 progress callback, post = no post pass, shadowmap = no key-light shadow map, park = #150 shaders off.
+   Production ignores the URL. BOOT_MARK writes a stage time into window.BOOT.t (index.html), read back by the 🐞 report's boot= field. */
+const OFF=new Set((()=>{try{return window.SITE&&window.SITE.dev?(new URLSearchParams(location.search).get('off')||'').split(',').map(x=>x.trim()).filter(Boolean):[]}catch(e){return[]}})());
+const BOOT_MARK=k=>{const B=window.BOOT;if(B&&B.mark)B.mark(k)};BOOT_MARK('script');
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t;
 const CYCLE=7200,BPM=132;
 const fmtT=ms=>{const d=new Date(ms);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
@@ -136,9 +142,9 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
 /* #150: code-generated surface detail (no download). genTex(size, w, h, fn) fills a canvas pixel by pixel: fn(u, v) -> [r, g, b] in 0..1.
    srgb = colour map; otherwise data (normal / roughness). Cached by key. */
 /* #162: PARK_SHADERS = the shader side of #150 (noise on the outer ground and the stand concrete, painted-steel maps, pillowed pad normals).
-   Off until it is measured cheap: those extra programs made the first draw after the warm-up (the tab freeze before 「進場」 wakes) longer.
-   The canvas-only detail (chalk scuffs, pad seams, fascia lamps, ribs, seat tint) stays on. */
-const PARK_SHADERS=false;
+   On again: switching it off did not change the time to the button on the owner's GPU (31.5 s off, 20-32 s on). ?off=park on the dev site turns it off.
+   The canvas-only detail (chalk scuffs, pad seams, fascia lamps, ribs, seat tint) does not depend on it. */
+const PARK_SHADERS=!OFF.has('park');
 const GEN={};
 function genTex(key,w,h,fn,srgb){if(GEN[key])return GEN[key];const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d'),im=g.createImageData(w,h),d=im.data;
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){const p=fn((x+.5)/w,(y+.5)/h,x,y),i=(y*w+x)*4;d[i]=p[0]*255;d[i+1]=p[1]*255;d[i+2]=p[2]*255;d[i+3]=255}
@@ -417,8 +423,9 @@ const qBody=b=>{const o={};for(const k in b){const v=Math.round(b[k]*4)/4;if(v)o
 /* Prewarm: before first pitch, build every player's body geometry plus cap/helmet for both teams (one at a time while idle), so a substitution does not stutter mid-game */
 function prewarmBodies(){if(!window.PL)return;const dummies=[PL.makePlayer({head:'cap'}),PL.makePlayer({head:'helmet',role:'batter'})],list=[];
   for(const t of [0,1])for(const p of [...ROSTERS[t].bat,...ROSTERS[t].pit])list.push(p);
-  const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(p.body?qBody(p.body):'normal',p.ht,PL.headOf(p.id))}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
-function dress(f,p){if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht,PL.headOf(p.id))}
+  const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
+const headIx=id=>OFF.has('faces')?0:PL.headOf(id);/* ?off=faces: one head shape for all */
+function dress(f,p){if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}
 const fielders={};for(const k of FIELDER_KEYS){const f=figure(matDef,pants,true);f.home=spotXZ(...FIELD_SPOTS[k]);fielders[k]=f}
 fielders.C.home=[0,1.75];
 const ump=figure(matUmp,matUmp,false);ump.g.position.set(.3,0,2.6);ump.g.rotation.y=Math.PI;ump.g.scale.y=.95;
@@ -1010,7 +1017,7 @@ addEventListener('orientationchange',()=>setTimeout(()=>{camera.aspect=innerWidt
 const ENTRY_WATCH_MS=15000;let entryT0=0,entryDraw=0,entryGap=0;const entryLog=[];
 const entryNote=x=>{if(entryT0&&entryLog.length<12)entryLog.push(`${x}@${Math.round(performance.now()-entryT0)}`)};
 function entryFrame(now){if(!entryT0||now-entryT0>ENTRY_WATCH_MS)return;if(!entryDraw)entryNote('f1');else entryGap=Math.max(entryGap,now-entryDraw);entryDraw=now}
-$('report').onclick=async()=>{const code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} fps=${fpsAvg.toFixed(0)} tier=${gfxTier} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
+$('report').onclick=async()=>{const B=window.BOOT,code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} boot=${B&&B.str?B.str()||'-':'-'}${OFF.size?` off=${[...OFF].join('+')}`:''} fps=${fpsAvg.toFixed(0)} tier=${gfxTier} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
   try{await navigator.clipboard.writeText(code);note('已複製，貼給 Claude 就能重現這一刻')}catch(err){prompt('複製這行貼給 Claude：',code)}};
 const luEl=$('lu');
 function showLineup(){let h='<div class="cols">';for(let t=0;t<2;t++){const R=ROSTERS[t],f=game.ev.find(x=>x.k==='P'&&x.pit&&x.pit[0]===t),sp=f?R.pit[f.pit[1]]:R.pit[0];
@@ -1246,7 +1253,7 @@ const csPatch=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math
 const csFan=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2).translate(0,0,-.5),csMat(csTex((g,n)=>{/* canvas bottom = feet (v 0), fades to the tip and to both sides */
   let gr=g.createLinearGradient(0,n,0,0);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n);
   g.globalCompositeOperation='destination-in';gr=g.createLinearGradient(0,0,n,0);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.5,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)}),CS_FAN_OP),csFigs.length*LAMPS.length);
-[csPatch,csFan].forEach(m=>{m.frustumCulled=false;m.renderOrder=1;scene.add(m)});
+const CS_ON=!OFF.has('shadows');if(CS_ON)[csPatch,csFan].forEach(m=>{m.frustumCulled=false;m.renderOrder=1;scene.add(m)});
 function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
   if(!g.visible){csPatch.setMatrixAt(i,HIDE);for(let j=0;j<LAMPS.length;j++)csFan.setMatrixAt(i*LAMPS.length+j,HIDE);return}
   const r=2*(csBig.has(f)?CS_R_CROUCH:CS_R);dummy.position.set(p.x,p.y+CS_Y,p.z);dummy.rotation.set(0,0,0);dummy.scale.set(r,1,r);dummy.updateMatrix();csPatch.setMatrixAt(i,dummy.matrix);
@@ -1256,8 +1263,8 @@ function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
 function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
   renderer.setPixelRatio(Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);/* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
-  PP=gfxTier>=2||gfxLow?null:(PP||setupPost());
-  const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;
+  PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP||setupPost());
+  const sh=gfxTier<3&&!OFF.has('shadowmap');renderer.shadowMap.enabled=sh;key.castShadow=sh;
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
@@ -1272,10 +1279,11 @@ let envOn=true;
    Now the loop runs without drawing while compileAsync builds the whole park (it yields between objects; frustum culling is off for that call so
    what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
    then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
-const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk;window.READY=new Promise(ok=>readyOk=ok);setTimeout(()=>readyOk(),READY_MAX_MS);
+const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk;window.READY=new Promise(ok=>readyOk=ok);setTimeout(()=>{if(readyN<READY_FRAMES)BOOT_MARK(`timeout${warming?'W':'F'}${readyN}`);readyOk()},READY_MAX_MS);/* #162: timeoutW = the compile never ended, timeoutFn = n of READY_FRAMES drawn */
 /* #133 progress bar: from the start of a warm-up (behind the entry card, or a quality drop in play) until the frames after it are drawn.
    Real progress only: objects compiled / objects to compile (compileAsync's onProgress), then the WARM_BAR_FRAME_SHARE for the frames that
    compile the shadow and post passes. It shows only once the wait passes WARM_BAR_DELAY_MS, so a warm visit does not flash it. */
+const BOOT_COMPILE_Q=[.25,.5,.75,.9,1];/* compile progress points timed in BOOT.t (c25 .. c100) */
 const WARM_BAR_DELAY_MS=700,WARM_BAR_FRAME_SHARE=.15,WARM_FRAMES=READY_FRAMES;let warmT0=0,warmLoaded=0,warmTotal=0,warmFramesLeft=0;
 /* the bar element is static markup in index.html (on screen from the first paint, BOOT fills its loading share); the first warm-up continues it from BOOT.share */
 const BOOT=window.BOOT||{share:0};let wbar=document.getElementById('warmBar');if(!wbar){wbar=document.createElement('div');wbar.id='warmBar';wbar.setAttribute('role','progressbar');wbar.innerHTML='<div><i></i></div><p>球場準備中…</p>';document.body.appendChild(wbar)}
@@ -1285,17 +1293,20 @@ function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wba
   const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,base=first?BOOT.share:0,pc=Math.round(100*(base+(1-base)*f));
   wbarFill.style.width=pc+'%';wbar.setAttribute('aria-valuenow',String(pc));if(wbar.hidden)wbar.hidden=false}
 async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();warmT0=w0;warmLoaded=warmTotal=0;warmFramesLeft=WARM_FRAMES;
-  const prog=ev=>{if(run!==warmRun)return;warmLoaded=ev.loaded;warmTotal=ev.total;warmBarTick(performance.now())};
+  const prog=ev=>{if(run!==warmRun)return;warmLoaded=ev.loaded;warmTotal=ev.total;if(run===1)for(const q of BOOT_COMPILE_Q)if(ev.loaded>=q*ev.total)BOOT_MARK(`c${Math.round(q*100)}`);warmBarTick(performance.now())};
+  if(run===1)BOOT_MARK('w0');
   scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
   /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one */
   const sp=PP&&PP.scenePass;let p=null;
   /* the post path does what PassNode.compileAsync does (its target and MRT around the compile), so the progress callback can be passed */
-  try{if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;const rt=renderer.getRenderTarget(),mrt=renderer.getMRT();
+  try{if(OFF.has('warm'))p=null;
+    else if(OFF.has('prog'))p=sp?(sp.compileAsync?sp.compileAsync(renderer):null):renderer.compileAsync(scene,camera);
+    else if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;const rt=renderer.getRenderTarget(),mrt=renderer.getMRT();
       renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT());p=renderer.compileAsync(sp.scene,sp.camera,null,prog).finally(()=>{renderer.setRenderTarget(rt);renderer.setMRT(mrt)})}
     else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera,null,prog)}
   catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true}
   try{await p}catch(e){console.warn('warm-up failed',e)}
-  if(run!==warmRun)return;warming=false;entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
+  if(run!==warmRun)return;warming=false;if(run===1)BOOT_MARK(`w1/${warmTotal}`);entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
   if(performance.now()-tierT0>FPS_WARMUP_MS&&$('intro').hidden&&!document.hidden&&avg>FPS_BUDGET_MS&&gfxTier<TIER_MAX){setTier(gfxTier+1);tierT0=performance.now();note(`有點卡，自動降畫質（${gfxTier}/${TIER_MAX}）`)}}
 setTier(gfxTier);
@@ -1320,10 +1331,10 @@ renderer.setAnimationLoop(()=>{
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
+  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
-  if(readyN<READY_FRAMES&&++readyN===READY_FRAMES)readyOk();
+  if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyOk()}
 });
 warmUp();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
