@@ -975,12 +975,19 @@ sayBtn.onclick=()=>{sayOn=!sayOn;sayBtn.setAttribute('aria-pressed',sayOn);if(sa
 /* ---------- camera & controls ---------- */
 let seat=3,yawOff=0,pitchOff=0,zoomed=false;
 const look=(sx,sy,sz,tx,ty,tz)=>[Math.atan2(-(tx-sx),-(tz-sz)),Math.atan2(ty-sy,Math.hypot(tx-sx,tz-sz))];
-let shotNow=-1,autoSeat=-1,hitPrev=false;
+let shotNow=-1,autoSeat=-1,hitPrev=false,tightPrev=false;
 /* Seat fovs are vertical. On a 19.5:9 phone 55 deg vertical is ~97 deg across, a fisheye that stretches the near stands while dragging the
    view around and makes the park feel like a model; cap the horizontal angle at HFOV_MAX (a 16:10 desktop stays as it was). */
 const HFOV_MAX=80,fitFov=f=>Math.min(f,2*Math.atan(Math.tan(HFOV_MAX*Math.PI/360)/camera.aspect)*180/Math.PI);
 /* Broadcast camera after contact: high behind home plate looking at the whole field, aim drifting slowly between the field centre and the ball */
 const HITCAM={x:0,y:8,z:11,fov:62,mid:[0,0,-26]};
+/* Tight shot of the batter (#158): on the first pitch of each plate appearance the broadcast lens (auto seat, also inside the director)
+   closes from 5.5 to TIGHT_FOV on the batter while he walks in from the on-deck circle and sets, holds until TIGHT_OUT_AT, then opens
+   back over TIGHT_OUT_DUR so the frame is the normal one .15 s before the release: pitch tracking is unchanged. Camera only, no
+   event timing. Weight and aim are a pure function of (event, time, batter pose), so a bar jump lands on the same framing. Off with
+   the 望遠鏡 toggle (already tighter). Aim: TIGHT_AIM_Y m up the batter (scaled by his build), head in the upper part of the frame. */
+const TIGHT_FOV=2.4,TIGHT_OUT_AT=RELEASE-.6,TIGHT_OUT_DUR=.45,TIGHT_AIM_Y=1.45;
+const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
   if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
@@ -997,8 +1004,12 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   if(s.auto&&autoSeat!==seat)FOLLOW_T.set(s.tx,s.ty,s.tz);autoSeat=s.auto?seat:-1;
   if(s.follow||s.auto){const want=s.follow?(ball.visible?ball.position:_fw.set(0,1.3,-9)):(trk?_fw.set(HITCAM.mid[0],HITCAM.mid[1],HITCAM.mid[2]).lerp(ball.position,.35):_fw.set(s.tx,s.ty,s.tz)),k=Math.min(1,dt*(ball.visible&&(s.follow||trk)?7:s.auto?4:2.5));FOLLOW_T.lerp(want,k);tx=FOLLOW_T.x;ty=FOLLOW_T.y;tz=FOLLOW_T.z;
     const d=Math.hypot(tx-s.x,tz-s.z);if(s.follow)bf=clamp(2*Math.atan(14/Math.max(d,8))*180/Math.PI,16,40);else if(trk)bf=HITCAM.fov}
+  const tw=s.auto&&!trk&&!zoomed&&batter.g.visible?tightW(curEvent,curU):0;
+  if(tw>0){const bp=batter.g.position;tx=lerp(tx,bp.x,tw);ty=lerp(ty,TIGHT_AIM_Y*(batter.k||1),tw);tz=lerp(tz,bp.z,tw)}
   const [y,p]=look(cs.x,py,cs.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
-  const fov=fitFov(zoomed?bf*.4:bf);if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}}
+  const fov=fitFov(zoomed?bf*.4:tw>0?lerp(bf,TIGHT_FOV,tw):bf);
+  if(tw>0||tightPrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(editing)return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
