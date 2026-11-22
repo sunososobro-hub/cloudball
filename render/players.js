@@ -691,8 +691,14 @@ export function headOf(id) {
   const gear = pick(q, GEAR_SHARES.wrist) + GEAR_SHARES.wrist.length * (pick((q * 6151) % 1, GEAR_SHARES.elbow) + GEAR_SHARES.elbow.length * (pick((q * 4093) % 1, GEAR_SHARES.eye) + GEAR_SHARES.eye.length * (pick((q * 2909) % 1, GEAR_SHARES.glove) + GEAR_SHARES.glove.length * pick((q * 1327) % 1, GEAR_SHARES.hair))));
   return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * (map + SKIN_KEYS.length * (look + FACE_LOOKS * gear));
 }
+/* #191: head index of a roster row. A created player (his row has `look`) keeps the face the fan picked in the create page: look.head
+   replaces only the shape digit of headOf(id), so map, facial hair and gear stay his hashed ones. Factory players have no `look`: unchanged. */
+export function headOfPlayer(p) {
+  const h = headOf(p && p.id), n = p && p.look && p.look.head;
+  if (!Number.isInteger(n) || n < 0) return h;
+  return h - h % HEAD_SHAPES.length + n % HEAD_SHAPES.length;
+}
 /* Look digit of a head index: facial hair + FACE_HAIR.length x brow weight */
-const FACE_LOOKS = FACE_HAIR.length * BROWS.length;
 const faceLookOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length)) % FACE_LOOKS;
 /* Gear digit of a head index (#151 second PR): wrist 0 none / 1 left / 2 right / 3 both; elbow guard 0 none / 1 left / 2 right; eye black 0 / 1;
    batting gloves 0 none / 1 both hands; hair colour = index into HAIR_TONES */
@@ -730,6 +736,8 @@ export const FACE_HAIR = [
   { name: 'beard', share: .2, k: .66, grain: .35, jaw: 1, lip: 1, chin: 1 },
 ];
 export const BROWS = [{ k: .75, w: .0055 }, { k: .55, w: .0046 }, { k: .9, w: .0068 }];   /* as before (look 0 = the old face) / light / heavy: darkening, half height */
+/* Look digit count (#207 step 2). Declared here, after FACE_HAIR and BROWS: above them it read both before they existed and the module threw on load. */
+const FACE_LOOKS = FACE_HAIR.length * BROWS.length;
 const STUBBLE_RGB = [.86, .92, 1], BEARD_TOP = { side: .07, mid: .026, below: .03 }, BEARD_EDGE = .011, BEARD_LOW = .045;
 const grain = (x, y, z) => { const t = Math.sin(x * 12.9898e3 + y * 78.233e3 + z * 37.719e3) * 43758.5453; return t - Math.floor(t) };   /* fixed per vertex */
 function faceHair(x, y, z, ax, eyeY, H) {
