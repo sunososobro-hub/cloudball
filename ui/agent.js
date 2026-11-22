@@ -5,6 +5,7 @@
 import { CREATE, validateCreate } from '../league/freeagents.js';
 import { makePreview } from './agent-preview.js';
 import { ratingRow } from './bars.js';
+import { attachCompare } from './compare.js';
 import { specOfChoice, specOfRow } from './preview-spec.js';
 
 const KEY_NAME = 'cloudball.agentKey';
@@ -51,7 +52,9 @@ function playerRow(row) {
   r.appendChild(ratingRow('潛力', R.pot, 'pot'));
   const see = el('button', 'see', '看他'); see.type = 'button'; see.setAttribute('aria-label', `看 ${p.name} 的樣子`); who.appendChild(see);
   li.onclick = () => { for (const o of document.querySelectorAll('li.p[aria-current]')) o.removeAttribute('aria-current'); li.setAttribute('aria-current', 'true'); showPreview(specOfRow(row), `${p.name} #${p.num}`); };
-  li.append(who, r); return li;
+  li.append(who, r);
+  attachCompare(li, { id: `fa:${p.id ?? p.name}`, name: p.name, num: p.num, meta, kind: row.kind, R });
+  return li;
 }
 
 /* ---- free-agent list ---- */
