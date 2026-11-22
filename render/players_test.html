@@ -55,7 +55,7 @@ footer input{flex:1;accent-color:var(--a);height:40px}
 <script type="module">
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { makePlayer, makeBat, BUILDS, loadPlayerAssets, loadClip, footDrift, rigFootDrift, headOf, headOfPlayer, HEAD_SHAPES } from './players.js';
+import { makePlayer, makeBat, BUILDS, loadPlayerAssets, loadClip, footDrift, rigFootDrift, headOf, headOfPlayer, HEAD_SHAPES, gearOf } from './players.js';
 {
 
 const $ = id => document.getElementById(id), Q = new URLSearchParams(location.search);
@@ -189,6 +189,8 @@ loadClip('../assets/mocap/pitch_124_01.json').then(c => { const d = footDrift(c,
     ok.push(g % N === n % N && Math.floor(g / N) === Math.floor(h / N)) }
   ok.push(headOfPlayer({ id: 'a1' }) === headOf('a1'), headOfPlayer({ id: 'a1', look: null }) === headOf('a1'), headOfPlayer(null) === headOf(undefined));
   window.headCheck = ok.every(Boolean) }
+/* #151 fourth slice: leg style from the id hash. Counts over 2000 ids on window.legCheck ({0,1,2} shares); a build with a long-pants or high-sock head holds one sleeve per leg. */
+{ const n = [0, 0, 0]; for (let i = 0; i < 2000; i++) n[gearOf(headOf('p' + i)).leg]++; window.legCheck = n.map(v => +(v / 2000).toFixed(2)) }
 renderer.setAnimationLoop(frame);
 /* For headless tests */
 window.T = { setMode, pose: v => { u = v; pose(v) }, render: () => { renderer.render(scene, cam); placeLabels() }, players: () => players, cam, ctl, setHand: L => { throwsL = L; build() }, stop: () => { playing = false }, tipErr: () => maxTipErr,

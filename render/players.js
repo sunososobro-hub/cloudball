@@ -257,6 +257,7 @@ const CAP_LOGO = { size: .055, ringA: 3, ringB: 8, out: .004 }, DECAL_GAP = .006
 const PROTECTOR = { y0: 1.1, y1: 1.46, arc: 1.5, out: .03, sx: 1.25, bottom: .97, seg: 14 };
 const BAT_GLOVE = { r: .05, sy: .8, sz: 1.05, y: -.02, seg: 10 };   /* batting glove: a squashed sphere over each hand socket, in the kit's gear colour */
 const ARM_GEAR = { bandR: .043, bandH: .034, bandAt: .84, padR: .058, padLen: .42, padAt: .3, padFwd: .006, seg: 10 };   /* forearm radius is ~.035: the band sits proud of it; fractions of forearm length */
+const LEG_STYLE = { r: .056, rBot: .047, grow: 1.06, longTo: .94, highFrom: .04, highTo: .5, seg: 10 };   /* #151: lower-leg sleeves on the shin bone; fractions of knee-to-ankle, proud of the built leg by `grow` */
 const SHIN_GUARD = { r: .058, rBot: .047, len: .82, fwd: .016, knee: 1.05, seg: 10 };
 /* setKit(kit, team, home): team = a TEAMS entry (color, color2); cheap to call every frame (only recolours on a change) */
 export function setKit(kit, team, home) {
@@ -688,7 +689,7 @@ export function headOf(id) {
   const look = fh + FACE_HAIR.length * Math.min(BROWS.length - 1, Math.floor(w * BROWS.length));
   /* #151 second PR: a fourth draw picks his gear (GEAR_SHARES); it rides above the look digit */
   const q = ((Math.imul(h ^ (h >>> 11), 668265263) >>> 0) % 10007) / 10007, pick = (u, sh) => { let c = 0; for (let k = 0; k < sh.length; k++) { c += sh[k]; if (u < c) return k } return sh.length - 1 };
-  const gear = pick(q, GEAR_SHARES.wrist) + GEAR_SHARES.wrist.length * (pick((q * 6151) % 1, GEAR_SHARES.elbow) + GEAR_SHARES.elbow.length * (pick((q * 4093) % 1, GEAR_SHARES.eye) + GEAR_SHARES.eye.length * (pick((q * 2909) % 1, GEAR_SHARES.glove) + GEAR_SHARES.glove.length * pick((q * 1327) % 1, GEAR_SHARES.hair))));
+  const gear = pick(q, GEAR_SHARES.wrist) + GEAR_SHARES.wrist.length * (pick((q * 6151) % 1, GEAR_SHARES.elbow) + GEAR_SHARES.elbow.length * (pick((q * 4093) % 1, GEAR_SHARES.eye) + GEAR_SHARES.eye.length * (pick((q * 2909) % 1, GEAR_SHARES.glove) + GEAR_SHARES.glove.length * (pick((q * 1327) % 1, GEAR_SHARES.hair) + GEAR_SHARES.hair.length * pick((q * 877) % 1, GEAR_SHARES.leg)))));
   return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * (map + SKIN_KEYS.length * (look + FACE_LOOKS * gear));
 }
 /* #191: head index of a roster row. A created player (his row has `look`) keeps the face the fan picked in the create page: look.head
@@ -701,12 +702,12 @@ export function headOfPlayer(p) {
 /* Look digit of a head index: facial hair + FACE_HAIR.length x brow weight */
 const faceLookOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length)) % FACE_LOOKS;
 /* Gear digit of a head index (#151 second PR): wrist 0 none / 1 left / 2 right / 3 both; elbow guard 0 none / 1 left / 2 right; eye black 0 / 1;
-   batting gloves 0 none / 1 both hands; hair colour = index into HAIR_TONES */
-export const GEAR_SHARES = { wrist: [.55, .15, .15, .15], elbow: [.72, .14, .14], eye: [.82, .18], glove: [.7, .3], hair: [.4, .22, .18, .1, .1] };
+   batting gloves 0 none / 1 both hands; hair colour = index into HAIR_TONES; leg 0 as built (pants mid-calf) / 1 long pants to the shoe / 2 high socks to the knee */
+export const GEAR_SHARES = { wrist: [.55, .15, .15, .15], elbow: [.72, .14, .14], eye: [.82, .18], glove: [.7, .3], hair: [.4, .22, .18, .1, .1], leg: [.55, .25, .2] };
 export const HAIR_TONES = [0x1c1612, 0x3a2618, 0x5a3b22, 0x7a4a26, 0x6b6760];   /* black-brown (the old default), dark brown, brown, chestnut, greying */
 export const gearOf = head => { let g = Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS)); const W = GEAR_SHARES.wrist.length, E = GEAR_SHARES.elbow.length;
   const Y = GEAR_SHARES.eye.length, L = GEAR_SHARES.glove.length;
-  return { wrist: g % W, elbow: Math.floor(g / W) % E, eye: Math.floor(g / (W * E)) % Y, glove: Math.floor(g / (W * E * Y)) % L, hair: Math.floor(g / (W * E * Y * L)) % GEAR_SHARES.hair.length } };
+  return { wrist: g % W, elbow: Math.floor(g / W) % E, eye: Math.floor(g / (W * E)) % Y, glove: Math.floor(g / (W * E * Y)) % L, hair: Math.floor(g / (W * E * Y * L)) % GEAR_SHARES.hair.length, leg: Math.floor(g / (W * E * Y * L * GEAR_SHARES.hair.length)) % GEAR_SHARES.leg.length } };
 function shapeHead(P, S) {
   if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin) return;
   const { DG, DW, H } = PACK, n = H.n;
@@ -1062,6 +1063,20 @@ function makeRealPlayer(opts, A) {
     }
     pro.castShadow = true;
   };
+  /* #151 second PR, fourth slice: leg style per player. 1 = long pants (a pants sleeve down to the shoe), 2 = high socks (sock sleeve from
+     the ankle up to the knee, so the pant leg reads as knee-length). Sleeves ride the shin bones, re-seated per setBuild. */
+  const legGear = [];
+  const placeLegStyle = () => {
+    for (const m of legGear.splice(0)) m.parent.remove(m);
+    const style = gearOf(gearHead).leg; if (!style || gearOn) return; const lk = bd.limb || 1, mat = style === 1 ? (kit ? kit.pants : pants) : (kit ? kit.sock : sock), S = LEG_STYLE;
+    for (const [kn, ft] of [['knL', 'ftL'], ['knR', 'ftR']]) {
+      const off = V3(J[ft]).sub(V3(J[kn])), full = off.length(), dir = off.clone().normalize();
+      const t0 = S.highFrom, t1 = style === 1 ? S.longTo : S.highTo, len = full * (t1 - t0), mid = (t0 + t1) / 2;
+      const rTop = S.r * lk * S.grow * (1 - .45 * t0), rBot = S.r * lk * S.grow * (1 - .45 * t1) * (S.rBot / S.r);
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, len, S.seg, 1, true), mat);
+      m.quaternion.setFromUnitVectors(_Y, dir); m.position.copy(dir).multiplyScalar(full * mid); m.castShadow = true; bones[B[kn]].add(m); legGear.push(m);
+    }
+  };
   /* #151 second PR: wristbands, elbow guard per player (gearOf of the head index); meshes on the forearm bones, re-seated per setBuild */
   const armGear = []; let gearHead = 0;
   const placeArmGear = () => {
@@ -1101,7 +1116,7 @@ function makeRealPlayer(opts, A) {
     auto: true, bend: { knee: [0, 0], elbow: [0, 0] }, numN: undefined,
     setNum(n) { if (f.numN === n) return; f.numN = n; numMesh.visible = n != null; if (n != null) numMesh.material = numMat(n) },
     setHead(kind) { headKind = kind; putHead(kind) },
-    setGear(kind) { const on = kind === 'catcher'; if (on === gearOn) return; gearOn = on; placeGear() },   /* #204 item 4: chest protector and shin guards */
+    setGear(kind) { const on = kind === 'catcher'; if (on === gearOn) return; gearOn = on; placeGear(); placeLegStyle() },   /* #204 item 4: chest protector and shin guards */
     /* #186: drive the skeleton from a mocap clip at clip time t, blended over the proxy pose by w (0..1). t0 = clip time that stands on
        the figure's spot (hips travel is measured from there), dz = metres of g.position.z the caller already moved (taken back off).
        The clip holds only while the proxies stay as they were at this call: any later pose (another event, resetPose) drops it. */
@@ -1116,7 +1131,7 @@ function makeRealPlayer(opts, A) {
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
     setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; f.buildArgs = [build, height, head]; if (f.buildKey === k) return; f.buildKey = k;
-      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); gearHead = head; placeArmGear(); if (ownHair) hair.color.setHex(HAIR_TONES[gearOf(head).hair]); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); gearHead = head; placeArmGear(); placeLegStyle(); if (ownHair) hair.color.setHex(HAIR_TONES[gearOf(head).hair]); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
