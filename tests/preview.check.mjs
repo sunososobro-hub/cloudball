@@ -5,14 +5,16 @@ import { CREATE, makePlayer } from '../league/freeagents.js';
 import { specOfChoice, specOfRow, sameSpec, snapBody } from '../ui/preview-spec.js';
 
 const problems = [], bad = m => problems.push(m);
-const base = { kind: 'bat', pos: 'SS', bats: 'R', build: 'normal', look: { head: 0, skin: 0, hair: 0 }, points: { con: 65, pow: 65, eye: 65, spd: 65, arm: 65 }, nameDraw: 0 };
+/* points come from CREATE, so a change of the budget or the ability list never breaks this guard */
+const even = kind => Object.fromEntries(CREATE.keys[kind].map(k => [k, CREATE.budget[kind] / CREATE.keys[kind].length]));
+const base = { kind: 'bat', pos: 'SS', bats: 'R', build: 'normal', look: { head: 0, skin: 0, hair: 0 }, points: even('bat'), nameDraw: 0 };
 
 /* every build and head, and handedness, draws a different body */
 const specs = Object.keys(CREATE.builds).map(b => specOfChoice({ ...base, build: b }));
 for (let i = 0; i < specs.length; i++) for (let j = i + 1; j < specs.length; j++) if (sameSpec(specs[i], specs[j])) bad(`builds ${i} and ${j} give the same preview spec`);
 if (sameSpec(specOfChoice(base), specOfChoice({ ...base, bats: 'L' }))) bad('left and right batting side give the same preview spec');
 if (sameSpec(specOfChoice(base), specOfChoice({ ...base, look: { ...base.look, head: 3 } }))) bad('look.head does not change the preview spec');
-const pit = { kind: 'pit', role: 'SP', throws: 'L', build: 'slim', look: { head: 1, skin: 0, hair: 0 }, points: { stuff: 60, ctrl: 60, arm: 60 }, nameDraw: 0 };
+const pit = { kind: 'pit', role: 'SP', throws: 'L', build: 'slim', look: { head: 1, skin: 0, hair: 0 }, points: even('pit'), nameDraw: 0 };
 if (specOfChoice(pit).hand !== 'L' || specOfChoice(pit).kind !== 'pit') bad('a left-handed pitcher must preview as a left-handed pitcher');
 
 /* a created player previews with the body the game will build from his row (same snap as render/game.js qBody, height drawn inside the build range) */
