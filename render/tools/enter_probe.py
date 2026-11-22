@@ -17,7 +17,7 @@ window.__lp=[];window.__rs=[];
 {const P=self.WebGL2RenderingContext&&WebGL2RenderingContext.prototype;if(P){const o=P.linkProgram;P.linkProgram=function(p){__lp.push(performance.now());return o.call(this,p)}}
  const D=self.GPUDevice&&GPUDevice.prototype;if(D)for(const k of ['createRenderPipeline','createRenderPipelineAsync','createComputePipeline','createComputePipelineAsync']){const o=D[k];if(o)D[k]=function(...a){__lp.push(performance.now());return o.apply(this,a)}}}
 window.__click=null;if(%s){const go=()=>{const b=document.getElementById('enter');if(b&&!b.disabled&&!__click){__click=performance.now();b.click();return true}};const mo=new MutationObserver(()=>{if(go())mo.disconnect()});document.addEventListener('DOMContentLoaded',()=>mo.observe(document.body,{attributes:true,subtree:true,attributeFilter:['disabled']}))}
-try{localStorage.setItem('zu_gl','%s');localStorage.setItem('zu_tier','%s')}catch(e){}
+try{localStorage.setItem('zu_gl','%s');localStorage.setItem('zu_tier','%s@'+Date.now())}catch(e){}
 """%('true' if os.environ.get('ACT')=='quick' else 'false','1' if MODE=='gl' else '0',TIER)
 async def main():
   async with async_playwright() as p:

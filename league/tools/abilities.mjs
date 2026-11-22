@@ -27,7 +27,8 @@ const SEED_TRIES = 400;
 const SKEW = 0.6;                 /* lognormal sigma: skewness about 2.3, long right tail */
 const SPREAD = 1.25;              /* new standard deviation relative to today's */
 const STAR_Z = 3.3, STAR_SECOND_Z = 2.2, REST_CAP_Z = 1.8, GOOD_Z = 1.7, HOLE_Z = -2.3, HOLE_JITTER = 0.5;
-/* the 1 to 100 display (../ratings.js) must read: every star first on his team and at least STAR_OVR, every hole under HOLE_OVR */
+/* the 1 to 100 display (../ratings.js) must read: every star first on his team, at least STAR_OVR and unlike the other
+ * stars, every hole under HOLE_OVR, nobody on 1 or 100 */
 const STAR_OVR = 90, HOLE_OVR = 45, LEAGUE_OVR = [60, 65];
 const WIN_MIN = 0.45, WIN_MAX = 0.55, MC_SEARCH = 200, MC_FINAL = 600;
 const BAT = ['con', 'pow', 'eye', 'spd', 'arm'], PIT = ['stuff', 'ctrl', 'arm'];
@@ -122,6 +123,10 @@ export function ratingsCheck(R) {
     if (hole.r.ovr >= HOLE_OVR) out.push(`${id}: hole ${hole.r.ovr}`);
   });
   const m = mean(all); if (m < LEAGUE_OVR[0] || m > LEAGUE_OVR[1]) out.push(`league overall ${m.toFixed(1)}`);
+  /* the four stars read four different numbers, nobody reads the ends of the scale */
+  const stars = R.map((t, i) => rate([...t.bat, ...t.pit].find(p => slotOf(p) === STARS[TEAMS[i].id].slot)).ovr);
+  if (new Set(stars).size !== stars.length) out.push(`stars share an overall: ${stars.join(' ')}`);
+  if (Math.max(...all) >= 100 || Math.min(...all) <= 1) out.push(`overall reaches an end: ${Math.min(...all)}..${Math.max(...all)}`);
   return out;
 }
 

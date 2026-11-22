@@ -6,7 +6,7 @@
  *     stuff ctrl arm),
  *   - repeats a gimmick (tags[1]) or uses a skill or data word as one,
  *   - has a tags[2] that is not a DATA_TAGS word or does not match the data (bats/throws left, age),
- *   - misses a player of wave 1 (all batters and the five starters of the default pairing),
+ *   - misses a player (wave 1, #54: the default pairing's batters and starters; wave 2: the other 44),
  *   - uses Math.random or Date, or is imported by engine/.
  * static.mjs runs this file.
  * Usage: node tests/bios.check.mjs */
@@ -15,7 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const MAX_LINE = 30, MIN_TAGS = 2, MAX_TAGS = 3, STARTERS = 5;
+const MAX_LINE = 30, MIN_TAGS = 2, MAX_TAGS = 3;
 const B = await import(pathToFileURL(path.join(ROOT, 'league/bios.js')));
 const { TEAMS } = await import(pathToFileURL(path.join(ROOT, 'league/teams.js')));
 const { ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'league/players.js')));
@@ -57,12 +57,9 @@ for (const [id, bio] of Object.entries(B.BIOS)) {
   if (tags.length === MAX_TAGS && !dataOk(tags[2], info)) problems.push(`${id}: tags[2] ${tags[2]} does not match his data`);
 }
 
-/* wave 1: every batter and the five starters of both teams of the default pairing */
-for (const teamId of opening.teams) {
-  const r = ROSTERS[TEAMS.findIndex(t => t.id === teamId)];
-  if (!r) { problems.push(`opening team ${teamId} has no roster`); continue; }
-  for (const p of [...r.bat, ...r.pit.slice(0, STARTERS)]) if (!B.BIOS[p.id]) problems.push(`${p.id} (${p.name}): wave-1 player without a bio`);
-}
+/* waves 1 and 2: every factory player has a line; the default pairing is named first (wave 1) */
+for (const teamId of opening.teams) if (TEAMS.findIndex(t => t.id === teamId) < 0) problems.push(`opening team ${teamId} has no roster`);
+for (const { p } of players.values()) if (!B.BIOS[p.id]) problems.push(`${p.id} (${p.name}): player without a bio`);
 
 const src = readFileSync(path.join(ROOT, 'league/bios.js'), 'utf8');
 if (/Math\.random|\bDate\b/.test(src)) problems.push('league/bios.js uses Math.random or Date');
