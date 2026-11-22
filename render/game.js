@@ -361,15 +361,27 @@ function updateBlades(){const cp=camera.getWorldPosition(_cw),dir=camera.getWorl
 /* ---------- Post-processing: AO (contact shadows) + bloom + vignette + FXAA; lightweight version for the WebGL fallback or phones ---------- */
 const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend))&&!/Mobi|Android/i.test(navigator.userAgent);
 let PP=null;
-function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4}=TSL;
-  const mx=gfxMax&&HQ&&!!FX.traa,pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass */
-  if(HQ){sp.setMRT(mrt(mx?{output,normal:normalView,velocity}:{output,normal:normalView}));const aoN=FX.ao(sp.getTextureNode('depth'),sp.getTextureNode('normal'),camera);aoN.resolutionScale=mx?MAX_AO_RES:AO_RES;aoN.radius.value=.6;aoN.distanceFallOff.value=1;
-    c=sp.getTextureNode('output');c=vec4(c.rgb.mul(mix(float(.35),float(1),aoN.getTextureNode().sample(screenUV).r)),c.a);
-    if(mx)c=FX.traa(c,sp.getTextureNode('depth'),sp.getTextureNode('velocity'),camera)}
+/* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
+   fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
+const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgr' = all three, '-' = not loaded or ?off= */
+function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4,diffuseColor,metalness,roughness,step,blendColor}=TSL;
+  const key=fxKey(),mx=key[0]==='t',gi=key[1]==='g',sr=key[2]==='r',pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass */
+  if(HQ){/* WebGPU allows 32 colour bytes per pixel (four 8-byte targets), so the SSR inputs ride in spare channels: normal.a = gloss mask
+      (SSR's metalness input: 0, skipped, unless the surface is smoother than MAX_SSR_ROUGH: helmets, wet or polished props), diffuse.a = roughness */
+    const ch={output,normal:sr?vec4(normalView,step(roughness,float(MAX_SSR_ROUGH)).mul(metalness.max(MAX_SSR_F0))):normalView};if(mx)ch.velocity=velocity;
+    if(gi||sr)ch.diffuse=vec4(diffuseColor.rgb,roughness);sp.setMRT(mrt(ch));if(ch.diffuse)sp.getTexture('diffuse').type=THREE.UnsignedByteType;/* 8-bit is enough here */
+    const dep=sp.getTextureNode('depth'),nor=sp.getTextureNode('normal');c=sp.getTextureNode('output');
+    if(gi){const g=FX.ssgi(c,dep,nor,camera);g.sliceCount.value=MAX_GI_SLICES;g.stepCount.value=MAX_GI_STEPS;g.radius.value=MAX_GI_RADIUS;g.giIntensity.value=MAX_GI_I;g.aoIntensity.value=MAX_GI_AO;
+      c=vec4(c.rgb.mul(g.a).add(sp.getTextureNode('diffuse').rgb.mul(g.rgb)),c.a)}
+    else{const aoN=FX.ao(dep,nor,camera);aoN.resolutionScale=gfxMax?MAX_AO_RES:AO_RES;aoN.radius.value=.6;aoN.distanceFallOff.value=1;
+      c=vec4(c.rgb.mul(mix(float(.35),float(1),aoN.getTextureNode().sample(screenUV).r)),c.a)}
+    if(sr){const r=FX.ssr(sp.getTextureNode('output'),dep,nor,{metalnessNode:nor.a,roughnessNode:sp.getTextureNode('diffuse').a,camera});
+      r.resolutionScale=MAX_SSR_RES;r.maxDistance.value=MAX_SSR_DIST;r.thickness.value=MAX_SSR_THICK;r.quality.value=MAX_SSR_Q;c=blendColor(c,r)}
+    if(mx)c=FX.traa(c,dep,sp.getTextureNode('velocity'),camera)}
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
-  pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.traa=mx;return pp}catch(e){console.error('post',e);return null}}
+  pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.fx=key;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
 /* ---------- max tier (#211): the owner's desktop, above tier 0 ----------
    Dev site only: ?q=max (or the 畫面 button's 最高 step) turns it on and zu_max remembers it; ?q=<anything else> turns it off. WebGPU backend
@@ -377,11 +389,15 @@ let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
    no automatic drop, TRAA instead of FXAA, full-resolution AO, a MAX_SHADOW_MAP key shadow map with a wider PCF radius, image-based light from
    the sky (skyEnv). TRAA's module is fetched only when max is on, so the default download does not grow. Tiers 0-3 are untouched. */
 const IS_GPU=!!(renderer.backend&&renderer.backend.isWebGPUBackend),IS_DEV=!!(window.SITE&&window.SITE.dev);
+/* SSGI presets: three's "medium with temporal filtering" (TRAA is on); radius in metres. SSR: half resolution, rays up to MAX_SSR_DIST m. */
+const MAX_GI_SLICES=2,MAX_GI_STEPS=8,MAX_GI_RADIUS=4,MAX_GI_I=4,MAX_GI_AO=1,MAX_SSR_ROUGH=.35,MAX_SSR_F0=.04,MAX_SSR_RES=.5,MAX_SSR_DIST=25,MAX_SSR_THICK=.05,MAX_SSR_Q=.5;
 const MAX_SHADOW_MAP=4096,MAX_SHADOW_RADIUS=2.5,TIER_SHADOW_RADIUS=1,MAX_AO_RES=1,AO_RES=.5,MAX_IBL_I=.6,SKY_ENV_FAR=1000,SKY_ENV_MIN_R=400;
 let maxWish=false;try{if(IS_DEV){const q=new URLSearchParams(location.search).get('q');if(q!==null)localStorage.setItem('zu_max',q==='max'?'1':'0');maxWish=localStorage.getItem('zu_max')==='1'}}catch(e){}
 let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
 const maxSave=v=>{maxWish=v;try{localStorage.setItem('zu_max',v?'1':'0')}catch(e){}};
-const maxLoad=()=>FX.traa?Promise.resolve():import('three/addons/tsl/display/TRAANode.js').then(m=>{FX.traa=m.traa}).catch(e=>console.warn('TRAA failed to load; max keeps FXAA',e));
+/* the max modules are fetched only when max is on; each one may fail alone (max then keeps FXAA / GTAO / no reflections). ?off=traa,ssgi,ssr skips one on dev */
+const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode']];
+const maxLoad=()=>Promise.all(MAX_MODS.map(([k,f])=>FX[k]?0:import(`three/addons/tsl/display/${f}.js`).then(m=>{FX[k]=m[k]}).catch(e=>console.warn(`${f} failed to load; max goes on without it`,e))));
 /* image-based light: the sky mesh is drawn alone into a PMREM. One entry point: applySky (#203 park skies) calls skyEnv() again after it changes the sky. */
 let skyEnvRT=null;
 function skySource(){let s=null;scene.traverse(o=>{const g=o.geometry&&o.geometry.parameters;if(!s&&o.isMesh&&o.material&&o.material.side===THREE.BackSide&&o.material.fog===false&&g&&g.radius>=SKY_ENV_MIN_R)s=o});return s}
@@ -390,7 +406,7 @@ function skyEnv(){if(skyEnvRT){skyEnvRT.dispose();skyEnvRT=null}scene.environmen
     scene.environment=skyEnvRT.texture;scene.environmentIntensity=MAX_IBL_I}catch(e){console.warn('sky env failed',e);scene.environment=null}}
 window.skyEnv=skyEnv;
 PP=gfxLow?null:setupPost();
-if(gfxMax)maxLoad().then(()=>{if(gfxMax&&FX.traa&&typeof setTier==='function')setTier(0)});
+if(gfxMax)maxLoad().then(()=>{if(gfxMax&&typeof setTier==='function')setTier(0)});
 const gfxText=()=>{$('gfx').innerHTML=(gfxLow?'畫面：順暢':gfxMax?'畫面：最高':'畫面：精緻')+'<small>卡卡的就選順暢</small>'};gfxText();
 $('gfx').onclick=()=>{
   /* dev: 精緻 -> 最高 (WebGPU only) -> 順暢 -> 精緻; production keeps the two steps */
@@ -1141,7 +1157,7 @@ addEventListener('orientationchange',()=>setTimeout(()=>{camera.aspect=innerWidt
 const ENTRY_WATCH_MS=15000;let entryT0=0,entryDraw=0,entryGap=0;const entryLog=[];
 const entryNote=x=>{if(entryT0&&entryLog.length<12)entryLog.push(`${x}@${Math.round(performance.now()-entryT0)}`)};
 function entryFrame(now){if(!entryT0||now-entryT0>ENTRY_WATCH_MS)return;if(!entryDraw)entryNote('f1');else entryGap=Math.max(entryGap,now-entryDraw);entryDraw=now}
-$('report').onclick=async()=>{const B=window.BOOT,code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} boot=${B&&B.str?B.str()||'-':'-'}${OFF.size?` off=${[...OFF].join('+')}`:''} fps=${fpsAvg.toFixed(0)} tier=${gfxMax?'max':gfxTier}${maxWish&&!gfxMax?`(max-${IS_GPU?'off':'gl'})`:''} be=${IS_GPU?'gpu':'gl'} px=${renderer.domElement.width}x${renderer.domElement.height} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
+$('report').onclick=async()=>{const B=window.BOOT,code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} boot=${B&&B.str?B.str()||'-':'-'}${OFF.size?` off=${[...OFF].join('+')}`:''} fps=${fpsAvg.toFixed(0)} tier=${gfxMax?`max(${PP?PP.fx:'nopost'})`:gfxTier}${maxWish&&!gfxMax?`(max-${IS_GPU?'off':'gl'})`:''} be=${IS_GPU?'gpu':'gl'} px=${renderer.domElement.width}x${renderer.domElement.height} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
   try{await navigator.clipboard.writeText(code);note('已複製，貼給 Claude 就能重現這一刻')}catch(err){prompt('複製這行貼給 Claude：',code)}};
 const luEl=$('lu');
 function showLineup(){let h='<div class="cols">';for(let t=0;t<2;t++){const R=ROSTERS[t],f=game.ev.find(x=>x.k==='P'&&x.pit&&x.pit[0]===t),sp=f?R.pit[f.pit[1]]:R.pit[0];
@@ -1387,12 +1403,12 @@ function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
 function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
   renderer.setPixelRatio(gfxMax?devicePixelRatio:Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
-  PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.traa===(gfxMax&&HQ&&!!FX.traa)?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
+  PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.fx===fxKey()?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
   const sh=gfxTier<3&&!OFF.has('shadowmap');renderer.shadowMap.enabled=sh;key.castShadow=sh;
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
-  const sig=`${sh}|${!!PP}|${gfxMax}|${!!(PP&&PP.traa)}`;/* max: environment map + velocity MRT change every shader */entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
+  const sig=`${sh}|${!!PP}|${gfxMax}|${PP?PP.fx:''}`;/* max: environment map + velocity/diffuse MRT change every shader */entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
   if(!first&&key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
   if(warmStarted)warmUp()}/* a drop in play rebuilds every material: compile it off the frame instead of freezing the tab (#125) */
