@@ -19,7 +19,7 @@ export const BASE={
   RUBBER_W:.6,RUBBER_D:.15,RUBBER_Z:-18.425,RUBBER_H:.022,RUBBER_R:.008,RUBBER_CROWN:.002,/* pitcher's rubber (= the painted strip) */
   SINK:.012,/* the side wall goes this far under the dirt so no gap shows at grazing angles */
   RINGS:9,EDGE_SEG:5,CORNER_SEG:4,SIDE_M:.04,/* top rings, points per quarter-circle edge, per corner, side subdivision (m) */
-  SPECK:.22,EDGE_DIRT:.3,SIDE_DIRT:.42,SCUFF:.24,/* how dark (fraction) dirt specks, edge dirt, the side band and cleat scuffs get */
+  SPECK:.15,EDGE_DIRT:.2,SIDE_DIRT:.32,SCUFF:.22,/* how dark (fraction) dirt specks, edge dirt, the side band and cleat scuffs get */
   SHADOW_K:1.55,SHADOW_A:.55,/* contact shadow: size in bag widths, darkest alpha */
 };
 function hash(x,y,k){let h=Math.imul(x*73856093^y*19349663^k*83492791,2654435761);h^=h>>>15;h=Math.imul(h,2246822519);h^=h>>>13;return(h>>>0)/4294967296}
@@ -69,8 +69,8 @@ function slab(P,h,r,c,tileM,wear){const {RINGS,EDGE_SEG,CORNER_SEG,SINK,SIDE_M}=
 
 /* wear: seeded specks + edge dirt + side band + cleat scuffs near the points `feet` (local x/z, radius) */
 const wearFn=(seed,h,feet=[])=>(x,z,y,side)=>{const {SPECK,EDGE_DIRT,SIDE_DIRT,SCUFF}=BASE;
-  const sp=smooth(.62,.9,vn(x*90,z*90,seed))*SPECK+smooth(.5,.8,vn(x*25+7,z*25,seed+1))*SPECK*.5,
-    sd=side*EDGE_DIRT*(.6+.4*vn(x*40,z*40+y*40,seed+2))+sat(1-y/Math.max(h,.02))*SIDE_DIRT*side*(.7+.3*vn(x*30,y*60,seed+3));
+  const sp=smooth(.62,.9,vn(x*90,z*90,seed))*SPECK+smooth(.6,.85,vn(x*25+7,z*25,seed+1))*SPECK*.4,
+    sd=side*EDGE_DIRT*(.6+.4*vn(x*40,z*40+y*40,seed+2))+sat(1-y/Math.max(h,.02))**1.5*SIDE_DIRT*side*(.8+.2*vn(x*30,y*60,seed+3));
   let sc=0;for(const [fx,fz,fr] of feet){const d=Math.hypot(x-fx,z-fz)/fr;sc=Math.max(sc,(1-smooth(.3,1,d))*(.5+.5*vn(x*60,z*60,seed+4)))}
   return sp+sd+sc*SCUFF};
 
