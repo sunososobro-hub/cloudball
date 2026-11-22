@@ -21,6 +21,8 @@ export const PROPS=[
   {name:'wall',build:c=>buildWall({colors:c.park(),old:c.scene.getObjectByName('old:wall')}),old:c=>['old:wall','old:wall:top'].map(n=>c.scene.getObjectByName(n)).filter(Boolean)},
   /* both foul poles: the two plain cylinders at the ends of the fence arc in game.js */
   {name:'foulPoles',build:c=>buildFoulPoles({colors:c.park()}),old:c=>[-1,1].map(s=>c.scene.getObjectByName('old:foulpole:'+s)).filter(Boolean)},
+  /* the road team's dugout at dugout(0), first-base side: same shell mirrored, plus the visitors' gear. Never existed before either. */
+  {name:'roadDugout',build:c=>{const [x,z]=c.dugout(0);return buildDugout({x,z,colors:c.park(),name:'roadDugout',road:true})},old:()=>[]},
 ];
 
 /* ctx from game.js: {scene, tier: () => current quality tier, max: () => true while the `max` tier is on, dugout: team -> [x, z], park: () => {pad, trim} of the home park} */
