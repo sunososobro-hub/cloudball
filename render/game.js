@@ -805,17 +805,23 @@ function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.
   const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8;
   /* f.mix: limb angles of the motion this run grows out of (the pitcher's follow-through), faded out by f.mix.k */
   const m=f.mix;if(m&&m.k>0){f.legs[0].rotation.x=lerp(sw,m.l0,m.k);f.legs[1].rotation.x=lerp(-sw,m.l1,m.k);f.arms[0].rotation.x=lerp(-sw*.8,m.a0,m.k);f.arms[1].rotation.x=lerp(sw*.8,m.a1,m.k)}return sp}
-/* Batter: before the first pitch of each plate appearance he walks from the on-deck circle into the box; if the PA ends without him running (strikeout) he walks back to the dugout, no more popping in and out */
-const BAT_BOX=[-.9,.15],BAT_FROM=[-7,2.6],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY=[-14,6],BAT_AWAY_AT=ARRIVE+.9,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7,BAT_LEAVE_BLEND=4,BAT_CROSS_FWD=.8;
+/* Batter: before the first pitch of each plate appearance he walks from BAT_FROM (where the on-deck walk-up left him, just outside the
+   box: #42 slice 4 moved it in from [-7, 2.6], a 6.6 m/s dash) into the box; if the PA ends without him running (strikeout) he walks
+   back to his own team's dugout (dugout(t), behind the plate at OD_BEHIND_Z when it is on the far side; slice 4: it was a fixed
+   batter-local spot, so every lefty went to the other team's side) and goes down the steps there. */
+const BAT_BOX=[-.9,.15],BAT_FROM=[-2.6,1],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY_AT=ARRIVE+.9,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7,BAT_LEAVE_BLEND=4,BAT_CROSS_FWD=.8;
+/* the strikeout walk-off, in the batter-local frame (a lefty's figure is mirrored, so his dugout is mirrored into that frame too) */
+function batAway(e){const lf=ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',G=dugout(e.bat[0]),D=[lf?-G[0]:G[0],G[1]];
+  return odPath(Math.sign(D[0])===Math.sign(BAT_BOX[0])?[BAT_BOX,D]:[BAT_BOX,[0,OD_BEHIND_Z],D])}
 function batterWalk(e,u){
   let x=BAT_BOX[0],z=BAT_BOX[1],yaw=Math.PI/2,sw=0;
   if(e.c0[0]===0&&e.c0[1]===0&&u<BAT_WALK_DUR){
     const t=ease(sat01(u/BAT_WALK_DUR)),k=sat01((u-(BAT_WALK_DUR-BAT_TURN))/BAT_TURN),wy=Math.atan2(BAT_BOX[0]-BAT_FROM[0],BAT_BOX[1]-BAT_FROM[1]);
     x=lerp(BAT_FROM[0],BAT_BOX[0],t);z=lerp(BAT_FROM[1],BAT_BOX[1],t);yaw=lerp(wy,Math.PI/2,k);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP*(1-k)}
-  else if(e.pa&&!(e.moves||[]).some(m=>m[0]===0)&&u>=(e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT)){
-    const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,dx=BAT_AWAY[0]-BAT_BOX[0],dz=BAT_AWAY[1]-BAT_BOX[1],L=Math.hypot(dx,dz),t=(u-at)*(e.r==='inplay'?BAT_AWAY_SPEED_HIT:BAT_AWAY_SPEED)/L;
+  else if(e.pa&&e.bat&&!(e.moves||[]).some(m=>m[0]===0)&&u>=(e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT)){
+    const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,P=batAway(e),t=(u-at)*(e.r==='inplay'?BAT_AWAY_SPEED_HIT:BAT_AWAY_SPEED)/P.L;
     if(t>=1)batter.g.visible=false;
-    x=lerp(BAT_BOX[0],BAT_AWAY[0],Math.min(t,1));z=lerp(BAT_BOX[1],BAT_AWAY[1],Math.min(t,1));yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP}
+    const [px,pz,dx,dz]=odAt(P,Math.min(t,1));x=px;z=pz;yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP}
   const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';/* Left-handed batter = the whole figure mirrored left/right */
   batter.g.scale.x=lf?-1:1;
   batter.g.position.set(lf?-x:x,-buntDrop,z);batter.g.rotation.y=lf?-yaw:yaw;batter.legs[0].rotation.x=sw;batter.legs[1].rotation.x=-sw}
@@ -1450,7 +1456,7 @@ function cpEvents(g){const ev=g.ev;
     else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
     else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),stJogEnd(off,0),odEnd(ev,i));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
-      if(e.pa&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+Math.hypot(BAT_AWAY[0]-BAT_BOX[0],BAT_AWAY[1]-BAT_BOX[1])/BAT_AWAY_SPEED);/* strikeout: he walks off */
+      if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAway(e).L/BAT_AWAY_SPEED);/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE))}/* walk: runners trot on */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
