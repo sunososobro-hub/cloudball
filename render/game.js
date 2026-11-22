@@ -651,6 +651,12 @@ const BK={yaw:[-.15,-.45,.75,1.7],lean:[.12,.16,.2,.1],hx:[-.2,-.3,-.05,.35],hy:
 /* When the batter stays in the box after a pitch (foul, take, swing and miss), the bat comes down to rest on his back shoulder, hands low in front
    (never held vertical in front of him, #43), and goes back up before the next pitch */
 const BAT_REST={yaw:-.1,hx:.02,hy:.3,hz:.28,bx:-.6,by:.55,bz:-.55},BAT_REST_AT=1.4,BAT_REST_DUR=.6,BAT_UNREST_DUR=.5;
+/* #124 the batter after strike three (owner 11/22: up on his toes in a running stride with the bat still raised). He stays planted, the bat
+   comes down to the shoulder rest (from BAT_K_REST_AT[called, swinging] s after the pitch arrives: a swinging K first finishes the swing and
+   the clip blends out), then he walks off from BAT_AWAY_AT at BAT_K_WALK_V, picking up to BAT_AWAY_SPEED over BAT_K_RAMP s (batAwayD).
+   A dropped third strike (he runs to first) is not this. */
+const BAT_K_REST_AT=[.35,.8],BAT_K_REST_DUR=.6,BAT_K_WALK_V=1.3,BAT_K_RAMP=1.8;
+const batKOut=e=>!!(e.pa&&e.bat&&(e.r==='cstr'||e.r==='sstr')&&!(e.moves||[]).some(m=>m[0]===0));
 const BAT_LOAD_LEAD=.9,BAT_LOAD_DUR=.6,BAT_SWING_LEAD=.22,BAT_SWING_DUR=.3,BAT_FT_DELAY=.06,BAT_FT_DUR=.3,BAT_ARM_LEN=.6,BAT_SHOULDER_X=.3,BAT_SHOULDER_Y=.57;
 const _bv=new THREE.Vector3(),_bq=new THREE.Quaternion(),_dn=new THREE.Vector3(0,-1,0),_up=new THREE.Vector3(0,1,0),sat01=t=>Math.max(0,Math.min(1,t)),ease=t=>t*t*(3-2*t);
 function aimArm(a,sx,tx,ty,tz){_bv.set(tx-sx,ty-BAT_SHOULDER_Y,tz);const d=_bv.length();_bq.setFromUnitVectors(_dn,_bv.normalize());a.quaternion.copy(_bq);a.scale.y=Math.max(ARM_S_MIN,Math.min(1.2,d/BAT_ARM_LEN))}
@@ -681,7 +687,7 @@ function poseBatter(e,u){
   const bn=e.r==='inplay'&&e.play&&e.play.bunt?ease(sat01((u-(ARRIVE-BUNT_SQUARE_LEAD))/BUNT_SQUARE_DUR)):0;
   const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing&&!bn?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing&&!bn?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
   const K=(k,c)=>{const a=BK[k];let v=lerp(a[0],a[1],ld);v=lerp(v,c===undefined?a[2]:c,sw);return lerp(v,a[3],ft)};
-  const stay=!(e.pa&&e.r!=='ibb'),rw=stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
+  const stay=!(e.pa&&e.r!=='ibb'),kOut=batKOut(e),rw=kOut?ease(sat01((u-(ARRIVE+BAT_K_REST_AT[e.r==='sstr'?1:0]))/BAT_K_REST_DUR)):stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
   const yaw=lerp(K('yaw'),BAT_REST.yaw,rw),py=.45+e.zy*.75,dyC=Math.max(-.7,Math.min(.2,(py-1.33)/.85));
   const byaw=lerp(yaw,BUNT.yaw,bn);const hb=e.r==='hbp'?hbpReact(u):0;BR.up.rotation.set(lerp(K('lean'),BUNT.lean,bn)+HBP_LEAN*hb,byaw+HBP_YAW*hb,0);BR.hips.rotation.y=lerp(yaw*.6,BUNT.hips,bn);BR.hg.rotation.y=lerp(K('head'),BUNT.head,bn)-byaw;
   BR.l0.rotation.z=K('back');BR.l1.rotation.z=lerp(lerp(BK.stride[0],BK.stride[1],ld),BK.stride[2],sw);
@@ -844,19 +850,24 @@ function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.
    box: #42 slice 4 moved it in from [-7, 2.6], a 6.6 m/s dash) into the box; if the PA ends without him running (strikeout) he walks
    back to his own team's dugout (dugout(t), behind the plate at OD_BEHIND_Z when it is on the far side; slice 4: it was a fixed
    batter-local spot, so every lefty went to the other team's side) and goes down the steps there. */
-const BAT_BOX=[-.9,.15],BAT_FROM=[-2.6,1],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY_AT=ARRIVE+.9,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7,BAT_LEAVE_BLEND=4,BAT_CROSS_FWD=.8;
+const BAT_BOX=[-.9,.15],BAT_FROM=[-2.6,1],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY_AT=ARRIVE+1.5,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7,BAT_LEAVE_BLEND=4,BAT_CROSS_FWD=.8;
 /* the strikeout walk-off, in the batter-local frame (a lefty's figure is mirrored, so his dugout is mirrored into that frame too) */
 function batAway(e){const lf=ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',G=dugout(e.bat[0]),D=[lf?-G[0]:G[0],G[1]];
   return odPath(Math.sign(D[0])===Math.sign(BAT_BOX[0])?[BAT_BOX,D]:[BAT_BOX,[0,OD_BEHIND_Z],D])}
+/* distance walked off tau s after the start, its speed, and the time to cover L (in play: flat BAT_AWAY_SPEED_HIT; strikeout: walk then pick up) */
+function batAwayD(e,tau){if(e.r==='inplay')return[tau*BAT_AWAY_SPEED_HIT,BAT_AWAY_SPEED_HIT];const v0=BAT_K_WALK_V,v1=BAT_AWAY_SPEED,R=BAT_K_RAMP;
+  return tau<R?[v0*tau+(v1-v0)*tau*tau/(2*R),v0+(v1-v0)*tau/R]:[(v0+v1)*R/2+v1*(tau-R),v1]}
+function batAwayT(e,L){if(e.r==='inplay')return L/BAT_AWAY_SPEED_HIT;const v0=BAT_K_WALK_V,v1=BAT_AWAY_SPEED,R=BAT_K_RAMP,dR=(v0+v1)*R/2,a=(v1-v0)/(2*R);
+  return L<=dR?(-v0+Math.sqrt(v0*v0+4*a*L))/(2*a):R+(L-dR)/v1}
 function batterWalk(e,u){
   let x=BAT_BOX[0],z=BAT_BOX[1],yaw=Math.PI/2,sw=0;
   if(e.c0[0]===0&&e.c0[1]===0&&u<BAT_WALK_DUR){
     const t=ease(sat01(u/BAT_WALK_DUR)),k=sat01((u-(BAT_WALK_DUR-BAT_TURN))/BAT_TURN),wy=Math.atan2(BAT_BOX[0]-BAT_FROM[0],BAT_BOX[1]-BAT_FROM[1]);
     x=lerp(BAT_FROM[0],BAT_BOX[0],t);z=lerp(BAT_FROM[1],BAT_BOX[1],t);yaw=lerp(wy,Math.PI/2,k);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP*(1-k)}
   else if(e.pa&&e.bat&&!(e.moves||[]).some(m=>m[0]===0)&&u>=(e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT)){
-    const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,P=batAway(e),t=(u-at)*(e.r==='inplay'?BAT_AWAY_SPEED_HIT:BAT_AWAY_SPEED)/P.L;
+    const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,P=batAway(e),[d,v]=batAwayD(e,u-at),t=d/P.L;
     if(t>=1)batter.g.visible=false;
-    const [px,pz,dx,dz]=odAt(P,Math.min(t,1));x=px;z=pz;yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP}
+    const [px,pz,dx,dz]=odAt(P,Math.min(t,1));x=px;z=pz;yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP*Math.min(1,v/BAT_AWAY_SPEED)}
   const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';/* Left-handed batter = the whole figure mirrored left/right */
   batter.g.scale.x=lf?-1:1;
   batter.g.position.set(lf?-x:x,-buntDrop,z);batter.g.rotation.y=lf?-yaw:yaw;batter.legs[0].rotation.x=sw;batter.legs[1].rotation.x=-sw}
@@ -962,7 +973,7 @@ function flyPath(e,p0,p1,T){const key=e.t;let tab=flyCache.get(key);
 const INTRO_GAP=.7,INTRO_RUN=4.5,INTRO_X=26,INTRO_Z=-6;
 /* ---------- per-frame scene from event ---------- */
 /* catcher + home-plate umpire crouch, mitt tracking, strike call; half-inning swap (defense jogs off, other team jogs on) */
-const CROUCH_FWD=.7,CROUCH_SPLAY=.45,CROUCH_LEAN=.4,CROUCH_SHRINK=.5,UMP_FWD=.35,UMP_SPLAY=.3,UMP_LEAN=.4,UMP_SHRINK=.18,UMP_HEAD_UP=.45,MITT_Z=.8,MITT_SET_LEAD=.7,MITT_SET_DUR=.5,CALL_DELAY=.15,CALL_UP=.25,CALL_HOLD=1.4,CALL_DOWN=.4,CALL_STAND=.75,LEG_LEN=.86;
+const CROUCH_FWD=.7,CROUCH_SPLAY=.45,CROUCH_LEAN=.4,CROUCH_SHRINK=.5,UMP_FWD=.35,UMP_SPLAY=.3,UMP_LEAN=.4,UMP_SHRINK=.18,UMP_HEAD_UP=.45,MITT_Z=.8,MITT_SET_LEAD=.7,MITT_SET_DUR=.5,CALL_STAND=.75,LEG_LEN=.86;
 const JOG_SPEED=6.5,JOG_GAP=.3,BRK_OFF_AT=1,BRK_ON_AT=17.5,_tv=new THREE.Vector3();
 const jogRank=k=>JOG_ORDER.indexOf(k),JOG_ORDER=FIELDER_KEYS.slice().sort((a,b)=>Math.hypot(...fielders[b].home)-Math.hypot(...fielders[a].home));
 const dugout=t=>[(t===0?1:-1)*INTRO_X,INTRO_Z];
@@ -991,9 +1002,32 @@ function poseBattery(e,u){
   if(isP&&up<1)C.g.position.x+=cShift(e)*k*(1-back)*(1-up);
   if(set&&up<1){const gx=lerp(lerp(0,isP?e.zx:0,k),0,back),gy=lerp(lerp(MITT_REST_Y,py,k),MITT_REST_Y,back);
     aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,gx*.8,gy-.15,MITT_Z+.2)}else armsDown(CR);
-  const call=isP&&(e.r==='cstr'||e.r==='sstr')?ease(sat01((u-(ARRIVE+CALL_DELAY))/CALL_UP))*(1-ease(sat01((u-(ARRIVE+CALL_HOLD))/CALL_DOWN))):0,cu=(set?1:0)*(1-CALL_STAND*call)*(1-up);
-  crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.hg.rotation.x=-UMP_HEAD_UP*cu;ump.noAnim=set&&up<1;
-  if(set&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up);aimArm(UR.a0,-BAT_SHOULDER_X,h(-.25,0,-BAT_SHOULDER_X),h(.1,1),h(.45,2));aimArm(UR.a1,BAT_SHOULDER_X,h(lerp(.25,.45,call),0,BAT_SHOULDER_X),h(lerp(.1,1.3,call),1),h(lerp(.45,.05,call),2))}else armsDown(UR)}
+  const cl=isP?umpCall(e,u):UC_NONE,cu=(set?1:0)*(1-(cl.k?UC_K_STAND:CALL_STAND)*cl.w)*(1-up);
+  crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.up.rotation.y=UC_K_TURN*cl.turn;UR.hg.rotation.x=-UMP_HEAD_UP*cu;UR.hg.rotation.y=-UC_K_TURN*cl.turn*UC_K_HEAD_KEEP;ump.noAnim=set&&up<1;
+  if(set&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up),R=umpArms(cl);aimArm(UR.a1,BAT_SHOULDER_X,h(R[0],0,BAT_SHOULDER_X),h(R[1],1),h(R[2],2));aimArm(UR.a0,-BAT_SHOULDER_X,h(R[3],0,-BAT_SHOULDER_X),h(R[4],1),h(R[5],2))}else armsDown(UR)}
+/* #124 strike calls (owner 11/21 and 11/22: the arm straight up over the head read as a pupil raising his hand). Targets are hands in the
+   umpire's upper-body frame (+z forward, +x = his RIGHT: arms[1] at +x is the calling arm; checked on a front studio shot, the old call raised it). All start UC_DELAY s after the
+   ball is in the mitt (ARRIVE + CATCH_SNAP), never before; the mask stays on the plate (the head turns back against the torso turn).
+   - called strike (not the third): the hammer. Upper arm out to the side at shoulder height, elbow ~90 deg, fist beside the head
+     (UC_HAMMER), one short sharp beat down and forward (UC_BEAT), held to UC_HOLD, back down.
+   - swinging strike (not the third): nothing, the swing tells it. Ball: nothing.
+   - swinging third strike: a quick hammer (UC_QUICK_HOLD), no bow pull.
+   - called third strike, the punch-out (拉弓): he rises fully, turns his chest UC_K_TURN to his right, the right fist punches out to the side
+     (UC_PUNCH) and is pulled back past the hip like drawing a bow (UC_PULL) while the left arm holds out in front (UC_BOW); held UC_K_HOLD.
+   Pure function of (event, time): umpCall gives weights, umpArms turns them into the two hand targets. */
+const UC_DELAY=.12,UC_UP=.22,UC_BEAT_AT=.3,UC_BEAT_DUR=.14,UC_HOLD=1.2,UC_QUICK_HOLD=.6,UC_DOWN=.4,UC_K_UP=.3,UC_K_PULL_AT=.45,UC_K_PULL=.3,UC_K_HOLD=1.9,UC_K_DOWN=.5;
+const UC_K_TURN=.75,UC_K_HEAD_KEEP=.85,UC_K_STAND=.95,UC_REST_R=[.25,.1,.45],UC_REST_L=[-.25,.1,.45],UC_HAMMER=[.56,.86,.1],UC_BEAT=[0,-.1,.12];
+const UC_PUNCH=[.86,.6,.3],UC_PULL=[.36,.08,-.32],UC_BOW=[-.3,.52,.55],UC_NONE={w:0,beat:0,k:0,turn:0,pull:0};
+const ucK3=e=>e.pa&&e.c0&&e.c0[1]===2,ucEnd=e=>e.r==='cstr'?(ucK3(e)?UC_K_HOLD+UC_K_DOWN:UC_HOLD+UC_DOWN):e.r==='sstr'&&ucK3(e)?UC_QUICK_HOLD+UC_DOWN:0;
+function umpCall(e,u){const t=u-(ARRIVE+CATCH_SNAP+UC_DELAY);if(t<=0||!(e.r==='cstr'||e.r==='sstr'))return UC_NONE;
+  if(e.r==='cstr'&&ucK3(e)){const w=ease(sat01(t/UC_K_UP))*(1-ease(sat01((t-UC_K_HOLD)/UC_K_DOWN)));return{w,beat:0,k:1,turn:w,pull:ease(sat01((t-UC_K_PULL_AT)/UC_K_PULL))}}
+  if(e.r==='sstr'&&!ucK3(e))return UC_NONE;
+  const hold=e.r==='sstr'?UC_QUICK_HOLD:UC_HOLD,b=sat01((t-UC_BEAT_AT)/UC_BEAT_DUR);
+  return{w:ease(sat01(t/UC_UP))*(1-ease(sat01((t-hold)/UC_DOWN))),beat:Math.sin(Math.PI*b),k:0,turn:0,pull:0}}
+function umpArms(c){const R=[],L=[];for(let i=0;i<3;i++){
+    const ham=UC_HAMMER[i]+UC_BEAT[i]*c.beat,bow=lerp(UC_PUNCH[i],UC_PULL[i],c.pull);
+    R.push(lerp(UC_REST_R[i],c.k?bow:ham,c.w));L.push(lerp(UC_REST_L[i],c.k?UC_BOW[i]:UC_REST_L[i],c.w))}
+  return R.concat(L)}
 /* Plate umpire's spot: behind the catcher on the side away from the batter. On a ball in play he comes out from behind the standing catcher
    (who would hide him from the centre-field camera) and out of the runners' way to UMP_GIVE (behind the plate, on the side away from the
    batting team's dugout, where scorers peel off), stays until UMP_HOLD s after the last runner reaches home, and is back on his spot
@@ -1473,7 +1507,7 @@ function plUpdate(){const vis=mode==='opening'&&!hl&&$('intro').hidden;/* the hi
 const PK_END=Math.max(...Object.values(PK).map(K=>K[K.length-1][0]));
 /* a pitch not put in play is still from here on: delivery and walk back to the rubber, return throw, strike call, bat to the shoulder,
    runners back from their lead, mitt back to rest */
-const PITCH_STILL=Math.max(PK_END,BALL_BACK_AT+BALL_BACK_DUR,ARRIVE+CALL_HOLD+CALL_DOWN,ARRIVE+BAT_REST_AT+BAT_REST_DUR,
+const PITCH_STILL=Math.max(PK_END,BALL_BACK_AT+BALL_BACK_DUR,ARRIVE+CATCH_SNAP+UC_DELAY+UC_K_HOLD+UC_K_DOWN,ARRIVE+BAT_REST_AT+BAT_REST_DUR,
   ARRIVE+window.ENGINE.LEAD_BACK_AT+window.ENGINE.LEAD_BACK_DUR,ARRIVE+CATCH_SNAP+MITT_HOLD+MITT_BACK);
 const CP_RUNNER_SETTLE=.6+SLIDE_HOLD+SLIDE_UP,CP_PEEL_STEP=.05,CP_PEEL_MAX=30;/* after a runner arrives (vanish / get up from a slide); peel search step and cap */
 const cpHere=document.currentScript&&document.currentScript.src;
@@ -1491,7 +1525,7 @@ function cpEvents(g){const ev=g.ev;
     else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
     else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),stJogEnd(off,0),odEnd(ev,i));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
-      if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAway(e).L/BAT_AWAY_SPEED);/* strikeout: he walks off to his dugout */
+      if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE))}/* walk: runners trot on */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
@@ -1555,6 +1589,7 @@ const K3=e=>/三振/.test(e.desc||'');
 const STUDIO_SEEDS=40,STUDIO_SEEDS_RARE=400,STUDIO_MAX=30;/* rare acts (5th field) scan a bigger seed bank */
 const STUDIO_ACTS=[
   ['投打','cstr','投球・看好球',e=>e.k==='P'&&e.r==='cstr'&&!K3(e)],
+  ['投打','sstr','投球・揮空好球',e=>e.k==='P'&&e.r==='sstr'&&!K3(e)],
   ['投打','ball','投球・壞球',e=>e.k==='P'&&e.r==='ball'],
   ['投打','hiball','投球・高壞球（捕手起身接）',e=>e.k==='P'&&e.r==='ball'&&!e.sbGo&&e.zy>1.15],
   ['投打','foul','打者・界外球',e=>e.k==='P'&&e.r==='foul'],
