@@ -1,7 +1,6 @@
 # assets/ handoff (max 20 lines)
 ## Done
-- #3: Chinese comments/docstrings in `tools/*.py` translated (PR #12).
-- #16: team logos in `logos/<id>_{128,512}.webp`, cut from the owner's PNGs by `tools/make_logos.py` (not CC0).
+- #3: Chinese comments/docstrings in `tools/*.py` translated (PR #12). #16: team logos in `logos/<id>_{128,512}.webp`, cut from the owner's PNGs by `tools/make_logos.py` (not CC0).
 - #185 first half (feat/185, lane B): rig 16 -> 24 bones (chest, clL/clR, wrL/wrR = forearm twist, toeL/toeR, head appended; old indices kept). Pack v2 header has `bones`/`parent`/`group`; weights are the old u8 split per old bone, so `tools/rig_check.mjs` shows 0.0000 mm on 72 random poses.
 - #207 round 1 half (feat/207-maps): `skin_uv.b64.txt` = UVs of skin/hair (MakeHuman base.obj vt) + eyes (generated), joined to the pack by vertex + seam rows (`extra`/`fix`, see `tools/skin_uv.py` docstring); pack unchanged. 100 KB of the 600 KB budget.
 - #186 items 3-4 (feat/186-pitch, lane B): `loadClip`/`decodeClip`/`clipSample`/`clipFix` + `f.setMocap` in players.js (retarget by world rotation with a rest-direction fix per bone; root turns about the pelvis joint). Call site: game.js `pitchPose` (PM_* time warp, release frame on RELEASE, ball leaves from the clip hand at RELEASE, `?off=mocap` dev switch).
