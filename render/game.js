@@ -11,6 +11,10 @@ const $=id=>document.getElementById(id);
    PassNode.compileAsync path without the #149 progress callback, post = no post pass, shadowmap = no key-light shadow map, park = #150 shaders off.
    Production ignores the URL. BOOT_MARK writes a stage time into window.BOOT.t (index.html), read back by the 🐞 report's boot= field. */
 const OFF=new Set((()=>{try{return window.SITE&&window.SITE.dev?(new URLSearchParams(location.search).get('off')||'').split(',').map(x=>x.trim()).filter(Boolean):[]}catch(e){return[]}})());
+/* #256 interim: SSR is off by default on max until its reflected radiance is clamped (owner's GPU: white blobs on the plate, ?off=ssr clean).
+   ?on=ssr (dev only) turns it back on for tests. */
+const MAX_SSR_DEFAULT=false;
+if(!MAX_SSR_DEFAULT&&!(()=>{try{return window.SITE&&window.SITE.dev&&(new URLSearchParams(location.search).get('on')||'').split(',').map(x=>x.trim()).includes('ssr')}catch(e){return false}})())OFF.add('ssr');
 const BOOT_MARK=k=>{const B=window.BOOT;if(B&&B.mark)B.mark(k)};BOOT_MARK('script');
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t;
 const CYCLE=7200,BPM=132;
@@ -428,9 +432,9 @@ let maxWish=false;try{if(IS_DEV){const q=new URLSearchParams(location.search).ge
 let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
 if(window.PL&&PL.SKIN)PL.SKIN.on=()=>gfxMax;/* #207: the real skin maps follow max (players.js polls it; nothing extra loads while max is off) */
 const maxSave=v=>{maxWish=v;try{localStorage.setItem('zu_max',v?'1':'0')}catch(e){}};
-/* the max modules are fetched only when max is on; each one may fail alone (max then keeps FXAA / GTAO / no reflections). ?off=traa,ssgi,ssr skips one on dev */
+/* the max modules are fetched only when max is on; each one may fail alone (max then keeps FXAA / GTAO / no reflections). ?off=traa,ssgi,ssr skips one on dev; a skipped one is not fetched */
 const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode']];
-const maxLoad=()=>Promise.all(MAX_MODS.map(([k,f])=>FX[k]?0:import(`three/addons/tsl/display/${f}.js`).then(m=>{FX[k]=m[k]}).catch(e=>console.warn(`${f} failed to load; max goes on without it`,e))));
+const maxLoad=()=>Promise.all(MAX_MODS.map(([k,f])=>FX[k]||OFF.has(k)?0:import(`three/addons/tsl/display/${f}.js`).then(m=>{FX[k]=m[k]}).catch(e=>console.warn(`${f} failed to load; max goes on without it`,e))));
 /* image-based light: the sky mesh is drawn alone into a PMREM. One entry point: applySky (#203 park skies) calls skyEnv() again after it changes the sky. */
 let skyEnvRT=null;
 function skySource(){let s=null;scene.traverse(o=>{const g=o.geometry&&o.geometry.parameters;if(!s&&o.isMesh&&o.material&&o.material.side===THREE.BackSide&&o.material.fog===false&&g&&g.radius>=SKY_ENV_MIN_R)s=o});return s}
