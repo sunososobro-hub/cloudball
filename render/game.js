@@ -584,10 +584,24 @@ const PITCH_SH_Y=.57,PITCH_ARM=.62,P_RUN_BLEND=.4;
 const COVER_BACK_AT=2.2,BAG_CROWD_R=2.5,CROWD_CLEAR_T=.6;
 /* Release point (closed form, same model as the proxy joints). Right-handed = inner x mirror, so world x flips sign; skinned figure scaled by k */
 const pitchTipAt=(u,px,pz)=>{const P=fielders.P,sg=P.mirrored?-1:1,k=P.k||1,L=kf(u,PK.lean),th=kf(u,PK.a1),y=kf(u,PK.yaw),lz=PITCH_SH_Y*Math.sin(L)-PITCH_ARM*Math.sin(th);return[px+sg*k*(.3*Math.cos(y)+lz*Math.sin(y)),k*(.95+PITCH_SH_Y*Math.cos(L)-PITCH_ARM*Math.cos(th)),pz+kf(u,PK.dz)+k*(-.3*Math.sin(y)+lz*Math.cos(y))]};
+/* #186: the real delivery (CMU 124_01, assets/mocap) on the skinned pitcher, over the keyframes above. Clip time is warped to the
+   event: PM_START (set, before the rock) at u 0, PM_KNEE (leg lift) at PM_KNEE_U, the clip's release frame exactly at RELEASE, then real
+   speed to PM_END. Blends in over PM_IN and back to the keyframes over PM_OUT. The ball leaves from the hand of the clip at RELEASE
+   (measured once per pitcher and spot), so release time and point are the engine's and the picture's together. The performer throws
+   right-handed: his clip is mirrored onto the throwing side (bones R) and the figure's own mirror makes it right- or left-handed. */
+const PITCH_CLIP_URL='assets/mocap/pitch_124_01.json',PM_START=1.2,PM_KNEE=2.33,PM_KNEE_U=.6,PM_END=4.6,PM_IN=.25,PM_OUT=[2.2,2.8];
+let pitchClip=null,pitchClipP=null;const pmRel=new Map();
+const pmTime=(u,c)=>{const tr=c.release.frame/c.fps;return u<PM_KNEE_U?PM_START+Math.max(0,u)*(PM_KNEE-PM_START)/PM_KNEE_U:u<RELEASE?PM_KNEE+(u-PM_KNEE_U)*(tr-PM_KNEE)/(RELEASE-PM_KNEE_U):Math.min(PM_END,tr+(u-RELEASE))};
+const pmW=u=>Math.min(ease(sat01(u/PM_IN)),1-ease(sat01((u-PM_OUT[0])/(PM_OUT[1]-PM_OUT[0]))));
 function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,PK.a1),bx=P.g.position.x,bz=P.g.position.z;
   PR.up.rotation.set(L,y,0);PR.hg.rotation.y=-y*.9;P.legs[0].rotation.x=kf(u,PK.l0);P.legs[1].rotation.x=kf(u,PK.l1);P.arms[0].rotation.x=kf(u,PK.a0);P.arms[1].rotation.x=th;
   P.g.position.z+=kf(u,PK.dz);
-  return{tip:pitchTipAt(u,bx,bz),rel:pitchTipAt(RELEASE,bx,bz)}}
+  let rel=pitchTipAt(RELEASE,bx,bz);
+  if(P.setMocap&&!OFF.has('mocap')){if(!pitchClipP&&window.PL&&PL.loadClip)pitchClipP=PL.loadClip(PITCH_CLIP_URL).then(c=>{pitchClip=c}).catch(e=>console.warn('mocap',e));
+    const c=pitchClip;if(c){const mir=c.release.hand==='right',key=[bx,bz,P.buildKey,P.throws].join();let r=pmRel.get(key);
+      if(!r){const z=P.g.position.z,dR=kf(RELEASE,PK.dz);P.g.position.z=bz+dR;P.setMocap(c,pmTime(RELEASE,c),1,mir,PM_START,dR);const q=P.handWorld(1);r=[q.x,q.y,q.z];pmRel.set(key,r);P.g.position.z=z}
+      const w=pmW(u);P.setMocap(c,pmTime(u,c),w,mir,PM_START,kf(u,PK.dz));if(w>0)rel=r}}
+  return{tip:pitchTipAt(u,bx,bz),rel}}
 function arc(p0,p1,peak,t){return[lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)+peak*4*t*(1-t),lerp(p0[2],p1[2],t)]}
 
 /* ---------- Fielding: catch / transfer / throw (frame-steppable in the studio) ---------- */
