@@ -67,7 +67,7 @@ async function loadList(reset) {
 }
 function buildSortBar() {
   const bar = $('sortBar'); bar.replaceChildren();
-  for (const [sort, label] of [['ovr', '綜合最高'], ['new', '最新']]) {
+  for (const [sort, label] of [['ovr', '綜合最高'], ['con', '打擊'], ['pow', '長打'], ['eye', '選球'], ['spd', '速度'], ['arm', '臂力'], ['stuff', '球威'], ['ctrl', '控球'], ['pot', '潛力'], ['new', '最新']]) {
     const b = el('button', null, label); b.type = 'button'; b.setAttribute('aria-pressed', String(list.sort === sort));
     b.onclick = () => { list.sort = sort; buildSortBar(); loadList(true); }; bar.appendChild(b);
   }

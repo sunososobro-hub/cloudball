@@ -7,7 +7,7 @@ Agent: the interface window: `ui/`, `functions/`, root files.
 - #189 (merged): live 3D preview on `agent.html`. `ui/agent-preview.js` (three + real `makePlayer`, loaded after first paint, silhouette meanwhile, numbers-only when no GL), `ui/preview-spec.js` (pure: choice or roster row -> spec). Guard `tests/preview.check.mjs`. Sticky ~40 % height; 看他 on a list row previews him. Next: skin and hair choices once #151's second PR defines what `look.skin`/`look.hair` draw. `look.head` is previewed as `HEAD_SHAPES[head % n]`; the game still uses `headOf(id)`: needs 畫面窗 to read `look.head` in `dress()` (issue opened).
 
 ## Next
-- #192 (feat/192): item 1 done (`ui/bars.js`, shown by guide.js and agent.js; shot `ui/bars-390.jpg`). Left: item 2 (tap a column to sort; free-agent list is paged server-side, `functions/lib/agents.js` list() only has ovr|new) and item 3 (compare panel).
+- #192 (PR #193): items 1+2 done (`ui/bars.js`; sort bars on guide.js rosters and the agent list; `functions/lib/agents.js` SORTS allow-list, json_extract; shots `ui/bars-390.jpg`, `ui/sort-390.jpg`). Left: item 3, compare panel (two picks, mirrored bars, one button per card).
 - #179 after merge: open the dev site, make one agent and one player by hand (the first real D1 run: tables are created on the first call).
 - #47 round 2 / #55 (21:00 showing), #53 part 2 (box score), #4 HUD out of `render/game.js` (needs the render window idle). Queue lives in issue #68.
 
