@@ -984,6 +984,10 @@ function makeRealPlayer(opts, A) {
        the figure's spot (hips travel is measured from there), dz = metres of g.position.z the caller already moved (taken back off).
        The clip holds only while the proxies stay as they were at this call: any later pose (another event, resetPose) drops it. */
     setMocap(clip, t, w, mirror, t0 = 0, dz = 0) { f.mo = clip && w > 0 ? { clip, t, w, mirror, t0, dz, key: proxyKey() } : null },
+    /* Metres the clip's hips travel along z (toward the plate) from clip time t0 to t on this figure: same scale as setMocap's root move.
+       A caller that hands back from the clip to its own pose stands the figure there, so the hand-off moves nothing (#186, no glide). */
+    moTravel(clip, t, t0 = 0) { const o = { q: clip.names.map(() => new THREE.Quaternion()), p: new THREE.Vector3() };
+      clipSample(clip, t0, false, o); const z0 = o.p.z; clipSample(clip, t, false, o); return (o.p.z - z0) * pelvisAt.y * (f.k || 1) },
     setName(nm) { const fn = familyName(nm); if (f.nameN === fn) return; f.nameN = fn; if (fn) nameBack.material = nameMat(fn) },
     handWorld(i, out = new THREE.Vector3()) { g.updateMatrixWorld(true); return (i ? sockets.handR : sockets.handL).getWorldPosition(out) },
     /* Change handedness: 'R' mirrors the inner node (old keyframes -> right-handed), 'L' does not. Batters unchanged */
