@@ -50,8 +50,8 @@ const call = async (handler, env, { method = 'GET', url = '/api/x', k, ip = '1.1
   return { status: res.status, body: await res.json().catch(() => null) };
 };
 const look = { head: 3, skin: 2, hair: 5 };
-const BAT = { kind: 'bat', pos: 'SS', bats: 'L', build: 'slim', look, points: { con: 72, pow: 40, eye: 70, spd: 72, arm: 71 }, nameDraw: 0 };
-const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points: { stuff: 68, ctrl: 62, arm: 50 }, nameDraw: 0 };
+const BAT = { kind: 'bat', pos: 'SS', bats: 'L', build: 'slim', look, points: { con: 70, pow: 40, eye: 65, spd: 70, arm: 60 }, nameDraw: 0 };
+const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points: { stuff: 66, ctrl: 62, arm: 55 }, nameDraw: 0 };
 const is = (what, r, status, why) => { if (r.status !== status || (why && r.body?.why !== why)) bad(`${what}: expected ${status}${why ? ' ' + why : ''}, got ${r.status} ${JSON.stringify(r.body)}`); };
 
 /* closed: no binding, and a production host with a binding */
@@ -129,7 +129,7 @@ const lister = makeDb(), lenv = { DB: lister }, keys = [];
 for (let i = 0; i < lib.PAGE_SIZE + 5; i++) {
   const k = key(); keys.push(k);
   is(`register ${i}`, await call(lib.register, lenv, { method: 'POST', k, ip: `10.0.${i}.1` }), 201);
-  const c = i % 2 ? { ...PIT, points: { stuff: 68 - (i % 5), ctrl: 62, arm: CREATE.budget.pit - 130 + (i % 5) } } : { ...BAT };
+  const c = i % 2 ? { ...PIT, points: { stuff: 66 - (i % 5), ctrl: 62, arm: CREATE.budget.pit - 128 + (i % 5) } } : { ...BAT };
   /* names are drawn at random, so two of the sample can meet: redraw like a fan would */
   for (c.nameDraw = 0; c.nameDraw <= lib.DRAW_CAP; c.nameDraw++) if ((await call(lib.create, lenv, { method: 'POST', k, body: c })).status !== 409) break;
 }
