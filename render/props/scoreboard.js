@@ -1,4 +1,4 @@
-/* render/props/scoreboard.js: the outfield scoreboard (#215 polish lane, round 1). Polish rounds edit only this file (and add to render/pbr.js).
+/* render/props/scoreboard.js: the outfield scoreboard (#215 polish lane, round 1). Polish rounds edit only this file (#237: render/pbr.js is read-only, new materials live here; round notes in this header and on the #215 board).
  * game.js keeps drawing the score into its own face plane (canvas texture, untouched and always on). This prop replaces only the old
  * housing and leg (`old:scoreboard`): a deep steel cabinet with a bezel in the home trim colour, a sun hood and a cornice, an LED pixel
  * screen laid over the face, a grated catwalk with a rail under it, two lattice steel columns on concrete footings, cross beam and ladder.
@@ -66,3 +66,6 @@ export function buildScoreboard(o){const S=SB,[back]=o.old;if(!back)throw new Er
   for(let y=.4;y<top;y+=.3)add(legs,cyl(.015,.015,.44,6,T(galv)),galv,lx,y,lz,0,0,Math.PI/2);
   g.userData.recolor=P=>{if(P)trim.color.set(P.trim)};g.userData.recolor(o.colors);
   return g}
+
+/* slot descriptor (#237): new housing, bezel, LED grid, catwalk and columns; the score face of game.js stays (it is not old:scoreboard) */
+export const PROPS=[{name:'scoreboard',build:c=>buildScoreboard({old:c.old('scoreboard'),colors:c.park()}),old:c=>c.old('scoreboard')}];
