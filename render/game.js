@@ -1425,9 +1425,12 @@ addEventListener('keydown',e=>{if(!studio||e.target.tagName==='SELECT')return;if
 
 /* ---------- Auto quality (target: steady 60 fps on a phone in landscape, no dropped frames on substitutions) ----------
    0 everything on (desktop) -> 1 phone start: 1.25x resolution, 1024 shadow map -> 2 1x resolution, no post/grass blades/bugs -> 3 no realtime shadows (the contact shadows of #132 stay on every tier).
-   Drop one tier whenever the average over FPS_WIN frames exceeds FPS_BUDGET_MS (down only, never up, to avoid flip-flopping); a chosen tier is saved in zu_tier and used as the start next time */
+   Drop one tier whenever the average over FPS_WIN frames exceeds FPS_BUDGET_MS (down only, never up, to avoid flip-flopping); a chosen tier is saved in zu_tier and used as the start next time.
+   #236: saved as "tier@ms" and used for TIER_KEEP_MS only, so one bad session (a GPU fault, a busy machine) no longer parks a browser on a low tier for good;
+   an old plain number from before is ignored. */
 const IS_MOBILE=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches,FPS_WIN=90,FPS_BUDGET_MS=19,FPS_WARMUP_MS=4000,TIER_MAX=3;
-let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{const t=+localStorage.getItem('zu_tier');if(t>gfxTier&&t<=TIER_MAX)gfxTier=t}catch(e){}
+const TIER_KEEP_MS=2*864e5;/* two days */
+let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{const [a,b]=(localStorage.getItem('zu_tier')||'').split('@'),t=+a,at=+b;if(at&&Date.now()-at<TIER_KEEP_MS&&t>gfxTier&&t<=TIER_MAX)gfxTier=t}catch(e){}
 /* ---------- contact shadows (#132) ----------
    Every figure, on every tier (Low included), gets a soft dark patch at the feet plus a fan of six faint long shadows pointing away from the six
    towers, as a night game shows: what keeps players from looking pasted on the grass. Two instanced meshes, no depth write, matrices set each
@@ -1448,7 +1451,7 @@ function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
   LAMPS.forEach(([lx,lz],j)=>{const dx=p.x-lx,dz=p.z-lz,d=Math.hypot(dx,dz)||1;dummy.rotation.set(0,Math.atan2(-dx/d,-dz/d),0);
     dummy.scale.set(CS_FAN_W,1,clamp(CS_BODY_H*d/(LAMP_H-CS_BODY_H),CS_FAN_MIN,CS_FAN_MAX));dummy.updateMatrix();csFan.setMatrixAt(i*LAMPS.length+j,dummy.matrix)})});
   csPatch.instanceMatrix.needsUpdate=true;csFan.instanceMatrix.needsUpdate=true}
-function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
+function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',`${gfxTier}@${Date.now()}`)}catch(e){}
   renderer.setPixelRatio(gfxMax?devicePixelRatio:Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
   PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.fx===fxKey()?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
@@ -1497,6 +1500,9 @@ function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wba
    layout, all at once (WARM_PARALLEL), so those waits overlap; then the usual whole-scene compile only finds what is left (cache hits).
    Same programs, same picture: it only changes the order and overlap of the compile. Dev switch ?off=par = the old serial compile. */
 const WARM_PARALLEL=true,WARM_PAR_SHARE=.8;/* share of the compile part of the bar given to the parallel phase */
+/* #236: a warm-up phase that has not finished after WARM_STALL_MS is let go (the objects still building are named in BOOT.t.stall) so the
+   buttons never wait for the 30 s READY_MAX_MS timeout; WARM_FAIL_N failed pipelines are named in BOOT.t.pf (count) and pf1 .. pfN. */
+const WARM_STALL_MS=12000,WARM_FAIL_N=3;let warmHold=null;/* warmHold: the renderer's own target and MRT while a warm-up holds the scene pass's */
 async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();warmT0=w0;warmLoaded=warmTotal=0;warmFramesLeft=WARM_FRAMES;
   let parF=0,serF=0,nObj=0;const setF=()=>{warmTotal=1;warmLoaded=WARM_PAR_SHARE*parF+(1-WARM_PAR_SHARE)*serF;if(run===1)for(const q of BOOT_COMPILE_Q)if(warmLoaded>=q-1e-9)BOOT_MARK(`c${Math.round(q*100)}`);warmBarTick(performance.now())};
   const prog=ev=>{if(run!==warmRun)return;nObj=ev.total;serF=ev.total?ev.loaded/ev.total:1;setF()};
@@ -1504,18 +1510,29 @@ async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=p
   /* #162: time each compiled object of the first warm-up: from getForRenderAsync to its new pipelines done (or to the pipeline lookup when nothing
      new is made); the BOOT_SLOW_N slowest go into BOOT.t as s1..sN = "material name or type / object name or type, xN = instances / vN = vertices:ms".
      The same wrapper makes concurrent builds of one node cache key wait for the first one (no duplicate shader builds in the parallel phase). */
-  const nd=renderer._nodes,pl=renderer._pipelines,slow=[],gfr=nd&&nd.getForRenderAsync,gpr=pl&&pl.getForRender,t0=new Map(),pend=new Map();
+  const nd=renderer._nodes,pl=renderer._pipelines,slow=[],failed=[],gfr=nd&&nd.getForRenderAsync,gpr=pl&&pl.getForRender,t0=new Map(),pend=new Map();
   const roName=ro=>{const m=ro.material||{},ob=ro.object||{},g=ob.geometry,nv=g&&g.attributes&&g.attributes.position?g.attributes.position.count:0;return `${m.name||m.type||'?'}/${ob.name||ob.type||'?'}${ob.isInstancedMesh?'x'+ob.count:''}/v${nv}`};
   const done=ro=>{const t=t0.get(ro);if(t!==undefined){t0.delete(ro);if(run===1)slow.push([performance.now()-t,roName(ro)])}};
   if(gfr&&gpr){nd.getForRenderAsync=function(ro){if(!t0.has(ro))t0.set(ro,performance.now());let k=null;try{k=nd.getForRenderCacheKey(ro)}catch(e){}
-      const q=k!==null&&pend.get(k);if(q)return q.then(()=>gfr.call(nd,ro));const r=gfr.call(nd,ro);if(k!==null){pend.set(k,r);r.finally(()=>{if(pend.get(k)===r)pend.delete(k)})}return r};
-    pl.getForRender=function(ro,promises){const n=promises?promises.length:0,r=gpr.call(pl,ro,promises);if(promises&&promises.length>n)Promise.all(promises.slice(n)).then(()=>done(ro));else done(ro);return r}}
+      const q=k!==null&&pend.get(k);if(q)return q.then(()=>gfr.call(nd,ro));const r=gfr.call(nd,ro);if(k!==null){pend.set(k,r);r.finally(()=>{if(pend.get(k)===r)pend.delete(k)})}
+      /* #236: a build that ends after a stall let go of the scene pass's MRT read the wrong one: rebuild it at its first real draw */
+      r.then(()=>{if(stalled){const m=ro.material;if(m)m.needsUpdate=true}},()=>{});return r};
+    /* #236: a pipeline the GPU refused is marked error by the backend: name its object (pf in the bug report) instead of a black object */
+    const chk=(ro,r)=>{try{const b=renderer.backend.get(r);if(b&&b.error&&failed.length<WARM_FAIL_N*10)failed.push(roName(ro))}catch(e){}};
+    pl.getForRender=function(ro,promises){const n=promises?promises.length:0,r=gpr.call(pl,ro,promises);if(promises&&promises.length>n)Promise.all(promises.slice(n)).then(()=>{done(ro);chk(ro,r)});else done(ro);return r}}
   scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
   /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one.
-     compileAsync reads the target and MRT only before its first await, so they are set around each call and put back right after it. */
+     #236: compileAsync picks the render context (target + MRT: the pipeline's colour targets) before its first await, but builds each shader
+     after it, reading renderer.getMRT() then. Putting the MRT back right after the call (#182) built shaders with one output for a pipeline
+     with two targets: refused on a real GPU ("Color target has no corresponding fragment stage output ... targets[1]"), black on every tier.
+     So the scene pass's target and MRT are held for the whole warm-up (the loop does not draw while warming) and put back at its end. */
   const sp=PP&&PP.scenePass,cs=sp?sp.scene:scene,cc=sp?sp.camera:camera;
-  const inTarget=f=>{if(!sp)return f();if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;const rt=renderer.getRenderTarget(),mrt=renderer.getMRT();
-    renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT());try{return f()}finally{renderer.setRenderTarget(rt);renderer.setMRT(mrt)}};
+  if(!warmHold)warmHold={rt:renderer.getRenderTarget(),mrt:renderer.getMRT()};
+  if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT())}
+  else{renderer.setRenderTarget(warmHold.rt);renderer.setMRT(warmHold.mrt)}
+  const inTarget=f=>f();
+  /* a phase that never settles (a pipeline promise the driver never answers) is let go after WARM_STALL_MS */
+  let stalled=false;const jobs=[],stall=pr=>{jobs.push(pr);return Promise.race([pr,new Promise(r=>setTimeout(()=>{stalled=true;r()},WARM_STALL_MS))])};
   try{
     if(OFF.has('warm')){}
     else if(OFF.has('prog'))await (sp?(sp.compileAsync?sp.compileAsync(renderer):null):renderer.compileAsync(scene,camera));
@@ -1527,12 +1544,18 @@ async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=p
           const g=o.geometry,ms=Array.isArray(o.material)?o.material:[o.material],key=ms.map(m=>m.uuid).join('+')+'|'+(g?Object.keys(g.attributes).sort().join(',')+(g.index?'i':'')+Object.keys(g.morphAttributes||{}).join(','):'')+'|'+(o.isInstancedMesh?'I':'')+(o.isBatchedMesh?'B':'')+(o.isSkinnedMesh?'S':'')+(o.isSprite?'P':'')+(o.isLine?'L':'')+(o.isPoints?'O':'');
           if(!reps.has(key))reps.set(key,o)});
         let nd2=0;const N=reps.size||1;
-        await Promise.all([...reps.values()].map(o=>inTarget(()=>renderer.compileAsync(o,cc,cs)).catch(e=>console.warn('warm-up part failed',e)).finally(()=>{if(run!==warmRun)return;parF=++nd2/N;setF()})));
+        await stall(Promise.all([...reps.values()].map(o=>inTarget(()=>renderer.compileAsync(o,cc,cs)).catch(e=>console.warn('warm-up part failed',e)).finally(()=>{if(run!==warmRun)return;parF=++nd2/N;setF()}))));
         if(run===1)BOOT_MARK(`wp/${reps.size}`)}
       else parF=1;
-      if(run===warmRun){setF();await inTarget(()=>renderer.compileAsync(cs,cc,null,prog))}}}
-  catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true;if(gfr&&gpr){nd.getForRenderAsync=gfr;pl.getForRender=gpr}}
-  if(run===1){const B=window.BOOT;if(B&&B.t){slow.sort((a,b)=>b[0]-a[0]);slow.slice(0,BOOT_SLOW_N).forEach(([ms,nm],i)=>B.t[`s${i+1}`]=`${nm.replace(/[,@]/g,'_')}:${Math.round(ms)}`)}}
+      if(run===warmRun&&!stalled){setF();await stall(inTarget(()=>renderer.compileAsync(cs,cc,null,prog)))}}}
+  catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true;
+    const unwrap=()=>{if(gfr&&gpr&&nd.getForRenderAsync!==gfr){nd.getForRenderAsync=gfr;pl.getForRender=gpr}};
+    if(stalled)Promise.allSettled(jobs).then(unwrap);else unwrap();/* after a stall the wrappers stay until the late builds end (they mark them) */
+    if(run===warmRun&&warmHold){renderer.setRenderTarget(warmHold.rt);renderer.setMRT(warmHold.mrt);warmHold=null}}/* a newer warm-up holds on */
+  {const B=window.BOOT,nm=x=>x.replace(/[,@]/g,'_');if(B&&B.t){
+    if(run===1){slow.sort((a,b)=>b[0]-a[0]);slow.slice(0,BOOT_SLOW_N).forEach(([ms,n],i)=>B.t[`s${i+1}`]=`${nm(n)}:${Math.round(ms)}`)}
+    if(failed.length){B.t.pf=failed.length;[...new Set(failed)].slice(0,WARM_FAIL_N).forEach((n,i)=>B.t[`pf${i+1}`]=nm(n));console.warn('#236 pipelines refused by the GPU:',failed)}
+    if(stalled){B.t.stall=[...t0.keys()].slice(0,WARM_FAIL_N).map(ro=>nm(roName(ro))).join('+')||'?';console.warn('#236 warm-up let go after',WARM_STALL_MS,'ms; still building:',B.t.stall)}}}
   if(run!==warmRun)return;warming=false;if(run===1){BOOT_MARK(`w1/${nObj}`);bootCompiled()}entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
   if(gfxMax){const B=window.BOOT;if(B&&B.t&&!warming)B.t.ftmax=Math.round(avg*10)/10;return}/* #211: max never drops; its frame time (ms, last FPS_WIN frames) goes to boot= */
