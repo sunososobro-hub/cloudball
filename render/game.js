@@ -200,7 +200,7 @@ const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.P
 /* #150 round 2: fence top and foul poles are painted steel (streaks, chips) instead of flat unlit yellow; YELLOW_GLOW keeps them reading at night */
 const YELLOW_GLOW=.35,yellowPaint=new THREE.MeshStandardMaterial({color:0xf2c230,roughness:.55,metalness:.2,map:paintTex(),roughnessMap:paintTex(),emissive:0xf2c230,emissiveIntensity:YELLOW_GLOW,side:THREE.DoubleSide});
 const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),yellowPaint);fenceTop.name='old:wall:top';fenceTop.position.y=3;scene.add(fenceTop);
-for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),yellowPaint);p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);scene.add(p)}
+for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),yellowPaint);p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);p.name='old:foulpole:'+s;scene.add(p)}
 /* Backstop: textured net (5 cm diamond mesh; mipmaps fade it to a thin veil at distance) plus top cable and posts */
 const NET_W=40,NET_H=9,NET_Z=20,NET_CELL=.05,NET_OPACITY=.55;
 const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.strokeStyle='rgba(220,226,235,.85)';g.lineWidth=3;
