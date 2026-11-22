@@ -1279,7 +1279,17 @@ let envOn=true;
    Now the loop runs without drawing while compileAsync builds the whole park (it yields between objects; frustum culling is off for that call so
    what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
    then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
-const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk;window.READY=new Promise(ok=>readyOk=ok);setTimeout(()=>{if(readyN<READY_FRAMES)BOOT_MARK(`timeout${warming?'W':'F'}${readyN}`);readyOk()},READY_MAX_MS);/* #162: timeoutW = the compile never ended, timeoutFn = n of READY_FRAMES drawn */
+const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk,bootReady=false;window.READY=new Promise(ok=>readyOk=ok);
+/* #162: boot must not depend on the frame rate. A throttled tab (1 frame a second) or a hidden one (no frames) would make the READY_FRAMES
+   wait seconds or forever. When the compile ends and frames come slower than READY_SLOW_GAP_MS (median gap since w0), or the tab is hidden,
+   or READY_FRAMES are not drawn READY_AFTER_W1_MS after it, the buttons wake at once; the frames still draw when the tab gets them. */
+const READY_SLOW_GAP_MS=200,READY_AFTER_W1_MS=500,BOOT_SLOW_N=5;/* BOOT_SLOW_N: slowest compiled objects named in BOOT.t (s1 .. s5) */const bootGaps=[];
+const rafMedian=()=>{if(!bootGaps.length)return Infinity;const a=[...bootGaps].sort((x,y)=>x-y);return a[a.length>>1]};
+function readyNow(tag){if(bootReady)return;bootReady=true;if(tag)BOOT_MARK(tag);const B=window.BOOT;if(B&&B.t)B.t.raf=bootGaps.length?Math.round(rafMedian()):'none';
+  if(warmRun===1&&!warming)warmFramesLeft=0;/* the bar does not sit near the end waiting for frames */readyOk()}
+setTimeout(()=>{if(bootReady)return;if(readyN<READY_FRAMES)BOOT_MARK(`timeout${warming?'W':'F'}${readyN}`);if(warmRun===1&&!wbar.hidden&&warming){const p=wbar.querySelector('p');if(p)p.textContent='還在準備，可以先進場'}readyNow()},READY_MAX_MS);
+function bootCompiled(){if(bootReady)return;if(document.hidden||rafMedian()>READY_SLOW_GAP_MS){readyNow(document.hidden?'rdyHidden':'rdySlow');return}
+  setTimeout(()=>{if(!bootReady&&readyN<READY_FRAMES)readyNow(`rdyWait${readyN}`)},READY_AFTER_W1_MS)}/* #162: timeoutW = the compile never ended, timeoutFn = n of READY_FRAMES drawn */
 /* #133 progress bar: from the start of a warm-up (behind the entry card, or a quality drop in play) until the frames after it are drawn.
    Real progress only: objects compiled / objects to compile (compileAsync's onProgress), then the WARM_BAR_FRAME_SHARE for the frames that
    compile the shadow and post passes. It shows only once the wait passes WARM_BAR_DELAY_MS, so a warm visit does not flash it. */
@@ -1293,8 +1303,13 @@ function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wba
   const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,base=first?BOOT.share:0,pc=Math.round(100*(base+(1-base)*f));
   wbarFill.style.width=pc+'%';wbar.setAttribute('aria-valuenow',String(pc));if(wbar.hidden)wbar.hidden=false}
 async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();warmT0=w0;warmLoaded=warmTotal=0;warmFramesLeft=WARM_FRAMES;
-  const prog=ev=>{if(run!==warmRun)return;warmLoaded=ev.loaded;warmTotal=ev.total;if(run===1)for(const q of BOOT_COMPILE_Q)if(ev.loaded>=q*ev.total)BOOT_MARK(`c${Math.round(q*100)}`);warmBarTick(performance.now())};
+  const prog=ev=>{if(run===1)slowNote();if(run!==warmRun)return;warmLoaded=ev.loaded;warmTotal=ev.total;if(run===1)for(const q of BOOT_COMPILE_Q)if(ev.loaded>=q*ev.total)BOOT_MARK(`c${Math.round(q*100)}`);warmBarTick(performance.now())};
   if(run===1)BOOT_MARK('w0');
+  /* #162: time each compiled object of the first warm-up (getForRenderAsync starts one, the next progress event ends it); the BOOT_SLOW_N slowest go
+     into BOOT.t as s1..sN = "material name:ms" (material name or type / object name or type, xN = instances / vN = vertices) */
+  const nd=renderer._nodes,slow=[],gfr=run===1&&nd&&nd.getForRenderAsync;let woCur=null,woT=0;
+  if(gfr)nd.getForRenderAsync=function(ro){woCur=ro;woT=performance.now();return gfr.call(this,ro)};
+  const slowNote=()=>{if(!woCur)return;const m=woCur.material||{},ob=woCur.object||{},g=ob.geometry,nv=g&&g.attributes&&g.attributes.position?g.attributes.position.count:0,nm=`${m.name||m.type||'?'}/${ob.name||ob.type||'?'}${ob.isInstancedMesh?'x'+ob.count:''}/v${nv}`;slow.push([performance.now()-woT,nm]);woCur=null};
   scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
   /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one */
   const sp=PP&&PP.scenePass;let p=null;
@@ -1306,7 +1321,8 @@ async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=p
     else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera,null,prog)}
   catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true}
   try{await p}catch(e){console.warn('warm-up failed',e)}
-  if(run!==warmRun)return;warming=false;if(run===1)BOOT_MARK(`w1/${warmTotal}`);entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
+  if(gfr){nd.getForRenderAsync=gfr;const B=window.BOOT;if(B&&B.t){slow.sort((a,b)=>b[0]-a[0]);slow.slice(0,BOOT_SLOW_N).forEach(([ms,nm],i)=>B.t[`s${i+1}`]=`${nm.replace(/[,@]/g,'_')}:${Math.round(ms)}`)}}
+  if(run!==warmRun)return;warming=false;if(run===1){BOOT_MARK(`w1/${warmTotal}`);bootCompiled()}entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
   if(performance.now()-tierT0>FPS_WARMUP_MS&&$('intro').hidden&&!document.hidden&&avg>FPS_BUDGET_MS&&gfxTier<TIER_MAX){setTier(gfxTier+1);tierT0=performance.now();note(`有點卡，自動降畫質（${gfxTier}/${TIER_MAX}）`)}}
 setTier(gfxTier);
@@ -1314,7 +1330,7 @@ setTier(gfxTier);
 /* ---------- loop ---------- */
 applyLayout();let lastNow=performance.now(),stKey='',outFixed=null,introVis=null;prewarmBodies();
 renderer.setAnimationLoop(()=>{
-  const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);
+  const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);if(!bootReady&&warmStarted)bootGaps.push(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
   if(mode==='studio')studioTick(dt);
   else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));const prev=replayT;replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed));if(cpOn())replayT=cpClock.step(prev,replayT)}
@@ -1334,7 +1350,7 @@ renderer.setAnimationLoop(()=>{
   updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
-  if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyOk()}
+  if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyNow()}
 });
 warmUp();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
