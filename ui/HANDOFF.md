@@ -7,7 +7,7 @@ Agent: the interface window: `ui/`, `functions/`, root files.
 - #189 (merged): live 3D preview on `agent.html`. `ui/agent-preview.js` (three + real `makePlayer`, loaded after first paint, silhouette meanwhile, numbers-only when no GL), `ui/preview-spec.js` (pure: choice or roster row -> spec). Guard `tests/preview.check.mjs`. Sticky ~40 % height; 看他 on a list row previews him. Next: skin and hair choices once #151's second PR defines what `look.skin`/`look.hair` draw. `look.head` is previewed as `HEAD_SHAPES[head % n]`; the game still uses `headOf(id)`: needs 畫面窗 to read `look.head` in `dress()` (issue opened).
 
 ## Next
-- #192 (PR #193): items 1+2 done (`ui/bars.js`; sort bars on guide.js rosters and the agent list; `functions/lib/agents.js` SORTS allow-list, json_extract; shots `ui/bars-390.jpg`, `ui/sort-390.jpg`). Left: item 3, compare panel (two picks, mirrored bars, one button per card).
+- #192 done (PR #193 items 1+2, then item 3): `ui/compare.js` = 比較 button per card (guide + agent lists), bottom panel with two slots, mirrored bars (`.cmp*` in `guide.css`); a batter vs pitcher pair shows only overall, arm, potential. Shots `ui/compare-390.jpg`, `ui/compare-mixed-390.jpg`. Not seen live: the agent page needs D1 (Preview only), same `attachCompare` call.
 - #179 after merge: open the dev site, make one agent and one player by hand (the first real D1 run: tables are created on the first call).
 - #47 round 2 / #55 (21:00 showing), #53 part 2 (box score), #4 HUD out of `render/game.js` (needs the render window idle). Queue lives in issue #68.
 
