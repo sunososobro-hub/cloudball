@@ -1458,6 +1458,19 @@ function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
   LAMPS.forEach(([lx,lz],j)=>{const dx=p.x-lx,dz=p.z-lz,d=Math.hypot(dx,dz)||1;dummy.rotation.set(0,Math.atan2(-dx/d,-dz/d),0);
     dummy.scale.set(CS_FAN_W,1,clamp(CS_BODY_H*d/(LAMP_H-CS_BODY_H),CS_FAN_MIN,CS_FAN_MAX));dummy.updateMatrix();csFan.setMatrixAt(i*LAMPS.length+j,dummy.matrix)})});
   csPatch.instanceMatrix.needsUpdate=true;csFan.instanceMatrix.needsUpdate=true}
+/* #258: the tier actually drawn, always on screen on dev (the owner will not open the console). A quiet line under the dev tag in the top-right corner,
+   away from the score box and the bar; setTier() is the only writer, so a ?q= force, the 畫面 button and the automatic drop all show up. A click or ?hud=0 hides it
+   (kept in zu_hud), ?hud=1 brings it back. Production never shows it. `var` on purpose: setTier may run before this line has been reached. */
+const TIER_HUD_CSS='margin-top:2px;font-size:12px;color:inherit;text-shadow:0 1px 2px rgba(0,0,0,.8);cursor:pointer;user-select:none';
+var tierHud=null;
+function tierHudInit(){if(!IS_DEV||tierHud!==null)return;tierHud=false;let on=true;
+  try{const q=new URLSearchParams(location.search).get('hud');if(q!==null)localStorage.setItem('zu_hud',q==='0'?'0':'1');on=localStorage.getItem('zu_hud')!=='0'}catch(e){}if(!on)return;
+  const el=document.createElement('div');el.id='tierTag';el.className='dev-only';el.style.cssText=TIER_HUD_CSS;
+  el.onclick=ev=>{ev.stopPropagation();el.remove();tierHud=false;try{localStorage.setItem('zu_hud','0')}catch(e){}note('畫質標籤收起來了（網址加 ?hud=1 叫回來）')};
+  ($('tag')||document.body).appendChild(el);tierHud=el}
+function tierHudText(){if(tierHud===null)tierHudInit();if(!tierHud)return;
+  const t=gfxMax?'畫質 max':`畫質 ${gfxTier}/${TIER_MAX}${maxWish&&!gfxTier?'（最高沒開）':''}`;tierHud.textContent=t;
+  tierHud.title=`${gfxMax?`max: ${PP?PP.fx||'-':'no post'} (t TRAA, g SSGI, r SSR; - = off)`:`0 = 最好、${TIER_MAX} = 最省`}・點一下收起來`}
 function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',`${gfxTier}@${Date.now()}`)}catch(e){}
   renderer.setPixelRatio(gfxMax?devicePixelRatio:Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
@@ -1466,6 +1479,7 @@ function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)g
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
+  tierHudText();/* #258: before the no-rebuild return below, so every tier change shows */
   const sig=`${sh}|${!!PP}|${gfxMax}|${PP?PP.fx:''}`;/* max: environment map + velocity/diffuse MRT change every shader */entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
   if(!first&&key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
