@@ -415,9 +415,10 @@ function figureBlocky(m,pm=pants,glove=false){
    role:'batter' skips the inner mirror; everyone else defaults to right-handed (inner mirror, arms[1] is the right hand). On a substitution call setBuild(build, height), and setThrows for pitchers */
 function figure(m,pm=pants,glove=false,o={}){
   if(!window.PL)return figureBlocky(m,pm,glove);
-  const f=PL.makePlayer({jersey:m,pants:pm,sock:m,skin,glove,head:o.head||'cap',role:o.role,throws:'R',parent:scene});
+  const f=PL.makePlayer({jersey:m,pants:pm,sock:m,kit:kitOf(m),skin,glove,head:o.head||'cap',role:o.role,throws:'R',parent:scene});
   if(f.glove)f.glove.traverse(x=>{if(x.isMesh)x.material=leather});
   return f}
+const KITS=new Map(),kitOf=m=>PL.makeKit&&(m===matDef||m===matOff)?KITS.get(m)||KITS.set(m,PL.makeKit(m)).get(m):undefined,paintKit=(m,t)=>{const k=window.PL&&kitOf(m);if(k)PL.setKit(k,TEAMS[t],t===1);else m.color.setHex(TEAMS[t].color)};/* #204: side 1 = home (white), side 0 = road */
 const BODY_OF=(team,name)=>{const R=ROSTERS[team];return R.bat.find(x=>x.name===name)||R.pit.find(x=>x.name===name)};
 /* Body-type weights are snapped to .25 steps so the geometry cache is not one entry per player */
 const qBody=b=>{const o={};for(const k in b){const v=Math.round(b[k]*4)/4;if(v)o[k]=v}return o};
@@ -426,7 +427,7 @@ function prewarmBodies(){if(!window.PL)return;const dummies=[PL.makePlayer({head
   for(const t of [0,1])for(const p of [...ROSTERS[t].bat,...ROSTERS[t].pit])list.push(p);
   const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
 const headIx=id=>OFF.has('faces')?0:PL.headOf(id);/* ?off=faces: one head shape for all */
-function dress(f,p){if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}
+function dress(f,p){if(f.setName)f.setName(p&&p.name);/* #204: family name on the back */if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}
 const fielders={};for(const k of FIELDER_KEYS){const f=figure(matDef,pants,true);f.home=spotXZ(...FIELD_SPOTS[k]);fielders[k]=f}
 fielders.C.home=[0,1.75];
 const ump=figure(matUmp,matUmp,false);ump.g.position.set(.3,0,2.6);ump.g.rotation.y=Math.PI;ump.g.scale.y=.95;
@@ -708,7 +709,7 @@ function catcherThrow(e,u,S,sp){const C=fielders.C,catchAt=ARRIVE+CATCH_SNAP,xfe
 const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 function poseScene(e,u,dt,ei){
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
-  matDef.color.setHex(TEAMS[defT].color);matOff.color.setHex(TEAMS[off].color);
+  paintKit(matDef,defT);paintKit(matOff,off);
   applyNums(e,off,defT);
   /* fielders default */
   for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=fielderStart(k,e.s0.b,e.s0.outs);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}

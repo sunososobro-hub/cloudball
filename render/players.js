@@ -199,6 +199,48 @@ const stdMat = (hex, rough = .6, metal = 0) => {
 };
 const asMat = (v, rough) => v && v.isMaterial ? v : stdMat(v, rough);
 
+/* ---------- Uniforms (#204): one shared kit per side, recoloured when the side changes team or home/road ----------
+ * Home: white jersey and pants, team colour on trim (sleeve hems, collar, placket piping), cap, socks, belt.
+ * Road: jersey in the team colour, grey pants, trim in the team's second colour, cap and socks in the team colour. */
+export const KIT_WHITE = 0xf4f3ee, KIT_ROAD_PANTS = 0xa9acb3, KIT_BELT_ROAD = 0x1c1d22;
+export const KIT_HELMET_ROUGH = .3;
+/* makeKit(jersey): jersey = the side's shared jersey material (its fabric maps are reused by the clones) */
+export function makeKit(jersey) {
+  const c = (rough) => { const m = jersey.clone(); if (rough != null) { m.roughnessMap = null; m.normalMap = null; m.roughness = rough } return m };
+  return { jersey, pants: c(), trim: c(), sock: c(), cap: c(), belt: c(.5), helmet: c(KIT_HELMET_ROUGH), logo: null, team: null, home: null };
+}
+/* Team marks (#204 item 2): logo decal material per team (assets/logos/<id>_128.webp), family name above the back number */
+let LOGO_BASE = './assets/';
+const logoMats = new Map(), nameMats = new Map();
+const decalMat = map => new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, roughness: .6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+function logoMat(id) {
+  let m = logoMats.get(id); if (m) return m;
+  const t = new THREE.TextureLoader().load(LOGO_BASE + 'logos/' + id + '_128.webp', () => { m.visible = true }); t.colorSpace = THREE.SRGBColorSpace;
+  m = decalMat(t); m.visible = false; logoMats.set(id, m); return m;   /* Hidden until the image is in (no black square) */
+}
+export const NAME_PX = [256, 64], NAME_FONT_PX = 56, NAME_STROKE_PX = 8;
+function nameMat(nm) {
+  let m = nameMats.get(nm); if (m) return m;
+  const c = document.createElement('canvas'); [c.width, c.height] = NAME_PX; const g = c.getContext('2d');
+  g.font = `900 ${NAME_FONT_PX}px 'Noto Sans TC',sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = NAME_STROKE_PX;
+  g.strokeStyle = '#14161c'; g.fillStyle = '#fff'; g.strokeText(nm, NAME_PX[0] / 2, NAME_PX[1] / 2 + 2); g.fillText(nm, NAME_PX[0] / 2, NAME_PX[1] / 2 + 2);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  m = new THREE.MeshBasicMaterial({ map: t, transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); nameMats.set(nm, m); return m;
+}
+/* Family name for the back: the first character of a Chinese name (compound surnames listed), else the last word */
+const COMPOUND = ['歐陽', '司馬', '諸葛', '上官', '張簡', '范姜'];
+export const familyName = nm => !nm ? '' : /^[\u4e00-\u9fff]/.test(nm) ? (COMPOUND.find(c => nm.startsWith(c)) || nm[0]) : nm.split(/\s+/).pop().toUpperCase();
+/* Decal spots on the body (model space): chest logo on the left chest, small number on the right, cap logo above the brim */
+const LOGO_CHEST = { x: .085, y: 1.4, size: .085 }, NUM_FRONT = { x: -.085, y: 1.33, size: .09 }, NAME_BACK = { dy: .125, w: .28, h: .07 };
+const CAP_LOGO = { size: .055, ringA: 3, ringB: 8, out: .004 }, DECAL_GAP = .006;
+/* setKit(kit, team, home): team = a TEAMS entry (color, color2); cheap to call every frame (only recolours on a change) */
+export function setKit(kit, team, home) {
+  if (kit.team === team && kit.home === home) return; kit.team = team; kit.home = home; kit.logo = team.id ? logoMat(team.id) : null;
+  const tc = team.color, t2 = team.color2 ?? tc, set = (m, hex) => m.color.setHex(hex, THREE.SRGBColorSpace);
+  set(kit.jersey, home ? KIT_WHITE : tc); set(kit.pants, home ? KIT_WHITE : KIT_ROAD_PANTS); set(kit.trim, home ? tc : t2);
+  set(kit.sock, tc); set(kit.cap, tc); set(kit.helmet, tc); set(kit.belt, home ? tc : KIT_BELT_ROAD);
+}
+
 /* Jersey number: one shared material per number (compatible with the old numMat, which can also be used directly) */
 const numMats = new Map();
 export function numMat(n) {
@@ -377,11 +419,31 @@ const CAP_TOP_TAPER = .01;               /* Maximum shrink per layer going up */
 const BRIM_LEN = .07, BRIM_SPAN = 1.02, BRIM_DROP = .26, BRIM_CURVE = .045, BRIM_TH = .006;  /* Visor length, spread angle (rad), downward tilt, side droop, thickness */
 const HELMET_GAP = .02, HELMET_BRIM = .04, HELMET_EAR_DROP = .075;
 const REAL_SH_REACH = .14;               /* Maximum shoulder push toward the target when the hand cannot reach (the far hand on a two-handed bat grip) */
-const R_SLOTS = ['jersey', 'pants', 'skin', 'dark', 'sock', 'hair', 'eyeWhite', 'iris'];
+const CAP_SEG = 40;                      /* Cap shell segments around (segment 0 = straight ahead) */
+const R_SLOTS = ['jersey', 'pants', 'skin', 'dark', 'sock', 'hair', 'eyeWhite', 'iris', 'trim', 'belt'];
+/* Trim and belt are cut out of the pack's jersey and dark groups at load (no new asset): jersey triangles touching skin
+ * (sleeve hems, collar) or on the front centre line (placket piping); dark triangles above the knees (the belt, not the shoes) */
+const TRIM_SKIN_GAP = .018, TRIM_PIPE_W = .016, BELT_MIN_Y = .5;
+function cutKitGroups(H, P0, IX) {
+  const g = Object.fromEntries(H.groups.map(([s, c, n]) => [n, [s, c]])), cell = TRIM_SKIN_GAP, hash = new Map();
+  const key = (x, y, z) => x + ',' + y + ',' + z, at = (i, k) => P0[i * 3 + k];
+  const [ss, sc] = g.skin; for (let k = ss; k < ss + sc; k++) { const i = IX[k], q = [0, 1, 2].map(d => Math.floor(at(i, d) / cell)), h = key(...q); if (!hash.has(h)) hash.set(h, []); hash.get(h).push(i) }
+  const nearSkin = i => { const q = [0, 1, 2].map(d => Math.floor(at(i, d) / cell));
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) for (const j of hash.get(key(q[0] + a, q[1] + b, q[2] + c)) || [])
+      if (Math.hypot(at(i, 0) - at(j, 0), at(i, 1) - at(j, 1), at(i, 2) - at(j, 2)) < TRIM_SKIN_GAP) return true; return false };
+  const split = (name, pick) => { const [s, c] = g[name], keep = [], cut = [];
+    for (let k = s; k < s + c; k += 3) { const t = [IX[k], IX[k + 1], IX[k + 2]]; (pick(t) ? cut : keep).push(...t) }
+    IX.set(keep, s); IX.set(cut, s + keep.length); return [[s, keep.length, name], [s + keep.length, cut.length]] };
+  const cen = (t, d) => (at(t[0], d) + at(t[1], d) + at(t[2], d)) / 3;
+  const [jk, jc] = split('jersey', t => t.some(nearSkin) || (Math.abs(cen(t, 0)) < TRIM_PIPE_W && cen(t, 2) > 0 && cen(t, 1) < 1.5));
+  const [dk, dc] = split('dark', t => cen(t, 1) > BELT_MIN_Y);
+  return H.groups.flatMap(gr => gr[2] === 'jersey' ? [jk, [...jc, 'trim']] : gr[2] === 'dark' ? [dk, [...dc, 'belt']] : [gr]).filter(gr => gr[1] > 0);
+}
 /* players.b64.txt (base64 of players.bin): shared topology/skeleton/weights + normal positions + slim/power/heavy offsets (made by tools/pack_players.py, replaces 4 gltf files).
  * Builds can be blended: pass a string like 'slim', or weights like {slim:.3,power:.5} (relative to normal). */
 let PACK = null;
 export async function loadPlayerAssets(base = './assets/') {
+  LOGO_BASE = base;
   /* Hosting only accepts common extensions, so the binary is stored as base64 text (.b64.txt, about 800 KB) */
   const b64 = await (await fetch(base + 'players.b64.txt')).text(), bin = atob(b64.trim()), u8 = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
@@ -399,7 +461,7 @@ export async function loadPlayerAssets(base = './assets/') {
   /* Face and head code reads the old 16-bone split: DG = old bone (group) of the dominant slot, DW = that group's total weight */
   const DG = new Uint8Array(n), DW = new Float32Array(n);
   for (let i = 0; i < n; i++) { const g = H.group[SI[i * 4]]; let w = 0; for (let k = 0; k < 4; k++) if (H.group[SI[i * 4 + k]] === g) w += WQ[i * 4 + k]; DG[i] = g; DW[i] = w / 255 }
-  PACK = { H, P0, D: Dl, SI, SW, DG, DW, IX, geos: new Map() };
+  PACK = { H, P0, D: Dl, SI, SW, DG, DW, IX, geos: new Map(), groups: cutKitGroups(H, P0, IX) };
   for (const k of H.kinds) ASSETS.set(k, realAsset(k));
   return ASSETS;
 }
@@ -420,10 +482,10 @@ function realAsset(build, head = 0) {
   geo.setAttribute('skinIndex', PACK.att.si); geo.setAttribute('skinWeight', PACK.att.sw);
   geo.setIndex(PACK.att.ix);
   geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P), 4, true));
-  for (const [start, count, name] of H.groups) geo.addGroup(start, count, R_SLOTS.indexOf(name));
+  for (const [start, count, name] of PACK.groups) geo.addGroup(start, count, R_SLOTS.indexOf(name));
   geo.computeVertexNormals(); geo.computeBoundingSphere();
   /* Head extent: width / depth / top measured above the ears; the cap is sized from this */
-  const hb = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9, top: -1e9 }; let backZ = 1e9;
+  const hb = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9, top: -1e9 }; let backZ = 1e9, logoZ = -1e9, fnumZ = -1e9;
   const eyeY = J.eyeL[1], pts = [];
   for (let i = 0; i < n; i++) {
     const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
@@ -433,9 +495,11 @@ function realAsset(build, head = 0) {
       hb.z0 = Math.min(hb.z0, z); hb.z1 = Math.max(hb.z1, z);
     }
     if (Math.abs(y - D.NUM_Y) < .03 && Math.abs(x) < .04) backZ = Math.min(backZ, z);
+    if (Math.abs(y - LOGO_CHEST.y) < .025 && Math.abs(Math.abs(x) - LOGO_CHEST.x) < .03) logoZ = Math.max(logoZ, z);   /* Front decals sit on the chest surface */
+    if (Math.abs(y - NUM_FRONT.y) < .025 && Math.abs(Math.abs(x) - Math.abs(NUM_FRONT.x)) < .03) fnumZ = Math.max(fnumZ, z);
   }
   hb.pts = new Float32Array(pts);
-  const A = { key, geo, J, head: hb, backZ }; PACK.geos.set(key, A); return A;
+  const A = { key, geo, J, head: hb, backZ, logoZ, fnumZ }; PACK.geos.set(key, A); return A;
 }
 /* =====================================================================
  * Faces (#151, first PR): head shapes + painted face detail, all code-generated (0 bytes added).
@@ -550,7 +614,7 @@ function fitCapGeometry(A, kind) {
     return (G(i, j) * (1 - t) + G(i + 1, j) * t) * (1 - s) + (G(i, j + 1) * (1 - t) + G(i + 1, j + 1) * t) * s;
   };
 
-  const pos = [], idx = [], SEG = 40, RING = 18;
+  const pos = [], idx = [], SEG = CAP_SEG, RING = 18;
   /* Cap shell (rings denser near the top, closed with a centre point to avoid a star-shaped shading artefact at the pole) */
   for (let r = 0; r <= RING; r++) {
     const h = Math.sin(r / RING * Math.PI / 2) * .985;
@@ -592,6 +656,13 @@ function fitCapGeometry(A, kind) {
   if (helmet) { const th = Math.PI / 2, [u] = rAt(th, 0), k = growAt(th); flap = [cx + u * k - N[0] + .004, eyeY - .03 - N[1], cz - .005 - N[2]] }
   return { geo, flap };
 }
+/* Cap logo spot: between two shell rings straight ahead (segment 0 = front), tilted with the crown */
+function capLogoSpot(cg) {
+  if (cg.logo) return cg.logo;
+  const p = cg.geo.attributes.position, at = r => new THREE.Vector3().fromBufferAttribute(p, r * CAP_SEG);
+  const a = at(CAP_LOGO.ringA), b = at(CAP_LOGO.ringB), c = a.clone().add(b).multiplyScalar(.5);
+  c.z += CAP_LOGO.out; return cg.logo = { p: c, tilt: Math.atan2(b.z - a.z, b.y - a.y) };
+}
 const capGeoCache = new Map();
 const V3 = a => new THREE.Vector3(...a);
 const _q3 = new THREE.Quaternion(), _q4 = new THREE.Quaternion(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
@@ -600,6 +671,7 @@ function makeRealPlayer(opts, A) {
   const bd = { h: opts.height || buildHeight(opts.build || 'normal') };
   const jersey = asMat(opts.jersey ?? 0xffffff, .55), pants = asMat(opts.pants ?? 0xeeeeee, .75), skin = asMat(opts.skin ?? 0xc99572, .62);
   const dark = stdMat(0x1a1a1e, .5), sock = asMat(opts.sock ?? jersey, .6), hair = asMat(opts.hair ?? 0x1c1612, .8), leather = stdMat(0x8a5a2b, .6);
+  const kit = opts.kit;   /* #204: shared side kit (makeKit); without one, trim = jersey and belt = dark as before */
   let throws = opts.throws || 'R', mirrored = opts.role !== 'batter' && throws === 'R', headKind = opts.head || 'cap';
   const J = A.J;
 
@@ -619,7 +691,8 @@ function makeRealPlayer(opts, A) {
   names.forEach((n, i) => { const p = V3(J[n]); if (PAR[i] >= 0) { p.sub(V3(J[names[PAR[i]]])); bones[PAR[i]].add(bones[i]) } bones[i].position.copy(p) });
   mir.add(bones[0]);
   skin.vertexColors = true;   /* Face paint lives in the geometry's colour attribute (faceColors); white everywhere else */
-  const mesh = new THREE.SkinnedMesh(A.geo, [jersey, pants, skin, dark, sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3)]);
+  const mesh = new THREE.SkinnedMesh(A.geo, kit ? [kit.jersey, kit.pants, skin, dark, kit.sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3), kit.trim, kit.belt]
+    : [jersey, pants, skin, dark, sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3), jersey, dark]);
   mesh.castShadow = true; mesh.frustumCulled = false; mir.add(mesh);
   g.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones));
 
@@ -644,11 +717,30 @@ function makeRealPlayer(opts, A) {
   const capRoot = new THREE.Object3D(); capRoot.position.copy(neckToHead); bones[B.head].add(capRoot);   /* The cap geometry is already in neck-local coordinates */
   const numMesh = new THREE.Mesh(new THREE.PlaneGeometry(.2, .2), numMat(0)); numMesh.position.z = -NUM_GAP; numMesh.rotation.y = Math.PI; numMesh.visible = false; sockets.back.add(numMesh);
   let cap = null, glove = null;
+  /* #204 marks: chest logo, front number and back name ride the back socket (spine); `deco.scale.x` undoes the mirror like the back number */
+  const deco = new THREE.Group(), plane = (w, h) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), numMat(0));
+  const chestLogo = plane(LOGO_CHEST.size, LOGO_CHEST.size), numFront = plane(NUM_FRONT.size, NUM_FRONT.size), nameBack = plane(NAME_BACK.w, NAME_BACK.h), capLogo = plane(CAP_LOGO.size, CAP_LOGO.size);
+  nameBack.rotation.y = Math.PI; deco.add(chestLogo, numFront, nameBack); sockets.back.add(deco);
+  for (const o of [chestLogo, numFront, nameBack, capLogo]) o.visible = false;
+  const placeDeco = () => {   /* Per build: the socket follows this build's back depth, front decals its chest depth */
+    sockets.back.position.set(0, D.NUM_Y - J.spine[1], A.backZ - J.spine[2]);
+    chestLogo.position.set(LOGO_CHEST.x, LOGO_CHEST.y - D.NUM_Y, A.logoZ - A.backZ + DECAL_GAP);
+    numFront.position.set(NUM_FRONT.x, NUM_FRONT.y - D.NUM_Y, A.fnumZ - A.backZ + DECAL_GAP);
+    nameBack.position.set(0, NAME_BACK.dy, -NUM_GAP);
+  };
+  placeDeco();
+  const dressSync = s => {   /* Every sync: follow the kit's team logo and the back number (game.js sets numMesh directly) */
+    deco.scale.x = capLogo.scale.x = s;
+    const lg = kit && kit.logo; chestLogo.visible = capLogo.visible = !!lg; if (lg) chestLogo.material = capLogo.material = lg;
+    numFront.visible = !!kit && numMesh.visible; numFront.material = numMesh.material;
+    nameBack.visible = !!kit && !!f.nameN && numMesh.visible;
+  };
   const putHead = kind => {
     if (cap) capRoot.remove(cap); cap = null; if (kind === 'none') return;
     const key = A.key + ':' + kind; let cg = capGeoCache.get(key); if (!cg) { cg = fitCapGeometry(A, kind); capGeoCache.set(key, cg) }
-    const m = kind === 'helmet' ? asMat(opts.jersey ?? 0xffffff, .3) : jersey;
+    const m = kit ? (kind === 'helmet' ? kit.helmet : kit.cap) : kind === 'helmet' ? asMat(opts.jersey ?? 0xffffff, .3) : jersey;
     cap = new THREE.Group(); cap.add(new THREE.Mesh(cg.geo, m));
+    if (kit && kind === 'cap') { const q = capLogoSpot(cg); capLogo.position.copy(q.p); capLogo.rotation.x = q.tilt; cap.add(capLogo) }
     capRoot.add(cap); cap.traverse(o => { if (o.isMesh) o.castShadow = true });
   };
   putHead(opts.head || 'cap');
@@ -660,12 +752,13 @@ function makeRealPlayer(opts, A) {
     auto: true, bend: { knee: [0, 0], elbow: [0, 0] }, numN: undefined,
     setNum(n) { if (f.numN === n) return; f.numN = n; numMesh.visible = n != null; if (n != null) numMesh.material = numMat(n) },
     setHead(kind) { headKind = kind; putHead(kind) },
+    setName(nm) { const fn = familyName(nm); if (f.nameN === fn) return; f.nameN = fn; if (fn) nameBack.material = nameMat(fn) },
     handWorld(i, out = new THREE.Vector3()) { g.updateMatrixWorld(true); return (i ? sockets.handR : sockets.handL).getWorldPosition(out) },
     /* Change handedness: 'R' mirrors the inner node (old keyframes -> right-handed), 'L' does not. Batters unchanged */
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
     setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; if (f.buildKey === k) return; f.buildKey = k;
-      A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+      A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0';
   if (opts.num != null) f.setNum(opts.num);
@@ -711,6 +804,7 @@ function makeRealPlayer(opts, A) {
     solve(l0, C.lL, b[B.thL], b[B.knL], b[B.ftL], TH[0], false, 0, false);
     solve(l1, C.lR, b[B.thR], b[B.knR], b[B.ftR], TH[1], false, 1, false);
     numMesh.scale.x = Math.sign(g.scale.x || 1) * mir.scale.x < 0 ? -1 : 1;
+    dressSync(numMesh.scale.x);
   }
   const base = THREE.Object3D.prototype.updateMatrixWorld;
   g.updateMatrixWorld = function (force) { if (g.visible) sync(); return base.call(this, force) };   /* Hidden players skip IK, for performance */
