@@ -1,4 +1,4 @@
-/* render/props/backstop.js: the backstop behind home plate (#215 round 1). Polish rounds edit only this file (and add to render/pbr.js).
+/* render/props/backstop.js: the backstop behind home plate (#215 round 1). Polish rounds edit only this file (#237: render/pbr.js is read-only, new materials live here; round notes in this header and on the #215 board).
  * Replaces game.js's flat net (one plane, four plain posts, one straight top cable) with a real backstop:
  *   a padded wall at the foot of the net (vinyl pads in the home park's pad colour on a concrete curb, padded top roll, trim flashing,
  *   dirt kicked up on the bottom of the pads), dark knotted netting that hangs from a sagging top cable between the posts and bellies
@@ -90,3 +90,6 @@ export function buildBackstop(o={}){
   /* colours from the home park (pad = vinyl pads and roll, trim = flashing); called again when the park changes */
   g.userData.recolor=C=>{if(!C)return;pad.color.set(C.pad);roll.color.set(C.pad);trim.color.set(C.trim)};
   g.userData.recolor(o.colors);return g}
+
+/* slot descriptor (#237): replaces game.js's old net, posts and top cable, all named old:backstop */
+export const PROPS=[{name:'backstop',build:c=>buildBackstop({old:oldBackstop(c.scene),colors:c.park()}),old:c=>oldBackstop(c.scene)}];

@@ -4,7 +4,8 @@
  * Wide screens (1000 px and up, #197): each team opens with its star strip (best overall, fielder or pitcher), then one dense sortable table per group
  * (one row per player, a short bar and its number per ability); a tap on a row opens his bio line and the compare button. The card list stays for phones and
  * mid widths; both lists share one sort, and CSS decides which one shows.
- * The staff and umpire block reads league/staff.js at load and stays hidden if the file is missing or looks wrong. */
+ * The staff and umpire block reads league/staff.js at load and stays hidden if the file is missing or looks wrong.
+ * The box score of the frozen first game (ui/boxscore.js, #53 part 2) reads league/preseason/opening.json and stays hidden the same way. */
 import {TEAMS} from '../league/teams.js';
 import {ROSTERS} from '../league/players.js';
 import {ratingsOf} from '../league/ratings.js';
@@ -100,3 +101,9 @@ try{
   if(umps.length){const sec=el('section','team');sec.append(el('h3',null,'聯盟裁判'),crewList(umps,x=>Number.isFinite(x.years)?`資歷 ${x.years} 年`:''));blocks.push(sec)}
   if(blocks.length){host.append(el('h2',null,'教練團與裁判'),...blocks);host.hidden=false}
 }catch(e){/* no staff file yet: the block stays hidden */}
+
+/* Box score of the frozen first game: hidden unless the recording loads and parses. */
+try{
+  const {loadBox}=await import('./boxscore.js'),blk=await loadBox(),host=document.getElementById('box');
+  if(blk&&host){host.appendChild(blk);host.hidden=false}
+}catch(e){/* no recording or no module: the block stays hidden */}

@@ -124,3 +124,6 @@ export function buildMound(){const M=MOUND,G=new THREE.Group();G.name='mound';
     const p=new THREE.Mesh(pl.clone(),pw);p.position.set(D.cx,.003,D.cz);p.renderOrder=2;p.name='mound:powder';G.add(p)}
   const chalk=new THREE.Mesh(chalkGeo(lcg(2151)),new THREE.MeshStandardMaterial({color:0xf4f1ea,roughness:.98,metalness:0}));chalk.receiveShadow=true;chalk.name='mound:chalk';G.add(chalk);
   return G}
+
+/* slot descriptor (render/props/index.js, slot rule #237): the mound and the boxes were paint on the field map, which stays underneath, so there are no old meshes to hide */
+export const PROPS=[{name:'mound',build:()=>buildMound(),old:()=>[]}];
