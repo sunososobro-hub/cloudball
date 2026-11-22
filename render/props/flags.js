@@ -108,7 +108,7 @@ function buildPole(P,H,fw,fh,tex,M,seed){const {R0,R1,NX,NY}=FL,g=new THREE.Grou
 
 /* move one flag's cloth to time t (s) */
 function wave(C,t){const {AMP,K,W,SAG}=FL,p=C.mesh.geometry.attributes.position,a=p.array,b=C.base,L=C.fw;
-  for(let i=0;i<a.length;i+=3){const u=(b[i]-C.hx)/L,v=(C.ytop-b[i+1])/C.fh,ph=K*u*6.283-W*C.sp*t+C.ph+v*.9,amp=AMP*L*u**1.15;
+  for(let i=0;i<a.length;i+=3){const u=Math.max(0,(b[i]-C.hx)/L),/* the hoist edge can come out a hair under 0: a negative u**1.15 is NaN */v=(C.ytop-b[i+1])/C.fh,ph=K*u*6.283-W*C.sp*t+C.ph+v*.9,amp=AMP*L*u**1.15;
     a[i+2]=amp*(Math.sin(ph)+.3*Math.sin(2.3*ph+1.7+v*2.1));
     a[i]=b[i]-amp*.35*(1+Math.cos(ph))*u;/* billows pull the fly in a little */
     a[i+1]=b[i+1]-SAG*L*u*u*(.6+.4*Math.sin(ph*.5))}
