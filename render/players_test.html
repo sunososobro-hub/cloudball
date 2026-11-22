@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>球員骨架測試</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a quiet, tool-like test bench for the action studio
+   IDEA: a locker-room build comparison board
+   PICTURE: the four builds standing in a row, driven by the existing keyframes
+   COLOUR and TYPE: night-game navy background, floodlight white, sardine teal; Barlow Condensed + Noto Sans TC
+   LAYOUT: control bar on top, full-width 3D, timeline at the bottom */
+:root{color-scheme:dark;--bg:#0a1020;--ink:#eef2f8;--muted:#9aa6bd;--line:rgba(255,255,255,.16);--a:#2f9fd4}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans TC',system-ui,sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0}#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+header{position:fixed;top:0;left:0;right:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:linear-gradient(#0a1020ee,#0a102000)}
+h1{font:700 22px 'Barlow Condensed','Noto Sans TC',sans-serif;margin:0 10px 0 0;letter-spacing:.02em}
+.grp{display:flex;gap:4px;flex-wrap:wrap}
+button{font:inherit;font-size:15px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:8px;min-height:40px;padding:0 12px;cursor:pointer}
+button[aria-pressed=true]{background:var(--a);border-color:var(--a);color:#04121c;font-weight:600}
+button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:2px}
+footer{position:fixed;left:0;right:0;bottom:0;display:flex;gap:10px;align-items:center;padding:10px 14px;background:linear-gradient(#0a102000,#0a1020ee)}
+footer input{flex:1;accent-color:var(--a);height:40px}
+#t{font:600 18px 'Barlow Condensed',sans-serif;width:64px;text-align:right;font-variant-numeric:tabular-nums}
+.lbl{position:fixed;transform:translate(-50%,0);font-size:14px;color:var(--muted);text-align:center;pointer-events:none;white-space:nowrap}
+.lbl b{display:block;color:var(--ink);font-size:15px}
+#info{position:fixed;right:14px;top:64px;font-size:13px;color:var(--muted);text-align:right;max-width:46vw}
+@media(max-width:600px){h1{font-size:18px;width:100%}button{padding:0 9px}#info{display:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.js",
+  "three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.js",
+  "three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<header>
+  <h1>球員骨架測試</h1>
+  <div class="grp" id="modes" role="group" aria-label="動作">
+    <button data-m="pitch" aria-pressed="true">投球</button><button data-m="bat" aria-pressed="false">打擊</button>
+    <button data-m="run" aria-pressed="false">跑步</button><button data-m="crouch" aria-pressed="false">蹲捕</button><button data-m="stand" aria-pressed="false">站立</button>
+  </div>
+  <div class="grp" role="group" aria-label="慣用手">
+    <button id="hand" aria-pressed="false">左投</button><button id="play" aria-pressed="true">播放</button><button id="slow" aria-pressed="false">慢速 .25×</button>
+  </div>
+</header>
+<div id="info"></div>
+<footer><input id="u" type="range" min="0" max="4.6" step=".01" value="0" aria-label="時間"><span id="t">0.00s</span></footer>
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { makePlayer, makeBat, BUILDS, loadPlayerAssets, loadClip, footDrift, rigFootDrift, headOf, headOfPlayer, HEAD_SHAPES, gearOf } from './players.js';
+{
+
+const $ = id => document.getElementById(id), Q = new URLSearchParams(location.search);
+const lerp = (a, b, t) => a + (b - a) * t, sat01 = t => Math.max(0, Math.min(1, t)), ease = t => t * t * (3 - 2 * t);
+
+/* ---- Keyframes and pose functions copied verbatim from src/page.html (only PR/BR/CR replaced with f.rig) ---- */
+const RELEASE = 1.6, ARRIVE = 2.05;
+const kf = (u, K) => { const n = K.length; if (u <= K[0][0]) return K[0][1]; if (u >= K[n - 1][0]) return K[n - 1][1]; let i = 1; while (u > K[i][0]) i++;
+  const [t0, v0] = K[i - 1], [t1, v1] = K[i], h = t1 - t0, s = (u - t0) / h, m = j => j <= 0 || j >= n - 1 ? 0 : (K[j + 1][1] - K[j - 1][1]) / (K[j + 1][0] - K[j - 1][0]), m0 = m(i - 1) * h, m1 = m(i) * h, s2 = s * s, s3 = s2 * s;
+  return (2 * s3 - 3 * s2 + 1) * v0 + (s3 - 2 * s2 + s) * m0 + (-2 * s3 + 3 * s2) * v1 + (s3 - s2) * m1 };
+const PK = {
+  yaw: [[0, 0], [.4, 0], [.95, .6], [1.25, .85], [1.45, .3], [1.6, -.25], [2.2, -.3], [3.2, 0]],
+  lean: [[0, 0], [.4, 0], [.95, -.12], [1.4, .1], [1.6, .55], [2, .7], [3, .1], [3.6, 0]],
+  l0: [[0, 0], [.4, 0], [.95, -1.4], [1.25, -1.15], [1.45, -.55], [2.6, -.5], [3.4, 0]],
+  l1: [[0, 0], [.95, 0], [1.4, .75], [1.7, .9], [2.3, .15], [3, 0]],
+  a0: [[0, 0], [.4, 0], [.95, -1.1], [1.25, -1.5], [1.6, -.8], [2, -.9], [3, 0]],
+  a1: [[0, 0], [.4, 0], [.95, -1.1], [1.25, 1.5], [1.4, 2.6], [1.6, 3.5], [1.9, 4.9], [2.5, 6.28]],
+  dz: [[0, 0], [.95, 0], [1.4, .85], [3.2, .85], [4.6, 0]] };
+const PITCH_SH_Y = .57, PITCH_ARM = .62;
+const pitchTipAt = (u, px, pz) => { const L = kf(u, PK.lean), th = kf(u, PK.a1), y = kf(u, PK.yaw), lz = PITCH_SH_Y * Math.sin(L) - PITCH_ARM * Math.sin(th); return [px + .3 * Math.cos(y) + lz * Math.sin(y), .95 + PITCH_SH_Y * Math.cos(L) - PITCH_ARM * Math.cos(th), pz + kf(u, PK.dz) - .3 * Math.sin(y) + lz * Math.cos(y)] };
+function pitchPose(P, u) { const R = P.rig, y = kf(u, PK.yaw), L = kf(u, PK.lean), th = kf(u, PK.a1);
+  R.up.rotation.set(L, y, 0); R.hg.rotation.y = -y * .9; P.legs[0].rotation.x = kf(u, PK.l0); P.legs[1].rotation.x = kf(u, PK.l1); P.arms[0].rotation.x = kf(u, PK.a0); P.arms[1].rotation.x = th;
+  P.g.position.z += kf(u, PK.dz) }
+
+const BK = { yaw: [-.15, -.45, .75, 1.7], lean: [.12, .16, .2, .1], hx: [-.2, -.3, -.05, .35], hy: [.55, .62, .38, .65], hz: [.3, .22, .56, .35],
+  bx: [-.3, -.5, -.55, .4], by: [.95, .85, .12, .7], bz: [.12, .1, .82, .55], stride: [.2, .3, .42, .4], back: [-.2, -.2, -.25, -.32], head: [1.1, 1.15, .6, .2] };
+const BAT_REST = { yaw: -.1, hx: -.1, hy: .5, hz: .35, bx: .15, by: -.85, bz: .5 }, BAT_REST_AT = 1.4, BAT_REST_DUR = .6, BAT_UNREST_DUR = .5;
+const BAT_LOAD_LEAD = .9, BAT_LOAD_DUR = .6, BAT_SWING_LEAD = .22, BAT_SWING_DUR = .3, BAT_FT_DELAY = .06, BAT_FT_DUR = .3, BAT_ARM_LEN = .6, BAT_SHOULDER_X = .3, BAT_SHOULDER_Y = .57;
+const _bv = new THREE.Vector3(), _bq = new THREE.Quaternion(), _dn = new THREE.Vector3(0, -1, 0), _up = new THREE.Vector3(0, 1, 0), _tv = new THREE.Vector3();
+function aimArm(a, sx, tx, ty, tz) { _bv.set(tx - sx, ty - BAT_SHOULDER_Y, tz); const d = _bv.length(); _bq.setFromUnitVectors(_dn, _bv.normalize()); a.quaternion.copy(_bq); a.scale.y = Math.max(.85, Math.min(1.2, d / BAT_ARM_LEN)) }
+function poseBatter(f, e, u) { const BR = f.rig, batPivot = f.batPivot;
+  const ld = ease(sat01((u - (ARRIVE - BAT_LOAD_LEAD)) / BAT_LOAD_DUR)), sw = e.swing ? ease(sat01((u - (ARRIVE - BAT_SWING_LEAD)) / BAT_SWING_DUR)) : 0, ft = e.swing ? ease(sat01((u - (ARRIVE + BAT_FT_DELAY)) / BAT_FT_DUR)) : 0;
+  const K = (k, c) => { const a = BK[k]; let v = lerp(a[0], a[1], ld); v = lerp(v, c === undefined ? a[2] : c, sw); return lerp(v, a[3], ft) };
+  const stay = !(e.pa && e.r !== 'ibb'), rw = stay ? Math.max(ease(sat01((u - (ARRIVE + BAT_REST_AT)) / BAT_REST_DUR)), (e.c0[0] + e.c0[1] > 0) ? 1 - ease(sat01(u / BAT_UNREST_DUR)) : 0) : 0;
+  const yaw = lerp(K('yaw'), BAT_REST.yaw, rw), py = .45 + e.zy * .75, dyC = Math.max(-.7, Math.min(.2, (py - 1.33) / .85));
+  BR.up.rotation.set(K('lean'), yaw, 0); BR.hips.rotation.y = yaw * .6; BR.hg.rotation.y = K('head') - yaw;
+  BR.l0.rotation.z = K('back'); BR.l1.rotation.z = lerp(lerp(BK.stride[0], BK.stride[1], ld), BK.stride[2], sw);
+  const gx = lerp(K('hx'), BAT_REST.hx, rw), gy = lerp(K('hy'), BAT_REST.hy, rw), gz = lerp(K('hz'), BAT_REST.hz, rw); batPivot.position.set(gx, gy, gz);
+  _bv.set(lerp(K('bx'), BAT_REST.bx, rw), lerp(K('by', dyC), BAT_REST.by, rw), lerp(K('bz'), BAT_REST.bz, rw)).normalize(); batPivot.quaternion.setFromUnitVectors(_up, _bv);
+  aimArm(BR.a0, -BAT_SHOULDER_X, gx, gy, gz); aimArm(BR.a1, BAT_SHOULDER_X, gx, gy, gz) }
+
+const CROUCH_FWD = .55, CROUCH_SPLAY = .45, CROUCH_LEAN = .2, CROUCH_SHRINK = .35, LEG_LEN = .86, MITT_Z = 1.1;
+function crouch(f, R, c, fwd, splay, lean, shrink) { const fw = fwd * c, sp = splay * c, len = LEG_LEN * (1 - shrink * c); f.g.position.y = -(LEG_LEN - len * Math.cos(sp) * Math.cos(fw)) * f.k; R.l0.scale.y = R.l1.scale.y = 1 - shrink * c; R.l0.rotation.set(-fw, 0, -sp); R.l1.rotation.set(-fw, 0, sp); R.up.rotation.set(lean * c, 0, 0) }
+function aimWorld(R, arm, sx, wx, wy, wz) { R.up.updateWorldMatrix(true, false); _tv.set(wx, wy, wz); R.up.worldToLocal(_tv); aimArm(arm, sx, _tv.x, _tv.y, _tv.z) }
+function runPose(f, u) { const sp = 7.5; f.ph = u * sp * 2.4; const sw = Math.sin(f.ph) * Math.min(1, sp / 6) * .9;
+  f.legs[0].rotation.x = sw; f.legs[1].rotation.x = -sw; f.arms[0].rotation.x = -sw * .8; f.arms[1].rotation.x = sw * .8; f.g.position.y = Math.abs(Math.sin(f.ph)) * .05 }
+
+/* ---- Scene ---- */
+const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: Q.has('webgl') });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+$('stage').appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0a1020); scene.fog = new THREE.Fog(0x0a1020, 14, 30);
+const cam = new THREE.PerspectiveCamera(34, 1, .1, 100); cam.position.set(2.2, 2.0, 8.4);
+const ctl = new OrbitControls(cam, renderer.domElement); ctl.target.set(0, 1, 0); ctl.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xcfe2ff, 0x2a2418, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 2.6); sun.position.set(4, 9, 6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -4, near: 1, far: 30 }); scene.add(sun);
+const rim = new THREE.DirectionalLight(0x88b4ff, 1.1); rim.position.set(-5, 4, -6); scene.add(rim);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(12, 48), new THREE.MeshStandardMaterial({ color: 0x5b4a36, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const grass = new THREE.Mesh(new THREE.RingGeometry(4.2, 12, 64), new THREE.MeshStandardMaterial({ color: 0x2c5a2e, roughness: 1 })); grass.rotation.x = -Math.PI / 2; grass.position.y = .002; grass.receiveShadow = true; scene.add(grass);
+
+const KINDS = ['slim', 'normal', 'power', 'heavy'], XS = [-2.7, -.9, .9, 2.7], COLORS = [0x2f7fc4, 0x2f7fc4, 0x6b4fa8, 0x6b4fa8], NUMS = [7, 18, 25, 44];
+let players = [], throwsL = false, mode = Q.get('mode') || 'pitch';
+const ballMat = new THREE.MeshBasicMaterial({ color: 0xffffff }), tipMat = new THREE.MeshBasicMaterial({ color: 0xff4d4d });
+const balls = XS.map(() => { const b = new THREE.Mesh(new THREE.SphereGeometry(.042, 12, 8), ballMat); scene.add(b); return b });
+const tips = XS.map(() => { const b = new THREE.Mesh(new THREE.SphereGeometry(.02, 8, 6), tipMat); scene.add(b); return b });
+const labels = KINDS.map(k => { const d = document.createElement('div'); d.className = 'lbl'; document.body.appendChild(d); return d });
+
+function build() {
+  for (const p of players) scene.remove(p.g);
+  const batter = mode === 'bat';
+  players = KINDS.map((k, i) => {
+    const f = makePlayer({ jersey: COLORS[i], num: NUMS[i], build: k, throws: throwsL ? 'L' : 'R', glove: !batter && mode !== 'run', head: batter ? 'helmet' : 'cap', role: batter ? 'batter' : undefined, parent: scene });
+    if (batter) { f.batPivot = new THREE.Object3D(); f.rig.up.add(f.batPivot); f.batPivot.add(makeBat()) }
+    return f });
+  KINDS.forEach((k, i) => labels[i].innerHTML = `<b>${BUILDS[k].label}</b>${BUILDS[k].h.toFixed(2)} m・#${NUMS[i]}`);
+}
+function reset(f) { const R = f.rig; for (const o of [R.up, R.hips, R.hg, R.l0, R.l1, R.a0, R.a1]) { o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1) } f.g.position.y = 0 }
+
+const DUR = { pitch: 4.6, bat: 3.6, run: 2, crouch: 1, stand: 1 };
+let u = +(Q.get('u') || 0), playing = !Q.has('pause'), speed = 1, maxTipErr = 0;
+const _h = new THREE.Vector3();
+function pose(u) {
+  players.forEach((f, i) => {
+    reset(f); const x = XS[i]; f.g.position.set(x, 0, 0); f.g.rotation.y = 0; balls[i].visible = tips[i].visible = false;
+    if (mode === 'pitch') {
+      pitchPose(f, u);
+      const tip = pitchTipAt(u, 0, 0), m = f.mirrored ? -1 : 1, w = [x + m * tip[0] * f.k, tip[1] * f.k, tip[2] * f.k];   /* Old formula (x flips sign when mirrored, scaled by height) */
+      tips[i].position.set(...w); tips[i].visible = u < RELEASE + .05;
+      f.handWorld(1, _h); if (Math.abs(u - RELEASE) < .02) maxTipErr = Math.max(maxTipErr, _h.distanceTo(tips[i].position));
+      balls[i].visible = true;
+      if (u < RELEASE) balls[i].position.copy(_h); else { const t = (u - RELEASE) / (ARRIVE - RELEASE); balls[i].position.set(lerp(tips[i].position.x, x, sat01(t)), lerp(tips[i].position.y, .8, sat01(t)), tips[i].position.z + (u - RELEASE) * 30); balls[i].visible = t < 1 }
+    } else if (mode === 'bat') poseBatter(f, { swing: true, zy: .5, c0: [0, 1], pa: false, r: 'foul' }, u);
+    else if (mode === 'run') runPose(f, u + i * .13);
+    else if (mode === 'crouch') { crouch(f, f.rig, 1, CROUCH_FWD, CROUCH_SPLAY, CROUCH_LEAN, CROUCH_SHRINK); aimWorld(f.rig, f.rig.a0, -BAT_SHOULDER_X, x + (f.mirrored ? .1 : -.1), .65, MITT_Z); aimWorld(f.rig, f.rig.a1, BAT_SHOULDER_X, x, .5, MITT_Z - .3) }
+  });
+}
+function placeLabels() {
+  players.forEach((f, i) => { _h.set(XS[i], -.05, .4).project(cam); const r = renderer.domElement.getBoundingClientRect();
+    labels[i].style.left = (r.left + (_h.x + 1) / 2 * r.width) + 'px'; labels[i].style.top = (r.top + (1 - _h.y) / 2 * r.height) + 'px' });
+}
+function setMode(m) { mode = m; document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === m)); $('u').max = DUR[m]; u = Math.min(u, DUR[m]); build() }
+document.querySelectorAll('#modes button').forEach(b => b.onclick = () => setMode(b.dataset.m));
+$('hand').onclick = e => { throwsL = !throwsL; e.currentTarget.setAttribute('aria-pressed', throwsL); build() };
+$('play').onclick = e => { playing = !playing; e.currentTarget.setAttribute('aria-pressed', playing); e.currentTarget.textContent = playing ? '播放' : '暫停' };
+$('slow').onclick = e => { speed = speed === 1 ? .25 : 1; e.currentTarget.setAttribute('aria-pressed', speed !== 1) };
+$('u').oninput = e => { u = +e.target.value; playing = false; $('play').setAttribute('aria-pressed', false); $('play').textContent = '暫停' };
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix() }
+addEventListener('resize', resize);
+
+await renderer.init(); if (!Q.has('blocky')) { try { await loadPlayerAssets('../assets/') } catch (e) { console.warn('glb load failed, using the code-generated players', e) } } resize(); setMode(mode);
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (playing) { u += dt * speed; if (u > DUR[mode]) u = 0 }
+  $('u').value = u; $('t').textContent = u.toFixed(2) + 's';
+  pose(u); ctl.update(); renderer.render(scene, cam); placeLabels();
+  $('info').textContent = `${renderer.backend.isWebGPUBackend ? 'WebGPU' : 'WebGL'}・${throwsL ? '左投' : '右投'}・紅點 = 舊 pitchTipAt 出手點${driftTxt}`;
+}
+/* #186: planted-foot drift of the pitch clip (hip heights x 0.95 m), measured once */
+let driftTxt = '';
+loadClip('../assets/mocap/pitch_124_01.json').then(c => { const d = footDrift(c, 0.3, 3.0), cm = v => (v * 95).toFixed(1);
+  driftTxt = `・腳底滑動（clip）左 ${cm(d.L.max)} cm／右 ${cm(d.R.max)} cm`;
+  /* Same check on a retargeted rig figure, over the game's span of the clip (PM_START 1.2 s to PM_END 4.6 s) */
+  const f = makePlayer({ jersey: 0xffffff, num: 1, build: 'normal', throws: 'L', glove: true, head: 'cap' });
+  const r = rigFootDrift(f, c, 1.2, 4.6, 1 / 30, c.release.hand === 'right'), cl = footDrift(c, 1.2, 4.6, 1 / 30, c.release.hand === 'right'); f.setMocap(null);
+  window.footRig = { rig: r, clip: cl };
+  driftTxt += `・綁到骨架後 左 ${(r.L.max * 100).toFixed(1)} cm／右 ${(r.R.max * 100).toFixed(1)} cm（clip 同段 ${cm(cl.L.max)}／${cm(cl.R.max)} cm）` }).catch(() => {});
+/* #191: a created player's look.head picks the shape and nothing else of headOf(id) moves; factory rows are unchanged. Result on window.headCheck. */
+{ const N = HEAD_SHAPES.length, ok = []; for (const id of ['a1', 'b22', 'fa-7', 'x']) for (let n = 0; n < 8; n++) { const h = headOf(id), g = headOfPlayer({ id, look: { head: n } });
+    ok.push(g % N === n % N && Math.floor(g / N) === Math.floor(h / N)) }
+  ok.push(headOfPlayer({ id: 'a1' }) === headOf('a1'), headOfPlayer({ id: 'a1', look: null }) === headOf('a1'), headOfPlayer(null) === headOf(undefined));
+  window.headCheck = ok.every(Boolean) }
+/* #151 fourth slice: leg style from the id hash. Counts over 2000 ids on window.legCheck ({0,1,2} shares); a build with a long-pants or high-sock head holds one sleeve per leg. */
+{ const n = [0, 0, 0]; for (let i = 0; i < 2000; i++) n[gearOf(headOf('p' + i)).leg]++; window.legCheck = n.map(v => +(v / 2000).toFixed(2)) }
+renderer.setAnimationLoop(frame);
+/* For headless tests */
+window.T = { setMode, pose: v => { u = v; pose(v) }, render: () => { renderer.render(scene, cam); placeLabels() }, players: () => players, cam, ctl, setHand: L => { throwsL = L; build() }, stop: () => { playing = false }, tipErr: () => maxTipErr,
+  handWorld: (i, a) => players[i].handWorld(a).toArray() };
+window.__ready = true;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+/* Player bar of the frozen game (#47): play / pause, progress track with a mark at every half inning, elapsed / total.
+ * Markup in index.html, behaviour in render/game.js (plUpdate, seekTo). Shown on production: it is a viewer feature. */
+#player{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));z-index:7;
+  display:flex;align-items:center;gap:10px;padding:2px 14px 2px 2px;--p:0;user-select:none;-webkit-user-select:none}
+#player #plPlay{flex:none;width:44px;min-height:40px;padding:0;font-size:16px;border:0;background:transparent;color:var(--ink)}
+#plTrack{position:relative;flex:1;height:36px;cursor:pointer;touch-action:none;outline:none}
+#plTrack:focus-visible{outline:2px solid #f2c230;outline-offset:2px;border-radius:6px}
+#plTrack .rail{position:absolute;left:0;right:0;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:rgba(255,255,255,.22);overflow:hidden;transition:height .12s,margin-top .12s}
+#plTrack:hover .rail,#player.drag .rail{height:6px;margin-top:-3px}
+#plFill{height:100%;width:calc(var(--p) * 100%);background:#f2c230}
+#plMarks i{position:absolute;top:50%;width:2px;height:10px;margin:-5px 0 0 -1px;border-radius:1px;background:rgba(255,255,255,.5);pointer-events:none}
+#plMarks i.top{height:14px;margin-top:-7px;background:rgba(255,255,255,.85)}
+#plMarks i[data-inn]::after{content:attr(data-inn);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);padding-bottom:1px;font:600 10px/1 'Barlow Condensed','Noto Sans TC',sans-serif;color:var(--muted)}
+#plKnob{position:absolute;top:50%;left:calc(var(--p) * 100%);width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#f2c230;box-shadow:0 0 0 3px rgba(242,194,48,.25);pointer-events:none}
+#plTip{position:absolute;bottom:calc(100% + 6px);transform:translateX(-50%);padding:3px 8px;border-radius:6px;background:#0b0d12;border:1px solid var(--line);font-size:12px;white-space:nowrap;pointer-events:none}
+#plTime{flex:none;font-size:15px;white-space:nowrap;text-align:right}
+/* thumb-sized handle and hit area on touch screens */
+@media(pointer:coarse){#plTrack{height:44px}#plKnob{width:22px;height:22px;margin:-11px 0 0 -11px}}
+@media(orientation:landscape) and (max-height:520px){#player{bottom:max(4px,env(safe-area-inset-bottom));padding:0 12px 0 0}#player #plPlay{min-height:40px}#plTime{font-size:13px}}
+@media(max-width:560px){#plMarks i[data-inn]::after{display:none}#plTime{font-size:13px}}
+body.studio #player{display:none}
+/* Highlights showing (#118): card above the field after every jump, final score card with two buttons; a third button on the entry screen.
+ * Markup in index.html, behaviour in render/game.js (startHighlights, hlTick). */
+#intro .acts button{flex-basis:170px}
+#hlCard{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 58px);left:50%;transform:translateX(-50%);z-index:8;padding:8px 22px 10px;text-align:center;
+  max-width:calc(100vw - 24px);pointer-events:none;transition:opacity .45s}
+#hlCard.off{opacity:0}
+#hlCard small{display:block;font-size:12px;letter-spacing:.16em;color:var(--muted)}
+#hlCard b{display:block;font:700 clamp(20px,3.4vw,32px)/1.25 'Barlow Condensed','Noto Sans TC',sans-serif;white-space:nowrap}
+#hlCard.end{top:50%;transform:translate(-50%,-50%);padding:16px 24px 18px;pointer-events:auto}
+#hlEnd{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}#hlEnd[hidden]{display:none}
+body.studio #hlCard{display:none}

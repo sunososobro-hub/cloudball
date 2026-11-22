@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- #162: the import map must come before every modulepreload, preload and module script (a preloaded module linked before it fails on "three/webgpu" and stays failed) -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<title>雲端職棒</title>
+<script src="ui/site.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui/player.css">
+<!-- #133: everything the first screen needs is requested at once, before any module runs (it used to arrive one after another) -->
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.min.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/tsl/display/BloomNode.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/tsl/display/GTAONode.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/tsl/display/FXAANode.js" crossorigin>
+<link rel="modulepreload" href="engine/index.js"><link rel="modulepreload" href="engine/constants.js"><link rel="modulepreload" href="engine/rng.js"><link rel="modulepreload" href="engine/rules/field.js"><link rel="modulepreload" href="engine/rules/outs.js"><link rel="modulepreload" href="engine/rules/fielding.js"><link rel="modulepreload" href="engine/sim/game.js"><link rel="modulepreload" href="engine/sim/copy.js"><link rel="modulepreload" href="engine/stats/box.js">
+<link rel="modulepreload" href="league/teams.js"><link rel="modulepreload" href="league/players.js"><link rel="modulepreload" href="league/staff.js"><link rel="modulepreload" href="league/recording.js">
+<link rel="modulepreload" href="commentary/index.js"><link rel="modulepreload" href="commentary/player.js"><link rel="modulepreload" href="commentary/voice.js"><link rel="modulepreload" href="commentary/tension.js">
+<link rel="modulepreload" href="render/players.js"><link rel="modulepreload" href="render/highlights.js"><link rel="modulepreload" href="render/compact.js">
+<link rel="preload" href="assets/players.b64.txt" as="fetch" crossorigin><link rel="preload" href="league/preseason/opening.json" as="fetch" crossorigin><link rel="preload" href="commentary/lines.json" as="fetch" crossorigin><link rel="preload" href="commentary/scripts/index.json" as="fetch" crossorigin>
+<link rel="preload" href="render/game.js" as="script">
+<!-- #133: the entry progress bar is static, so it is on screen from the first paint of a cold visit; BOOT counts the real load stages,
+     then render/game.js takes the same element over for the park compile (BOOT.share of the bar is loading, the rest is compiling) -->
+<script>
+/* #162: fail() = a load the page cannot start without broke: say so in plain words instead of 「準備球場中…」 forever */
+/* #162: t = ms from page open at which each boot stage ended (mark keeps the first); str() is the 🐞 report's boot= field */
+window.BOOT={share:.5,n:0,N:11,own:false,failed:false,t:{},mark(k){if(!(k in this.t))this.t[k]=Math.round(performance.now())},str(){return Object.entries(this.t).map(([k,v])=>k+'@'+v).join(',')},fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
+</script>
+<style>
+#warmBar{position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none;opacity:0;animation:wbIn .2s .3s forwards}
+#warmBar>div{height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden}#warmBar i{display:block;height:100%;width:0;background:#f2c230;transition:width .2s linear}
+#warmBar p{margin:8px 0 0;font-size:14px;color:#cfd8e8;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+@keyframes wbIn{to{opacity:1}}@media(prefers-reduced-motion:reduce){#warmBar i{transition:none}}
+</style>
+<style>
+/* VOICE: 台灣夜間球場直播，HUD 安靜，畫面讓給球場和應援
+   IDEA: 球場的外野記分板與轉播角落比分條
+   PICTURE: 全螢幕 3D 夜間棒球場，兩隊同步直播
+   COLOUR and TYPE: night-sky base, floodlight white, teal (pheasants) and purple (owls) as the two team colours; Barlow Condensed 記分字 + Noto Sans TC
+   LAYOUT: 左上比分與壘包、右上直播狀態、左下戰況、底部座位列；手機自動堆疊 */
+:root{color-scheme:dark;--bg:#070b16;--ink:#eef2f8;--muted:#9aa6bd;--glass:rgba(9,14,28,.78);--line:rgba(255,255,255,.14);--a:#2f7fc4;--b:#e8743b;--live:#ff4d4d}
+:root[data-theme=light],:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans TC',system-ui,sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0}#stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.num{font-family:'Barlow Condensed','Noto Sans TC',sans-serif;font-variant-numeric:tabular-nums}
+.panel{background:var(--glass);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(8px)}
+#sb{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));display:flex;gap:10px;align-items:stretch;padding:8px 10px;max-width:calc(100vw - 24px)}
+#ls{border-collapse:collapse;font-size:17px}
+#ls td,#ls th{padding:1px 6px;text-align:right;white-space:nowrap}
+#ls th{color:var(--muted);font-weight:500;font-size:13px}
+#ls td:first-child,#ls th:first-child{text-align:left;font-family:'Noto Sans TC',sans-serif;font-size:15px;font-weight:600}
+#ls .rhe{border-left:1px solid var(--line)}
+#ls .R{font-weight:700;font-size:20px}
+.chip{display:inline-block;width:6px;height:16px;border-radius:2px;vertical-align:-2px;margin-inline-end:6px}
+#lsWrap{overflow-x:auto}
+.sit{display:grid;grid-template-columns:auto auto;gap:4px 10px;align-items:center;padding-left:10px;border-left:1px solid var(--line)}
+.sit .inn{grid-column:1/-1;font-size:18px;font-weight:600;white-space:nowrap}
+.dots{display:flex;gap:4px;align-items:center;font-size:13px;color:var(--muted)}
+.dots i{width:9px;height:9px;border-radius:50%;border:1px solid rgba(255,255,255,.4)}
+.dots i.on.b{background:#4cd07d;border-color:#4cd07d}.dots i.on.s{background:#f2c230;border-color:#f2c230}.dots i.on.o{background:#ff5a5a;border-color:#ff5a5a}
+.bases{grid-row:2/5;grid-column:2;width:46px;height:46px;position:relative}
+.bases i{position:absolute;width:15px;height:15px;transform:rotate(45deg);border:1.5px solid rgba(255,255,255,.55)}
+.bases i.on{background:#f2c230;border-color:#f2c230}
+#sb,#pinfo{display:none!important}
+.bar.collapsed{display:none}#feed{display:none}body.hist #feed,body.edit #feed{display:block}
+#bug{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:150px;width:min(300px,calc(100vw - 24px));background:#0b0d12;border:1px solid rgba(255,255,255,.2);border-radius:6px;overflow:hidden;font-variant-numeric:tabular-nums;box-shadow:0 4px 18px rgba(0,0,0,.5);z-index:5;color:#fff}
+#bug .r1{display:grid;grid-template-columns:1fr 1fr}
+#bug .tm{display:flex;align-items:center;gap:6px;padding:4px 8px}#bug .tm .lg{width:30px;height:30px;flex:none}#bug .tm .lg img{width:100%;height:100%;display:block}#bug .tm .tn{flex:1;font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.5)}#bug .tm .sc{font:700 32px/1 'Barlow Condensed','Noto Sans TC',sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+#bug .r2{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4px;padding:6px 10px}
+#bug .bin{font:700 38px/1 'Barlow Condensed','Noto Sans TC',sans-serif;min-width:52px}#bug .bs{display:flex;justify-content:center}#bug .bs .dia{width:88px;height:60px}
+#bug .bso{font-size:15px;line-height:1.4;white-space:nowrap}#bug .bso b{display:inline-block;width:16px;font-weight:700}
+#bug .bb,#bug .bp{display:flex;gap:8px;align-items:center;padding:4px 10px;font-size:14px;border-top:1px solid rgba(255,255,255,.14);white-space:nowrap;overflow:hidden;min-height:26px}#bug .bb b{color:#ffd24d}#bug .bp b{color:#8fd0ff}#bug .st{margin-left:auto;color:#cfd8e8}#bug .sp{margin-left:auto;font-weight:700}#bug .sp+.st{margin-left:10px}
+#bug .av{font-weight:700;font-size:13px;color:#e8edf7}#bug .av i{font-style:normal;font-size:10px;color:#9aa6bd;margin-right:3px}
+#bug .ft{padding:3px 10px;font-size:11px;color:#9aa6bd;background:#14171f;border-top:1px solid rgba(255,255,255,.1)}
+body.edit #bug,body.edit #feed,body.edit #who,body.edit #gear,body.edit #tag{cursor:move;touch-action:none;user-select:none}body.edit #feed{min-width:220px;min-height:44px}#lu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto;padding:12px;cursor:pointer}#lu .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}#lu h3{margin:0 0 6px;font-size:15px}#lu table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}#lu td{padding:2px 3px;border-top:1px solid rgba(255,255,255,.12)}#lu td:first-child{color:var(--muted);width:16px}#lu .sp{margin-top:6px;font-size:13px}#lu .hint{margin-top:8px;font-size:12px;color:var(--muted);text-align:center}@media(max-width:520px){#lu .cols{grid-template-columns:1fr}}
+#lbls{position:fixed;inset:0;pointer-events:none;z-index:30}#lbls .bx{position:fixed;border:2px dashed #f2c230;border-radius:6px}#lbls .bx.sel{border-style:solid;background:rgba(242,194,48,.12)}#lbls .lb{position:fixed;background:#f2c230;color:#14110a;font-size:12px;font-weight:700;padding:1px 6px;border-radius:4px;white-space:nowrap}#lbls .lb.sel{background:#fff}#edbar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:40;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 10px;max-width:calc(100vw - 16px)}#edbar #edTxt{font-size:13px;margin-right:4px}.mas{display:flex;gap:18px;justify-content:center;margin:0 0 10px}.mas svg{width:84px;height:84px}
+#pinfo{position:fixed;left:max(12px,env(safe-area-inset-left));top:calc(max(12px,env(safe-area-inset-top)) + 170px);padding:6px 10px;font-size:13px;line-height:1.5;max-width:min(300px,58vw)}#pinfo b{color:#f2c230}#pinfo .spd{font-size:20px;font-weight:700;color:#fff}#pinfo small{color:var(--muted);font-size:12px}
+#who{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));padding:8px 12px;max-width:min(340px,48vw);text-align:left}#gear{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:6}
+#status{font-weight:600;white-space:nowrap}#status.live::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--live);margin-inline-end:6px;vertical-align:1px;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+#who small{display:block;color:var(--muted);font-size:13px;line-height:1.45}
+#matchup{display:none;margin-top:4px;font-size:14px;line-height:1.5}
+#feed{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:84px;margin:0;padding:0;list-style:none;max-width:min(380px,72vw);font-size:14px}
+#feed li{padding:5px 10px;margin-top:6px;animation:in .35s ease-out}
+#feed li b{font-family:'Barlow Condensed',sans-serif;color:var(--muted);margin-inline-end:8px;font-weight:600;white-space:nowrap}
+#feed li.big{border-color:#f2c230}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+.bar{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 54px);right:max(12px,env(safe-area-inset-right));left:auto;bottom:auto;width:min(330px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--glass);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(8px);z-index:6}.bar .seg{justify-content:flex-start}
+.bar h4{margin:2px 2px -2px;font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--muted)}.bar h4:not(:first-child){margin-top:6px;padding-top:8px;border-top:1px solid var(--line)}.seg.g2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.seg.g2 button{width:100%;padding:0 6px}.seg.g2 .wide{grid-column:1/-1}.seg.g2 button[hidden]{display:none}
+.seg{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+button{font:inherit;font-size:15px;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--glass);color:var(--ink);cursor:pointer;white-space:nowrap}
+button[aria-pressed=true]{background:var(--ink);color:#0a0f1f}
+#gfx,#compat{white-space:normal;line-height:1.25;padding-top:5px;padding-bottom:5px}#gfx small{display:block;font-size:11px;color:var(--muted)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
+#tag{position:fixed;right:max(12px,env(safe-area-inset-right));top:calc(max(12px,env(safe-area-inset-top)) + 54px);font-size:12px;color:var(--muted);text-align:right;max-width:46vw}
+#note{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:8px 14px;display:none;max-width:90vw;text-align:center}
+#big{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);font:700 clamp(40px,8vw,84px)/1 'Barlow Condensed','Noto Sans TC',sans-serif;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .4s;white-space:nowrap}
+.over{position:fixed;inset:0;z-index:50;display:grid;place-items:center;overflow:auto;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:radial-gradient(circle at 50% 45%,rgba(7,11,22,.74),rgba(7,11,22,.95));-webkit-backdrop-filter:blur(14px) saturate(.7);backdrop-filter:blur(14px) saturate(.7)}
+/* Intro = a broadcast matchup card: two big team marks with VS between them. Layout idea only, nothing borrowed from any channel. */
+.card{width:min(100%,1200px);text-align:center;display:flex;flex-direction:column;align-items:center;gap:clamp(10px,2.4vh,22px)}
+.card h1{font:700 clamp(20px,3vw,34px)/1.1 'Barlow Condensed','Noto Sans TC',sans-serif;letter-spacing:.32em;margin:0;padding-left:.32em;color:var(--muted);text-wrap:balance}
+.poster{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:clamp(6px,2vw,28px);width:100%}
+.side{margin:0;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.6vh,16px)}
+.mark{width:min(37vw,44vh,512px);aspect-ratio:1;display:grid;place-items:center;filter:drop-shadow(0 10px 34px rgba(0,0,0,.6))}
+.mark img{width:100%;height:100%;object-fit:contain;display:block}
+.side figcaption{font-weight:600;font-size:clamp(17px,2.6vw,34px);line-height:1.2;text-wrap:balance;padding-bottom:6px;border-bottom:3px solid var(--tc,#fff)}
+.side.nologo .mark{border-radius:18px;background:linear-gradient(160deg,var(--tc),rgba(7,11,22,.9));font:700 clamp(26px,6.5vw,80px)/1.1 'Noto Sans TC',sans-serif;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.5);width:min(37vw,44vh,360px)}
+.vs{font:700 clamp(34px,6vw,88px)/1 'Barlow Condensed','Noto Sans TC',sans-serif;letter-spacing:.04em;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.7);align-self:center;margin-bottom:clamp(30px,5vh,56px)}
+.card p{color:var(--muted);margin:0}
+.acts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;width:min(100%,620px)}
+.acts button{flex:1 1 220px;min-height:58px;font-size:18px;border-radius:14px}
+.card .go{background:#f2c230;color:#14110a;border-color:transparent;font-weight:700;padding:0 22px}
+.card small{display:block;color:var(--muted);font-size:13px}
+.card .guide{color:var(--muted);text-underline-offset:3px;display:inline-block;padding:8px 6px}
+#vote{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);width:min(520px,calc(100vw - 24px));padding:12px 14px;border-color:rgba(242,194,48,.55)}
+#vote .vq{font-size:15px;margin-bottom:8px}#vote .vq b{color:#f2c230;margin-inline-end:6px}
+#vote .vopts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#vote .vopts button{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 10px;white-space:normal;line-height:1.3}
+#vote .vopts button span{font-size:13px;color:var(--muted)}#vote .vopts button[aria-pressed=true] span{color:#333}
+#vote .vfoot{margin-top:8px;font-size:13px;color:var(--muted);text-align:center}
+.pick{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:0 0 14px}
+#report{position:fixed;top:max(12px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 96px);z-index:6}
+#studio{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:8;padding:8px 10px;display:flex;flex-direction:column;gap:6px;width:min(560px,calc(100vw - 16px))}
+#studio .srow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}#studio select{flex:1;min-width:120px;height:34px;background:#121a2b;color:#fff;border:1px solid var(--line);border-radius:8px;padding:0 6px;font:inherit}
+#studio input[type=range]{flex:1;min-width:140px}#studio #stT,#studio #stIdx{font:600 14px/1 'Barlow Condensed','Noto Sans TC',sans-serif;min-width:52px;text-align:center}
+body.studio #bug,body.studio #feed{display:none}#studio.fold .srow.x{display:none}#stFold{min-width:40px}
+@media(orientation:landscape) and (max-height:520px){#studio{zoom:.75;bottom:4px;width:min(640px,calc(100vw - 16px))}}
+@media(max-width:700px) and (orientation:portrait){#studio{zoom:.85}}
+[hidden]{display:none!important}
+/* Development tools: shown on the dev site and localhost only (ui/site.js sets data-site; tests/site.check.mjs guards the list). */
+html[data-site="production"] .dev-only{display:none!important}
+body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo){visibility:hidden!important}
+@media(max-width:700px){#vote{bottom:146px}#sb{flex-direction:column;gap:6px;right:max(12px,env(safe-area-inset-right))}.sit{border-left:0;padding-left:0;grid-template-columns:auto auto auto auto;grid-auto-flow:column}.sit .inn{grid-column:auto;grid-row:auto}.bases{grid-row:auto;grid-column:auto;width:38px;height:38px;transform:scale(.85)}
+#who{top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:auto;max-width:56vw;padding:6px 10px}#matchup{display:none}#pinfo{top:calc(max(12px,env(safe-area-inset-top)) + 214px);max-width:64vw}#feed{bottom:208px;max-width:calc(100vw - 24px);font-size:13px}#vr:disabled{display:none}#feed li:nth-child(n+3){display:none}#tag{display:none}button{font-size:14px;padding:0 10px}}
+#land{position:fixed;top:max(12px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 196px);z-index:6;display:none}
+@media(pointer:coarse){#land{display:inline-block}}
+/* 手機橫放：高度很矮，介面縮小讓球場多露一點 */
+@media(orientation:landscape) and (max-height:520px){#bug{zoom:.72}#tag,#pinfo,#matchup{display:none}#feed{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-width:38vw;font-size:12px}#feed li:nth-child(n+3){display:none}
+ #who{padding:4px 8px;font-size:12px}button{min-height:36px;font-size:13px;padding:0 9px}.bar{top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-height:calc(100vh - 56px)}#vote{max-width:46vw}}
+@media(prefers-reduced-motion:reduce){#feed li{animation:none}#status.live::before{animation:none}}
+</style>
+</head>
+<body>
+<div id="warmBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="球場準備中"><div><i></i></div><p>球場準備中…</p></div>
+<div id="stage"></div>
+<div id="sb" class="panel">
+  <div id="lsWrap"><table id="ls"></table></div>
+  <div class="sit">
+    <div class="inn num" id="inn">1 局上</div>
+    <div class="dots">B <i class="b"></i><i class="b"></i><i class="b"></i></div>
+    <div class="bases" aria-label="壘包"><i style="left:16px;top:3px"></i><i style="left:29px;top:16px"></i><i style="left:3px;top:16px"></i></div>
+    <div class="dots">S <i class="s"></i><i class="s"></i></div>
+    <div class="dots">O <i class="o"></i><i class="o"></i></div>
+  </div>
+</div>
+<div id="pinfo" class="panel" hidden></div>
+<div id="bug"><div class="r1"><div class="tm" id="bt0"></div><div class="tm" id="bt1"></div></div><div class="r2"><div class="bin" id="bin"></div><div class="bs" id="bs"></div><div class="bso" id="bso"></div></div><div class="bb" id="bb"></div><div class="bp" id="bp"></div><div class="ft">雲端職棒・開發版</div></div>
+<div id="who" class="panel">
+  <div id="status"></div>
+  <small id="sched"></small>
+  <div id="matchup"></div>
+</div>
+<ul id="feed"></ul>
+<div id="tag"><span class="dev-only">開發版，</span>成績不列入正史<br class="dev-only"><span id="seedTag" class="dev-only"></span></div>
+<div id="big"></div>
+<div id="note" class="panel"></div>
+<div id="vote" class="panel" hidden></div>
+<button id="gear" aria-label="設定">⚙ 設定</button>
+<button id="report" class="dev-only" title="複製這一刻給 Claude">🐞 回報</button>
+<button id="land" aria-label="全螢幕橫向">⛶ 橫向</button>
+<div class="bar collapsed" id="bar">
+  <h4>鏡頭</h4>
+  <div class="seg g2" id="seats">
+    <button data-seat="3" aria-pressed="true">轉播鏡頭</button>
+    <button data-seat="6" aria-pressed="false">導播切換</button>
+    <button data-seat="0" aria-pressed="false">本壘後方</button>
+    <button data-seat="1" aria-pressed="false">一壘內野</button>
+    <button data-seat="2" aria-pressed="false">外野看台</button>
+    <button id="zoom" aria-pressed="false">望遠鏡</button>
+  </div>
+  <h4>畫面</h4>
+  <div class="seg g2">
+    <button id="zone" aria-pressed="true">好球帶</button>
+    <button id="hist" aria-pressed="false">戰況紀錄</button>
+    <button id="lineup" class="wide">先發名單</button>
+    <button id="gfx" title="卡卡的就選順暢">畫面：精緻<small>卡卡的就選順暢</small></button>
+    <button id="compat" aria-pressed="false">畫面怪怪的？點這裡</button>
+    <button id="editUI" class="wide">編輯版面（自己拖面板）</button>
+  </div>
+  <h4>聲音</h4>
+  <div class="seg g2">
+    <button id="snd" aria-pressed="false">音效</button>
+    <button id="say" aria-pressed="false">播報</button>
+  </div>
+  <h4>比賽</h4>
+  <div class="seg g2">
+    <button id="practice" class="dev-only">新的一場</button>
+    <button id="studioBtn" class="dev-only">🎬 動作片場</button>
+    <button id="spd" class="dev-only" hidden>1×</button>
+    <button id="mode" hidden class="wide dev-only">看重播</button>
+    <button id="team" class="wide" style="display:none">選邊站</button>
+  </div>
+</div>
+<div id="player" class="panel" hidden>
+  <button id="plPlay" aria-label="暫停">❚❚</button>
+  <div id="plTrack" role="slider" tabindex="0" aria-label="比賽進度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><div class="rail"><div id="plFill"></div></div><div id="plMarks"></div><div id="plKnob"></div><div id="plTip" hidden></div></div>
+  <span id="plTime" class="num">0:00 / 0:00</span>
+</div>
+<div id="hlCard" class="panel" hidden aria-live="polite"><small id="hlStep"></small><b id="hlText"></b><div id="hlEnd" hidden><button id="hlAgain">再看一次精華</button><button id="hlFull">看整場比賽</button></div></div>
+<div id="lu" class="panel" hidden></div>
+<div id="studio" class="panel dev-only" hidden>
+  <div class="srow x"><b>🎬 動作片場</b><select id="stAct"></select><button id="stPrev" aria-label="上一個例子">◀</button><span id="stIdx"></span><button id="stNext" aria-label="下一個例子">▶</button></div>
+  <div class="srow"><button id="stFold" aria-label="收合片場面板" title="收合／展開">▾</button><button id="stPlay">暫停</button><input id="stScrub" type="range" min="0" max="1000" value="0"><span id="stT">0.00s</span></div>
+  <div class="srow x"><button id="stSpd">1×</button><button id="stLoop" aria-pressed="true">循環</button><button id="stStep">+0.05s</button><button id="stExit">離開片場</button></div>
+</div>
+<div id="edbar" class="panel" hidden><span id="edTxt"></span><button id="edMinus">－</button><button id="edPlus">＋</button><button id="edOne">這個復原</button><button id="edAll">全部復原</button><button id="edDone">完成</button></div>
+<div class="over" id="intro">
+  <div class="card">
+    <div id="mas" hidden></div>
+    <h1>雲端職棒</h1>
+    <div class="poster">
+      <figure class="side" id="sideA"><div class="mark"></div><figcaption></figcaption></figure>
+      <div class="vs" aria-label="對">VS</div>
+      <figure class="side" id="sideB"><div class="mark"></div><figcaption></figcaption></figure>
+    </div>
+    <p id="introStatus" hidden></p>
+    <div class="pick" id="introTeam" hidden><button data-t="0"></button><button data-t="1"></button><button data-t="-1">中立看球</button></div>
+    <div class="acts">
+      <button class="go" id="enter" disabled>準備球場中…</button>
+      <button id="enterHl" disabled>看精華</button>
+      <button id="enterMute" disabled>靜音進場</button>
+    </div>
+    <small>季前熱身賽，成績不列入正史</small>
+    <small><a class="guide" href="guide.html">球隊與球員介紹</a></small>
+  </div>
+</div>
+<script src="ui/stats.js" defer></script>
+<script type="module">
+/* The intro line comes straight from league/ and does not wait for three.js. */
+import {TEAMS as LEAGUE_TEAMS} from './league/teams.js';
+const [teamA,teamB]=LEAGUE_TEAMS;
+const pick=document.getElementById('introTeam').children;pick[0].textContent=`我挺${teamA.short}`;pick[1].textContent=`我挺${teamB.short}`;
+/* Poster: away team left, home team right (same order as render/game.js). A logo that fails to load leaves a team-colour tile with the short name. */
+for(const [id,T] of [['sideA',teamA],['sideB',teamB]]){
+  const side=document.getElementById(id),mark=side.firstElementChild;side.style.setProperty('--tc',T.css);side.lastElementChild.textContent=T.name;
+  const img=new Image();img.alt=T.name;img.draggable=false;
+  img.onerror=()=>{img.remove();side.classList.add('nologo');mark.textContent=T.short};
+  img.src=`assets/logos/${T.id}_512.webp`;mark.appendChild(img)}
+</script>
+<script type="module">
+/* #133: every load starts at once (they used to wait for each other); each finished stage moves the bar (BOOT.N stages counted). */
+const B=window.BOOT,st=(k,p)=>p.then(v=>{B.mark(k);B.step();return v},e=>{B.mark(k+'!');B.step();throw e});/* k = the stage name in BOOT.t (! = failed) */
+const pThree=st('three',import('three/webgpu')),pTsl=st('tsl',import('three/tsl')),
+  pFx=st('fx',Promise.all([import('three/addons/tsl/display/BloomNode.js'),import('three/addons/tsl/display/GTAONode.js'),import('three/addons/tsl/display/FXAANode.js')])),
+  pEngine=st('engine',import('./engine/index.js')),
+  /* The frozen first game: played instead of a live simulation. Missing or broken file: window.OPENING stays null and the page falls back to a live game. */
+  pOpening=st('opening',fetch('league/preseason/opening.json').then(r=>r.ok?r.text():null).then(t=>t?import('./league/recording.js').then(m=>m.parseRecording(t)):null)).catch(e=>{console.warn('frozen game failed to load',e);return null}),
+  pComm=st('comm',import('./commentary/index.js')),
+  pBank=st('bank',pComm.then(m=>m.loadBank())).catch(e=>{console.warn('commentary bank failed to load; the booth stays silent',e);return null}),
+  /* highlights reel of the frozen game (#118): pure list from the recorded stream; missing file = no 「看精華」 button */
+  pHl=st('hl',import('./render/highlights.js')).catch(e=>{console.warn('highlights failed to load',e);return null}),
+  /* 骨架球員(render/players.js)：先載 assets/players.b64.txt；載不到就用程式生成的骨架人（一樣的關節介面） */
+  pPl=st('players',import('./render/players.js')).then(PL=>st('bodies',PL.loadPlayerAssets('assets/')).catch(e=>console.warn('players 素材載入失敗，改用程式生成人體',e)).then(()=>PL)).catch(e=>{console.error('players.js 載入失敗',e);return null});
+const halt=e=>{B.fail(e);return new Promise(()=>{})};/* #162: a failed must-have load stops here with the failure line */
+const [THREE,TSL,[{bloom},{ao},{fxaa}]]=await Promise.all([pThree,pTsl,pFx]).catch(halt);
+window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
+const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await st('gpu',R.init())}catch(e){console.error(e)}window.RENDERER=R;
+/* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
+const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
+window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
+await load('render/game.js').catch(halt);B.mark('game');
+/* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
+await window.READY;document.getElementById('enter').textContent='進場（開聲音）';
+for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;B.mark('button');
+</script>
+</body>
+</html>

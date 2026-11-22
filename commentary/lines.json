@@ -1,0 +1,240 @@
+{
+  "version": 1,
+  "note": "Fallback line bank. Used when a game has no script of its own. Each exchange is a call (play-by-play voice) and an optional response (colour voice). Slots in {braces} are filled from the game so far. `guests` and `fan` are the third seat: the home team's fan, his moments keyed by trigger and by whether the home team just gained (up) or lost (down). See SCRIPT_FORMAT.md, and the point-of-view rules in README.md.",
+  "rules": { "minGapSec": 7, "noRepeatWindow": 14, "fanChance": 0.85, "fanGapSec": 5, "fanNoRepeatWindow": 10, "fanOwnShare": 0.3, "fanMaxUses": 2 },
+  "triggers": {
+    "game_start": { "priority": 2, "silence": 0, "delay": 1, "fanChance": 1, "exchanges": [
+      { "call": "各位球迷晚安，今晚是{away}對上{home}的熱身賽。", "response": "大家晚安，我是周國棟。這兩隊，我今天很期待。" },
+      { "gag": "bet", "sets": ["bet"], "call": "歡迎收看雲端職棒，今晚{away}作客{home}。", "response": "明凱，老規矩喔，比分猜錯的請鹹酥雞。" },
+      { "call": "球員都就位了，{away}先攻，比賽準備開始。", "response": "先看第一局，投手今天的狀況一下就看得出來。" }
+    ] },
+    "batter_up": { "priority": 0, "silence": 0.4, "delay": 0.1, "exchanges": [
+      { "call": "{batter}站上打擊區。" },
+      { "call": "接下來是{team}的{batter}。" },
+      { "when": { "batterHits": { "min": 2 } }, "call": "{batter}上來了，今天已經{batterHits}支安打。", "response": "他今天手感很燙，投手要小心喔。", "alt": ["今天他看球很清楚，投手不能太好猜。", "手感這麼燙，投手跟他正面對決不划算。"] },
+      { "when": { "batterKToday": { "min": 2 } }, "call": "{batter}，今天已經被三振{batterKToday}次。", "response": "再被三振，我就叫他回去看錄影帶。", "alt": ["這打席先求碰到球再說。", "今天一直被三振，揮棒要縮短一點了。"] },
+      { "when": { "hasPrev": 1 }, "call": "{batter}，上個打席{batterPrev}。", "response": "看他這次怎麼調整。", "alt": ["再碰一次，打者心裡比較有底了。", "剛剛投手怎麼配他的，他應該記得。", "看他這次有沒有準備。"] },
+      { "when": { "hadLastInning": 1, "lastInningRuns": { "min": 2 } }, "call": "{team}上一局才拿下{lastInningRuns}分，{batter}接著上。", "response": "打線熱起來了，投手要穩住。", "alt": ["上一局打得順，氣勢還在。", "打線連起來了，投手不能讓他們再接下去。"] },
+      { "when": { "hadLastInning": 1, "lastInningRuns": 0, "inning": { "min": 4 } }, "call": "{batter}上來，{team}上一局沒有得分。", "response": "上一局掛零，這局總要有點東西了吧。", "alt": ["上一局空手回去，這局要想辦法上壘。", "這局打線該醒一醒了。", "上一局沒動靜，這局看能不能弄點東西出來。"] },
+      { "when": { "pitchCount": { "min": 85 } }, "call": "{batter}上來，{pitcher}的用球數已經{pitchCount}球了。", "response": "到這個球數，手臂會開始重，我蹲過我知道。", "alt": ["球數到這裡，球速會開始掉。", "這個球數，投手的控球最容易跑掉。"] },
+      { "gag": "story", "needs": ["story"], "once": true, "when": { "inning": { "min": 5 } }, "call": "{batter}上來。周哥，你今晚講幾次「我當年」了？", "response": "沒幾次啦，是我當年的事比較多而已。" },
+      { "when": { "batterPa": { "eq": 0 } }, "call": "{inning}局{half}，{outs}出局，{team}的{batter}，今天第一個打席。" },
+      { "when": { "batterAb": { "min": 1 }, "batterHits": { "eq": 0 } }, "call": "{batter}今天{batterAb}個打數，還沒有安打。", "response": "這個打席他要把球看清楚。", "alt": ["還沒開張，這次先求有，不要求好。", "別急，等一顆自己要的球。", "一直沒安打，這打席不要亂追。"] },
+      { "when": { "batterAb": { "min": 2 }, "batterHits": { "eq": 1 } }, "call": "{batter}今天{batterAb}打數{batterHits}安打。" },
+      { "when": { "batterHrToday": { "min": 1 } }, "call": "{batter}今天已經轟出{batterHrToday}發全壘打。", "response": "投手最好別投到中間。", "alt": ["他已經開過轟了，投手要小心。", "這種手感，一顆失投就飛出去了。"] },
+      { "when": { "pitcherK": { "min": 3 } }, "call": "{pitcher}今天已經三振了{pitcherK}個人，現在面對{batter}。" },
+      { "when": { "tied": 0 }, "call": "{inning}局{half}，{away}{awayScore}比{homeScore}{home}，{outs}出局，{team}的{batter}上場。" },
+      { "when": { "tied": 1 }, "call": "{inning}局{half}，{awayScore}比{homeScore}平手，{outs}出局，輪到{team}的{batter}。" }
+    ] },
+    "two_strikes": { "priority": 0, "silence": 0.6, "exchanges": [
+      { "call": "兩好球。" },
+      { "call": "追到兩好球了，{pitcher}掌握優勢。" },
+      { "call": "兩好球了。", "response": "換我蹲，下一球我會往外角引誘。" }
+    ] },
+    "full_count": { "priority": 1, "silence": 0.3, "exchanges": [
+      { "call": "滿球數！" },
+      { "call": "兩好三壞，滿球數。", "response": "這種時候，蹲後面的人手心都是汗。" }
+    ] },
+    "stolen_base": { "priority": 1, "silence": 0.05, "exchanges": [
+      { "call": "{runner}跑了！盜壘成功！", "response": "起跑太漂亮了，捕手傳再好也沒用。" },
+      { "gag": "story", "sets": ["story"], "call": "跑了！{runner}，安全上壘！", "response": "這球如果是我當年，一定抓得到。好啦，可能啦。" }
+    ] },
+    "caught_stealing": { "priority": 1, "silence": 0, "exchanges": [
+      { "call": "{runner}跑了——觸殺出局！", "response": "球先到，手套就等在那邊，沒什麼好吵的。" },
+      { "call": "{runner}盜壘，被抓到了！", "response": "這球傳得漂亮，我要幫捕手拍拍手。" },
+      { "gag": "story", "needs": ["story"], "once": true, "call": "{runner}出局！周哥，這球你當年也抓得到吧？", "response": "我當年喔，瞪他一眼，他就自己回去了。" }
+    ] },
+    "run_scores": { "priority": 2, "silence": 0, "exchanges": [
+      { "call": "{team}得分了！{desc}", "response": "這{runs}分很關鍵。現在{away}{awayScore}比{homeScore}{home}。" },
+      { "call": "回來了！{desc}", "response": "壘上有人，就是要這樣打。" },
+      { "when": { "tied": 1 }, "call": "追平了！{desc}", "response": "{awayScore}比{homeScore}，一切重來。" },
+      { "when": { "runs": { "min": 2 } }, "call": "一口氣{runs}分！{desc}", "response": "一棒{runs}分，投手臉都綠了。" }
+    ] },
+    "home_run": { "priority": 2, "silence": 0, "exchanges": [
+      { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "打出去了！{desc}", "response": "明凱，這次你沒喊錯，真的出去了。" },
+      { "call": "打出去了！{desc}", "response": "這球不用看，一出棒就知道了。" },
+      { "call": "很遠喔——{desc}", "response": "吃得太正了，沒有懸念。" },
+      { "when": { "batterHrToday": { "min": 2 } }, "call": "又是他！{desc}", "response": "今天第{batterHrToday}支了，投手今晚應該睡不著。" }
+    ] },
+    "strikeout": { "priority": 1, "silence": 0.2, "exchanges": [
+      { "call": "{desc}。" },
+      { "call": "{desc}。", "response": "這一球投得很刁。" },
+      { "call": "三振！{batter}出局。", "response": "配球很聰明，前面幾球都是在鋪這一球。" },
+      { "when": { "batterKToday": { "min": 3 } }, "call": "{batter}，今天第{batterKToday}次三振。", "response": "帽子戲法了，今天真的不是他的日子。" },
+      { "when": { "batterKToday": 2 }, "call": "{batter}又被三振了，今天第二次。", "response": "兩次了，回休息區臉色應該不太好看。" },
+      { "when": { "pitcherK": { "min": 6 } }, "call": "{pitcher}，今天第{pitcherK}次三振！", "response": "今天他這顆球真的很犀利。" }
+    ] },
+    "walk": { "priority": 1, "silence": 0.4, "exchanges": [
+      { "call": "{desc}。" },
+      { "call": "四壞球，{batter}保送上一壘。", "response": "很有耐心，壞球都沒有去追。" },
+      { "when": { "runs": { "min": 1 } }, "call": "{desc}！", "response": "擠回來的分數最傷了。" }
+    ] },
+    "intentional_walk": { "priority": 1, "silence": 0.2, "exchanges": [
+      { "call": "{desc}。", "response": "不跟他硬碰，賭下一棒。" }
+    ] },
+    "hit_by_pitch": { "priority": 1, "silence": 0.3, "exchanges": [
+      { "gag": "story", "sets": ["story"], "call": "{desc}。", "response": "這顆很痛喔。我當年被打到，連叫都不敢叫。" },
+      { "call": "觸身球，{batter}上一壘。" }
+    ] },
+    "single": { "priority": 1, "silence": 0.3, "exchanges": [
+      { "call": "{desc}。" },
+      { "call": "{desc}。", "response": "打得很扎實，找到空檔了。" },
+      { "when": { "batterHits": { "min": 3 } }, "call": "{desc}，今天第{batterHits}支安打！", "response": "猛打賞！今天他說了算。" },
+      { "when": { "hasPrev": 1, "batterHits": 1 }, "call": "{desc}。", "response": "上個打席{batterPrev}，這次他把球打出去了。" }
+    ] },
+    "infield_single": { "priority": 1, "silence": 0.1, "exchanges": [
+      { "call": "{desc}！", "response": "球是到了，可是人比較快，腳程贏的。" }
+    ] },
+    "bunt_single": { "priority": 1, "silence": 0, "exchanges": [
+      { "call": "{desc}", "response": "這個短打點得太刁了，內野根本來不及。" }
+    ] },
+    "double": { "priority": 1, "silence": 0.1, "exchanges": [
+      { "call": "{desc}。", "response": "一棒就站上得點圈了。" },
+      { "call": "{desc}！", "response": "這球打得很強勁，外野只能追著跑。" }
+    ] },
+    "triple": { "priority": 2, "silence": 0, "exchanges": [
+      { "call": "{desc}！", "response": "三壘安打欸，這比全壘打還難得。" }
+    ] },
+    "groundout": { "priority": 0, "silence": 0.6, "exchanges": [
+      { "call": "{desc}。" },
+      { "call": "{desc}。", "response": "野手處理得很乾淨。" }
+    ] },
+    "flyout": { "priority": 0, "silence": 0.55, "exchanges": [
+      { "call": "{desc}。" },
+      { "gag": "earlyCall", "sets": ["earlyCall"], "once": true, "call": "這球很高、很遠……{desc}。", "response": "明凱，你剛剛是不是又想喊全壘打？" },
+      { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "這球——喔，{desc}。", "response": "又喊太早了，今晚第二筆，我幫你記下來。" },
+      { "call": "{desc}。", "response": "打到球的下緣了，只能變成飛球。" }
+    ] },
+    "lineout": { "priority": 0, "silence": 0.6, "exchanges": [
+      { "call": "{desc}。", "response": "打得很強，只是剛好打到人。" }
+    ] },
+    "popout": { "priority": 0, "silence": 0.8, "exchanges": [
+      { "call": "{desc}。" }
+    ] },
+    "double_play": { "priority": 2, "silence": 0, "exchanges": [
+      { "call": "{desc}", "response": "兩個出局數一次拿，漂亮。" },
+      { "call": "{desc}", "response": "雙殺化解危機，投手可以鬆一口氣。" }
+    ] },
+    "fielders_choice": { "priority": 1, "silence": 0.1, "exchanges": [
+      { "call": "{desc}。", "response": "抓前面的跑者，這個選擇是對的。" }
+    ] },
+    "sac_bunt": { "priority": 1, "silence": 0.3, "exchanges": [
+      { "call": "{desc}。", "response": "用一個出局數換一個壘包。很老派，我喜歡。" }
+    ] },
+    "sac_fly": { "priority": 2, "silence": 0, "exchanges": [
+      { "call": "{desc}！", "response": "球接到才起跑，回傳就是慢了一步。" }
+    ] },
+    "error": { "priority": 1, "silence": 0.1, "exchanges": [
+      { "call": "{desc}。", "response": "這個我要噓一下，這是該處理的球。" },
+      { "call": "{desc}。", "response": "這球送人家上壘，投手心裡一定很不是滋味。" }
+    ] },
+    "pitching_change": { "priority": 2, "silence": 0, "exchanges": [
+      { "call": "{team}要換投手了。", "response": "牛棚應該早就在熱身了。" },
+      { "call": "{manager}走出來了，{team}要換人。", "response": "換個節奏，看能不能壓得住。" },
+      { "call": "{team}換投，{manager}跟主審比了手勢。", "response": "這一換，他心裡應該早有劇本了。" },
+      { "call": "{pitchingCoach}先上去講了幾句，{manager}還是決定換人。", "response": "給了機會，球數到了就是到了。" }
+    ] },
+    "fan_decision": { "priority": 1, "silence": 0.2, "exchanges": [
+      { "call": "看台上的球迷有意見了，教練團照做。", "response": "有魄力。好壞大家一起扛。" },
+      { "call": "聽到了嗎？球迷的聲音很清楚。", "response": "教練有在聽喔，這個調度有意思。" }
+    ] },
+    "half_end": { "priority": 1, "silence": 0.1, "exchanges": [
+      { "when": { "halfRuns": { "min": 1 } }, "call": "{inning}局{half}半結束，{team}這局拿下{halfRuns}分，現在{away}{awayScore}比{homeScore}{home}。", "response": "有拿到分就好，這局沒有白打。" },
+      { "when": { "inning": { "min": 7 }, "tied": 1 }, "call": "{inning}局{half}半打完，{awayScore}比{homeScore}，還是平手。", "response": "接下來每一分都要命。" },
+      { "when": { "inning": { "min": 7 }, "margin": { "min": 1, "max": 2 } }, "gag": "bet", "needs": ["bet"], "once": true, "call": "{inning}局{half}半結束，{leadTeam}領先{margin}分。", "response": "差這一點點，鹹酥雞誰請還很難講。" },
+      { "when": { "inning": { "min": 7 }, "margin": { "min": 1, "max": 2 } }, "call": "{inning}局{half}半結束，{leadTeam}領先{margin}分。", "response": "一支長打就追上來的距離。" },
+      { "when": { "inning": { "min": 7 }, "margin": { "min": 5 } }, "call": "{inning}局{half}半結束，{leadTeam}領先{margin}分。", "response": "分數拉開了，落後的那邊要靠一個大局。" }
+    ] },
+    "walkoff": { "priority": 2, "silence": 0, "exchanges": [
+      { "call": "再見比賽！{home}贏了！", "response": "全場都站起來了！這種比賽，看一次少一次。" }
+    ] },
+    "game_end": { "priority": 2, "silence": 0, "exchanges": [
+      { "gag": "bet", "needs": ["bet"], "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{margin}分之差拿下勝利。", "response": "謝謝大家收看。明凱，鹹酥雞的帳，我們下了節目再算。" },
+      { "gag": "bet", "needs": ["bet"], "when": { "tied": 1 }, "call": "比賽結束，雙方{awayScore}比{homeScore}握手言和。", "response": "打這麼久沒分勝負，鹹酥雞各付各的。" },
+      { "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{margin}分之差拿下勝利。", "response": "謝謝大家收看，我們下一場見。" },
+      { "when": { "tied": 1 }, "call": "比賽結束，雙方{awayScore}比{homeScore}握手言和。", "response": "打這麼久沒有勝負，大家早點回家休息。" }
+    ] }
+  },
+  "guests": {
+    "pheasants": {"nick": "房貸哥", "name": "黃建宏", "cast": "fan"},
+    "owls": {"nick": "爆肝仔", "name": "陳昱辰", "cast": "fan"},
+    "macaques": {"nick": "煞氣伯", "name": "蔡文雄", "cast": "fan"},
+    "muntjacs": {"nick": "宿醉妹", "name": "張詩涵", "cast": "fan_f"}
+  },
+  "fan": [
+    {"on": ["game_start"], "side": "any", "guest": "pheasants", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的老球迷，{guest}。"], ["fan", "大家好！門票錢我都算進房貸裡了，{home}今天一定要贏。"], ["color", "{guest}，這筆帳我不幫你算喔。"]]},
+    {"on": ["game_start"], "side": "any", "guest": "owls", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的鐵粉，{guest}。"], ["fan", "大家好！我剛下班，直接衝過來的。"], ["color", "{guest}，你這是剛下班，還是根本沒睡？"]]},
+    {"on": ["game_start"], "side": "any", "guest": "macaques", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的老球迷，{guest}。"], ["fan", "大家好！{home}今天給我打出氣勢來！"], ["color", "{guest}，麥克風在你面前，不用那麼大聲。"]]},
+    {"on": ["game_start"], "side": "any", "guest": "muntjacs", "once": true, "lines": [["pbp", "今晚來賓席上，是{home}的球迷，{guest}。"], ["fan", "嗨……大家好。我今天會小聲一點。"], ["color", "{guest}，你小聲的時候，都比明凱大聲。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "唉——{batter}啦！"], ["color", "{guest}，你這口氣嘆得比我還長。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "可惡，差一點點而已啦！"], ["color", "差一點？好啦，你說了算。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "when": {"inning": {"max": 4}}, "lines": [["fan", "沒關係沒關係，{home}是慢熱型的啦。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "{pitcher}今天是吃了什麼？"], ["color", "{guest}，吃得比你營養啦。"]]},
+    {"on": ["strikeout"], "side": "down", "lines": [["fan", "裁判！那球你有看清楚嗎？"], ["pbp", "{guest}，主審{plateUmp}站得比我們近多了。"]]},
+    {"on": ["double_play"], "side": "down", "lines": [["fan", "雙殺？不要啦——"], ["color", "{guest}，一棒兩個出局，換我也想哭。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "when": {"outs": 3}, "lines": [["fan", "……"], ["pbp", "{guest}，你還好嗎？"], ["fan", "我沒事，我只是需要安靜一下。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "漂亮！{pitcher}帥啦！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "{batter}，回去坐好！"], ["color", "{guest}，客氣一點，人家也是辛苦在打。"]]},
+    {"on": ["strikeout"], "side": "up", "lines": [["fan", "三振啦！再來一個！"]]},
+    {"on": ["groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "守得好！{home}的守備就是這樣！"]]},
+    {"on": ["double_play"], "side": "up", "lines": [["fan", "雙殺！一次兩個！"], ["pbp", "{guest}，你差點把桌上的水打翻。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "when": {"outs": 3}, "lines": [["fan", "這局收工！"], ["color", "{guest}，收工是你在說的，{homeManager}還沒說。"]]},
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "lines": [["fan", "好球！{batter}！"]]},
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "lines": [["fan", "來了來了，{home}要來了！"], ["pbp", "{guest}，先坐好，比賽還在打。"]]},
+    {"on": ["double", "triple"], "side": "up", "lines": [["fan", "長打啦！{batter}，就是這樣打！"], ["color", "{guest}，這球確實打得扎實，我同意你一次。"]]},
+    {"on": ["walk"], "side": "up", "lines": [["fan", "選得好！眼睛很利！"]]},
+    {"on": ["intentional_walk"], "side": "up", "lines": [["fan", "不敢跟{batter}對決喔？"], ["color", "{guest}，人家怕他，這是尊重。"]]},
+    {"on": ["hit_by_pitch"], "side": "up", "lines": [["fan", "欸！打到人了啦！"], ["color", "{guest}，這種球沒人故意投的啦。"]]},
+    {"on": ["error"], "side": "up", "lines": [["fan", "謝啦！謝謝你們喔！"], ["color", "{guest}，人家失誤，你不要笑得那麼開心。"]]},
+    {"on": ["single", "double", "triple"], "side": "down", "lines": [["fan", "蛤——怎麼讓他打出去啦？"]]},
+    {"on": ["single", "infield_single", "bunt_single"], "side": "down", "lines": [["fan", "運氣啦，那是運氣球。"], ["color", "{guest}，安打就是安打，記錄上不會寫運氣。"]]},
+    {"on": ["double", "triple"], "side": "down", "lines": [["fan", "外野在幹嘛啦！"], ["color", "{guest}，那球打得好，不要怪外野。"]]},
+    {"on": ["walk"], "side": "down", "lines": [["fan", "投好球啦！不要怕他！"]]},
+    {"on": ["intentional_walk"], "side": "down", "lines": [["fan", "直接保送？{homeManager}在想什麼啦。"], ["color", "{guest}，這是戰術，我站{homeManager}這邊。"]]},
+    {"on": ["hit_by_pitch"], "side": "down", "lines": [["fan", "哎呀，手滑而已啦。"], ["color", "{guest}，被打到的人可不覺得是「而已」。"]]},
+    {"on": ["error"], "side": "down", "lines": [["fan", "那球怎麼沒接到啦——"], ["pbp", "{guest}，記錄上是失誤沒錯。"]]},
+    {"on": ["run_scores", "home_run"], "side": "up", "lines": [["fan", "得分啦——！{home}！{home}！"], ["color", "{guest}，冷靜一點，你旁邊坐的是我。"]]},
+    {"on": ["run_scores", "home_run"], "side": "up", "lines": [["fan", "就是這樣打！再來再來！"]]},
+    {"on": ["home_run"], "side": "up", "lines": [["fan", "出去了啦——！我的天啊！"], ["pbp", "{guest}，你差點把我的耳機叫掉。"]]},
+    {"on": ["home_run"], "side": "up", "lines": [["fan", "{batter}！我愛你！"], ["color", "他聽不到啦，但我聽得很清楚。"]]},
+    {"on": ["run_scores"], "side": "up", "when": {"tied": 1}, "lines": [["fan", "追平了！我就知道！"]]},
+    {"on": ["run_scores", "home_run"], "side": "down", "lines": [["fan", "不會吧……"], ["color", "{guest}，會喔，分數都上去了。"]]},
+    {"on": ["run_scores", "home_run"], "side": "down", "lines": [["fan", "這分我不承認啦。"], ["pbp", "{guest}，記分板承認喔。{away}{awayScore}比{homeScore}{home}。"]]},
+    {"on": ["home_run"], "side": "down", "lines": [["fan", "那球……那球是風啦。"], ["color", "{guest}，風沒那麼大方，是他打得好。"]]},
+    {"on": ["run_scores", "home_run"], "side": "down", "lines": [["fan", "{pitcher}，你是要嚇死我喔？"]]},
+    {"on": ["run_scores"], "side": "down", "when": {"runs": {"min": 2}}, "lines": [["fan", "一次{runs}分？我要回家了啦。"], ["color", "{guest}，你回家，誰幫{home}加油？"]]},
+    {"on": ["half_end"], "side": "up", "when": {"halfRuns": {"min": 1}}, "lines": [["fan", "這局有拿分，舒服！"]]},
+    {"on": ["half_end"], "side": "up", "when": {"halfRuns": 0}, "lines": [["fan", "掛零！守得好啦，{home}！"], ["color", "{guest}，你拍手拍到手都紅了。"]]},
+    {"on": ["half_end"], "side": "down", "when": {"halfRuns": 0, "inning": {"max": 8}}, "lines": [["fan", "又掛零……{home}醒醒啊。"], ["pbp", "{guest}，還有機會啦。"]]},
+    {"on": ["half_end"], "side": "down", "when": {"halfRuns": {"min": 1}}, "lines": [["fan", "這局被拿了{halfRuns}分，心好痛。"]]},
+    {"on": ["pitching_change"], "side": "down", "lines": [["fan", "換掉了喔？我覺得他還可以投啊。"], ["color", "{guest}，{pitchingCoach}每天看他牛棚，看得比你清楚啦。"]]},
+    {"on": ["pitching_change"], "side": "up", "lines": [["fan", "把他打下去了啦！"], ["color", "{guest}，這叫換投，不叫打下去。好啦，也差不多。"]]},
+    {"on": ["pitching_change"], "side": "up", "when": {"inning": {"min": 7}, "margin": {"max": 2}}, "once": true, "lines": [["fan", "{manager}出手了。"], ["color", "{guest}，{managerName}這個人啊，{managerLine}"]]},
+    {"on": ["half_end"], "side": "any", "when": {"inning": {"max": 3}}, "once": true, "lines": [["fan", "主審{plateUmp}，我今天會盯著你的好球帶喔。"], ["color", "{guest}，{plateUmp}啊，{plateUmpLine}"]]},
+    {"on": ["game_end", "walkoff"], "side": "up", "lines": [["fan", "贏啦——！{home}贏啦！"], ["color", "{guest}，恭喜，今晚可以好好睡了。"]]},
+    {"on": ["walkoff"], "side": "up", "lines": [["fan", "再見啦——！"], ["pbp", "{guest}，你可以把我的手放開了。"]]},
+    {"on": ["game_end"], "side": "down", "lines": [["fan", "……我不想講話。"], ["color", "{guest}，輸球而已，下一場再來。"]]},
+    {"on": ["game_end"], "side": "down", "lines": [["fan", "都是裁判啦！"], ["pbp", "{guest}，最後比數是{away}{awayScore}比{homeScore}{home}。"]]},
+    {"on": ["game_end"], "side": "any", "when": {"tied": 1}, "lines": [["fan", "打這麼久，沒有輸贏喔？"], ["color", "{guest}，至少沒輸嘛。"]]},
+    {"on": ["run_scores", "home_run"], "side": "up", "guest": "pheasants", "once": true, "lines": [["fan", "這一分，值一期房貸！"], ["color", "{guest}，你房貸到底幾期？"], ["fan", "三十年啦，不要問。"]]},
+    {"on": ["strikeout"], "side": "down", "guest": "pheasants", "lines": [["fan", "又被三振，我的心跟房貸一樣重。"]]},
+    {"on": ["run_scores", "home_run"], "side": "down", "guest": "pheasants", "lines": [["fan", "失分就像利息，一直往上加。"]]},
+    {"on": ["pitching_change"], "side": "down", "guest": "pheasants", "lines": [["fan", "換投？這筆投資我不看好。"], ["color", "{guest}，這是棒球，不是理財。"]]},
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "guest": "pheasants", "lines": [["fan", "這支安打，回本了！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "owls", "lines": [["fan", "看這個，比我加班還累……"]]},
+    {"on": ["run_scores", "home_run"], "side": "up", "guest": "owls", "lines": [["fan", "值得了！今天加班到半夜也值得了！"]]},
+    {"on": ["half_end"], "side": "down", "guest": "owls", "when": {"halfRuns": 0}, "lines": [["fan", "又掛零，我明天上班要怎麼跟同事講。"]]},
+    {"on": ["strikeout"], "side": "up", "guest": "owls", "once": true, "lines": [["fan", "三振！比我主管講話還乾脆！"], ["color", "{guest}，這句我們不會剪掉喔。"]]},
+    {"on": ["half_end"], "side": "any", "guest": "owls", "when": {"inning": {"min": 7, "max": 8}}, "once": true, "lines": [["fan", "好睏……不行，{home}還在打，我不能睡。"], ["pbp", "{guest}，撐住。"]]},
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "guest": "macaques", "lines": [["fan", "打得好！這才叫煞氣！"]]},
+    {"on": ["groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "macaques", "lines": [["fan", "年輕人，揮棒要有氣勢啦！"]]},
+    {"on": ["run_scores", "home_run"], "side": "down", "guest": "macaques", "once": true, "lines": [["fan", "我年輕的時候啊，這種球……"], ["pbp", "{guest}，你也要跟周哥比「我當年」喔？"]]},
+    {"on": ["pitching_change"], "side": "down", "guest": "macaques", "lines": [["fan", "換什麼換！讓他投完！"], ["color", "{guest}，{manager}有他的考量啦。"]]},
+    {"on": ["run_scores", "home_run"], "side": "up", "guest": "macaques", "lines": [["fan", "{home}！有夠煞氣！"]]},
+    {"on": ["run_scores", "home_run"], "side": "up", "guest": "muntjacs", "once": true, "lines": [["fan", "這一分我要記起來，晚上講給客人聽！"], ["pbp", "{guest}，記得講比數，{away}{awayScore}比{homeScore}{home}。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "muntjacs", "lines": [["fan", "頭好痛……不是宿醉，是看球看的。"]]},
+    {"on": ["run_scores", "home_run"], "side": "down", "guest": "muntjacs", "lines": [["fan", "這比昨天那杯還難吞。"]]},
+    {"on": ["strikeout"], "side": "up", "guest": "muntjacs", "lines": [["fan", "三振！乾杯！"], ["color", "{guest}，你手上那杯是水吧？"]]},
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "guest": "muntjacs", "lines": [["fan", "醒了醒了，{home}醒了！"]]}
+  ]
+}
