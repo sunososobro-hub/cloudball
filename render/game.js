@@ -731,7 +731,26 @@ const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
    on-deck man of the side just retired goes back to it (odLead, odOff). Pure function of (event, time, neighbouring events). */
 const OD_AT=[11.3,1.2],OD_GO_AT=ARRIVE+1.5,OD_WALK_V=1.8,OD_JOG_V=2.4,OD_HOLD=.6,OD_MIN_DUR=.5,OD_BEHIND_Z=4.2,OD_LEAD_PRE_AT=2;
 const odSpot=t=>[(t===0?1:-1)*OD_AT[0],OD_AT[1]];/* team 0 (road) on +x, like dugout(0) */
-const odNext=figure(matOff,pants,false,{head:'helmet'}),odDeck=figure(matOff,pants,false,{head:'helmet'});
+const odNext=figure(matOff,pants,false,{role:'batter',head:'helmet'}),odDeck=figure(matOff,pants,false,{role:'batter',head:'helmet'});
+/* #42 slice 5: both on-deck men carry a bat (role 'batter' = the batter's rig and frame, lefty = whole figure mirrored, like batterWalk).
+   On the circle he stands side-on to the plate and takes one slow practice swing per pitch (BK stance -> contact -> follow-through, then
+   back, odSwingS); between swings and walking, the bat rests on his shoulder (BAT_REST) and only
+   the legs walk (f.armsHeld keeps animate off the arms). Pure function of (event, time). */
+const OD_SWING_AT=.9,OD_UP_DUR=.5,OD_SWING_DUR=.9,OD_BACK_DUR=1.1,OD_SWING_SLOW=.7;
+function odBatOf(f){const P=new THREE.Group(),b=window.PL?PL.makeBat(0xc9a06a):new THREE.Mesh(new THREE.CylinderGeometry(.04,.022,.85,8),SM(0xc9a06a,.45));
+  if(!window.PL)b.position.y=.42;b.castShadow=true;P.add(b);f.rig.up.add(P);f.batP=P;return P}
+odBatOf(odNext);odBatOf(odDeck);
+const BKS=k=>(s,c)=>{const a=BK[k];if(s<=1)return lerp(a[0],a[1],s);if(s<=2)return lerp(a[1],c===undefined?a[2]:c,s-1);return lerp(c===undefined?a[2]:c,a[3],Math.min(s-2,1))};
+/* s 0..3 along the batter keyframes (0 stance, 1 load, 2 contact, 3 follow-through), r 0..1 toward the bat-on-shoulder rest */
+function odHold(f,s,r,lf){const R=f.rig,K=k=>lerp(BKS(k)(s),BAT_REST[k]!==undefined?BAT_REST[k]:BKS(k)(s),r);f.auto=false;f.armsHeld=true;
+  const yaw=K('yaw')*OD_SWING_SLOW;R.up.rotation.set(lerp(BKS('lean')(s),0,r),yaw,0);R.hips.rotation.y=yaw*.6;R.hg.rotation.y=lerp(BKS('head')(s),0,r)-yaw;
+  const gx=K('hx'),gy=K('hy'),gz=K('hz');_bv.set(K('bx'),K('by'),K('bz')).normalize();f.batP.position.set(gx,gy,gz);f.batP.quaternion.setFromUnitVectors(_up,_bv);
+  aimArm(R.a0,-BAT_SHOULDER_X,gx+_bv.x*BAT_HAND_GAP,gy+_bv.y*BAT_HAND_GAP,gz+_bv.z*BAT_HAND_GAP);aimArm(R.a1,BAT_SHOULDER_X,gx,gy,gz);f.g.scale.x=lf?-1:1}
+/* one practice swing per pitch, early in the frame (done by OD_SWING_END, inside PITCH_STILL, so a compact cut never lands in it):
+   bat up from the shoulder to the stance, swing through, back to the stance, down to the shoulder. Returns [s 0..3, rest 0..1] at u */
+const OD_SWING_END=OD_SWING_AT+OD_SWING_DUR+OD_BACK_DUR+OD_UP_DUR;
+function odSwingS(u){const a=OD_SWING_AT,b=a+OD_SWING_DUR,r=ease(sat01((a-u)/OD_UP_DUR))+ease(sat01((u-b-OD_BACK_DUR)/OD_UP_DUR));
+  return[u<b?3*ease(sat01((u-a)/OD_SWING_DUR)):3*(1-ease(sat01((u-b)/OD_BACK_DUR))),Math.min(r,1)]}
 function odPath(pts){const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));return{pts,cum,L:cum[cum.length-1]}}
 function odAt(P,k){const d=k*P.L;let i=1;while(i<P.pts.length-1&&P.cum[i]<d)i++;const a=P.pts[i-1],b=P.pts[i],s=P.cum[i]-P.cum[i-1],t=s>0?sat01((d-P.cum[i-1])/s):1;
   return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),b[0]-a[0],b[1]-a[1]]}
@@ -755,12 +774,14 @@ function odOff(ev,i){const e=ev[i];if(e.k!=='BRK'&&e.k!=='END')return null;let b
   const t=q.bat[0],R=ROSTERS[t].bat,path=odPath([odSpot(t),dugout(t)]);return{go:e.k==='BRK'?BRK_OFF_AT:0,path,t:path.L/OD_JOG_V,team:t,p:R[(q.bat[1]+1)%R.length]}}
 const odEnd=(ev,i)=>{const o=odOff(ev,i),l=odLead(ev,i);return Math.max(o?o.go+o.t:0,l?l.go+Math.max(l.t1,l.t2):0)};/* cpEvents: they move until here */
 function poseOnDeck(e,u,ei){odNext.g.visible=odDeck.g.visible=false;if(!game)return;
-  const ev=game.ev,put=(f,p,x,z,fx,fz)=>{resetPose(f);f.noAnim=false;f.g.visible=true;f.g.position.set(x,0,z);setNum(f,p?p.num:undefined);dress(f,p);face(f,fx,fz)};
-  const deck=(t,p)=>{const D=odSpot(t);put(odDeck,p,D[0],D[1],-D[0],-D[1])};/* waiting on the circle, facing the plate */
+  const ev=game.ev,put=(f,p,x,z,fx,fz)=>{resetPose(f);f.noAnim=false;f.g.visible=true;f.g.position.set(x,0,z);setNum(f,p?p.num:undefined);dress(f,p);face(f,fx,fz);odHold(f,0,1,p&&p.hand==='L')};
+  /* waiting on the circle: side-on to the plate (batter frame, +z at the plate), practice swings; the bat comes down to rest once it is time to walk */
+  const deck=(t,p,uu,go)=>{const D=odSpot(t);put(odDeck,p,D[0],D[1],-D[0],-D[1]);if(uu===undefined)return;odDeck.noAnim=true;
+    const [sw,r]=odSwingS(uu);odHold(odDeck,sw,go===undefined?r:Math.max(r,ease(sat01((uu-(go-OD_UP_DUR))/OD_UP_DUR))),p&&p.hand==='L')};
   const walkUp=(pl,u)=>{const k1=sat01((u-pl.go)/pl.t1),k2=sat01((u-pl.go)/pl.t2),[ax,az,adx,adz]=odAt(pl.walk,k1),[bx,bz,bdx,bdz]=odAt(pl.jog,k2);
     if(k1<1)put(odNext,pl.nb,ax,az,adx,adz);else put(odNext,pl.nb,ax,az,pl.box[0]-ax,pl.box[1]-az);
     if(k2<1)put(odDeck,pl.nn,bx,bz,bdx,bdz);else put(odDeck,pl.nn,bx,bz,-bx,-bz)};
-  if(e.k==='P'){if(!e.bat)return;const pl=odPlan(ev,ei);if(!pl||u<pl.go){const R=ROSTERS[e.bat[0]].bat;deck(e.bat[0],R[(e.bat[1]+1)%R.length]);return}walkUp(pl,u);return}
+  if(e.k==='P'){if(!e.bat)return;const pl=odPlan(ev,ei);if(!pl||u<pl.go){const R=ROSTERS[e.bat[0]].bat;deck(e.bat[0],R[(e.bat[1]+1)%R.length],u,pl?pl.go:undefined);return}walkUp(pl,u);return}
   if(odGap(e.k)){/* a vote or a pitching change: everyone holds where the frame before left him */
     let b=ei-1;while(ev[b]&&odGap(ev[b].k))b--;const q=ev[b];if(!q)return;
     if(q.k==='BRK'||q.k==='PRE'){const pl=odLead(ev,b);if(pl)walkUp(pl,Infinity);return}
@@ -802,7 +823,7 @@ const ballSh=new THREE.Mesh(GEO.shadow,shadowMat);ballSh.rotation.x=-Math.PI/2;b
 function pathPos(from,to,dist){let d=dist;for(let b=from;b<to;b++){const [x1,z1]=BASES[b],[x2,z2]=BASES[b+1],L=27.43;if(d<=L){const t=d/L;return[lerp(x1,x2,t),lerp(z1,z2,t),false]}d-=L}const [x,z]=BASES[to];return[x,z,true]}
 function face(f,x,z){f.g.rotation.y=Math.atan2(x,z)}
 function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.px,z-f.pz)/Math.max(dt,1e-3);f.px=x;f.pz=z;
-  const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8;
+  const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;if(!f.armsHeld){f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8}
   /* f.mix: limb angles of the motion this run grows out of (the pitcher's follow-through), faded out by f.mix.k */
   const m=f.mix;if(m&&m.k>0){f.legs[0].rotation.x=lerp(sw,m.l0,m.k);f.legs[1].rotation.x=lerp(-sw,m.l1,m.k);f.arms[0].rotation.x=lerp(-sw*.8,m.a0,m.k);f.arms[1].rotation.x=lerp(sw*.8,m.a1,m.k)}return sp}
 /* Batter: before the first pitch of each plate appearance he walks from BAT_FROM (where the on-deck walk-up left him, just outside the
