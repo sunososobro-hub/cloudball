@@ -1,6 +1,6 @@
 /* render/props/seats.js: seats, rails and aisles of every stand (#215 slot; round 1). Polish rounds edit only this file (slot rule #237);
  * round notes go here and on the #215 board.
- * Replaces game.js's flat seat (two boxes per seat, the instanced `old:seats:chair`) and the front rail of each stand (one painted box, `old:seats:rail`).
+ * Replaces game.js's flat seat (two boxes per seat, the instanced `old:seats:inst`) and the front rail of each stand (one painted box, `old:seats:rail`).
  * The stepped rows (`old:seats`) and back walls (`old:seats:back`) stay game.js's: nosings and end walls are added on them, not swapped.
  * The people in the seats are not touched (no fans' geometry): the new seats reuse the old seats' instance matrices and colours one for one,
  * so every person still sits in the same place, and the seats the crowd density leaves empty are the same ones.
@@ -85,18 +85,19 @@ function standParts(rail,M){const {PANEL_H,TUBE_R,POST_R,POST_M,HAND_R,KICK_H,NO
   for(const [arr,m] of [[steel,M.steel],[galv,M.galv],[conc,M.conc],[nose,M.nose]])if(arr.length){const me=new THREE.Mesh(mergeGeometries(arr.map(q=>q.index?q.toNonIndexed():q)),m);me.castShadow=me.receiveShadow=true;g.add(me)}
   rail.updateWorldMatrix(true,false);g.matrixAutoUpdate=false;g.matrix.copy(rail.matrixWorld);return g}
 
-export function oldSeats(scene){const a=[];scene.traverse(o=>{if(o.name==='old:seats:chair'||o.name==='old:seats:rail')a.push(o)});return a}
+/* only the instanced seats and the front rails: the row boxes (old:seats) and back walls (old:seats:back) stay game.js's and stay visible */
+export const oldSeats=c=>c.old('seats').filter(o=>o.name==='old:seats:inst'||o.name==='old:seats:rail');
 
-/* old: the meshes oldSeats() found. Returns the group standing where they stood. */
+/* old: the meshes oldSeats(ctx) found. Returns the group standing where they stood. */
 export function buildSeats({old=[],colors={}}={}){const g=new THREE.Group();g.name='seats';
   const M={shell:mat('gloss',{color:SEATS.SHELL_C,rough:SEATS.SHELL_ROUGH}),frame:mat('paintedSteel',{color:SEATS.FRAME_C}),cap:mat('rubber',{color:SEATS.CAP_C}),
     steel:mat('paintedSteel'),galv:mat('galvSteel'),conc:mat('concrete',{color:0x5a5f6a}),nose:mat('galvSteel',{color:0x5c6168,rough:.78,metal:.45}),
     pad:mat('vinylPad',colors.pad!==undefined?{color:colors.pad}:{})};
   for(const o of old){
-    if(o.name==='old:seats:chair'&&o.isInstancedMesh){g.add(instanced(shellGeo(),M.shell,o,true),instanced(frameGeo(),M.frame,o,false),instanced(capGeo(),M.cap,o,false))}
+    if(o.name==='old:seats:inst'&&o.isInstancedMesh){g.add(instanced(shellGeo(),M.shell,o,true),instanced(frameGeo(),M.frame,o,false),instanced(capGeo(),M.cap,o,false))}
     else if(o.name==='old:seats:rail'&&o.isMesh)g.add(standParts(o,M))}
   if(!g.children.length)throw new Error('seats: no old seats or rails found');
   g.userData.recolor=p=>{if(!p||p.pad===undefined)return;const m=mat('vinylPad',{color:p.pad});g.traverse(o=>{if(o.userData.pad)o.material=m})};
   return g}
 
-export const PROPS=[{name:'seats',build:c=>buildSeats({old:oldSeats(c.scene),colors:c.park()}),old:c=>oldSeats(c.scene)}];
+export const PROPS=[{name:'seats',build:c=>buildSeats({old:oldSeats(c),colors:c.park()}),old:c=>oldSeats(c)}];
