@@ -493,11 +493,11 @@ const PARKS={
 /* #203 item 5: PARKS[id].shape = how the four parks differ in shape and surroundings (shape and size only: no real names or marks).
    Slice 1 reads `backdrop` only (the kit beyond the outfield and behind the stands, BACKDROPS below); stand levels, roof, bullpen,
    light towers and turf look are the next slices and join this block. The field and the engine never change. */
-PARKS.pheasants.shape={backdrop:'hills'};/* 台北: hillside district, apartment blocks, hills behind */
-PARKS.owls.shape={backdrop:'city'};/* 新竹: dense town of row houses and mid-rise blocks, low hills far east */
-PARKS.macaques.shape={backdrop:'lake'};/* 高雄: a lake beyond the outfield, trees on its shore, low hills across */
-PARKS.muntjacs.shape={backdrop:'mountains'};/* 台東: open sky, two mountain ridges */
-const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night',shape:{backdrop:null}};
+PARKS.pheasants.shape={backdrop:'hills',upper:'low'};/* 台北: hillside district, apartment blocks, hills behind; low two-level stands */
+PARKS.owls.shape={backdrop:'city',upper:'block'};/* 新竹: dense town of row houses and mid-rise blocks, low hills far east; roofed four-level infield block */
+PARKS.macaques.shape={backdrop:'lake',upper:'tall'};/* 高雄: a lake beyond the outfield, trees on its shore, low hills across; the tallest stands */
+PARKS.muntjacs.shape={backdrop:'mountains',upper:'arcade',roof:false};/* 台東: open sky, two mountain ridges; small park, arcade gallery on the home stand */
+const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night',shape:{backdrop:null,upper:null}};
 /* ---------- #203 item 5 slice 1: backdrop kits. Built once on first use (applyPark), then only shown or hidden: no recompile on a park change
    after the first. Four materials in all (ridge, block, tree, water); nothing casts or takes the key shadow. Buildings: instanced boxes, the
    windows are drawn by the material from world position (BD_FLOOR x BD_BAY cells, BD_LIT of them lit, lit strength follows the sky's lamp
@@ -556,6 +556,63 @@ function bdBuild(id){const K=BACKDROPS[id];if(!K)return null;bdMaterials();const
 function applyBackdrop(P,S){const want=OFF.has('backdrop')?null:(P.shape||{}).backdrop;
   if(want&&!bdKits[want])bdKits[want]=bdBuild(want);for(const k in bdKits)if(bdKits[k])bdKits[k].visible=k===want;
   bdWinU.value=Math.max(0,(S.lamp-BD_DAY_LAMP)/(1-BD_DAY_LAMP))}
+/* ---------- #203 item 5 slice 2: stand levels and roof per park (PARKS[id].shape.upper). Additive: built behind or on top of the three infield
+   stands (the fans, the old stand meshes, the old roof and render/props/ are not touched), once on first use, then shown or hidden like the
+   backdrops. Local stand frame as stand(): +z away from the field, back wall face at z = rows*ROW_D+1, wall top = FRONT_H+rows*ROW_RISE+BACK_WALL.
+   Kits (only = 'home' builds behind the home-plate stand alone):
+   low    (台北) a two-floor concourse block just over the home stand's back wall: the park stays small and low.
+   block  (新竹) a four-floor infield building behind every infield stand (windows from the backdrop block material) under one deep canopy
+          that reaches over the seats: the covered, boxy silhouette.
+   tall   (高雄) an upper bowl of UP_BOWL_ROWS raked rows over every infield stand (distant crowd painted on the rake), its own canopy: four levels.
+   arcade (台東) a low arched gallery with a tiled roof crowning the home stand (the arcade facade, seen from the field); no upper level.
+   shape.roof === false (台東): the old roof meshes (old:roof*) move into a hidden holder in their stand, so props/index.js can keep flipping
+   their visible flag; the polished roof on max (props/roof.js) is the polish lane's to hide (issue filed).
+   Draw calls: low 1, block 2, tall 4, arcade 4 (instanced across the stands). Nothing casts or takes the key shadow. ?off=upper (dev) = none. */
+const UP_FLOOR=4,UP_LOW_FLOORS=2,UP_LOW_LEN=30,UP_BLOCK_FLOORS=4,UP_BLOCK_D=12,UP_BLOCK_INSET=3,UP_CANOPY_T=.7,UP_CANOPY_FRONT=-7,UP_CANOPY_GAP=1.5,UP_CANOPY_TILT=.05,
+  UP_BOWL_ROWS=16,UP_BOWL_RISE=.62,UP_BOWL_LIFT=1.5,UP_BOWL_BACK=3,UP_BOWL_ROOF_GAP=6,UP_BOWL_ROOF_OVER=4,UP_CROWD_TILE=17.6,
+  UP_ARC_H=4.6,UP_ARC_D=4,UP_ARC_W=4.5,UP_ARC_ROOF=1.8,UP_ARC_LEN=44,
+  UP_C={low:0xc9c2b4,block:0xd6d9dc,canopy:0xe4e7ea,bowlRoof:0xcfd3d8,arcRoof:0x7a3b26};
+const upKits={};
+function upStands(){const S=[];scene.traverse(o=>{const u=o.name==='stand'&&o.userData.stand;if(u&&!u.base)S.push({g:o,u,home:u.side===2,back:u.rows*ROW_D+1,top:FRONT_H+u.rows*ROW_RISE+BACK_WALL})});return S}
+/* one InstancedMesh of a unit box per material; P = [stand, local x,y,z (box centre), w,h,d, tiltX] */
+const upBoxGeo=new THREE.BoxGeometry(1,1,1),upM4=new THREE.Matrix4(),upO=new THREE.Object3D(),upCol=new THREE.Color();
+function upBoxes(mat,P,col){const m=new THREE.InstancedMesh(upBoxGeo,mat,P.length);P.forEach(([st,x,y,z,w,h,d,tx=0],i)=>{upO.position.set(x,y,z);upO.rotation.set(tx,0,0);upO.scale.set(w,h,d);upO.updateMatrix();
+  m.setMatrixAt(i,upM4.multiplyMatrices(st.g.matrixWorld,upO.matrix));m.setColorAt(i,upCol.set(col))});m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();return m}
+const upCrowdTex=()=>genTex('upCrowd',256,64,(u,v,x,y)=>{const cx=Math.floor(x/8),cy=Math.floor(y/4),fx=x%8,fy=y%4,h=hashG(cx,cy,7),seat=[.10,.22,.36];
+  if(fy===0||fx===0)return[.05,.05,.06];if(h<.12)return seat;const k=hashG(cx,cy,9),sh=hashG(cx,cy,11);/* row edge, empty seat, else a shirt and a head (fy 3 = up the rake) */
+  if(fy===3)return[.35+.2*k,.25+.15*k,.18+.1*k];return sh<.3?[.85,.85,.82]:sh<.5?[.15+.6*k,.1,.1]:sh<.7?[.1,.2+.4*k,.5]:[.2+.3*k,.2+.3*k,.2+.3*k]},1);
+/* one arch per tile: canvas v runs top to bottom; ARC_SPRING = where the round head meets the straight jambs, band = the brown frieze */
+const ARC_TOP=.26,ARC_SPRING=.44,ARC_W=.34;
+const upArcTex=()=>genTex('upArc',64,64,(u,v)=>{const dx=Math.abs(u-.5)/ARC_W,head=(ARC_SPRING-v)/(ARC_SPRING-ARC_TOP),open=dx<1&&v<.94&&(v>=ARC_SPRING||dx*dx+head*head<1),band=v<.12;
+  const n=.9+.1*vnoise(u*8,v*8,41,8);if(open)return[.09,.08,.07];if(band)return[.42*n,.26*n,.17*n];return[.85*n,.75*n,.58*n]},1);
+function upBuild(id){const St=upStands(),home=St.filter(s=>s.home),g=new THREE.Group();g.name='upper:'+id;
+  if(id==='low'){const m=bdMaterials().block,H=UP_LOW_FLOORS*UP_FLOOR;g.add(upBoxes(m,home.map(s=>[s,0,(s.top+H)/2,s.back+UP_BLOCK_D/2,UP_LOW_LEN,s.top+H,UP_BLOCK_D]),UP_C.low))}
+  if(id==='block'){const m=bdMaterials().block,H=UP_BLOCK_FLOORS*UP_FLOOR,roof=new THREE.MeshStandardMaterial({roughness:.6,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
+    g.add(upBoxes(m,St.map(s=>[s,0,(s.top+H)/2,s.back+UP_BLOCK_D/2,s.u.len-2*UP_BLOCK_INSET,s.top+H,UP_BLOCK_D]),UP_C.block));
+    const z0=UP_CANOPY_FRONT;g.add(upBoxes(roof,St.map(s=>{const y=s.top+H+UP_CANOPY_GAP,L=s.back+UP_BLOCK_D-z0;return[s,0,y,z0+L/2,s.u.len+2,UP_CANOPY_T,L,-UP_CANOPY_TILT]}),UP_C.canopy))}
+  if(id==='tall'){const rows=[],walls=[],roofs=[],N=UP_BOWL_ROWS,D=N*ROW_D;
+    for(const s of St){const y0=s.top+UP_BOWL_LIFT;for(let r=0;r<N;r++){const h=y0+r*UP_BOWL_RISE;rows.push([s,0,h/2,s.back+(r+.5)*ROW_D,s.u.len,h,ROW_D])}
+      const yt=y0+N*UP_BOWL_RISE;walls.push([s,0,(yt+UP_BOWL_BACK)/2,s.back+D+.5,s.u.len,yt+UP_BOWL_BACK,1]);
+      roofs.push([s,0,yt+UP_BOWL_ROOF_GAP,s.back+D/2-UP_BOWL_ROOF_OVER/2,s.u.len+2,UP_CANOPY_T,D+UP_BOWL_ROOF_OVER+2,-UP_CANOPY_TILT*1.6])}
+    g.add(upBoxes(standMat,rows,0xffffff),upBoxes(standMat,walls,0xffffff),upBoxes(new THREE.MeshStandardMaterial({roughness:.6,metalness:.3,map:paintTex(),roughnessMap:paintTex()}),roofs,UP_C.bowlRoof));
+    const cm=new THREE.MeshStandardMaterial({map:upCrowdTex(),roughness:.9}),rake=Math.atan2(UP_BOWL_RISE,ROW_D);/* one plane per stand on the row edges, its UVs scaled to the stand length */
+    for(const s of St){const L=Math.hypot(D,N*UP_BOWL_RISE),geo=new THREE.PlaneGeometry(s.u.len,L),uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*s.u.len/UP_CROWD_TILE,uv.getY(i)*N/16);
+      const p=new THREE.Mesh(geo,cm);p.position.set(0,s.top+UP_BOWL_LIFT+N*UP_BOWL_RISE/2+.05,s.back+D/2);p.rotation.set(-Math.PI/2-rake,0,0);/* faces the field and up, local +y down the rake */p.updateMatrix();p.matrixAutoUpdate=false;p.matrix.premultiply(s.g.matrixWorld);g.add(p)}}
+  if(id==='arcade'){const at=upArcTex(),wall=new THREE.MeshStandardMaterial({map:at,roughness:.85}),tile=new THREE.MeshStandardMaterial({roughness:.75,flatShading:true});
+    at.repeat.set(UP_ARC_LEN/UP_ARC_W,1);
+    g.add(upBoxes(wall,home.map(s=>[s,0,s.top+UP_ARC_H/2,s.back+UP_ARC_D/2,UP_ARC_LEN,UP_ARC_H,UP_ARC_D]),0xffffff),
+      upBoxes(standMat,home.map(s=>[s,0,s.top/2,s.back+UP_ARC_D/2,UP_ARC_LEN,s.top,UP_ARC_D]),0xffffff));/* the gallery on its plain base, right behind the back wall */
+    const prism=new THREE.CylinderGeometry(1,1,1,3).rotateZ(Math.PI/2).rotateX(Math.PI),pr=new THREE.InstancedMesh(prism,tile,home.length);/* triangular prism along x, ridge up */
+    home.forEach((s,i)=>{upO.position.set(0,s.top+UP_ARC_H+UP_ARC_ROOF*.5,s.back+UP_ARC_D/2);upO.rotation.set(0,0,0);upO.scale.set(UP_ARC_LEN+1.5,UP_ARC_ROOF,UP_ARC_D*.62);upO.updateMatrix();
+      pr.setMatrixAt(i,upM4.multiplyMatrices(s.g.matrixWorld,upO.matrix));pr.setColorAt(i,upCol.set(UP_C.arcRoof))});pr.computeBoundingSphere();g.add(pr)}
+  g.traverse(o=>{o.castShadow=o.receiveShadow=false});scene.add(g);return g}
+/* the hidden holder is a child of the same stand group at identity and carries its userData.stand, so world transforms stay and
+   props/roof.js (which reads parent.userData.stand) still builds every roof whichever park was on when max mounted */
+const upRoofs=[];
+function applyUpper(P){const sh=P.shape||{},want=OFF.has('upper')?null:sh.upper;if(want&&!upKits[want])upKits[want]=upBuild(want);for(const k in upKits)if(upKits[k])upKits[k].visible=k===want;
+  if(!upRoofs.length){const L=[];scene.traverse(o=>{if(o.name==='old:roof'||o.name==='old:roof:fascia')L.push(o)});for(const o of L){const p=o.parent;
+    if(!p.userData.roofHold){const h=new THREE.Group();h.name='stand:roofHold';h.visible=false;h.userData.stand=p.userData.stand;p.add(h);p.userData.roofHold=h}upRoofs.push({o,p,h:p.userData.roofHold})}}
+  const off=sh.roof===false&&!OFF.has('upper');for(const R of upRoofs){const to=off?R.h:R.p;if(R.o.parent!==to)to.add(R.o)}}
 let skyCur=SKIES.night;
 function applySky(S){skyCur=S;renderer.toneMappingExposure=S.exposure;key.intensity=S.key*Math.PI;key.color.set(S.keyC);fill.intensity=S.fill*Math.PI;fill.color.set(S.fillC);
   hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
@@ -578,7 +635,7 @@ function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PAR
   if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
 function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
   const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
-  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);applyUpper(P);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
 parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
