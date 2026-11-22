@@ -130,7 +130,9 @@
     ] },
     "pitching_change": { "priority": 2, "silence": 0, "exchanges": [
       { "call": "{team}要換投手了。", "response": "牛棚應該早就在熱身了。" },
-      { "call": "教練走出來了，{team}要換人。", "response": "換個節奏，看能不能壓得住。" }
+      { "call": "{manager}走出來了，{team}要換人。", "response": "換個節奏，看能不能壓得住。" },
+      { "call": "{team}換投，{manager}跟主審比了手勢。", "response": "這一換，他心裡應該早有劇本了。" },
+      { "call": "{pitchingCoach}先上去講了幾句，{manager}還是決定換人。", "response": "給了機會，球數到了就是到了。" }
     ] },
     "fan_decision": { "priority": 1, "silence": 0.2, "exchanges": [
       { "call": "看台上的球迷有意見了，教練團照做。", "response": "有魄力。好壞大家一起扛。" },
