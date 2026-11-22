@@ -148,7 +148,7 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
   const nG=texture(tex('grass_n'),gUV),nD=texture(tex('dirt_n'),dUV);
   m.normalNode=normalMap(mix(nD,nG,isGrass),vec2(mix(float(1.2),float(.8),isGrass)));
   const oG=texture(tex('grass_orm'),gUV),oD=texture(tex('dirt_orm'),dUV);const orm=mix(oD,oG,isGrass);
-  m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
+  m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.name='old:field';ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
 /* #150: code-generated surface detail (no download). genTex(size, w, h, fn) fills a canvas pixel by pixel: fn(u, v) -> [r, g, b] in 0..1.
    srgb = colour map; otherwise data (normal / roughness). Cached by key. */
 /* #162: PARK_SHADERS = the shader side of #150 (noise on the outer ground and the stand concrete, painted-steel maps, pillowed pad normals).
@@ -242,7 +242,8 @@ stand(0,24,0,48,16,2,true);stand(46.7,-24.1,Q,72,14,1,true);stand(-46.7,-24.1,-Q
 const OF_R=111.5,OF_BASE=2.4,OF_ROWS=10,OF_SEAT_ROW=5;
 for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.cos(t)*OF_R,Math.atan2(Math.sin(t),-Math.cos(t)),20,OF_ROWS,a<0?0:a>0?1:2,false,OF_BASE)}
 /* #215: polished props (render/props/, materials in render/pbr.js) swap in on the tiers props/index.js allows; any failure keeps the old park */
-import(new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>M.mountProps({scene,tier:()=>gfxTier,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err));
+{const PROPS_POLL_MS=1000,url=new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;/* max only (#215 10:30): nothing is fetched until max is on; gfxMax is declared further down, so the first look waits a tick */
+  const go=()=>{let on=false;try{on=gfxMax}catch(e){}if(!on)return void setTimeout(go,PROPS_POLL_MS);import(url).then(M=>M.mountProps({scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err))};setTimeout(go,0)}
 const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
   {x:0,y:OF_BASE+FRONT_H+OF_SEAT_ROW*ROW_RISE+.55,z:-(OF_R+OF_SEAT_ROW*ROW_D+ROW_D/2+.12),tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
 const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
