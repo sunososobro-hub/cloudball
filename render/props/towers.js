@@ -1,5 +1,5 @@
-/* render/props/towers.js: the six light towers (#215 round 1). Polish rounds edit only this file.
- * Replaces the old masts (`old:tower:mast`: 8-sided cylinders r .8 -> .5, 46 m tall) and the old lamp banks (`old:tower:lamp`: one flat
+/* render/props/towers.js: the six light towers (#215 round 1). Polish rounds edit only this file (#237: round notes here and on the #215 board).
+ * Replaces the old masts (`old:towers`: 8-sided cylinders r .8 -> .5, 46 m tall) and the old lamp banks (`old:towers:lamp`: one flat
  * 9 x 4 m glowing box at the top). The light itself (spots, beams, glow sprites, aureole, bugs, motes) stays game.js's: nothing here lights.
  * Shape: concrete footing with base plate, anchor nuts and gussets; a 16-sided tapered tube mast in four sections joined by bolted flange
  * collars; a caged ladder up the back with rest platforms; a cable conduit and a service cabinet at the foot; at the top a headframe of
@@ -119,3 +119,6 @@ export function buildTowers(o){const {SPOTS,H,AIM,FIX_R,FIX_L,LENS_IN,VISOR}=TOW
   const houseM=M.house.clone();houseM.side=THREE.DoubleSide;
   inst(house,houseM,'prop:towers:house');inst(lensG,lens,'prop:towers:lens');inst(visG,houseM,'prop:towers:visor');
   return g}
+
+/* slot descriptor (#237): masts (old:towers) and lamp heads (old:towers:lamp); the lenses take the old lamp heads' material */
+export const PROPS=[{name:'towers',build:c=>{const L=c.old('towers').filter(o=>o.name==='old:towers:lamp');return buildTowers({lampMat:L[0]&&L[0].material})},old:c=>c.old('towers')}];

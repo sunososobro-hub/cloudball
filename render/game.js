@@ -231,13 +231,13 @@ const fasciaMat0=new THREE.MeshStandardMaterial({color:LC(0x9aa3b5),roughness:.6
 const fasciaMat=L=>{if(FASCIA_M[L])return FASCIA_M[L];const m=fasciaMat0.clone();for(const t of ['map','emissiveMap']){m[t]=m[t].clone();m[t].repeat.set(Math.round(L/FASCIA_LAMP_M),1);m[t].needsUpdate=true}return FASCIA_M[L]=m};
 const ribGeo=d=>new THREE.BoxGeometry(RIB_W,RIB_H,d),ribMat=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()}),ribO=new THREE.Object3D();
 function stand(px,pz,rotY,len,rows,side,roof,base=0){
-  const g=new THREE.Group();g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
-  for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.position.set(0,h/2,d);g.add(b);
+  const g=new THREE.Group();g.name='stand';g.userData.stand={px,pz,rotY,len,rows,side,roof,base};g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
+  for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.name='old:seats';b.position.set(0,h/2,d);g.add(b);
     for(let x=-len/2+.4;x<len/2-.3;x+=SEAT_W)fans.push({g,x,y:h,z:d,side,empty:Math.random()<CROWD_EMPTY})}
-  const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
-  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
-  if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
-    const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,FASCIA_H,.25),fasciaMat(len+2));lip.position.set(0,top+7.4-FASCIA_H/2+.12,-4.9);g.add(lip);
+  const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.name='old:seats:back';w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.name='old:seats:rail';rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
+  if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.name='old:roof';rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
+    const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,FASCIA_H,.25),fasciaMat(len+2));lip.name='old:roof:fascia';lip.position.set(0,top+7.4-FASCIA_H/2+.12,-4.9);g.add(lip);
     const n=Math.floor((len+2)/RIB_GAP),ribs=new THREE.InstancedMesh(ribGeo(rows*.9+6),ribMat,n);/* #150 round 3: steel ribs under the roof, one draw call per stand */
     for(let i=0;i<n;i++){ribO.position.set(-(len+2)/2+RIB_GAP*(i+.5),-.25-RIB_H/2,0);ribO.updateMatrix();ribs.setMatrixAt(i,ribO.matrix)}
     rf.add(ribs)}
@@ -249,7 +249,9 @@ stand(0,24,0,48,16,2,true);stand(46.7,-24.1,Q,72,14,1,true);stand(-46.7,-24.1,-Q
    at ground level, so the first rows peeked over the wall and made it look small. */
 const OF_R=111.5,OF_BASE=2.4,OF_ROWS=10,OF_SEAT_ROW=5;
 for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.cos(t)*OF_R,Math.atan2(Math.sin(t),-Math.cos(t)),20,OF_ROWS,a<0?0:a>0?1:2,false,OF_BASE)}
-/* #215: polished props (render/props/, materials in render/pbr.js) swap in on the tiers props/index.js allows; any failure keeps the old park */
+/* #215: polished props (render/props/, materials in render/pbr.js) swap in on the tiers props/index.js allows; any failure keeps the old park.
+   #237: every old park mesh a slot replaces is named old:<slot>[:<part>] above (field, wall, foulpole, backstop, seats, roof, towers, scoreboard);
+   polish rounds never edit this file: an object file finds its old meshes with ctx.old('<slot>'). */
 {const PROPS_POLL_MS=1000,url=new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;/* max only (#215 10:30): nothing is fetched until max is on; gfxMax is declared further down, so the first look waits a tick */
   const go=()=>{let on=false;try{on=gfxMax}catch(e){}if(!on)return void setTimeout(go,PROPS_POLL_MS);import(url).then(M=>M.mountProps({scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err))};setTimeout(go,0)}
 const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
@@ -336,8 +338,8 @@ const haloK=TSL.uniform(0).onFrameUpdate(()=>skyCur.halo*(gfxMax?1:HALO_LOW));
 const haloMat=(()=>{const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});const t=new THREE.CanvasTexture(glowC);
   m.colorNode=TSL.texture(t).mul(haloK);m.toneMapped=false;return m})();
 const towerSpots=[];
-for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.name='old:tower:mast';m.position.set(x,23,z);scene.add(m);
-  const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.name='old:tower:lamp';l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
+for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.name='old:towers';m.position.set(x,23,z);scene.add(m);
+  const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.name='old:towers:lamp';l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
   const ha=new THREE.Sprite(haloMat);ha.position.set(x,46,z);ha.scale.set(HALO_SCALE,HALO_SCALE,1);scene.add(ha);
   const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),aim=new THREE.Vector3(TOWER_AIM[0]+x*TOWER_AIM_K,0,TOWER_AIM[1]+(z-TOWER_AIM[1])*TOWER_AIM_K),dir=lamp.clone().sub(tgt),L=dir.length();
@@ -699,16 +701,34 @@ const pitchTipAt=(u,px,pz)=>{const P=fielders.P,sg=P.mirrored?-1:1,k=P.k||1,L=kf
    right-handed: his clip is mirrored onto the throwing side (bones R) and the figure's own mirror makes it right- or left-handed. */
 const PITCH_CLIP_URL='assets/mocap/pitch_124_01.json',PM_START=1.2,PM_KNEE=2.33,PM_KNEE_U=.6,PM_END=4.6,PM_IN=.25,PM_OUT=[2.2,2.8];
 let pitchClip=null,pitchClipP=null;const pmRel=new Map();
+/* #186 (owner 11/22 10:33: no gliding back to the rubber). After the release the pitcher finishes on the spot his stride landed on: PM_LAND
+   (keyframes) or, with the clip, where the clip's hips stand at PM_END, so blending out of the clip moves nothing. Then he walks back to
+   the rubber in PM_STEPS backward steps between PM_BACK[0] and PM_BACK[1] (inside the pitch frame, PK_END): one foot swings (lifted by
+   PM_LIFT of its length) while the other stays planted, the hips ride at the middle of the two feet, every leg angle is solved from where
+   its foot is (leg PM_LEG m, hip over the rubber line), so a planted foot does not slide. Pure function of u. */
+const PM_LAND=.85,PM_BACK=[3.4,4.6],PM_STEPS=4,PM_LIFT=.12,PM_LEG=.9,PM_FOOT_MAX=.9;const pmLand=new Map();
+function pmBack(u,S,k){if(u<PM_BACK[0])return null;
+  const s=sat01((u-PM_BACK[0])/(PM_BACK[1]-PM_BACK[0]))*PM_STEPS,i=Math.min(PM_STEPS-1,Math.floor(s)),f=ease(Math.min(1,s-i)),d=S/(PM_STEPS-1),
+    at=n=>Math.max(0,S-n*d),/* foot 0 moves on steps 1, 3, ...; foot 1 on steps 2, 4, ... */
+    after=(ft,n)=>{let m=0;for(let j=1;j<=n;j++)if((j-1)%2===ft)m=j;return m?at(m):S},sw=i%2,
+    F=[0,1].map(ft=>ft===sw?lerp(after(ft,i),after(ft,i+1),f):after(ft,i)),z=(F[0]+F[1])/2;
+  return{z,leg:F.map(Fz=>Math.asin(clamp((z-Fz)/(PM_LEG*k),-PM_FOOT_MAX,PM_FOOT_MAX))),sc:[0,1].map(ft=>ft===sw?1-PM_LIFT*Math.sin(Math.PI*f):1)}}
 const pmTime=(u,c)=>{const tr=c.release.frame/c.fps;return u<PM_KNEE_U?PM_START+Math.max(0,u)*(PM_KNEE-PM_START)/PM_KNEE_U:u<RELEASE?PM_KNEE+(u-PM_KNEE_U)*(tr-PM_KNEE)/(RELEASE-PM_KNEE_U):Math.min(PM_END,tr+(u-RELEASE))};
 const pmW=u=>Math.min(ease(sat01(u/PM_IN)),1-ease(sat01((u-PM_OUT[0])/(PM_OUT[1]-PM_OUT[0]))));
 function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,PK.a1),bx=P.g.position.x,bz=P.g.position.z;
   PR.up.rotation.set(L,y,0);PR.hg.rotation.y=-y*.9;P.legs[0].rotation.x=kf(u,PK.l0);P.legs[1].rotation.x=kf(u,PK.l1);P.arms[0].rotation.x=kf(u,PK.a0);P.arms[1].rotation.x=th;
-  P.g.position.z+=kf(u,PK.dz);
+  const mo=P.setMocap&&!OFF.has('mocap'),c=mo?pitchClip:null,mkey=[bx,bz,P.buildKey,P.throws,P.k].join();
+  let S=PM_LAND;if(c&&P.moTravel){S=pmLand.get(mkey);if(S===undefined){S=P.moTravel(c,PM_END,PM_START);pmLand.set(mkey,S)}}
+  const dz=u<PM_OUT[0]?kf(u,PK.dz):S,B=pmBack(u,S,P.k||1);P.legs[0].scale.y=P.legs[1].scale.y=1;
+  if(B){P.legs[0].rotation.x=B.leg[0];P.legs[1].rotation.x=B.leg[1];P.legs[0].scale.y=B.sc[0];P.legs[1].scale.y=B.sc[1]}
+  /* the stride foot comes back under the hips as a step (lifted), not dragged, while the clip hands over to the keyframes */
+  else if(u>=PM_OUT[0])P.legs[0].scale.y=1-PM_LIFT*Math.sin(Math.PI*sat01((u-PM_OUT[0])/(PM_BACK[0]-PM_OUT[0])));
+  P.g.position.z+=B?B.z:dz;
   let rel=pitchTipAt(RELEASE,bx,bz);
-  if(P.setMocap&&!OFF.has('mocap')){if(!pitchClipP&&window.PL&&PL.loadClip)pitchClipP=PL.loadClip(PITCH_CLIP_URL).then(c=>{pitchClip=c}).catch(e=>console.warn('mocap',e));
-    const c=pitchClip;if(c){const mir=c.release.hand==='right',key=[bx,bz,P.buildKey,P.throws].join();let r=pmRel.get(key);
+  if(mo){if(!pitchClipP&&window.PL&&PL.loadClip)pitchClipP=PL.loadClip(PITCH_CLIP_URL).then(c=>{pitchClip=c}).catch(e=>console.warn('mocap',e));
+    if(c){const mir=c.release.hand==='right',key=[bx,bz,P.buildKey,P.throws].join();let r=pmRel.get(key);
       if(!r){const z=P.g.position.z,dR=kf(RELEASE,PK.dz);P.g.position.z=bz+dR;P.setMocap(c,pmTime(RELEASE,c),1,mir,PM_START,dR);const q=P.handWorld(1);r=[q.x,q.y,q.z];pmRel.set(key,r);P.g.position.z=z}
-      const w=pmW(u);P.setMocap(c,pmTime(u,c),w,mir,PM_START,kf(u,PK.dz));if(w>0)rel=r}}
+      const w=pmW(u);P.setMocap(c,pmTime(u,c),w,mir,PM_START,dz);if(w>0)rel=r}}
   return{tip:pitchTipAt(u,bx,bz),rel}}
 function arc(p0,p1,peak,t){return[lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)+peak*4*t*(1-t),lerp(p0[2],p1[2],t)]}
 
