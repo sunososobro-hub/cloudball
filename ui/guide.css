@@ -76,5 +76,62 @@ footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);color:v
 .cmp-row.big .bar{height:14px;border-radius:7px}
 body.cmp-open{padding-bottom:calc(50vh + 24px)}
 @media(min-width:700px){.roster{grid-template-columns:1fr 1fr}}
+/* Star strip, dense table, wide layout (#197). The table shows from 1000 px; below it the card list stays.
+ * Phone (under 700 px): cards are compact, the abilities in two columns of short bars. */
+.nstar{display:block;margin-left:2px;color:var(--gold);font-size:12px;font-weight:600;white-space:nowrap}
+.nstar b{font-size:16px}
+#nav a{flex-wrap:nowrap}
+.star{display:flex;align-items:center;gap:14px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--gold);border-left:6px solid var(--gold);border-radius:12px;background:linear-gradient(90deg,rgba(242,194,48,.16),rgba(242,194,48,.04))}
+.star .bigovr{flex:none;display:flex;flex-direction:column;align-items:center;min-width:2.4ch}
+.star .bigovr b{font-size:52px;line-height:1;font-weight:700;color:var(--gold)}
+.star .bigovr small{color:var(--muted);font-size:12px;letter-spacing:.2em}
+.star .top1{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px}
+.star .top1 b{font-size:20px}
+.star .top1 span{color:var(--muted);font-size:13px}
+.star .top1 .tag{padding:1px 8px;border-radius:6px;background:var(--gold);color:#1a1400;font-weight:700;font-size:13px;letter-spacing:.15em}
+.star .bio{margin:3px 0 0;font-size:14px}
+.tblw{display:none}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th,.tbl td{padding:3px 8px;text-align:left;white-space:nowrap}
+.tbl thead th{color:var(--muted);font-weight:600;font-size:13px;border-bottom:1px solid var(--line)}
+.tbl thead button{padding:2px 0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
+.tbl thead th[aria-sort="descending"] button{color:var(--gold)}
+.tbl thead th[aria-sort="descending"] button::after{content:" ▼";font-size:10px}
+.tbl tr.row{cursor:pointer;border-top:1px solid rgba(255,255,255,.07)}
+.tbl tr.row:hover{background:var(--glass)}
+.tbl .rowtog{display:flex;align-items:baseline;gap:8px;padding:0;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer;text-align:left}
+.tbl .rowtog b{font-size:15px}
+.tbl .no,.tbl .mt,.tbl .ag{color:var(--muted)}
+.tbl .mini{display:inline-block;width:36px;height:6px;margin-right:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;vertical-align:middle}
+.tbl .mini i{display:block;height:100%;border-radius:3px}
+.tbl td .num{font-size:15px;font-weight:600;display:inline-block;min-width:2ch;text-align:right}
+.tbl td.ov .mini{width:52px;height:10px;border-radius:5px}
+.tbl td.ov .mini i{border-radius:5px}
+.tbl td.ov .num{font-size:24px;line-height:1;font-weight:700;min-width:2.2ch;vertical-align:middle}
+.tbl td.pt{color:var(--gold)}
+.tbl tr.more td{padding:2px 8px 10px;background:var(--glass)}
+.tbl .detail{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.tbl .detail .bio{margin:0;font-size:14px}
+.tbl .detail .who{display:flex}
+@media(min-width:1000px){
+  body.wide{padding-inline:max(12px,env(safe-area-inset-left))}
+  body.wide .top,body.wide main,body.wide #staff,body.wide footer{width:min(100%,1600px)}
+  .pair .roster,.pair .sortbar{display:none}
+  .pair .tblw{display:block}
+  .crew{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+}
+/* both groups side by side only when each table has room (a whole team in one screen on a 1900 px desktop) */
+@media(min-width:1500px){.pair{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:24px;align-items:start}}
+@media(pointer:coarse){.tbl tr.row td{padding-block:6px}.tbl thead button,.tbl .rowtog{min-height:44px}}
+@media(max-width:699px){
+  .p{gap:4px;padding:8px 10px}
+  .r{grid-template-columns:1fr 1fr;gap:4px 14px}
+  .r>div{grid-template-columns:2.6em 1fr 3ch;gap:6px;font-size:13px}
+  .r dd{font-size:15px}
+  .r .ovr{grid-column:1/-1;grid-template-columns:3em 1fr 3.2ch}
+  .star{gap:10px;padding:8px 10px}
+  .star .bigovr b{font-size:40px}
+}
+
 html[data-site="production"] .dev-only{display:none!important}
 .agent-entry{margin:0 0 12px;font-size:14px}

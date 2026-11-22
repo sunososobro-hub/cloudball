@@ -36,3 +36,8 @@ main h2{margin:0 0 10px;font-size:20px}
 .stage-cap{position:absolute;left:0;right:0;top:8px;margin:0;padding:0 14px;text-align:center;font-size:14px;font-weight:600;pointer-events:none;text-shadow:0 1px 3px #000}
 .roster .see{margin-left:auto;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass);color:var(--ink);font:600 14px 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}
 .roster li.p[aria-current="true"]{outline:1px solid var(--gold)}
+/* wide screens (#197): the page may use up to 1600 px, but the forms stay one readable column; the free-agent list takes three columns */
+@media(min-width:1000px){
+  #status,#stage,#account,#maker,#mine{width:min(100%,980px);margin-inline:auto}
+}
+@media(min-width:1400px){#faList{grid-template-columns:repeat(3,1fr)}}
