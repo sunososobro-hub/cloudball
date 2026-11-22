@@ -1,10 +1,13 @@
 # #133: cold-visit waterfall and entry bar timeline. Every request waits LAT ms (local) or CDN ms (jsdelivr), so serial loads show up.
-# THREE_DIR=.../node_modules/three/ [OFF=shadows,faces (#162 switches)] [LAT=120 CDN=250 W=1280 H=720] [SHOT=out.png SW=900] python3 boot_probe.py REPO
+# RAF_MS=1000 delays every requestAnimationFrame (a throttled tab, #162: the buttons must still wake when the compile ends).
+# THREE_DIR=.../node_modules/three/ [OFF=shadows,faces (#162 switches)] [RAF_MS=1000] [LAT=120 CDN=250 W=1280 H=720] [SHOT=out.png SW=900] python3 boot_probe.py REPO
 import sys,os,asyncio,mimetypes,json
 from playwright.async_api import async_playwright
 REPO=sys.argv[1];BASE='http://localhost/'  # localhost = the dev site (ui/site.js), so ?off= switches apply
 TH=os.environ['THREE_DIR'];LAT=int(os.environ.get('LAT','120'));CDN=int(os.environ.get('CDN','250'));W=int(os.environ.get('W','1280'));H=int(os.environ.get('H','720'));SHOT=os.environ.get('SHOT')
 INIT="""window.__s=[];(function f(){const b=document.getElementById('warmBar'),e=document.getElementById('enter');__s.push([Math.round(performance.now()),b?getComputedStyle(b).opacity+'/'+(b.hidden?'H':'')+(b.getAttribute('aria-valuenow')||''):'-',e?(e.disabled?0:1):-1]);requestAnimationFrame(f)})();try{localStorage.setItem('zu_gl','1')}catch(e){}"""
+RAF_MS=int(os.environ.get('RAF_MS','0'))
+if RAF_MS: INIT="const __raf=requestAnimationFrame.bind(window);window.requestAnimationFrame=f=>setTimeout(()=>__raf(f),%d);"%RAF_MS+INIT
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch(executable_path='/usr/bin/google-chrome',args=['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'])
