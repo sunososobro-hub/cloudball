@@ -4,6 +4,8 @@
  *     its last line, the set-up lines come before it, no reusable intro is counted
  *   - listed exchanges never overlap and are at least the minimum gap apart in game time
  *   - one voice alone scores zero; a two-voice exchange scores more than zero
+ *   - the owner's verdict on the first game (#175): the four exchanges he found funny are in the
+ *     top list of seed 704 and score above the four he did not
  * Runs on every registered script and on bank drafts of GAMES seeds. Prints the frozen game's top list. */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -66,6 +68,18 @@ for (let seed = 1; seed <= GAMES; seed++) {
   check(`draft ${seed}`, { lines }, g.stream);
 }
 
+/* owner 2026-11-22 on the top 8 of PR #138 (seed 704), by event index: funny 8, 6, 3, 2; not 1, 4, 5, 7 */
+const VERDICT = { seed: 704, funny: [1126, 246, 1200, 30], flat: [1296, 311, 382, 617] };
+if (index[VERDICT.seed]) {
+  const script = JSON.parse(readFileSync(path.join(DIR, 'scripts', index[VERDICT.seed]), 'utf8'));
+  const g = simGame(VERDICT.seed, {}, rostersOf(VERDICT.seed)), opts = { bank, stream: g.stream };
+  const top = topBanter(script, opts).map(x => x.at), all = banterScores(script, opts);
+  const scoreAt = at => { const x = all.find(y => y.at === at); return x ? x.score : -1; };
+  for (const at of VERDICT.funny) if (!top.includes(at)) bad(`seed ${VERDICT.seed}: the owner's funny exchange @${at} is not in the top list`);
+  const lowFunny = Math.min(...VERDICT.funny.map(scoreAt)), highFlat = Math.max(...VERDICT.flat.map(scoreAt));
+  if (!(lowFunny > highFlat)) bad(`seed ${VERDICT.seed}: a funny exchange scores ${lowFunny}, not above the flat ones (${highFlat})`);
+} else bad(`seed ${VERDICT.seed} has no registered script: the owner's verdict cannot be checked`);
+
 if (frozen) {
   console.log(`${frozen.file}: top ${frozen.top.length} banter exchanges`);
   for (const x of frozen.top) {
@@ -75,4 +89,4 @@ if (frozen) {
 }
 console.log(`${GAMES} bank drafts: ${drafted} listed exchanges`);
 if (problems.length) { console.error(`\nFAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
-console.log('OK: banter scores are deterministic, listed exchanges exist, never overlap, keep their gap, and one voice scores zero.');
+console.log("OK: banter scores are deterministic, listed exchanges exist, never overlap, keep their gap, one voice scores zero, and the owner's four funny picks lead seed 704.");

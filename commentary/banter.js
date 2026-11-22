@@ -16,7 +16,10 @@ export const SPEAKER_POINTS = 10;      /* per speaker beyond the first: two peop
 export const TURN_POINTS = 4;          /* per change of speaker inside the exchange: they answer each other */
 export const FAN_POINTS = 8;           /* the guest is in it */
 export const AMUSED_POINTS = 5;        /* per line delivered `amused` (the writer marked it as a joke) */
-export const GAG_PAYOFF_POINTS = 12;   /* a line calls back a running gag raised earlier in the game */
+export const GAG_PAYOFF_POINTS = 12;   /* per running gag raised earlier in the game that the exchange calls back
+                                          (once per gag: an echo of the same word in the same exchange is one payoff) */
+export const CUE_POINTS = 40;          /* the analyst speaks before the guest: the moment is framed, so the guest's
+                                          line lands as a punchline instead of a complaint at the call (#175) */
 export const ONCE_POINTS = 6;          /* a once-only line of the bank (a payoff that never repeats) */
 export const NEEDS_POINTS = 6;         /* a bank line that needs a gag flag: a payoff by construction */
 
@@ -94,8 +97,8 @@ export function banterScores(script, opts = {}) {
     .filter(([g, marks]) => (!GAG_SPEAKERS[g] || GAG_SPEAKERS[g].includes(l.speaker)) && marks.some(m => l.text.includes(m)))
     .map(([g]) => g);
   /* gag state is causal: a line pays off only what was raised by an earlier line */
-  const payoff = new Array(L.length).fill(false);
-  L.forEach((l, k) => { for (const g of gagsOf(l)) { if (raised.has(g)) payoff[k] = true; raised.add(g); } });
+  const payoff = L.map(() => []);   /* per line: the gags it pays off */
+  L.forEach((l, k) => { for (const g of gagsOf(l)) { if (raised.has(g)) payoff[k].push(g); raised.add(g); } });
   const bankHit = L.map(l => { const t = norm(l.text); return pats.find(p => p.re.test(t)) || null; });
 
   return exchangesOf(script).map(x => {
@@ -109,8 +112,10 @@ export function banterScores(script, opts = {}) {
       if (x.speakers.includes('fan')) parts.fan = FAN_POINTS;
       const amused = x.lines.filter(k => L[k].emotion === 'amused').length;
       if (amused) parts.amused = AMUSED_POINTS * amused;
-      const pay = x.lines.filter(k => payoff[k]).length;
-      if (pay) parts.gag = GAG_PAYOFF_POINTS * pay;
+      const pay = new Set(x.lines.flatMap(k => payoff[k]));
+      if (pay.size) parts.gag = GAG_PAYOFF_POINTS * pay.size;
+      const guest = x.lines.findIndex(k => L[k].speaker === 'fan');
+      if (guest > 0 && x.lines.slice(0, guest).some(k => L[k].speaker === 'color')) parts.cue = CUE_POINTS;
       const once = x.lines.filter(k => bankHit[k] && bankHit[k].once).length;
       if (once) parts.once = ONCE_POINTS * once;
       const needs = x.lines.filter(k => bankHit[k] && bankHit[k].needs).length;
