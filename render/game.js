@@ -823,7 +823,7 @@ function crewNums(seed){if(!staffM||!staffM.crewFor)return null;if(!stCrew.has(s
 const stPath=(i,team)=>{const side=i?-1:1,B=lineXZ(side,ST_BOX),G=dugout(team);return odPath(Math.sign(G[0])===side?[G,B]:[G,[0,ST_BEHIND_Z],B])};
 const stJogDur=(team,i)=>stPath(i,team).L/ST_JOG_V,stJogEnd=(team,t0)=>t0+Math.max(stJogDur(team,0),stJogDur(team,1));/* cpEvents: they move until here */
 function poseStaff(e,u){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{const [x,z]=stUmpAt[i];resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined)});
+  umpB.forEach((f,i)=>{const [x,z]=stUmpAt[i];resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
@@ -843,6 +843,32 @@ function staffGiveWay(){const mv=[...FIELDER_KEYS.map(k=>fielders[k]),...runners
       if(out){dx+=out[0]*GW_OUT;dz+=out[1]*GW_OUT}const n=Math.hypot(dx,dz)||1;ox+=dx/n*k;oz+=dz/n*k}
     const o=Math.hypot(ox,oz);if(o>GW_MAX){ox*=GW_MAX/o;oz*=GW_MAX/o}const g=f.gw===undefined?1:f.gw;ox*=g;oz*=g;p.x+=ox;p.z+=oz;most=Math.max(most,Math.hypot(ox,oz))};
   umpB.forEach((f,i)=>push(f,gwFoul[i]));coaches.forEach((f,i)=>push(f,gwCoachFoul[i]));return most}
+/* #42 slice 7 (item 3: "out/safe ... signals driven by the engine events", rule 12: the event is right): the umpire of each bag calls the
+   plays at first, second and third, from the engine's plan only. A 'touch' (force) or 'tag' action at the bag = out, from its time; a throw
+   'receive'd at a bag where nobody is out and a runner of e.moves arrives there within BC_CLOSE s of the ball = safe, from the later of the
+   two (a ball coming back in long after the runner is no play: no call). Out = the fist: upper arm out at shoulder height, fist beside the
+   head (UC_HAMMER), one sharp beat (UC_BEAT). Safe = both arms crossed in front of the chest (BC_CROSS) sweep out flat to the sides
+   (BC_SPREAD). He turns BC_TURN of the way from home to the bag while he calls. Plays at the plate stay with the plate umpire. In-play
+   plan times count from ARRIVE, steal plans from the event start. Pure function of (event, time). */
+const BC_DELAY=.15,BC_UP=.2,BC_BEAT_AT=.25,BC_HOLD=1,BC_DOWN=.4,BC_SWEEP_AT=.15,BC_SWEEP=.25,BC_CLOSE=1.2,BC_TURN=.7;
+const BC_REST=[BAT_SHOULDER_X,BAT_SHOULDER_Y-BAT_ARM_LEN,0],BC_CROSS=[-.12,.62,.36],BC_SPREAD=[.88,.62,.12],bcCache=new WeakMap();
+function bcCalls(e){if(bcCache.has(e))return bcCache.get(e);const C=[],S=e.plan;
+  if(e.k==='P'&&S&&S.actions&&(e.r==='inplay'||e.sbGo)){const t0=e.r==='inplay'?ARRIVE:0,mv=e.moves||[],outAt=new Map();
+    for(const a of S.actions)if((a.a==='touch'||a.a==='tag')&&a.base>=1&&a.base<=3)outAt.set(a.base,Math.max(outAt.get(a.base)||-Infinity,t0+a.t));
+    for(const [b,t] of outAt)C.push({b,t:t+BC_DELAY,out:true});
+    for(const a of S.actions){if(a.a!=='receive'||!(a.base>=1&&a.base<=3)||outAt.has(a.base)||C.some(c=>c.b===a.base))continue;
+      const ta=t0+a.t,r=mv.filter(m=>m[1]===a.base&&m[3]&&Number.isFinite(m[3].arriveT)).map(m=>m[3].arriveT);if(!r.length)continue;
+      const tr=Math.max(...r);if(Math.abs(ta-tr)<=BC_CLOSE)C.push({b:a.base,t:Math.max(ta,tr)+BC_DELAY,out:false})}}
+  bcCache.set(e,C);return C}
+const bcLen=()=>BC_HOLD+BC_DOWN;
+function bcPose(f,b,e,u){let c=null;for(const q of bcCalls(e))if(q.b===b&&u>=q.t&&u<q.t+bcLen()&&(!c||q.t>c.t))c=q;
+  if(!c){f.armsHeld=false;return}const t=u-c.t,w=ease(sat01(t/BC_UP))*(1-ease(sat01((t-BC_HOLD)/BC_DOWN))),R=f.rig;if(w<=0){f.armsHeld=false;return}
+  f.auto=false;f.armsHeld=true;const [bx,bz]=BASES[b],p=f.g.position,y0=f.g.rotation.y,y1=Math.atan2(bx-p.x,bz-p.z);
+  f.g.rotation.y=y0+Math.atan2(Math.sin(y1-y0),Math.cos(y1-y0))*BC_TURN*w;let Rt,Lt;
+  if(c.out){const k=Math.sin(Math.PI*sat01((t-BC_BEAT_AT)/UC_BEAT_DUR));Rt=UC_HAMMER.map((v,i)=>v+UC_BEAT[i]*k);Lt=[-BC_REST[0],BC_REST[1],BC_REST[2]]}
+  else{const k=ease(sat01((t-BC_SWEEP_AT)/BC_SWEEP));Rt=BC_CROSS.map((v,i)=>lerp(v,BC_SPREAD[i],k));Lt=[-Rt[0],Rt[1],Rt[2]]}
+  const L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,Rt[i],w)),l=L0.map((v,i)=>lerp(v,Lt[i],w));
+  aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
 const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
