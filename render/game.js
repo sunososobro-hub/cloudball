@@ -387,7 +387,8 @@ function drawBoard(s,txt){const k=s.sc.join()+txt;if(k===sbKey)return;sbKey=k;co
 /* ---------- #203 home parks: one park, four skins. The home team of the game picks the wall pads, the fence-top and foul-pole paint,
    the scoreboard frame and three big wall logos (both power alleys and behind home plate). Colours only: no geometry, no new shader
    (materials are made once, the logo is drawn into one shared canvas), so a reskin never recompiles. ?park=<team id> forces one. ---------- */
-const SB_FRAME=14,PARK_LOGO_PX=512,PARK_LOGO_M=2.6,PARK_LOGO_R=109.85,PARK_LOGO_ALLEY=Math.PI/7,PARK_LOGO_Y=1.5,
+/* power-alley logos are cut-out signs standing on the wall top (a 3 m wall would make them ~10 px from home plate) */
+const SB_FRAME=14,PARK_LOGO_PX=512,PARK_LOGO_M=6,PARK_LOGO_R=109.85,PARK_LOGO_ALLEY=Math.PI/7,PARK_LOGO_Y=3+PARK_LOGO_M/2-.4,
   PLATE_LOGO_M=2.2,PLATE_LOGO_Y=1.4,PLATE_LOGO_Z=NET_Z-.15,PARK_LOGO_GLOW=.35;
 /* pad = wall vinyl behind the league boards, trim = fence top, foul poles and scoreboard frame (team colour, lifted to read at night) */
 const PARKS={
