@@ -5,7 +5,7 @@ html{background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans TC',system-u
 body{margin:0;padding:0 max(16px,env(safe-area-inset-right)) 48px max(16px,env(safe-area-inset-left))}
 a{color:var(--gold)}
 .num{font-family:'Barlow Condensed','Noto Sans TC',sans-serif;font-variant-numeric:tabular-nums}
-.top,main,#staff,footer{width:min(100%,980px);margin-inline:auto}
+.top,main,#staff,#box,footer{width:min(100%,980px);margin-inline:auto}
 .top{padding-top:max(16px,env(safe-area-inset-top))}
 .back{display:inline-block;padding:10px 0;text-decoration:none;font-weight:600}
 h1{font:700 clamp(26px,5vw,40px)/1.15 'Barlow Condensed','Noto Sans TC',sans-serif;letter-spacing:.2em;margin:4px 0 6px}
@@ -115,7 +115,7 @@ body.cmp-open{padding-bottom:calc(50vh + 24px)}
 .tbl .detail .who{display:flex}
 @media(min-width:1000px){
   body.wide{padding-inline:max(12px,env(safe-area-inset-left))}
-  body.wide .top,body.wide main,body.wide #staff,body.wide footer{width:min(100%,1600px)}
+  body.wide .top,body.wide main,body.wide #staff,body.wide #box,body.wide footer{width:min(100%,1600px)}
   .pair .roster,.pair .sortbar{display:none}
   .pair .tblw{display:block}
   .crew{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
@@ -135,3 +135,35 @@ body.cmp-open{padding-bottom:calc(50vh + 24px)}
 
 html[data-site="production"] .dev-only{display:none!important}
 .agent-entry{margin:0 0 12px;font-size:14px}
+
+/* Box score of the first game (#53 part 2, ui/boxscore.js). Phone first: tables scroll sideways inside their own wrapper, never the page. */
+#box{margin-top:36px;border-top:3px solid var(--gold);padding-top:14px}
+#box h2{margin:0 0 4px;font-size:clamp(20px,4vw,28px);line-height:1.2}
+#box .boxtag{margin:0 0 6px;color:var(--muted);font-size:14px}
+#box .result{margin:0 0 12px;font-size:16px}
+#box .result b{font:700 26px 'Barlow Condensed','Noto Sans TC',sans-serif;letter-spacing:.04em}
+#box .bwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.box{width:100%;border-collapse:collapse;font-size:14px}
+table.box caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+table.box th,table.box td{padding:6px 8px;text-align:left;white-space:nowrap}
+table.box thead th{color:var(--muted);font-weight:600;font-size:13px;border-bottom:1px solid var(--line)}
+table.box tbody tr{border-top:1px solid rgba(255,255,255,.07)}
+table.box tfoot th,table.box tfoot td{border-top:1px solid var(--line);font-weight:700}
+table.box th[scope=row]{font-weight:600}
+table.box th[scope=row] small{margin-left:6px;color:var(--muted);font-weight:400;font-size:12px}
+table.box small.dec{padding:0 5px;border:1px solid var(--gold);border-radius:4px;color:var(--gold)}
+table.box .n{text-align:right}
+table.box td.num{font-size:16px}
+.linescore{margin-bottom:6px}
+.linescore table.box td,.linescore table.box thead th.n{padding-inline:7px;min-width:2.1ch}
+.linescore .tn{font-weight:600}
+.linescore td.tot{font-weight:700;color:var(--gold);border-left:1px solid var(--line)}
+.linescore tr.win th{color:var(--gold)}
+.boxteams{display:grid;gap:8px}
+.boxteam{margin-top:20px;border-top:3px solid var(--tc);padding-top:4px}
+.boxteam h3{margin:12px 0 4px;font-size:13px;letter-spacing:.2em;color:var(--muted);font-weight:600}
+.boxteam .bwrap~.bwrap{margin-top:16px}
+#box .note{margin:6px 0 0;font-size:13px;color:var(--muted)}
+#box .note b{color:var(--ink);font-weight:600}
+@media(max-width:699px){.linescore table.box th,.linescore table.box td{padding-inline:3px}.linescore table.box th[scope=row]{padding-left:0}.linescore table.box td{min-width:0;font-size:14px;padding-inline:2px}.linescore table.box th{padding-inline:2px;font-size:12px}.linescore table.box th[scope=row]{font-size:13px}table.box th,table.box td{padding-inline:5px}}
+@media(min-width:1000px){.boxteams{grid-template-columns:1fr 1fr;gap:28px}}
