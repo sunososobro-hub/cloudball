@@ -19,13 +19,15 @@ h1{font:700 clamp(26px,5vw,40px)/1.15 'Barlow Condensed','Noto Sans TC',sans-ser
 .team h2{margin:0;font-size:clamp(20px,4vw,28px);line-height:1.2}
 .team h3{margin:22px 0 8px;font-size:13px;letter-spacing:.2em;color:var(--muted);font-weight:600}
 .roster{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.p{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass)}
-.p .no{grid-row:1/3;align-self:center;min-width:2.2ch;text-align:center;font-size:28px;font-weight:700;color:var(--tc)}
+.p{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass)}
+.p .ovr{grid-row:1/3;align-self:center;display:flex;flex-direction:column;align-items:center;min-width:2.6ch}
+.p .ovr b{font-size:44px;line-height:1;font-weight:700;color:var(--tc)}
+.p .ovr span{font-size:12px;color:var(--muted);letter-spacing:.1em}
 .p .who{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline}
 .p .who b{font-size:17px}
 .p .who span{color:var(--muted);font-size:13px}
 .r{grid-column:2;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 16px;margin:4px 0 0}
-.r div{display:grid;grid-template-columns:2.6em 1fr 2.2ch;align-items:center;gap:8px;font-size:13px}
+.r div{display:grid;grid-template-columns:2.6em 1fr 3ch;align-items:center;gap:8px;font-size:13px}
 .r dt{color:var(--muted)}
 .r dd{margin:0;text-align:right;font-weight:600}
 .r .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
