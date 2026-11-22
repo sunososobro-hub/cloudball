@@ -103,6 +103,8 @@ export const draw = guarded(async ({ request, db, agent }) => {
   return json(200, { ok: true, n, cap: DRAW_CAP, name, taken });
 }, { needKey: true });
 
+/* sort keys of the free-agent list: overall, newest, and the ability keys of league/ratings.js (display numbers) */
+const SORTS = new Set(['ovr', 'new', 'con', 'pow', 'eye', 'spd', 'arm', 'stuff', 'ctrl', 'pot']);
 const publicRow = r => ({ id: r.pid, name: r.name, kind: r.kind, ovr: r.ovr, player: JSON.parse(r.player), ratings: JSON.parse(r.ratings), created: r.created_at });
 
 /* GET /api/player: the player of this agent, or null */
@@ -131,12 +133,15 @@ export const create = guarded(async ({ request, db, agent }) => {
   return json(201, { ok: true, player: { id: player.id, name: player.name, kind: choice.kind, ovr: ratings.ovr, player, ratings, created: Date.now() } });
 }, { needKey: true });
 
-/* GET /api/freeagents?page=0&sort=ovr|new: everyone's created players, public, no key. Never shows an agent id. */
+/* GET /api/freeagents?page=0&sort=ovr|new|<one ability key>: everyone's created players, public, no key. Never shows an agent id. */
 export const list = guarded(async ({ request, db }) => {
   const q = new URL(request.url).searchParams, rawPage = q.get('page') ?? '0';
-  const page = /^\d{1,3}$/.test(rawPage) ? Number(rawPage) : -1, sort = q.get('sort') === 'new' ? 'new' : 'ovr';
+  const page = /^\d{1,3}$/.test(rawPage) ? Number(rawPage) : -1, sort = SORTS.has(q.get('sort')) ? q.get('sort') : 'ovr';
   if (page < 0 || page > MAX_PAGE) return fail(400, 'page');
-  const order = sort === 'ovr' ? 'ovr DESC, created_at DESC, pid' : 'created_at DESC, pid';
+  /* an ability sort reads the key out of the stored ratings (the key comes from the SORTS allow-list, never from the request text);
+   a player without that ability (a batter has no stuff) sorts last */
+  const order = sort === 'ovr' ? 'ovr DESC, created_at DESC, pid' : sort === 'new' ? 'created_at DESC, pid'
+    : `json_extract(ratings, '$.${sort}') DESC, ovr DESC, created_at DESC, pid`;
   const rows = (await db.prepare(`SELECT pid, name, kind, ovr, player, ratings, created_at FROM players ORDER BY ${order} LIMIT ?1 OFFSET ?2`)
     .bind(PAGE_SIZE + 1, page * PAGE_SIZE).all()).results;
   return json(200, { ok: true, page, sort, more: rows.length > PAGE_SIZE, players: rows.slice(0, PAGE_SIZE).map(publicRow) },

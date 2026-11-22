@@ -142,6 +142,14 @@ const ovrs = [...p0.body.players, ...p1.body.players].map(p => p.ovr);
 if (ovrs.some((o, i) => i && o > ovrs[i - 1])) bad('the list is not ordered by overall, best first');
 const newest = await call(lib.list, lenv, { url: '/api/freeagents?sort=new' }); const times = newest.body?.players?.map(p => p.created) || [];
 if (times.some((t, i) => i && t > times[i - 1])) bad('sort=new is not newest first');
+/* ability sorts (#192 item 2): each allowed key orders its holders best first, the others come last; a key outside the list falls back to overall */
+for (const key of ['con', 'pow', 'eye', 'spd', 'arm', 'stuff', 'ctrl', 'pot']) {
+  const r = await call(lib.list, lenv, { url: `/api/freeagents?sort=${key}` }), v = (r.body?.players || []).map(p => p.ratings[key]);
+  const have = v.filter(x => x != null);
+  if (r.body?.sort !== key || v.slice(0, have.length).includes(undefined) || have.some((x, i) => i && x > have[i - 1])) bad(`sort=${key} is not best first with the holders ahead`);
+}
+const junk = await call(lib.list, lenv, { url: "/api/freeagents?sort=ovr);DROP TABLE players;--" });
+if (junk.body?.sort !== 'ovr' || junk.body?.players?.map(p => p.ovr).some((o, i, a) => i && o > a[i - 1])) bad('an unknown sort key does not fall back to overall');
 const everything = JSON.stringify([p0.body, p1.body, newest.body]);
 for (const t of lister.sql.prepare('SELECT agent_id FROM players').all()) if (everything.includes(t.agent_id)) bad('the public list shows an agent id');
 is('list page past the max', await call(lib.list, lenv, { url: `/api/freeagents?page=${lib.MAX_PAGE + 1}` }), 400, 'page');

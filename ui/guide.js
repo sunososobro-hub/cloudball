@@ -1,12 +1,12 @@
 /* League guide page (guide.html). Reads the league files directly; no copy of the data, no network besides static files.
  * Ratings are stored centred on 1.0; the page shows only the whole numbers 1 to 100 from league/ratings.js (#170), never the raw floats.
- * Each player shows his overall large and first, then the abilities; each list is sorted by overall, the star first.
+ * Each player shows his overall as the large bar on top, then one bar per ability (ui/bars.js, #192); each list starts sorted by overall, the star first; the sort bar above it re-sorts by any one ability (#192).
  * The staff and umpire block reads league/staff.js at load and stays hidden if the file is missing or looks wrong. */
 import {TEAMS} from '../league/teams.js';
 import {ROSTERS} from '../league/players.js';
 import {ratingsOf} from '../league/ratings.js';
+import {ratingRow} from './bars.js';
 
-const RATING_MAX=100;
 const POS={C:'捕手','1B':'一壘手','2B':'二壘手','3B':'三壘手',SS:'游擊手',LF:'左外野',CF:'中外野',RF:'右外野',DH:'指定打擊'};
 const ROLE={SP:'先發投手',RP:'後援投手'};
 const SIDE={L:'左',R:'右',S:'左右開弓'};
@@ -14,19 +14,22 @@ const BAT_RATINGS=[['con','打擊'],['pow','長打'],['eye','選球'],['spd','�
 const PIT_RATINGS=[['stuff','球威'],['ctrl','控球'],['arm','臂力']];
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
-const rating=(label,g,cls)=>{const d=el('div',cls),dt=el('dt',null,label),bar=el('span','bar'),fill=el('i'),dd=el('dd','num',g);
-  fill.style.width=`${g/RATING_MAX*100}%`;bar.appendChild(fill);d.append(dt,bar,dd);return d};
 function playerRow(p,pitcher){
   const li=el('li','p'),who=el('div','who'),r=el('dl','r'),R=ratingsOf(p);
-  const ovr=el('div','ovr');ovr.append(el('b','num',R.ovr),el('span',null,'綜合'));
   const meta=pitcher?`${ROLE[p.role]||p.role}・${SIDE[p.throws]||''}投`:`${POS[p.pos]||p.pos}・${SIDE[p.hand]||''}打`;
   who.append(el('b',null,p.name),el('span','no num',`#${p.num}`),el('span',null,meta),el('span',null,`${p.age} 歲`));
-  for(const [k,label] of pitcher?PIT_RATINGS:BAT_RATINGS)r.appendChild(rating(label,R[k]));
-  r.appendChild(rating('潛力',R.pot,'pot'));
-  li.append(ovr,who,r);return li}
-function section(title,list,pitcher){const h=el('h3',null,title),ul=el('ul','roster');
-  const ranked=list.map((p,i)=>[p,ratingsOf(p).ovr,i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]);
-  for(const [p] of ranked)ul.appendChild(playerRow(p,pitcher));return [h,ul]}
+  r.appendChild(ratingRow('綜合',R.ovr,'ovr'));
+  for(const [k,label] of pitcher?PIT_RATINGS:BAT_RATINGS)r.appendChild(ratingRow(label,R[k]));
+  r.appendChild(ratingRow('潛力',R.pot,'pot'));
+  li.append(who,r);return li}
+/* Each roster has a sort bar (#192 item 2): overall (default) or any one ability; ties fall back to overall, then to the factory order. */
+function section(title,list,pitcher){const h=el('h3',null,title),ul=el('ul','roster'),bar=el('div','sortbar');bar.setAttribute('role','group');bar.setAttribute('aria-label',`${title}排序`);
+  const keys=[['ovr','綜合'],...(pitcher?PIT_RATINGS:BAT_RATINGS),['pot','潛力']];
+  const rows=list.map((p,i)=>({li:playerRow(p,pitcher),R:ratingsOf(p),i}));
+  const sortBy=k=>{rows.sort((a,b)=>b.R[k]-a.R[k]||b.R.ovr-a.R.ovr||a.i-b.i);ul.replaceChildren(...rows.map(x=>x.li));
+    for(const b of bar.children)b.setAttribute('aria-pressed',String(b.dataset.k===k))};
+  for(const [k,label] of keys){const b=el('button',null,label);b.type='button';b.dataset.k=k;b.onclick=()=>sortBy(k);bar.appendChild(b)}
+  sortBy('ovr');return [h,bar,ul]}
 
 const nav=document.getElementById('nav'),main=document.getElementById('teams');
 TEAMS.forEach((T,i)=>{
@@ -35,7 +38,7 @@ TEAMS.forEach((T,i)=>{
   const a=el('a');a.href=`#${T.id}`;a.style.setProperty('--tc',T.css);a.append(logo(),T.short);nav.appendChild(a);
   const s=el('section','team');s.id=T.id;s.style.setProperty('--tc',T.css);
   const head=el('header');head.append(logo(),el('h2',null,T.name));
-  s.append(head,...section('野手（綜合評分高到低）',R.bat,false),...section('投手（綜合評分高到低）',R.pit,true));
+  s.append(head,...section('野手',R.bat,false),...section('投手',R.pit,true));
   s.appendChild(el('p','empty','生涯成績：尚無。季前熱身賽不列入正史，正式開季後才會有數字。'));
   main.appendChild(s)});
 

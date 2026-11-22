@@ -4,6 +4,7 @@
  * Every call that is not answered ok (no binding, production, offline, a static server) reads as 「還沒開放」. */
 import { CREATE, validateCreate } from '../league/freeagents.js';
 import { makePreview } from './agent-preview.js';
+import { ratingRow } from './bars.js';
 import { specOfChoice, specOfRow } from './preview-spec.js';
 
 const KEY_NAME = 'cloudball.agentKey';
@@ -15,7 +16,6 @@ const LOOK = { head: '臉型', skin: '膚色', hair: '髮型' };
 const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球' };
 const PIT_RATINGS = { stuff: '球威', ctrl: '控球', arm: '臂力' };
 const KIND = { bat: '打者', pit: '投手' };
-const RATING_MAX = 100;
 const WHY = { limit: '今天的新帳號名額滿了，明天再來。', already: '你已經有一位球員了。', name: '這個名字剛被別人用掉，換一個。', invalid: '選項有誤，請重新選。', key: '帳號資料不對。', unknown: '伺服器找不到這個帳號。' };
 
 const $ = id => document.getElementById(id);
@@ -42,20 +42,16 @@ const showPreview = (spec, caption) => { $('stage').hidden = false; $('stageCap'
 const say = (text, err) => { const s = $('status'); s.textContent = text; s.hidden = !text; s.classList.toggle('err', !!err); };
 
 /* ---- player rows (same look as the guide page) ---- */
-const bar = (label, v, cls) => {
-  const d = el('div', cls), b = el('span', 'bar'), i = el('i'); i.style.width = `${v / RATING_MAX * 100}%`; b.appendChild(i);
-  d.append(el('dt', null, label), b, el('dd', 'num', v)); return d;
-};
 function playerRow(row) {
   const p = row.player, R = row.ratings, pit = row.kind === 'pit', li = el('li', 'p'), who = el('div', 'who'), r = el('dl', 'r');
-  const ovr = el('div', 'ovr'); ovr.append(el('b', 'num', R.ovr), el('span', null, '綜合'));
   const meta = pit ? `${ROLE[p.role] || p.role}・${HAND[p.throws] || ''}投` : `${POS[p.pos] || p.pos}・${HAND[p.hand] || ''}打`;
   who.append(el('b', null, p.name), el('span', 'no num', `#${p.num}`), el('span', null, meta), el('span', null, `${p.age} 歲`));
-  for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) r.appendChild(bar(label, R[k]));
-  r.appendChild(bar('潛力', R.pot, 'pot'));
+  r.appendChild(ratingRow('綜合', R.ovr, 'ovr'));
+  for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) r.appendChild(ratingRow(label, R[k]));
+  r.appendChild(ratingRow('潛力', R.pot, 'pot'));
   const see = el('button', 'see', '看他'); see.type = 'button'; see.setAttribute('aria-label', `看 ${p.name} 的樣子`); who.appendChild(see);
   li.onclick = () => { for (const o of document.querySelectorAll('li.p[aria-current]')) o.removeAttribute('aria-current'); li.setAttribute('aria-current', 'true'); showPreview(specOfRow(row), `${p.name} #${p.num}`); };
-  li.append(ovr, who, r); return li;
+  li.append(who, r); return li;
 }
 
 /* ---- free-agent list ---- */
@@ -71,7 +67,7 @@ async function loadList(reset) {
 }
 function buildSortBar() {
   const bar = $('sortBar'); bar.replaceChildren();
-  for (const [sort, label] of [['ovr', '綜合最高'], ['new', '最新']]) {
+  for (const [sort, label] of [['ovr', '綜合最高'], ['con', '打擊'], ['pow', '長打'], ['eye', '選球'], ['spd', '速度'], ['arm', '臂力'], ['stuff', '球威'], ['ctrl', '控球'], ['pot', '潛力'], ['new', '最新']]) {
     const b = el('button', null, label); b.type = 'button'; b.setAttribute('aria-pressed', String(list.sort === sort));
     b.onclick = () => { list.sort = sort; buildSortBar(); loadList(true); }; bar.appendChild(b);
   }
