@@ -41,6 +41,9 @@ export const RELIEFS={
   grain:   {m:.12, n:1.8,h:(u,v)=>.3+.7*smooth(0,.6,cell(u,v,51,24))},/* leather pebble grain */
   ribbed:  {m:.2,  n:2.4,h:(u,v)=>{/* corrugated steel deck (roof underside): ribs along u */const r=Math.abs(((v*1)%1)-.5)*2;return sat(.15+.85*smooth(.35,.65,r))+.04*fbm(u,v,61,8)}},
   rubber:  {m:.3,  n:1.3,h:(u,v)=>{/* rubber floor mat: raised round studs */const d=Math.hypot(((u*6)%1)-.5,((v*6)%1)-.5);return sat(.3+.6*(1-smooth(.22,.3,d))+.08*fbm(u,v,71,16))}},
+  pillow:  {m:1.2, n:2,  h:(u,v)=>{/* #215 backstop: one wall pad per tile (1.2 m), pillowed edges, a stitch row near top and bottom, pebble grain */
+    const a=Math.min(u,1-u),b=Math.min(v,1-v),e=Math.sin(Math.min(1,a/.07)*Math.PI/2)*Math.sin(Math.min(1,b/.05)*Math.PI/2),
+      st=Math.abs(b-.035)<.004&&((u*120|0)%2===0)?.3:0;return sat(.1+.82*e-st+.06*cell(u,v,35,90)+.04*fbm(u,v,36,4))}},
   dirt:    {m:.8,  n:.8, h:(u,v)=>sat(.4+.5*fbm(u,v,81,10)-(cell(u,v,82,30)<.08?.3:0))},/* chalked dirt: lumps and tiny pits */
 };
 
