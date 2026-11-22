@@ -6,8 +6,7 @@
 - Size: about 8 bytes per joint per frame before base64; a 4 s pitch at 30 fps is about 30 KB.
 
 ## Next
-- Item 1: the BVH source was not reachable from the scheduled run (GitHub access is scoped to cloudball only; `sfd158/cmu-mocap` must be added to the task). Then: pick the subject 124 pitch trial(s), run e.g. `python3 assets/tools/mocap_clip.py 124_01.bvh assets/mocap/pitch_124_01.json --start <s> --end <s> --name pitch --source "CMU 124_01" --check`, look at `release` (and set `--release <s>` if the peak is the follow-through).
-- Item 5: one row in `assets/SOURCES.md` for that file (trial numbers, the URL, CMU's line "free for all uses"), added with the file.
+- Items 1 and 5 done by the manager (2026-11-22): whole takes at 30 fps, `--face travel`: `pitch_124_01.json` (5.4 s, release frame 111), `pitch2_124_02.json` (11 s, release 266), `swing_124_07.json`, `bunt_124_08.json`; row in `assets/SOURCES.md`. Not trimmed: pick `--start/--end` when hooking up. For swing and bunt the auto `release` (frame 2) is noise: set the contact frame with `--release <s>`. Rebuild needs the BVH (`sfd158/cmu-mocap`, `data/124/`), which a scheduled run cannot reach: ask the manager.
 - Items 3, 4, 6 (renderer, after #185): retarget per joint by world rotation (`world = parent world * rot`), apply to each bone's own rest; time-warp the clip so `release.frame` lands on the engine's release time; mirror for left-handers (x -> -x, swap Left/Right, quaternion (x, -y, -z, w)).
 
 ## Traps

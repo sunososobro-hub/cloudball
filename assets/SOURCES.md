@@ -15,6 +15,7 @@ licensed file exists yet. Scripts in `tools/` are code (MIT). Earlier versions p
 | `tex/leather_*.jpg` | ambientCG Leather038 | CC0 |
 | `logos/<team id>_128.webp`, `logos/<team id>_512.webp` | Team marks generated and chosen by the repository owner (raster images, delivered as white-background PNGs, 2026-11-21); cut out and resized by `tools/make_logos.py` | **Not CC0.** Owner's team marks, not licensed (rule 18) |
 | `players.b64.txt` | Derived from MakeHuman base mesh, targets and default rig (CC0, see MakeHuman `LICENSE.ASSETS.md`) by `tools/build_players.py`, `tools/glb2gltf.py`, `tools/pack_players.py` | CC0 |
+| `mocap/pitch_124_01.json`, `mocap/pitch2_124_02.json`, `mocap/swing_124_07.json`, `mocap/bunt_124_08.json` | CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu), subject 124 trials 01, 02 (baseball pitch), 07 (swing), 08 (bunt); BVH conversion by B. Hahne (cgspeed), copy at github.com/sfd158/cmu-mocap; converted whole, 30 fps, by `tools/mocap_clip.py` | **Not CC0.** "CMU places no restrictions on the use of the original dataset" (conversion README); owner exception to rule 16, 2026-11-22 (#184 D1) |
 
 Code-generated surfaces (no file, drawn at load by `render/game.js`, MIT code): wall pads (seams, scuffs, pillowed normal map), painted steel,
 concrete stains and streaks (shader noise), worn chalk and dusty bases (field canvas), painted fence top and foul poles, roof fascia lamps and roof ribs, per-seat tint, and the outer ground (re-uses `tex/grass_c.jpg`). Added download: 0 bytes.
