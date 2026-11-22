@@ -45,6 +45,9 @@ export const RELIEFS={
     const a=Math.min(u,1-u),b=Math.min(v,1-v),e=Math.sin(Math.min(1,a/.07)*Math.PI/2)*Math.sin(Math.min(1,b/.05)*Math.PI/2),
       st=Math.abs(b-.035)<.004&&((u*120|0)%2===0)?.3:0;return sat(.1+.82*e-st+.06*cell(u,v,35,90)+.04*fbm(u,v,36,4))}},
   dirt:    {m:.8,  n:.8, h:(u,v)=>sat(.4+.5*fbm(u,v,81,10)-(cell(u,v,82,30)<.08?.3:0))},/* chalked dirt: lumps and tiny pits */
+  vinyl:   {m:1.4, n:1.5,h:(u,v)=>{/* vinyl over foam, one tile = one wall pad (u across, v up): soft dents and sag creases, a dashed stitch inset at each side */
+    const crease=.12*smooth(.6,1,fbm(u*.5,v,101,6,3))*Math.abs(Math.sin(v*Math.PI*7+3*fbm(u,v,102,3))),st=(Math.abs(u-.03)<.004||Math.abs(u-.97)<.004)&&((v*90|0)%2===0)?.3:0;
+    return sat(.75+.18*fbm(u,v,103,5)-crease-st)}},
 };
 
 /* ---------- material kinds ---------- */
