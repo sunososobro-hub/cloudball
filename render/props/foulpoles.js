@@ -1,4 +1,4 @@
-/* render/props/foulpoles.js: the two foul poles (#215 round 1). Polish rounds edit only this file (and add to render/pbr.js).
+/* render/props/foulpoles.js: the two foul poles (#215 round 1). Polish rounds edit only this file (#237: render/pbr.js is read-only, new materials live here; round notes in this header and on the #215 board).
  * Replaces the old poles (`old:foulpole:-1` left field, `old:foulpole:1` right field: plain 8-sided cylinders, r .18, 18 m tall,
  * standing on the wall line at the ends of the fence arc).
  * Shape: three tapered steel sections joined by bolted flange collars, a base plate with anchor nuts on a concrete footing, a cap
@@ -83,3 +83,6 @@ export function buildFoulPoles(o){const {GLOW,MESH_GLOW}=POLE;
   /* colours from the home park: everything painted takes the trim, with the old poles' glow so they read at night */
   g.userData.recolor=P=>{if(!P)return;const c=new THREE.Color(P.trim);for(const m of [pole,paint,meshM]){m.color.copy(c);m.emissive.copy(c)}};
   g.userData.recolor(o.colors);return g}
+
+/* slot descriptor (#237): the two plain cylinders at the ends of the fence arc (old:foulpole:-1, old:foulpole:1) */
+export const PROPS=[{name:'foulPoles',build:c=>buildFoulPoles({colors:c.park()}),old:c=>c.old('foulpole')}];
