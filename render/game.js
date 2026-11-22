@@ -587,7 +587,7 @@ const GEO={torso:new THREE.CylinderGeometry(.24,.19,.62,12),hips:new THREE.Cylin
 GEO.torso.scale(1,1,.62);GEO.hips.scale(1,1,.7);
 const SM=(h,r=.6)=>new THREE.MeshStandardMaterial({color:LC(h),roughness:r});
 const skin=SM(0xc99572,.7),pants=SM(0xeeeeee,.75),dark=SM(0x1a1a1e,.5),leather=SM(0x8a5a2b,.6),shadowMat=new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.35,depthWrite:false});
-const matDef=SM(0xffffff,.55),matOff=SM(0xffffff,.55),matUmp=SM(0x111318,.7);
+const matDef=SM(0xffffff,.55),matOff=SM(0xffffff,.55),matCo=SM(0xffffff,.55),matUmp=SM(0x111318,.7);/* matCo: base coaches (#42), the batting team's kit */
 {const n=tex('fabric_n'),r=tex('fabric_orm');n.repeat.set(5,5);r.repeat.set(5,5);/* Fabric texture is only used for jerseys and pants, so set the repeat directly */
  for(const m of [matDef,matOff,matUmp,pants]){m.normalMap=n;m.normalScale.set(.6,.6);m.roughnessMap=r;m.roughness=1;/* Roughness is in the G channel */}}
 {const c=tex('leather_c',1),n=tex('leather_n');leather.map=c;leather.color.setHex(0xb08060);leather.normalMap=n;leather.roughness=.5}
@@ -618,7 +618,7 @@ function figure(m,pm=pants,glove=false,o={}){
   const f=PL.makePlayer({jersey:m,pants:pm,sock:m,kit:kitOf(m),skin,glove,head:o.head||'cap',role:o.role,throws:'R',parent:scene});
   if(f.glove)f.glove.traverse(x=>{if(x.isMesh)x.material=leather});
   return f}
-const KITS=new Map(),kitOf=m=>PL.makeKit&&(m===matDef||m===matOff)?KITS.get(m)||KITS.set(m,PL.makeKit(m)).get(m):undefined,paintKit=(m,t)=>{const k=window.PL&&kitOf(m);if(k)PL.setKit(k,TEAMS[t],t===1);else m.color.setHex(TEAMS[t].color)};/* #204: side 1 = home (white), side 0 = road */
+const KITS=new Map(),kitOf=m=>PL.makeKit&&(m===matDef||m===matOff||m===matCo)?KITS.get(m)||KITS.set(m,PL.makeKit(m)).get(m):undefined,paintKit=(m,t)=>{const k=window.PL&&kitOf(m);if(k)PL.setKit(k,TEAMS[t],t===1);else m.color.setHex(TEAMS[t].color)};/* #204: side 1 = home (white), side 0 = road */
 const BODY_OF=(team,name)=>{const R=ROSTERS[team];return R.bat.find(x=>x.name===name)||R.pit.find(x=>x.name===name)};
 /* Body-type weights are snapped to .25 steps so the geometry cache is not one entry per player */
 const qBody=b=>{const o={};for(const k in b){const v=Math.round(b[k]*4)/4;if(v)o[k]=v}return o};
@@ -746,6 +746,30 @@ function poseOnDeck(e,u,ei){odNext.g.visible=odDeck.g.visible=false;if(e.k!=='P'
   const k1=sat01((u-pl.go)/pl.t1),k2=sat01((u-pl.go)/pl.t2),[ax,az,adx,adz]=odAt(pl.walk,k1),[bx,bz,bdx,bdz]=odAt(pl.jog,k2);
   if(k1<1)put(odNext,pl.nb,ax,az,adx,adz);else put(odNext,pl.nb,ax,az,pl.box[0]-ax,pl.box[1]-az);
   if(k2<1)put(odDeck,pl.nn,bx,bz,bdx,bdz);else put(odDeck,pl.nn,bx,bz,-bx,-bz)}
+/* #42 slice 2 (owner 11/22 14:25): field umpires and base coaches at their posts, idle poses only (no signals yet). Base umpires (dark,
+   matUmp) stand at first, second and third on every event; their numbers, and the plate umpire's, come from league/staff.js
+   crewFor(seed). The two base coaches wear the batting team's kit (matCo) with the numbers and names of STAFF `<team>-first`/`<team>-third`
+   and stand in the coach's boxes facing the plate. At a half-inning break the old pair jogs to its dugout from BRK_OFF_AT and the new pair
+   jogs out from BRK_ON_AT (round behind home plate, ST_BEHIND_Z, when the box is on the far side); at PRE they jog out, at END they jog off.
+   Posts are [s, d]: s metres from home along the base line, d metres into foul ground, so one pair of numbers mirrors to third.
+   Pure function of (event, time); the names wait for the module (no number until it is in). */
+const ST_UMP_POST=[32,1.2],ST_U2_POST=[-2.5,-47],ST_BOX=[24,5.5],ST_JOG_V=4,ST_BEHIND_Z=5;
+const lineXZ=(side,[s,d])=>[side*(s+d)*Math.SQRT1_2,(d-s)*Math.SQRT1_2];/* side +1 = first-base line, -1 = third */
+const stUmpAt=[lineXZ(1,ST_UMP_POST),ST_U2_POST,lineXZ(-1,ST_UMP_POST)],ST_CREW=['first','second','third'],ST_ROLE=['first','third'];
+const umpB=stUmpAt.map(()=>{const f=figure(matUmp,matUmp,false);f.g.scale.y=.95;return f}),coaches=ST_ROLE.map(()=>figure(matCo,pants,false));
+let staffM=null;const stHere=document.currentScript&&document.currentScript.src;
+import(new URL('../league/staff.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{staffM=M}).catch(err=>console.warn('staff numbers off',err));
+const stCrew=new Map(),teamIdOf=t=>{const T=TEAMS[game&&game.teams?game.teams[t]:t];return T&&T.id};
+function crewNums(seed){if(!staffM||!staffM.crewFor)return null;if(!stCrew.has(seed)){const c=staffM.crewFor(seed),o={};for(const k in c){const u=staffM.umpire(c[k]);o[k]=u?u.num:undefined}stCrew.set(seed,o)}return stCrew.get(seed)}
+const stPath=(i,team)=>{const side=i?-1:1,B=lineXZ(side,ST_BOX),G=dugout(team);return odPath(Math.sign(G[0])===side?[G,B]:[G,[0,ST_BEHIND_Z],B])};
+const stJogDur=(team,i)=>stPath(i,team).L/ST_JOG_V,stJogEnd=(team,t0)=>t0+Math.max(stJogDur(team,0),stJogDur(team,1));/* cpEvents: they move until here */
+function poseStaff(e,u){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
+  umpB.forEach((f,i)=>{const [x,z]=stUmpAt[i];resetPose(f);f.noAnim=false;f.g.visible=true;f.g.position.set(x,0,z);face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined)});
+  const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
+  paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
+  coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
+    resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
+    setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name)})}
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
 const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
@@ -996,7 +1020,7 @@ function poseScene(e,u,dt,ei){
     if(tt<1)face(f,f.home[0]-sx,f.home[1]-sz);else face(f,-f.home[0],-f.home[1])})}
   batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
-  poseOnDeck(e,u,ei);
+  poseOnDeck(e,u,ei);poseStaff(e,u);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
   const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
@@ -1395,8 +1419,8 @@ function cpEvents(g){const ev=g.ev;
     for(let j=i-1;j>=0&&e.t-ev[j].t<PEEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
       for(const [,to,,tl] of q.moves||[])if(to===4)pe=Math.max(pe,Math.min(q.t+PEEL_LOOK,q.t+tl.arriveT+peelLen(off,tl))-e.t)}
     if(e.k==='VOTE'||e.k==='CHG'){head=e.d;tail=0}
-    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=jogEnd(dugout(off),BRK_ON_AT)}
-    else if(e.k==='PRE')tail=jogEnd([dugout(1-off)[0],INTRO_Z],0);
+    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),stJogEnd(1-off,BRK_ON_AT))}/* #42: base coaches jog out too */
+    else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),stJogEnd(off,0));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
       if(e.pa&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+Math.hypot(BAT_AWAY[0]-BAT_BOX[0],BAT_AWAY[1]-BAT_BOX[1])/BAT_AWAY_SPEED);/* strikeout: he walks off */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
@@ -1537,7 +1561,7 @@ let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{
    towers, as a night game shows: what keeps players from looking pasted on the grass. Two instanced meshes, no depth write, matrices set each
    frame from the figures' positions; fan length follows the lamp height. Replaces the old tier-3 round blobs. */
 const CS_R=.3,CS_R_CROUCH=.42,CS_PATCH_A=.45,CS_FAN_OP=.12,CS_FAN_W=.5,CS_BODY_H=1.85,LAMP_H=46,CS_FAN_MIN=1.2,CS_FAN_MAX=5,CS_Y=.02,CS_TEX=64;
-const csFigs=[...Object.values(fielders),batter,ump,...runners],csBig=new Set([fielders.C,ump]);
+const csFigs=[...Object.values(fielders),batter,ump,...runners,...umpB,...coaches],csBig=new Set([fielders.C,ump]);
 const csTex=draw=>{const c=document.createElement('canvas');c.width=c.height=CS_TEX;draw(c.getContext('2d'),CS_TEX);return new THREE.CanvasTexture(c)};
 /* #267: three gives the scene pass's side targets (normal for AO/SSGI, diffuse for SSGI, velocity for TRAA) no blending by default, so each
    patch and fan quad overwrote the ground's normal, albedo and velocity over its whole rectangle, alpha-0 corners included: AO/GI/TRAA read a
@@ -1697,8 +1721,8 @@ renderer.setAnimationLoop(()=>{
   curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
   const s=poseScene(e,u,dt,i);
-  if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
-  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck].forEach(f=>{if(f.g.visible)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);
+  if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump,...umpB,...coaches]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
+  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck,...umpB,...coaches].forEach(f=>{if(f.g.visible)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);
   hud(e,u,s);if(mode!=='studio'&&!scrubbing)commentary(T);renderVote(voteEv,T);plUpdate();
   {const iv=!$('intro').hidden;if(iv!==introVis){introVis=iv;$('bug').style.visibility=iv?'hidden':''}}/* Hide the scorebug on the intro screen */
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
