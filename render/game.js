@@ -848,22 +848,28 @@ function staffGiveWay(){const mv=[...FIELDER_KEYS.map(k=>fielders[k]),...runners
    'receive'd at a bag where nobody is out and a runner of e.moves arrives there within BC_CLOSE s of the ball = safe, from the later of the
    two (a ball coming back in long after the runner is no play: no call). Out = the fist: upper arm out at shoulder height, fist beside the
    head (UC_HAMMER), one sharp beat (UC_BEAT). Safe = both arms crossed in front of the chest (BC_CROSS) sweep out flat to the sides
-   (BC_SPREAD). He turns BC_TURN of the way from home to the bag while he calls. Plays at the plate stay with the plate umpire. In-play
-   plan times count from ARRIVE, steal plans from the event start. Pure function of (event, time). */
+   (BC_SPREAD). He turns BC_TURN of the way from home to the bag while he calls. In-play plan times count from ARRIVE, steal plans from
+   the event start. Pure function of (event, time).
+   #42 slice 8: plays at the plate (b 4, same rules) are the plate umpire's (bcPose on `ump` after placeUmp; today only the tag-up
+   throw home, which the engine makes arrive after the runner = safe). A fly caught for an out (plan action 'catch', rule 13: the catch is
+   the out) gets the out fist from the umpire whose ground it falls in (BC_FLY_UMP by fielder: left side U3, centre U2, right side U1,
+   the pitcher's pop-up the plate umpire), turned toward the catch spot (`at`) instead of a bag, from the catch + BC_DELAY. */
 const BC_DELAY=.15,BC_UP=.2,BC_BEAT_AT=.25,BC_HOLD=1,BC_DOWN=.4,BC_SWEEP_AT=.15,BC_SWEEP=.25,BC_CLOSE=1.2,BC_TURN=.7;
 const BC_REST=[BAT_SHOULDER_X,BAT_SHOULDER_Y-BAT_ARM_LEN,0],BC_CROSS=[-.12,.62,.36],BC_SPREAD=[.88,.62,.12],bcCache=new WeakMap();
+const BC_FLY_UMP={LF:3,'3B':3,SS:3,CF:2,RF:1,'1B':1,'2B':1,P:4,C:4},bcBag=b=>b>=1&&b<=4;
 function bcCalls(e){if(bcCache.has(e))return bcCache.get(e);const C=[],S=e.plan;
   if(e.k==='P'&&S&&S.actions&&(e.r==='inplay'||e.sbGo)){const t0=e.r==='inplay'?ARRIVE:0,mv=e.moves||[],outAt=new Map();
-    for(const a of S.actions)if((a.a==='touch'||a.a==='tag')&&a.base>=1&&a.base<=3)outAt.set(a.base,Math.max(outAt.get(a.base)||-Infinity,t0+a.t));
+    for(const a of S.actions)if((a.a==='touch'||a.a==='tag')&&bcBag(a.base))outAt.set(a.base,Math.max(outAt.get(a.base)||-Infinity,t0+a.t));
     for(const [b,t] of outAt)C.push({b,t:t+BC_DELAY,out:true});
-    for(const a of S.actions){if(a.a!=='receive'||!(a.base>=1&&a.base<=3)||outAt.has(a.base)||C.some(c=>c.b===a.base))continue;
+    for(const a of S.actions){if(a.a!=='receive'||!bcBag(a.base)||outAt.has(a.base)||C.some(c=>c.b===a.base))continue;
       const ta=t0+a.t,r=mv.filter(m=>m[1]===a.base&&m[3]&&Number.isFinite(m[3].arriveT)).map(m=>m[3].arriveT);if(!r.length)continue;
-      const tr=Math.max(...r);if(Math.abs(ta-tr)<=BC_CLOSE)C.push({b:a.base,t:Math.max(ta,tr)+BC_DELAY,out:false})}}
+      const tr=Math.max(...r);if(Math.abs(ta-tr)<=BC_CLOSE)C.push({b:a.base,t:Math.max(ta,tr)+BC_DELAY,out:false})}
+    for(const a of S.actions)if(a.a==='catch'&&BC_FLY_UMP[a.f])C.push({b:BC_FLY_UMP[a.f],t:t0+a.t+BC_DELAY,out:true,at:S.target||S.stand})}
   bcCache.set(e,C);return C}
 const bcLen=()=>BC_HOLD+BC_DOWN;
 function bcPose(f,b,e,u){let c=null;for(const q of bcCalls(e))if(q.b===b&&u>=q.t&&u<q.t+bcLen()&&(!c||q.t>c.t))c=q;
   if(!c){f.armsHeld=false;return}const t=u-c.t,w=ease(sat01(t/BC_UP))*(1-ease(sat01((t-BC_HOLD)/BC_DOWN))),R=f.rig;if(w<=0){f.armsHeld=false;return}
-  f.auto=false;f.armsHeld=true;const [bx,bz]=BASES[b],p=f.g.position,y0=f.g.rotation.y,y1=Math.atan2(bx-p.x,bz-p.z);
+  f.auto=false;f.armsHeld=true;const [bx,bz]=c.at||BASES[b],p=f.g.position,y0=f.g.rotation.y,y1=Math.atan2(bx-p.x,bz-p.z);
   f.g.rotation.y=y0+Math.atan2(Math.sin(y1-y0),Math.cos(y1-y0))*BC_TURN*w;let Rt,Lt;
   if(c.out){const k=Math.sin(Math.PI*sat01((t-BC_BEAT_AT)/UC_BEAT_DUR));Rt=UC_HAMMER.map((v,i)=>v+UC_BEAT[i]*k);Lt=[-BC_REST[0],BC_REST[1],BC_REST[2]]}
   else{const k=ease(sat01((t-BC_SWEEP_AT)/BC_SWEEP));Rt=BC_CROSS.map((v,i)=>lerp(v,BC_SPREAD[i],k));Lt=[-Rt[0],Rt[1],Rt[2]]}
@@ -1151,7 +1157,7 @@ function poseScene(e,u,dt,ei){
   applyNums(e,off,defT);
   /* fielders default */
   for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=fielderStart(k,e.s0.b,e.s0.outs);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
-  poseBattery(e,u);
+  ump.auto=true;ump.armsHeld=false;/* ump never gets resetPose: undo a call of the last frame (#42 slice 8) */poseBattery(e,u);
   if(e.k==='BRK')brkSwap(e,u,off,def);
   const P=fielders.P;P.arms[1].rotation.x=0;PR.up.rotation.set(0,0,0);PR.hg.rotation.set(0,0,0);P.noAnim=e.k==='P';
   /* opening ceremony: defenders jog in from the 1B-side dugout one by one */
@@ -1178,7 +1184,7 @@ function poseScene(e,u,dt,ei){
   const moving=new Set((e.moves||[]).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n))standRunner(i,u,n)}
   const contact=e.r==='inplay'||e.r==='foul';
-  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);
+  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
   const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
