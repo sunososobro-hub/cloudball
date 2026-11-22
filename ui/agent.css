@@ -25,3 +25,14 @@ main h2{margin:0 0 10px;font-size:20px}
 .left{margin:4px 0 0;color:var(--muted);font-size:13px}
 .left.ok{color:var(--gold)}
 .me{margin-bottom:8px}
+/* the live preview (#189): sticky at the top, about 40 % of the screen height, so it stays in view while the sliders are used */
+.stage{position:sticky;top:8px;z-index:5;margin:10px 0 0;height:40vh;height:40svh;min-height:200px;max-height:380px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#232b3a,#0c0f16 75%)}
+.stage[hidden]{display:none}
+.stage-sil{position:absolute;inset:0;margin:auto;height:78%;fill:#2a3242;opacity:.9}
+.stage.live .stage-sil,.stage.dead .stage-sil{display:none}
+.stage.dead .stage-sil{display:block;opacity:.35}
+.stage-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;cursor:grab}
+.stage-note{position:absolute;left:0;right:0;bottom:10px;margin:0;padding:0 14px;text-align:center;color:var(--muted);font-size:13px}
+.stage-cap{position:absolute;left:0;right:0;top:8px;margin:0;padding:0 14px;text-align:center;font-size:14px;font-weight:600;pointer-events:none;text-shadow:0 1px 3px #000}
+.roster .see{margin-left:auto;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass);color:var(--ink);font:600 14px 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}
+.roster li.p[aria-current="true"]{outline:1px solid var(--gold)}

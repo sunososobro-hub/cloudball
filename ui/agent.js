@@ -3,6 +3,8 @@
  * The account is a random 32-byte key kept in localStorage; the server stores only its SHA-256 (functions/lib/agents.js).
  * Every call that is not answered ok (no binding, production, offline, a static server) reads as 「還沒開放」. */
 import { CREATE, validateCreate } from '../league/freeagents.js';
+import { makePreview } from './agent-preview.js';
+import { specOfChoice, specOfRow } from './preview-spec.js';
 
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊' };
@@ -34,6 +36,9 @@ async function api(path, { method = 'GET', body, key } = {}) {
   } catch (e) { return { status: 0, body: null }; }
 }
 const isClosed = r => !r.body || r.status === 0 || r.status === 404 || r.status === 405 || r.status === 501 || r.body.why === 'closed';
+/* the live preview (#189): sticky box at the top; it shows the choice being made, or a player picked from a list */
+const preview = makePreview($('stage'));
+const showPreview = (spec, caption) => { $('stage').hidden = false; $('stageCap').textContent = caption; preview.show(spec); };
 const say = (text, err) => { const s = $('status'); s.textContent = text; s.hidden = !text; s.classList.toggle('err', !!err); };
 
 /* ---- player rows (same look as the guide page) ---- */
@@ -48,6 +53,8 @@ function playerRow(row) {
   who.append(el('b', null, p.name), el('span', 'no num', `#${p.num}`), el('span', null, meta), el('span', null, `${p.age} 歲`));
   for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) r.appendChild(bar(label, R[k]));
   r.appendChild(bar('潛力', R.pot, 'pot'));
+  const see = el('button', 'see', '看他'); see.type = 'button'; see.setAttribute('aria-label', `看 ${p.name} 的樣子`); who.appendChild(see);
+  li.onclick = () => { for (const o of document.querySelectorAll('li.p[aria-current]')) o.removeAttribute('aria-current'); li.setAttribute('aria-current', 'true'); showPreview(specOfRow(row), `${p.name} #${p.num}`); };
   li.append(ovr, who, r); return li;
 }
 
@@ -74,7 +81,7 @@ function buildSortBar() {
 function showMine(row) {
   const s = $('mine'); s.replaceChildren(el('h2', null, '你的球員'));
   const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, el('p', 'left', '每個人只能有一位。潛力是抽的，看運氣；之後經紀人要怎麼幫他，等開放再說。'));
-  s.hidden = false; $('maker').hidden = true; $('account').hidden = true;
+  s.hidden = false; $('maker').hidden = true; $('account').hidden = true; showPreview(specOfRow(row), `${row.player.name} #${row.player.num}`);
   if (list.page) loadList(true);
 }
 
@@ -98,11 +105,13 @@ function buildMaker(key, state) {
   const left = el('p', 'left'), make = el('button', 'btn', '建立球員'); make.type = 'button';
   const msg = el('p', 'status'); msg.setAttribute('role', 'status');
   const choice = () => ({ ...state, nameDraw: draw.n });
+  const look = () => showPreview(specOfChoice(choice()), draw.name ? `${draw.name}（還沒建立）` : '你正在捏的球員');   /* the same object that is posted */
   const refresh = () => {
     const keys = CREATE.keys[state.kind], free = CREATE.budget[state.kind] - keys.reduce((t, k) => t + state.points[k], 0);
     left.textContent = free ? `還有 ${free} 點沒分配。分完才能建立。` : '點數分配完了。'; left.classList.toggle('ok', !free);
     make.disabled = !!validateCreate(choice()).length || !draw.name || draw.busy;
   };
+  const edit = fn => v => { fn(v); look(); };   /* every pick that can change the body redraws it at once */
   /* the draw: the server knows the seed; a name already taken is skipped by drawing on, up to the cap */
   const drawName = async n => {
     draw.busy = true; again.disabled = true; refresh();
@@ -112,23 +121,23 @@ function buildMaker(key, state) {
       draw.n = r.body.n; draw.cap = r.body.cap;
       if (!r.body.taken) { draw.name = r.body.name; break; }
     }
-    nameText.textContent = draw.name || '…'; draw.busy = false;
+    nameText.textContent = draw.name || '…'; draw.busy = false; look();
     again.disabled = draw.n >= (draw.cap ?? 0); again.textContent = `換一個名字（還能換 ${Math.max(0, (draw.cap ?? 0) - draw.n)} 次）`; refresh();
   };
   again.onclick = () => drawName(draw.n + 1);
 
-  const kindRow = chipGroup('位置類型', Object.entries(KIND), state.kind, v => { for (const k of Object.keys(state)) delete state[k]; Object.assign(state, defaults(v)); buildFields(); refresh(); });
+  const kindRow = chipGroup('位置類型', Object.entries(KIND), state.kind, v => { for (const k of Object.keys(state)) delete state[k]; Object.assign(state, defaults(v)); buildFields(); refresh(); look(); });
   const fields = el('div');
   function buildFields() {
     const bat = state.kind === 'bat'; fields.replaceChildren();
     kindRow.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.kind)));
     fields.append(
-      chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, v => { state[bat ? 'pos' : 'role'] = v; }),
-      chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, v => { state[bat ? 'bats' : 'throws'] = v; }),
-      chipGroup('體型', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), state.build, v => { state.build = v; }));
+      chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; })),
+      chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
+      chipGroup('體型', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), state.build, edit(v => { state.build = v; })));
     for (const [k, label] of Object.entries(LOOK)) {
       const [lo, hi] = CREATE.look[k], opts = []; for (let v = lo; v <= hi; v++) opts.push([v, v + 1]);
-      fields.appendChild(chipGroup(`外觀：${label}`, opts, state.look[k], v => { state.look[k] = Number(v); }, 'nums'));
+      fields.appendChild(chipGroup(`外觀：${label}`, opts, state.look[k], edit(v => { state.look[k] = Number(v); }), 'nums'));
     }
     const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = CREATE.budget[state.kind];
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));
