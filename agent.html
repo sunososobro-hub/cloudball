@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>自創球員・雲端職棒</title>
+<!-- the 3D preview (#189) uses the same three.js build as the match page; the import map must come before any module script -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js"}}</script>
 <script src="ui/site.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
@@ -19,6 +21,11 @@
 <p class="prod-note" id="agentClosed">還沒開放。</p>
 <main id="agentMain" class="dev-only">
   <p id="status" class="status" role="status">載入中…</p>
+  <div id="stage" class="stage" hidden>
+    <svg class="stage-sil" viewBox="0 0 60 110" aria-hidden="true"><circle cx="30" cy="12" r="8"/><path d="M18 24h24l5 34-7 2-3-18v26l5 40h-9l-3-34-3 34h-9l5-40V42l-3 18-7-2z"/></svg>
+    <p class="stage-note" role="status" hidden></p>
+    <p class="stage-cap" id="stageCap"></p>
+  </div>
   <section id="account" hidden></section>
   <section id="maker" hidden></section>
   <section id="mine" hidden></section>
@@ -31,7 +38,7 @@
   </section>
 </main>
 <footer>
-  <p>沒有 cookie、沒有第三方程式。為了擋濫用，註冊當下會把網路位址加鹽雜湊，只記一天、不跟帳號放在一起。</p>
+  <p>沒有 cookie。3D 預覽用的 three.js 和比賽頁一樣，從 jsDelivr 載入。為了擋濫用，註冊當下會把網路位址加鹽雜湊，只記一天、不跟帳號放在一起。</p>
 </footer>
 <script type="module" src="ui/agent.js"></script>
 </body>
