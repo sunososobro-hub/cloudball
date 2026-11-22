@@ -287,7 +287,7 @@ for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-
 const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty);
 for(let i=people.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[people[i],people[j]]=[people[j],people[i]]}/* random order: a lower quality tier draws a prefix, i.e. a random subset */
 people.forEach((f,i)=>f.pi=i);const cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
-const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.55}),fans.length);
+const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.55}),fans.length);seats.name='old:seats:chair';
 /* #150 round 3: moulded seats are not one flat blue: each seat a little lighter or darker (SEAT_VAR), higher rows sun-faded (SEAT_FADE per metre),
    a few newer replacement seats (SEAT_NEW share). Seats only: the people on them are untouched. */
 const SEAT_VAR=.16,SEAT_FADE=.018,SEAT_NEW=.03;
