@@ -32,6 +32,8 @@ const surname = name => COMPOUND_SURNAMES.find(c => name.startsWith(c)) || name.
 const COACH_TITLE = '教練';   /* on air a coach is surname + title: 「廖教練」 */
 const coachOf = (team, role) => (team && staffOf(team.id).find(s => s.role === role)) || null;
 const onAir = s => (s ? surname(s.name) + COACH_TITLE : '');
+/* a team's coach as the booth says it on air (checks use it to verify who is named) */
+export const coachOnAir = (team, role) => onAir(coachOf(team, role));
 /* how the booth names tonight's people; the crew comes from the game seed, like the picture's */
 function peopleOf(teams, seed) {
   const plate = umpire(crewFor(seed).plate);

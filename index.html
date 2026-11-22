@@ -3,11 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- #162: the import map must come before every modulepreload, preload and module script (a preloaded module linked before it fails on "three/webgpu" and stays failed) -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <title>雲端職棒</title>
 <script src="ui/site.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="ui/player.css">
+<!-- #133: everything the first screen needs is requested at once, before any module runs (it used to arrive one after another) -->
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.min.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/tsl/display/BloomNode.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/tsl/display/GTAONode.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/tsl/display/FXAANode.js" crossorigin>
+<link rel="modulepreload" href="engine/index.js"><link rel="modulepreload" href="engine/constants.js"><link rel="modulepreload" href="engine/rng.js"><link rel="modulepreload" href="engine/rules/field.js"><link rel="modulepreload" href="engine/rules/outs.js"><link rel="modulepreload" href="engine/rules/fielding.js"><link rel="modulepreload" href="engine/sim/game.js"><link rel="modulepreload" href="engine/sim/copy.js"><link rel="modulepreload" href="engine/stats/box.js">
+<link rel="modulepreload" href="league/teams.js"><link rel="modulepreload" href="league/players.js"><link rel="modulepreload" href="league/staff.js"><link rel="modulepreload" href="league/recording.js">
+<link rel="modulepreload" href="commentary/index.js"><link rel="modulepreload" href="commentary/player.js"><link rel="modulepreload" href="commentary/voice.js"><link rel="modulepreload" href="commentary/tension.js">
+<link rel="modulepreload" href="render/players.js"><link rel="modulepreload" href="render/highlights.js"><link rel="modulepreload" href="render/compact.js">
+<link rel="preload" href="assets/players.b64.txt" as="fetch" crossorigin><link rel="preload" href="league/preseason/opening.json" as="fetch" crossorigin><link rel="preload" href="commentary/lines.json" as="fetch" crossorigin><link rel="preload" href="commentary/scripts/index.json" as="fetch" crossorigin>
+<link rel="preload" href="render/game.js" as="script">
+<!-- #133: the entry progress bar is static, so it is on screen from the first paint of a cold visit; BOOT counts the real load stages,
+     then render/game.js takes the same element over for the park compile (BOOT.share of the bar is loading, the rest is compiling) -->
+<script>
+/* #162: fail() = a load the page cannot start without broke: say so in plain words instead of 「準備球場中…」 forever */
+/* #162: t = ms from page open at which each boot stage ended (mark keeps the first); str() is the 🐞 report's boot= field */
+window.BOOT={share:.5,n:0,N:11,own:false,failed:false,t:{},mark(k){if(!(k in this.t))this.t[k]=Math.round(performance.now())},str(){return Object.entries(this.t).map(([k,v])=>k+'@'+v).join(',')},fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
+</script>
+<style>
+#warmBar{position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none;opacity:0;animation:wbIn .2s .3s forwards}
+#warmBar>div{height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden}#warmBar i{display:block;height:100%;width:0;background:#f2c230;transition:width .2s linear}
+#warmBar p{margin:8px 0 0;font-size:14px;color:#cfd8e8;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+@keyframes wbIn{to{opacity:1}}@media(prefers-reduced-motion:reduce){#warmBar i{transition:none}}
+</style>
 <style>
 /* VOICE: 台灣夜間球場直播，HUD 安靜，畫面讓給球場和應援
    IDEA: 球場的外野記分板與轉播角落比分條
@@ -85,7 +113,6 @@ button:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
 .side.nologo .mark{border-radius:18px;background:linear-gradient(160deg,var(--tc),rgba(7,11,22,.9));font:700 clamp(26px,6.5vw,80px)/1.1 'Noto Sans TC',sans-serif;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.5);width:min(37vw,44vh,360px)}
 .vs{font:700 clamp(34px,6vw,88px)/1 'Barlow Condensed','Noto Sans TC',sans-serif;letter-spacing:.04em;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.7);align-self:center;margin-bottom:clamp(30px,5vh,56px)}
 .card p{color:var(--muted);margin:0}
-#introMatch{color:var(--ink);font-weight:600;font-size:clamp(17px,2.2vw,26px)}
 .acts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;width:min(100%,620px)}
 .acts button{flex:1 1 220px;min-height:58px;font-size:18px;border-radius:14px}
 .card .go{background:#f2c230;color:#14110a;border-color:transparent;font-weight:700;padding:0 22px}
@@ -120,6 +147,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
 </style>
 </head>
 <body>
+<div id="warmBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="球場準備中"><div><i></i></div><p>球場準備中…</p></div>
 <div id="stage"></div>
 <div id="sb" class="panel">
   <div id="lsWrap"><table id="ls"></table></div>
@@ -201,7 +229,6 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
       <div class="vs" aria-label="對">VS</div>
       <figure class="side" id="sideB"><div class="mark"></div><figcaption></figcaption></figure>
     </div>
-    <p id="introMatch"></p>
     <p id="introStatus" hidden></p>
     <div class="pick" id="introTeam" hidden><button data-t="0"></button><button data-t="1"></button><button data-t="-1">中立看球</button></div>
     <div class="acts">
@@ -213,12 +240,11 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
     <small><a class="guide" href="guide.html">球隊與球員介紹</a></small>
   </div>
 </div>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script src="ui/stats.js" defer></script>
 <script type="module">
 /* The intro line comes straight from league/ and does not wait for three.js. */
 import {TEAMS as LEAGUE_TEAMS} from './league/teams.js';
-const [teamA,teamB]=LEAGUE_TEAMS;document.getElementById('introMatch').textContent=`今晚 ${teamA.name} 對 ${teamB.name}`;
+const [teamA,teamB]=LEAGUE_TEAMS;
 const pick=document.getElementById('introTeam').children;pick[0].textContent=`我挺${teamA.short}`;pick[1].textContent=`我挺${teamB.short}`;
 /* Poster: away team left, home team right (same order as render/game.js). A logo that fails to load leaves a team-colour tile with the short name. */
 for(const [id,T] of [['sideA',teamA],['sideB',teamB]]){
@@ -228,26 +254,30 @@ for(const [id,T] of [['sideA',teamA],['sideB',teamB]]){
   img.src=`assets/logos/${T.id}_512.webp`;mark.appendChild(img)}
 </script>
 <script type="module">
-import * as THREE from 'three/webgpu';import * as TSL from 'three/tsl';
-import {bloom} from 'three/addons/tsl/display/BloomNode.js';
-import {ao} from 'three/addons/tsl/display/GTAONode.js';
-import {fxaa} from 'three/addons/tsl/display/FXAANode.js';
+/* #133: every load starts at once (they used to wait for each other); each finished stage moves the bar (BOOT.N stages counted). */
+const B=window.BOOT,st=(k,p)=>p.then(v=>{B.mark(k);B.step();return v},e=>{B.mark(k+'!');B.step();throw e});/* k = the stage name in BOOT.t (! = failed) */
+const pThree=st('three',import('three/webgpu')),pTsl=st('tsl',import('three/tsl')),
+  pFx=st('fx',Promise.all([import('three/addons/tsl/display/BloomNode.js'),import('three/addons/tsl/display/GTAONode.js'),import('three/addons/tsl/display/FXAANode.js')])),
+  pEngine=st('engine',import('./engine/index.js')),
+  /* The frozen first game: played instead of a live simulation. Missing or broken file: window.OPENING stays null and the page falls back to a live game. */
+  pOpening=st('opening',fetch('league/preseason/opening.json').then(r=>r.ok?r.text():null).then(t=>t?import('./league/recording.js').then(m=>m.parseRecording(t)):null)).catch(e=>{console.warn('frozen game failed to load',e);return null}),
+  pComm=st('comm',import('./commentary/index.js')),
+  pBank=st('bank',pComm.then(m=>m.loadBank())).catch(e=>{console.warn('commentary bank failed to load; the booth stays silent',e);return null}),
+  /* highlights reel of the frozen game (#118): pure list from the recorded stream; missing file = no 「看精華」 button */
+  pHl=st('hl',import('./render/highlights.js')).catch(e=>{console.warn('highlights failed to load',e);return null}),
+  /* 骨架球員(render/players.js)：先載 assets/players.b64.txt；載不到就用程式生成的骨架人（一樣的關節介面） */
+  pPl=st('players',import('./render/players.js')).then(PL=>st('bodies',PL.loadPlayerAssets('assets/')).catch(e=>console.warn('players 素材載入失敗，改用程式生成人體',e)).then(()=>PL)).catch(e=>{console.error('players.js 載入失敗',e);return null});
+const halt=e=>{B.fail(e);return new Promise(()=>{})};/* #162: a failed must-have load stops here with the failure line */
+const [THREE,TSL,[{bloom},{ao},{fxaa}]]=await Promise.all([pThree,pTsl,pFx]).catch(halt);
 window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
-const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await R.init()}catch(e){console.error(e)}window.RENDERER=R;
-/* 骨架球員(render/players.js)：先載 assets/players.b64.txt；載不到就用程式生成的骨架人（一樣的關節介面） */
-try{window.PL=await import('./render/players.js');try{await window.PL.loadPlayerAssets('assets/')}catch(e){console.warn('players 素材載入失敗，改用程式生成人體',e)}}catch(e){console.error('players.js 載入失敗',e);window.PL=null}
+const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await st('gpu',R.init())}catch(e){console.error(e)}window.RENDERER=R;
 /* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
-window.ENGINE=await import('./engine/index.js');
-/* The frozen first game: played instead of a live simulation. Missing or broken file: window.OPENING stays null and the page falls back to a live game. */
-window.OPENING=await fetch('league/preseason/opening.json').then(r=>r.ok?r.text():null).then(t=>t?import('./league/recording.js').then(m=>m.parseRecording(t)):null).catch(e=>{console.warn('frozen game failed to load',e);return null});
-window.COMMENTARY=await import('./commentary/index.js');try{window.COMMENTARY_BANK=await window.COMMENTARY.loadBank()}catch(e){console.warn('commentary bank failed to load; the booth stays silent',e);window.COMMENTARY_BANK=null}
-/* highlights reel of the frozen game (#118): pure list from the recorded stream; missing file = no 「看精華」 button */
-window.HIGHLIGHTS=await import('./render/highlights.js').catch(e=>{console.warn('highlights failed to load',e);return null});
-await load('render/game.js');
+window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
+await load('render/game.js').catch(halt);B.mark('game');
 /* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
 await window.READY;document.getElementById('enter').textContent='進場（開聲音）';
-for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;
+for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;B.mark('button');
 </script>
 </body>
 </html>

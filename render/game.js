@@ -5,6 +5,17 @@
 const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,
   runDist,runTime,leadAt,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
 const $=id=>document.getElementById(id);
+/* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park,par
+   par = the serial compile (no WARM_PARALLEL phase),
+   shadows = #152 contact shadows, faces = #157 head shapes (every player on head 0), warm = no compileAsync (the frames compile it), prog = the old
+   PassNode.compileAsync path without the #149 progress callback, post = no post pass, shadowmap = no key-light shadow map, park = #150 shaders off.
+   Production ignores the URL. BOOT_MARK writes a stage time into window.BOOT.t (index.html), read back by the 🐞 report's boot= field. */
+const OFF=new Set((()=>{try{return window.SITE&&window.SITE.dev?(new URLSearchParams(location.search).get('off')||'').split(',').map(x=>x.trim()).filter(Boolean):[]}catch(e){return[]}})());
+/* #256 interim: SSR is off by default on max until its reflected radiance is clamped (owner's GPU: white blobs on the plate, ?off=ssr clean).
+   ?on=ssr (dev only) turns it back on for tests. */
+const MAX_SSR_DEFAULT=false;
+if(!MAX_SSR_DEFAULT&&!(()=>{try{return window.SITE&&window.SITE.dev&&(new URLSearchParams(location.search).get('on')||'').split(',').map(x=>x.trim()).includes('ssr')}catch(e){return false}})())OFF.add('ssr');
+const BOOT_MARK=k=>{const B=window.BOOT;if(B&&B.mark)B.mark(k)};BOOT_MARK('script');
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t;
 const CYCLE=7200,BPM=132;
 const fmtT=ms=>{const d=new Date(ms);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
@@ -13,9 +24,9 @@ const seedOf=gs=>(Math.imul((gs/1000)>>>0,2654435761)^0x5bd1e995)>>>0;
 /* ---------- schedule & game ---------- */
 let gameStart=0,game=null,mode='live',replayT=0,speed=1,lastIdx=-1,seedCur=0,decisions={},myVotes={};const cues=new Set();
 let myTeam=-1;try{const v=localStorage.getItem('zu_team');if(v!==null)myTeam=+v}catch(e){}
-let DB=null,UID=null,unsubDec=null,unsubVotes=null,voteDocs=[];
+let DB=null,UID=null,unsubDec=null,unsubVotes=null,voteDocs=[];let parkHook=null;/* #203: set once the park exists; reskins it for the home team of the game */
 const DEC_KEY=/^[PSI]\d+$/;
-function regen(){game=simGame(seedCur,decisions)}
+function regen(){game=simGame(seedCur,decisions);if(parkHook)parkHook()}
 function loadGame(gs){gameStart=gs;seedCur=seedOf(gs);decisions={};myVotes={};regen();$('seedTag').textContent=`引擎 ${ENGINE_VERSION}・種子 #${seedCur.toString(16)}`;lastIdx=-1;subscribeGame()}
 function subscribeGame(){if(unsubDec)unsubDec();if(unsubVotes)unsubVotes();unsubDec=unsubVotes=null;voteDocs=[];
   if(!DB||mode==='practice'||mode==='opening')return;const key=String(gameStart);
@@ -62,27 +73,50 @@ function curT(){return mode==='live'?(Date.now()-gameStart)/1000:replayT}
 function findIdx(T){const ev=game.ev;let lo=0,hi=ev.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(ev[m].t<=T)lo=m;else hi=m-1}return lo}
 
 /* ---------- renderer & scene ---------- */
+/* #132 light balance (all tiers, constants only): a night park, not a noon field. The grass used to sit in the shoulder of the tone curve
+   (193/255, 20 levels between p5 and p95) and the sky above it was lifted like dusk. Exposure down, key/fill/hemisphere down, a dark sky;
+   the tower spots aim at the infield with a soft edge, so the infield is brightest and the corners sit lower. */
+const EXPOSURE=.75,KEY_I=1.1*Math.PI,FILL_I=.25*Math.PI,HEMI_I=.12*Math.PI,HEMI_GROUND=0x141a12,KEY_SHADOW_I=.7;/* KEY_SHADOW_I: the contact shadows carry the planting now, the real shadow must not double them */
+const SKY_HORIZON=[.02,.025,.04],SKY_ZENITH=[.002,.003,.007],SKY_GLOW=[.025,.02,.012];
+/* #203 item 2: one sky per home park (台北 night, 新竹 dusk, 高雄 afternoon, 台東 morning). Colours, intensities (x PI) and exposure only;
+   the night set is the #132 look above. Applied live by applySky (uniforms and light values: nothing recompiles). Sky colours are linear.
+   #208: fogD = depth haze at the ground (thins with height, see HAZE_H), hazeSky = how far the haze colour leans to the sky horizon; halo = wide lamp
+   aureole in the haze, motes = dust drifting in the tower beams (both night and dusk; boosted on max). */
+const SKIES={
+  night:{exposure:EXPOSURE,key:1.1,keyC:0xfff1dc,fill:.25,fillC:0xd6e2ff,hemi:.12,hemiC:0x9fb4e6,ground:HEMI_GROUND,horizon:SKY_HORIZON,zenith:SKY_ZENITH,glow:SKY_GLOW,fog:0x0d1220,fogD:.0056,hazeSky:.3,tower:.16,beam:.025,lamp:1,halo:.16,motes:1,stars:true,bugs:true},
+  dusk:{exposure:.78,key:1.5,keyC:0xffc08a,fill:.3,fillC:0xa89ad8,hemi:.22,hemiC:0xc79a9a,ground:0x1c1a12,horizon:[.42,.17,.07],zenith:[.025,.03,.09],glow:[.3,.11,.03],fog:0x3a2830,fogD:.006,hazeSky:.35,tower:.12,beam:.016,lamp:.7,halo:.1,motes:.6,stars:false,bugs:true},
+  afternoon:{exposure:.68,key:2.7,keyC:0xfff6e6,fill:.55,fillC:0xcfe0ff,hemi:.5,hemiC:0xb8d4ff,ground:0x2a3420,horizon:[.46,.56,.7],zenith:[.05,.16,.58],glow:[.2,.18,.12],fog:0x9fb2c6,fogD:.0031,hazeSky:.4,tower:.03,beam:0,lamp:.15,halo:0,motes:0,stars:false,bugs:false},
+  morning:{exposure:.72,key:2.1,keyC:0xffe6c8,fill:.45,fillC:0xc8dcff,hemi:.45,hemiC:0xa8c8ff,ground:0x26301e,horizon:[.42,.58,.82],zenith:[.04,.14,.48],glow:[.14,.14,.12],fog:0x8aa4c8,fogD:.0036,hazeSky:.4,tower:.03,beam:0,lamp:.15,halo:0,motes:0,stars:false,bugs:false}};
+const LAMP_RGB=[5,4.8,4.4],BEAM_DEFAULT=.025;
 const renderer=window.RENDERER;
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
-renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=EXPOSURE;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
 const LC=h=>new THREE.Color(h);
 /* CC0 textures (ambientCG): assets/tex/<name>_c/_n/_orm.jpg; orm = R:AO G:roughness */
 const TXL=new THREE.TextureLoader(),TX={};
 function tex(name,srgb){if(TX[name])return TX[name];const t=TXL.load('assets/tex/'+name+'.jpg');t.wrapS=t.wrapT=THREE.RepeatWrapping;if(srgb)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return TX[name]=t}/* r152+ colour management: hex is treated as sRGB and converted to linear */
 $('stage').appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* Thin night-stadium haze: the distance fades out, adding depth */
+/* #208 item 1, depth haze (all tiers: one fog node, uniforms only, no extra pass). Exp2 haze whose density thins with the mean height of the
+   view ray (HAZE_H m e-folding, never below HAZE_FLOOR), so the wall, the stands and the towers sit back in the air while a fly ball high
+   up stays clear. Colour and density come from the park sky (applySky); scene.fog keeps the same values for anything that reads it. */
+const HAZE_H=38,HAZE_FLOOR=.35,hazeU={color:TSL.uniform(new THREE.Color(0x0d1220)),dens:TSL.uniform(.0056)};
+{const {positionView,positionWorld,cameraPosition,exp,max,fog}=TSL;const y=max(positionWorld.y.add(cameraPosition.y).mul(.5),0),m=hazeU.dens.mul(max(exp(y.div(-HAZE_H)),HAZE_FLOOR)).mul(positionView.z.negate());
+  scene.fogNode=fog(hazeU.color,m.mul(m).negate().exp().oneMinus())}
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,800);camera.rotation.order='YXZ';
 const rig=new THREE.Group();rig.add(camera);scene.add(rig);
-scene.add(new THREE.HemisphereLight(LC(0x9fb4e6),LC(0x2a3a24),0.22*Math.PI));
-const key=new THREE.DirectionalLight(LC(0xfff1dc),1.9*Math.PI);key.position.set(-45,85,35);key.target.position.set(0,0,-38);scene.add(key,key.target);
-key.castShadow=true;Object.assign(key.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:10,far:260});key.shadow.mapSize.set(2048,2048);key.shadow.bias=-.0004;key.shadow.normalBias=.03;
-const fill=new THREE.DirectionalLight(LC(0xd6e2ff),.5*Math.PI);fill.position.set(60,55,-110);scene.add(fill);
+const hemi=new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I);scene.add(hemi);
+const key=new THREE.DirectionalLight(LC(0xfff1dc),KEY_I);key.position.set(-45,85,35);key.target.position.set(0,0,-38);scene.add(key,key.target);
+key.castShadow=true;Object.assign(key.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:10,far:260});key.shadow.mapSize.set(2048,2048);key.shadow.bias=-.0004;key.shadow.normalBias=.03;key.shadow.intensity=KEY_SHADOW_I;
+const fill=new THREE.DirectionalLight(LC(0xd6e2ff),FILL_I);fill.position.set(60,55,-110);scene.add(fill);
 /* sky dome */
+const skyU={horizon:TSL.uniform(new THREE.Vector3(...SKY_HORIZON)),zenith:TSL.uniform(new THREE.Vector3(...SKY_ZENITH)),glow:TSL.uniform(new THREE.Vector3(...SKY_GLOW)),beam:TSL.uniform(BEAM_DEFAULT)};
 {const {positionLocal,normalize,clamp:tc,mix,vec3,pow,exp,float}=TSL;const p=normalize(positionLocal),h=tc(p.y,0,1);
-  const c=mix(vec3(.11,.14,.24),vec3(.008,.012,.03),pow(h,.45)).add(vec3(.12,.1,.06).mul(exp(h.mul(-14))));
+  const c=mix(skyU.horizon,skyU.zenith,pow(h,.45)).add(skyU.glow.mul(exp(h.mul(-14))));
   const m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,depthWrite:false,fog:false});m.colorNode=c;scene.add(new THREE.Mesh(new THREE.SphereGeometry(520,32,16),m))}
 
 /* field texture */
+const CHALK_SCUFFS=420,FIELD_WEAR_R=30,BOX_SCUFFS=160,BASE_DUST=60,DIRT_RGB='122,88,58';
 function fieldTex(){
   const X0=-130,Z0=-150,W=260,H=190,S=3072/W,c=document.createElement('canvas');c.width=3072;c.height=Math.round(H*S);
   const g=c.getContext('2d'),X=x=>(x-X0)*S,Y=z=>(z-Z0)*S;
@@ -98,6 +132,14 @@ function fieldTex(){
   g.fillStyle='#fff';for(const [x,z] of [[19.4,-19.4],[0,-38.8],[-19.4,-19.4]]){g.save();g.translate(X(x),Y(z));g.rotate(Math.PI/4);g.fillRect(-.22*S,-.22*S,.44*S,.44*S);g.restore()}
   g.beginPath();g.moveTo(X(-.22),Y(-.22));g.lineTo(X(.22),Y(-.22));g.lineTo(X(.22),Y(0));g.lineTo(X(0),Y(.22));g.lineTo(X(-.22),Y(0));g.closePath();g.fill();
   g.fillRect(X(-.3),Y(-18.5),.6*S,.15*S);
+  /* #150 round 2: worn chalk, dusty bases, plate and rubber. Dirt-coloured dabs (fixed LCG, same park every load): CHALK_SCUFFS along each
+     foul line inside FIELD_WEAR_R, heavier rub-out on the batter's boxes, a dusting on each base, the plate and the rubber. */
+  {let r=4242;const R=()=>(r=(r*1103515245+12345)&0x7fffffff)/0x7fffffff,dab=(x,z,rad,n,a,col)=>{for(let i=0;i<n;i++){const t=R()*6.283,d=Math.sqrt(R())*rad,s=(.03+R()*.09)*S;
+      g.fillStyle=`rgba(${col},${a*(.4+R()*.6)})`;g.fillRect(X(x+Math.cos(t)*d)-s/2,Y(z+Math.sin(t)*d)-s/2,s,s*(.5+R()))}};
+    for(const s of [-1,1])for(let i=0;i<CHALK_SCUFFS;i++){const L=R()*FIELD_WEAR_R;dab(s*L*Math.SQRT1_2,-L*Math.SQRT1_2,.12,1,.55,DIRT_RGB)}
+    for(const x of [-1.05,1.05])dab(x,-.1,1.1,BOX_SCUFFS,.6,DIRT_RGB);
+    for(const [x,z] of [[19.4,-19.4],[0,-38.8],[-19.4,-19.4],[0,0]])dab(x,z,.24,BASE_DUST,.35,DIRT_RGB);
+    dab(0,-18.42,.3,BASE_DUST,.4,DIRT_RGB)}
   try{const im=g.getImageData(0,0,c.width,c.height),d=im.data;let r=12345;for(let i=0;i<d.length;i+=4){r=(r*1103515245+12345)&0x7fffffff;const n=((r>>16)&31)-15;d[i]+=n;d[i+1]+=n*1.1;d[i+2]+=n*.7}g.putImageData(im,0,0)}catch(e){}
   try{FIELD_PIX={d:g.getImageData(0,0,c.width,c.height).data,w:c.width,h:c.height,X,Y}}catch(e){}
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.getMaxAnisotropy();return t;
@@ -118,44 +160,91 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
   const nG=texture(tex('grass_n'),gUV),nD=texture(tex('dirt_n'),dUV);
   m.normalNode=normalMap(mix(nD,nG,isGrass),vec2(mix(float(1.2),float(.8),isGrass)));
   const oG=texture(tex('grass_orm'),gUV),oD=texture(tex('dirt_orm'),dUV);const orm=mix(oD,oG,isGrass);
-  m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
-const outer=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({color:LC(0x1a2018),roughness:1}));outer.rotation.x=-Math.PI/2;outer.position.set(0,-.03,-55);scene.add(outer);
-const AD_DARK_TEXT_LUM=.5;
-const adC=document.createElement('canvas');adC.width=2048;adC.height=96;{const g=adC.getContext('2d');/* league boards plus one board per team (name on the team colour; dark text on a light colour) */
+  m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.name='old:field';ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
+/* #150: code-generated surface detail (no download). genTex(size, w, h, fn) fills a canvas pixel by pixel: fn(u, v) -> [r, g, b] in 0..1.
+   srgb = colour map; otherwise data (normal / roughness). Cached by key. */
+/* #162: PARK_SHADERS = the shader side of #150 (noise on the outer ground and the stand concrete, painted-steel maps, pillowed pad normals).
+   On again: switching it off did not change the time to the button on the owner's GPU (31.5 s off, 20-32 s on). ?off=park on the dev site turns it off.
+   The canvas-only detail (chalk scuffs, pad seams, fascia lamps, ribs, seat tint) does not depend on it. */
+const PARK_SHADERS=!OFF.has('park');
+const GEN={};
+function genTex(key,w,h,fn,srgb){if(GEN[key])return GEN[key];const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d'),im=g.createImageData(w,h),d=im.data;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const p=fn((x+.5)/w,(y+.5)/h,x,y),i=(y*w+x)*4;d[i]=p[0]*255;d[i+1]=p[1]*255;d[i+2]=p[2]*255;d[i+3]=255}
+  g.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;if(srgb)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return GEN[key]=t}
+function hashG(x,z,k){let h=Math.imul(x*73856093^z*19349663^k*83492791,2654435761);h^=h>>>15;h=Math.imul(h,2246822519);h^=h>>>13;return(h>>>0)/4294967296}/* same as hash2 below, hoisted */
+const vnoise=(x,y,k,p)=>{/* tileable value noise, period p cells */const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy),
+  H=(a,b)=>hashG(((a%p)+p)%p,((b%p)+p)%p,k),a=H(xi,yi),b=H(xi+1,yi),c=H(xi,yi+1),e=H(xi+1,yi+1);return a+(b-a)*sx+(c-a)*sy+(a-b-c+e)*sx*sy};
+/* Painted steel (light masts, scoreboard frame, backstop posts): grey with drip streaks and chips; same image is the roughness map (G) */
+const PAINT_PX=128,PAINT_STREAK=.12,PAINT_CHIP=.94;
+const paintTex=()=>!PARK_SHADERS?null:genTex('paint',PAINT_PX,PAINT_PX,(u,v)=>{const s=vnoise(u*24,v*3,21,24)*PAINT_STREAK,n=vnoise(u*16,v*16,22,16)*.08,chip=vnoise(u*40,v*40,23,40)>PAINT_CHIP?.25:0,k=.86-s-n-chip;return[k,k,k]},1);
+/* Ground outside the park: the grass texture's light and shade on the dark outer colour, so it is not one flat sheet */
+const OUTER_TILE=7,OUTER_BIG=.02;
+const outerMat=!PARK_SHADERS?new THREE.MeshStandardMaterial({color:LC(0x1a2018),roughness:1}):(()=>{const {texture,positionWorld,mx_fractal_noise_float:fn,vec3,dot,color,clamp:tc}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:1});const w=positionWorld.xz;
+  const k=dot(texture(tex('grass_c',1),w.div(OUTER_TILE)).rgb,vec3(.2126,.7152,.0722)).div(.118).add(fn(vec3(w.mul(OUTER_BIG),0),3,2,.5).mul(.35));
+  m.colorNode=color(LC(0x1a2018)).mul(tc(k,.5,1.6));return m})();
+const outer=new THREE.Mesh(new THREE.PlaneGeometry(500,500),outerMat);outer.rotation.x=-Math.PI/2;outer.position.set(0,-.03,-55);scene.add(outer);
+const AD_DARK_TEXT_LUM=.5,PAD_PER_BOARD=5,PAD_SCUFFS=900,PAD_BOARDS=6,AD_REPEAT=4,PAD_EDGE=.1,PAD_TOP=.06,PAD_BULGE=3;
+const adC=document.createElement('canvas');adC.width=2048;adC.height=96;function drawAds(pad){const g=adC.getContext('2d');/* league boards plus one board per team (name on the team colour; dark text on a light colour) */
   const teamAd=T=>{const c=parseInt(T.css.slice(1),16),lum=(.2126*(c>>16)+.7152*(c>>8&255)+.0722*(c&255))/255;return[T.name,T.css,lum>AD_DARK_TEXT_LUM?'#06231f':'#ffffff']};
-  const ads=[['雲端職棒','#1d4d2a','#f2c230'],...TEAMS.slice(0,2).map(teamAd),['CLOUD BASEBALL','#1d4d2a','#ffffff'],...TEAMS.slice(2,4).map(teamAd)];
-  ads.forEach(([t,bg,fg],i)=>{const w=2048/ads.length;g.fillStyle=bg;g.fillRect(i*w,0,w,96);g.fillStyle=fg;g.textAlign='center';g.textBaseline='middle';let fs=54;do{g.font=`700 ${fs}px "Noto Sans TC",sans-serif`;fs-=2}while(g.measureText(t).width>w-40&&fs>20);g.fillText(t,i*w+w/2,50);g.fillStyle='rgba(0,0,0,.35)';g.fillRect(i*w+w-3,0,3,96)})}
+  const ads=[['雲端職棒',pad,'#f2c230'],...TEAMS.slice(0,2).map(teamAd),['CLOUD BASEBALL',pad,'#ffffff'],...TEAMS.slice(2,4).map(teamAd)];
+  ads.forEach(([t,bg,fg],i)=>{const w=2048/ads.length;g.fillStyle=bg;g.fillRect(i*w,0,w,96);g.fillStyle=fg;g.textAlign='center';g.textBaseline='middle';let fs=54;do{g.font=`700 ${fs}px "Noto Sans TC",sans-serif`;fs-=2}while(g.measureText(t).width>w-40&&fs>20);g.fillText(t,i*w+w/2,50);g.fillStyle='rgba(0,0,0,.35)';g.fillRect(i*w+w-3,0,3,96)})
+  /* #150 padding: PAD_PER_BOARD vinyl pads per board, a seam between pads, the top roll lit and the bottom scuffed by the warning track */
+  const pw=2048/(ads.length*PAD_PER_BOARD);for(let x=pw;x<2048;x+=pw){g.fillStyle='rgba(0,0,0,.5)';g.fillRect(Math.round(x)-1,0,2,96);g.fillStyle='rgba(255,255,255,.07)';g.fillRect(Math.round(x)+1,0,1,96)}
+  let gr=g.createLinearGradient(0,0,0,96);gr.addColorStop(0,'rgba(255,255,255,.10)');gr.addColorStop(.12,'rgba(0,0,0,0)');gr.addColorStop(.8,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(40,28,16,.45)');g.fillStyle=gr;g.fillRect(0,0,2048,96);
+  let r=777;for(let i=0;i<PAD_SCUFFS;i++){r=(r*1103515245+12345)&0x7fffffff;const x=r%2048;r=(r*1103515245+12345)&0x7fffffff;const y=96-(r%30),a=.08+(r%7)/60;g.fillStyle=`rgba(70,52,34,${a})`;g.fillRect(x,y,3+(r%9),2+(r%4))}}
+drawAds('#1d4d2a');
 const adTex=new THREE.CanvasTexture(adC);adTex.colorSpace=THREE.SRGBColorSpace;adTex.wrapS=THREE.RepeatWrapping;adTex.repeat.set(-4,1);
-const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.position.y=1.5;scene.add(fence);
+const fence=new THREE.Mesh(new THREE.CylinderGeometry(110,110,3,96,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshStandardMaterial({map:adTex,side:THREE.DoubleSide,roughness:.7,emissive:0xffffff,emissiveMap:adTex,emissiveIntensity:.25}));fence.name='old:wall';fence.position.y=1.5;scene.add(fence);
 {const bt=adTex.clone();bt.repeat.set(4,1);bt.needsUpdate=true;const fm=fence.material.clone();fm.map=bt;fm.emissiveMap=bt;fm.side=THREE.FrontSide;fence.material.side=THREE.BackSide;const fb=new THREE.Mesh(fence.geometry,fm);fb.position.y=1.5;scene.add(fb)}/* A second, unmirrored ad on the back of the wall, so text reads correctly from the outfield stands */
-const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),new THREE.MeshBasicMaterial({color:0xf2c230,side:THREE.DoubleSide}));fenceTop.position.y=3;scene.add(fenceTop);
-for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),new THREE.MeshBasicMaterial({color:0xf2c230}));p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);scene.add(p)}
+/* #150 pillowed pads: height = rounded edges on every pad side, normal from its slope; one image column = one pad */
+{const hp=(u,v)=>{const e=x=>{const a=Math.min(x,1-x);return a>PAD_EDGE?1:Math.sin(a/PAD_EDGE*Math.PI/2)};return e(u)*Math.min(1,v/PAD_TOP>1?1:Math.sin(v/PAD_TOP*Math.PI/2))},D=1/64;
+ const padN=genTex('padN',32,64,(u,v)=>{const dx=(hp(u+D,v)-hp(u-D,v))*PAD_BULGE*D*8,dy=(hp(u,v+D)-hp(u,v-D))*PAD_BULGE*D*8,l=Math.hypot(dx,dy,1);return[.5-dx/l/2,.5+dy/l/2,.5+.5/l]});
+ padN.repeat.set(PAD_BOARDS*PAD_PER_BOARD*AD_REPEAT,1);
+ if(PARK_SHADERS)for(const o of scene.children)if(o.geometry===fence.geometry){o.material.normalMap=padN;o.material.normalScale.set(1,1);o.material.roughness=.6}}
+/* #150 round 2: fence top and foul poles are painted steel (streaks, chips) instead of flat unlit yellow; YELLOW_GLOW keeps them reading at night */
+const YELLOW_GLOW=.35,yellowPaint=new THREE.MeshStandardMaterial({color:0xf2c230,roughness:.55,metalness:.2,map:paintTex(),roughnessMap:paintTex(),emissive:0xf2c230,emissiveIntensity:YELLOW_GLOW,side:THREE.DoubleSide});
+const fenceTop=new THREE.Mesh(new THREE.CylinderGeometry(110.05,110.05,.15,72,1,true,Math.PI*.75,Math.PI/2),yellowPaint);fenceTop.name='old:wall:top';fenceTop.position.y=3;scene.add(fenceTop);
+for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,18,8),yellowPaint);p.position.set(s*110*Math.SQRT1_2,9,-110*Math.SQRT1_2);p.name='old:foulpole:'+s;scene.add(p)}
 /* Backstop: textured net (5 cm diamond mesh; mipmaps fade it to a thin veil at distance) plus top cable and posts */
 const NET_W=40,NET_H=9,NET_Z=20,NET_CELL=.05,NET_OPACITY=.55;
 const net=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.strokeStyle='rgba(220,226,235,.85)';g.lineWidth=3;
   g.beginPath();g.moveTo(0,0);g.lineTo(64,64);g.moveTo(64,0);g.lineTo(0,64);g.stroke();
   const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(NET_W/NET_CELL,NET_H/NET_CELL);t.anisotropy=8;t.colorSpace=THREE.SRGBColorSpace;
   const m=new THREE.Mesh(new THREE.PlaneGeometry(NET_W,NET_H),new THREE.MeshBasicMaterial({map:t,transparent:true,opacity:NET_OPACITY,depthWrite:false,side:THREE.DoubleSide,fog:true}));
-  m.position.set(0,NET_H/2,NET_Z);m.renderOrder=2;scene.add(m);
-  const steel=new THREE.MeshStandardMaterial({color:LC(0x2a2f38),roughness:.6,metalness:.5});
-  for(const x of [-NET_W/2,-NET_W/6,NET_W/6,NET_W/2]){const pl=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,NET_H,8),steel);pl.position.set(x,NET_H/2,NET_Z+.05);scene.add(pl)}
-  const top=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,NET_W,6),steel);top.rotation.z=Math.PI/2;top.position.set(0,NET_H,NET_Z);scene.add(top);return m})();
+  m.name='old:backstop';m.position.set(0,NET_H/2,NET_Z);m.renderOrder=2;scene.add(m);
+  const steel=new THREE.MeshStandardMaterial({color:LC(0x2a2f38),roughness:.7,metalness:.5,map:paintTex(),roughnessMap:paintTex()});
+  for(const x of [-NET_W/2,-NET_W/6,NET_W/6,NET_W/2]){const pl=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,NET_H,8),steel);pl.name='old:backstop';pl.position.set(x,NET_H/2,NET_Z+.05);scene.add(pl)}
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,NET_W,6),steel);top.name='old:backstop';top.rotation.z=Math.PI/2;top.position.set(0,NET_H,NET_Z);scene.add(top);return m})();
 
 /* stands + crowd */
-const standMat=(()=>{const {triplanarTexture,texture,positionWorld,normalWorld,float,dot,vec3,clamp:tc,color}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.9});
-  const t=triplanarTexture(texture(tex('concrete_c',1)),null,null,float(.35),positionWorld,normalWorld);m.colorNode=color(LC(0x2a3246)).mul(tc(dot(t.rgb,vec3(.2126,.7152,.0722)).div(.31),.6,1.4));
-  const o=triplanarTexture(texture(tex('concrete_orm')),null,null,float(.35),positionWorld,normalWorld);m.roughnessNode=o.g;return m})(),seatMat=new THREE.MeshStandardMaterial({color:LC(0x16365c),roughness:.6});const fans=[];
+/* #150 concrete wear: broad water stains (low noise) and rain streaks (noise stretched downwards) darken the tinted concrete */
+const STAIN_F=.12,STAIN_K=.22,STREAK_XZ=1.4,STREAK_Y=.07,STREAK_K=.14;
+const standMat=(()=>{const {triplanarTexture,texture,positionWorld,normalWorld,float,dot,vec3,clamp:tc,color,mx_fractal_noise_float:fn}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.9});
+  const p=positionWorld,wear=float(1).sub(tc(fn(p.mul(STAIN_F),3,2,.5).add(.15),0,1).mul(STAIN_K)).sub(tc(fn(vec3(p.x.mul(STREAK_XZ),p.y.mul(STREAK_Y),p.z.mul(STREAK_XZ)),2,2,.5),0,1).mul(STREAK_K));
+  const t=triplanarTexture(texture(tex('concrete_c',1)),null,null,float(.35),positionWorld,normalWorld);m.colorNode=color(LC(0x2a3246)).mul(tc(dot(t.rgb,vec3(.2126,.7152,.0722)).div(.31),.6,1.4)).mul(PARK_SHADERS?wear:1);
+  const o=triplanarTexture(texture(tex('concrete_orm')),null,null,float(.35),positionWorld,normalWorld);m.roughnessNode=o.g;return m})(),seatMat=new THREE.MeshStandardMaterial({color:LC(0x16365c),roughness:.6,metalness:.3,map:paintTex(),roughnessMap:paintTex()});const fans=[];/* front rail: painted steel (#150 round 2) */
 /* #33 scale, real stadium figures: seat width ~.5 m (was .82), row depth .9 m and rise .55 m (~31 deg rake, a steep lower bowl).
    Foul-line stands 16 m off the line and the backstop 24 m behind the plate are already in the real range (MLB backstop >= 18 m). */
 const CROWD_EMPTY=.1,/* share of seats left empty */SEAT_W=.55,ROW_D=.9,ROW_RISE=.55,FRONT_H=1,BACK_WALL=4,RAIL_H=1.1;
+/* #150 round 3: roof front = painted dark steel fascia carrying a row of lamp housings (was one flat unlit cream bar); ribs under the roof.
+   The lamp row keeps the old cream glow so the roof line still reads at night. FASCIA_LAMP_M = metres per lamp. */
+const FASCIA_H=.9,FASCIA_LAMP_M=2.4,FASCIA_GLOW=2.2,RIB_GAP=6,RIB_W=.25,RIB_H=.55;
+const fasciaTex=genTex('fascia',64,32,(u,v)=>{const dx=Math.abs(u-.5)/.3,dy=Math.abs(v-.62)/.16,lamp=dx<1&&dy<1?1-.5*Math.max(dx,dy)**4:0,seam=u<.03||u>.97?.6:1,band=v<.12?.75:1,k=(.8+.2*vnoise(u*8,v*4,31,8))*seam*band;return[Math.max(k*.35,lamp),Math.max(k*.35,lamp),Math.max(k*.35,lamp)]},1);
+const fasciaGlow=genTex('fasciaG',64,32,(u,v)=>{const dx=Math.abs(u-.5)/.3,dy=Math.abs(v-.62)/.16,l=dx<1&&dy<1?1:0;return[l,l,l]},1);
+const fasciaMat0=new THREE.MeshStandardMaterial({color:LC(0x9aa3b5),roughness:.65,metalness:.4,map:fasciaTex,roughnessMap:paintTex(),emissive:0xfff3d6,emissiveMap:fasciaGlow,emissiveIntensity:FASCIA_GLOW}),FASCIA_M={};
+const fasciaMat=L=>{if(FASCIA_M[L])return FASCIA_M[L];const m=fasciaMat0.clone();for(const t of ['map','emissiveMap']){m[t]=m[t].clone();m[t].repeat.set(Math.round(L/FASCIA_LAMP_M),1);m[t].needsUpdate=true}return FASCIA_M[L]=m};
+const ribGeo=d=>new THREE.BoxGeometry(RIB_W,RIB_H,d),ribMat=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()}),ribO=new THREE.Object3D();
 function stand(px,pz,rotY,len,rows,side,roof,base=0){
-  const g=new THREE.Group();g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
-  for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.position.set(0,h/2,d);g.add(b);
+  const g=new THREE.Group();g.name='stand';g.userData.stand={px,pz,rotY,len,rows,side,roof,base};g.position.set(px,0,pz);g.rotation.y=rotY;scene.add(g);
+  for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.name='old:seats';b.position.set(0,h/2,d);g.add(b);
     for(let x=-len/2+.4;x<len/2-.3;x+=SEAT_W)fans.push({g,x,y:h,z:d,side,empty:Math.random()<CROWD_EMPTY})}
-  const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
-  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
-  if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
-    const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,.25,.25),new THREE.MeshBasicMaterial({color:0xfff3d6}));lip.position.set(0,top+7.4,-4.9);g.add(lip)}
+  const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.name='old:seats:back';w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.name='old:seats:rail';rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
+  if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.name='old:roof';rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
+    const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,FASCIA_H,.25),fasciaMat(len+2));lip.name='old:roof:fascia';lip.position.set(0,top+7.4-FASCIA_H/2+.12,-4.9);g.add(lip);
+    const n=Math.floor((len+2)/RIB_GAP),ribs=new THREE.InstancedMesh(ribGeo(rows*.9+6),ribMat,n);/* #150 round 3: steel ribs under the roof, one draw call per stand */
+    for(let i=0;i<n;i++){ribO.position.set(-(len+2)/2+RIB_GAP*(i+.5),-.25-RIB_H/2,0);ribO.updateMatrix();ribs.setMatrixAt(i,ribO.matrix)}
+    rf.add(ribs)}
   g.updateMatrixWorld(true);
 }
 const Q=Math.PI/4;
@@ -164,6 +253,11 @@ stand(0,24,0,48,16,2,true);stand(46.7,-24.1,Q,72,14,1,true);stand(-46.7,-24.1,-Q
    at ground level, so the first rows peeked over the wall and made it look small. */
 const OF_R=111.5,OF_BASE=2.4,OF_ROWS=10,OF_SEAT_ROW=5;
 for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.cos(t)*OF_R,Math.atan2(Math.sin(t),-Math.cos(t)),20,OF_ROWS,a<0?0:a>0?1:2,false,OF_BASE)}
+/* #215: polished props (render/props/, materials in render/pbr.js) swap in on the tiers props/index.js allows; any failure keeps the old park.
+   #237: every old park mesh a slot replaces is named old:<slot>[:<part>] above (field, wall, foulpole, backstop, seats, roof, towers, scoreboard);
+   polish rounds never edit this file: an object file finds its old meshes with ctx.old('<slot>'). */
+{const PROPS_POLL_MS=1000,url=new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;/* max only (#215 10:30): nothing is fetched until max is on; gfxMax is declared further down, so the first look waits a tick */
+  const go=()=>{let on=false;try{on=gfxMax}catch(e){}if(!on)return void setTimeout(go,PROPS_POLL_MS);import(url).then(M=>M.mountProps({scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err))};setTimeout(go,0)}
 const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
   {x:0,y:OF_BASE+FRONT_H+OF_SEAT_ROW*ROW_RISE+.55,z:-(OF_R+OF_SEAT_ROW*ROW_D+ROW_D/2+.12),tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
 const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
@@ -197,7 +291,12 @@ for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-
 const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty);
 for(let i=people.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[people[i],people[j]]=[people[j],people[i]]}/* random order: a lower quality tier draws a prefix, i.e. a random subset */
 people.forEach((f,i)=>f.pi=i);const cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
-const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.5}),fans.length);
+const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.55}),fans.length);seats.name='old:seats:chair';
+/* #150 round 3: moulded seats are not one flat blue: each seat a little lighter or darker (SEAT_VAR), higher rows sun-faded (SEAT_FADE per metre),
+   a few newer replacement seats (SEAT_NEW share). Seats only: the people on them are untouched. */
+const SEAT_VAR=.16,SEAT_FADE=.018,SEAT_NEW=.03;
+fans.forEach((f,i)=>{const h=hashG(i,7,41),fade=Math.min(.3,Math.max(0,f.wy-2)*SEAT_FADE);/* instance colour multiplies the base blue: lifting red and green more than blue greys it out like sun-bleached plastic */
+  if(h<SEAT_NEW)col.setRGB(1.25,1.25,1.25);else col.setRGB(1+fade*2.5,1+fade*1.5,1+fade*.6).multiplyScalar(1-SEAT_VAR/2+SEAT_VAR*hashG(i,9,43));seats.setColorAt(i,col)});
 const crowdMat=(()=>{const {attribute,mix,vec3}=TSL;const m=new THREE.MeshStandardNodeMaterial({roughness:.85});
   m.colorNode=attribute('color','vec3').mul(mix(vec3(1),attribute('shirt','vec3'),attribute('tint','float')));return m})();
 const crowdShirts=(geo,n)=>{const a=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3);geo.setAttribute('shirt',a);return a};
@@ -228,21 +327,31 @@ function updateCrowd(now,ex,batTeam,live){
   crowd.instanceMatrix.needsUpdate=true;crowdUp.instanceMatrix.needsUpdate=true;heads.instanceMatrix.needsUpdate=true;
 }
 /* light towers + sky */
-const TOWER_I=.16*Math.PI,BEAM_K=.025;/* Keep only a hint of light beam, so the camera passing through it does not white out */
-const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(5,4.8,4.4),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.7,metalness:.3});
+const TOWER_I=.16*Math.PI,BEAM_K=BEAM_DEFAULT,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TOWER_AIM=[0,-24],TOWER_AIM_K=.1;/* Keep only a hint of light beam, so the camera passing through it does not white out */
+const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(...LAMP_RGB),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
 const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
-const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,color,positionView,length,smoothstep}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
-  const e=pow(abs(dot(normalView,positionViewDirection)),2);m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(BEAM_K).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
-for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.position.set(x,23,z);scene.add(m);
-  const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
+/* #208 item 2, light you can see: on max the beams are stronger (BEAM_MAX_K) and carry slow drifting dust (3D noise scrolled by time: decoration,
+   like the bugs), each lamp gets a wide aureole in the haze (haloMat) and dust motes drift through every beam (motes). Below max: the old faint beam and a fainter aureole. */
+const BEAM_MAX_K=2.4,BEAM_DUST=.9,BEAM_DUST_SCALE=.09,BEAM_DUST_DRIFT=.35,HALO_SCALE=95,HALO_LOW=.35,MOTE_PER=140,MOTE_CORE=.45,MOTE_FALL=.18;
+const beamK=TSL.uniform(1).onFrameUpdate(()=>gfxMax?BEAM_MAX_K:1),dustK=TSL.uniform(0).onFrameUpdate(()=>gfxMax?BEAM_DUST:0);
+const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,vec3,color,positionView,positionWorld,length,smoothstep,mx_noise_float,time}=TSL;const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
+  const e=pow(abs(dot(normalView,positionViewDirection)),2),dust=mx_noise_float(positionWorld.mul(BEAM_DUST_SCALE).add(vec3(time.mul(BEAM_DUST_DRIFT*.6),time.mul(-BEAM_DUST_DRIFT),time.mul(BEAM_DUST_DRIFT*.3)))).mul(dustK).add(1).max(0);
+  m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(skyU.beam).mul(beamK).mul(dust).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
+const haloK=TSL.uniform(0).onFrameUpdate(()=>skyCur.halo*(gfxMax?1:HALO_LOW));
+const haloMat=(()=>{const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});const t=new THREE.CanvasTexture(glowC);
+  m.colorNode=TSL.texture(t).mul(haloK);m.toneMapped=false;return m})();
+const towerSpots=[];
+for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.name='old:towers';m.position.set(x,23,z);scene.add(m);
+  const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.name='old:towers:lamp';l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
   const gl=new THREE.Sprite(glowMat);gl.position.set(x,46,z);gl.scale.set(30,30,1);scene.add(gl);
-  const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),dir=lamp.clone().sub(tgt),L=dir.length();
+  const ha=new THREE.Sprite(haloMat);ha.position.set(x,46,z);ha.scale.set(HALO_SCALE,HALO_SCALE,1);scene.add(ha);
+  const lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),aim=new THREE.Vector3(TOWER_AIM[0]+x*TOWER_AIM_K,0,TOWER_AIM[1]+(z-TOWER_AIM[1])*TOWER_AIM_K),dir=lamp.clone().sub(tgt),L=dir.length();
   const beam=new THREE.Mesh(new THREE.ConeGeometry(L*.32,L,32,1,true),beamMat);beam.position.copy(lamp.clone().add(tgt).multiplyScalar(.5));beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());scene.add(beam);
   /* Light-tower spots: lit areas and dark corners (no shadows, for performance; the key light still casts the main shadow) */
-  const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,.42,.75,0);spot.position.copy(lamp);spot.target.position.copy(tgt);scene.add(spot,spot.target)}
+  const spot=new THREE.SpotLight(LC(0xfff2dc),TOWER_I,0,TOWER_ANGLE,TOWER_PENUMBRA,0);spot.position.copy(lamp);spot.target.position.copy(aim);scene.add(spot,spot.target);towerSpots.push(spot)}
 const sg=new THREE.BufferGeometry(),sp=[];for(let i=0;i<600;i++){const a=Math.random()*6.28,e=.15+Math.random()*1.2;sp.push(Math.cos(a)*Math.cos(e)*420,Math.sin(e)*420,Math.sin(a)*Math.cos(e)*420)}
-sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xaab8d8,size:1.1,fog:false,sizeAttenuation:true})));
+sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));const stars=new THREE.Points(sg,new THREE.PointsMaterial({color:0xaab8d8,size:1.1,fog:false,sizeAttenuation:true}));scene.add(stars);
 /* Bugs under the lights: a cloud of small dots in front of each tower, flying around (pure decoration, unrelated to the game) */
 const BUG_PER=70,BUG_R=5,BUG_SIZE=.18,LAMPS=[[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]];
 const bugs=(()=>{const n=LAMPS.length*BUG_PER,pos=new Float32Array(n*3),seed=[];let r=7;const rnd=()=>(r=(r*16807)%2147483647)/2147483647;
@@ -250,9 +359,19 @@ const bugs=(()=>{const n=LAMPS.length*BUG_PER,pos=new Float32Array(n*3),seed=[];
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
   const pts=new THREE.Points(g,new THREE.PointsMaterial({color:new THREE.Color(3,2.8,2.2),size:BUG_SIZE,sizeAttenuation:true,transparent:true,opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,fog:false}));
   pts.frustumCulled=false;scene.add(pts);return{pts,pos,seed}})();
+/* #208 motes (max only): MOTE_PER points in the core of each tower beam (between 20 % and 90 % of the way down), sinking slowly and swirling; seeded, no Math.random */
+const moteK=TSL.uniform(0).onFrameUpdate(()=>envOn&&gfxMax?skyCur.motes:0);/* max only: on WebGL the points draw as big flakes (snow) */
+const motes=(()=>{const n=LAMPS.length*MOTE_PER,pos=new Float32Array(n*3),seed=[];let r=11;const rnd=()=>(r=(r*16807)%2147483647)/2147483647;
+  for(let i=0;i<n;i++){const [x,z]=LAMPS[Math.floor(i/MOTE_PER)],lamp=new THREE.Vector3(x,46,z),tgt=new THREE.Vector3(x*.15,0,-40+(z+40)*.15),f=.2+rnd()*.7,c=lamp.clone().lerp(tgt,f),R=lamp.distanceTo(tgt)*.32*f*MOTE_CORE*Math.sqrt(rnd());
+    seed.push({c:[c.x,c.y,c.z],R,a:rnd()*6.28,w:(.05+rnd()*.12)*(rnd()<.5?-1:1),h:rnd()*8,ph:rnd()*6.28})}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));const m=new THREE.PointsNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});
+  m.colorNode=TSL.color(new THREE.Color(2.4,2.2,1.8)).mul(moteK);m.toneMapped=false;const pts=new THREE.Points(g,m);pts.frustumCulled=false;scene.add(pts);return{pts,pos,seed}})();
+function updateMotes(t){const {pos,seed}=motes;for(let i=0;i<seed.length;i++){const q=seed[i],a=q.a+t*q.w,y=((q.h-t*MOTE_FALL)%8+8)%8-4;
+  pos[i*3]=q.c[0]+Math.cos(a)*q.R;pos[i*3+1]=q.c[1]+y+Math.sin(t*.4+q.ph)*.3;pos[i*3+2]=q.c[2]+Math.sin(a)*q.R}
+  motes.pts.geometry.attributes.position.needsUpdate=true}
 function updateBugs(t){const {pos,seed}=bugs;for(let i=0;i<seed.length;i++){const q=seed[i],a=q.a+t*q.w1,b=q.b+t*q.w2;
   pos[i*3]=q.c[0]+Math.cos(a)*q.r+Math.sin(t*7+i)*.15;pos[i*3+1]=q.c[1]+Math.sin(b)*q.r*.6;pos[i*3+2]=q.c[2]+Math.sin(a)*q.r*Math.cos(b)}
-  bugs.pts.geometry.attributes.position.needsUpdate=true}
+  bugs.pts.geometry.attributes.position.needsUpdate=true;if(skyCur.motes&&gfxMax)updateMotes(t)}/* motes ride the bugs' call: tiers 0-1 only (envOn) */
 /* Close-up grass blades: blades only where the camera looks (closer than BLADE_SHOW m), placed by a world-grid hash so they do not jitter as the camera moves. Grass areas of the field map only */
 const BLADE_N=16000,BLADE_R=6,BLADE_SHOW=15,BLADE_CELL=.08,BLADE_SNAP=1;
 const blades=(()=>{const geo=new THREE.BufferGeometry(),w=.006;geo.setAttribute('position',new THREE.Float32BufferAttribute([-w,0,0,w,0,0,0,1,.15,w,0,0,-w,0,0,0,1,.15],3));geo.setAttribute('normal',new THREE.Float32BufferAttribute([0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0],3));/* Two faces, both normals pointing up (with DoubleSide the back normal flips down and goes black) *//* Normals point up: lit like the ground, so individual blades do not turn black */
@@ -275,18 +394,66 @@ function updateBlades(){const cp=camera.getWorldPosition(_cw),dir=camera.getWorl
 /* ---------- Post-processing: AO (contact shadows) + bloom + vignette + FXAA; lightweight version for the WebGL fallback or phones ---------- */
 const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend))&&!/Mobi|Android/i.test(navigator.userAgent);
 let PP=null;
-function setupPost(){try{const {pass,mrt,output,normalView,screenUV,length,smoothstep,mix,float,renderOutput,vec4}=TSL;
-  const pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera);let c;
-  if(HQ){sp.setMRT(mrt({output,normal:normalView}));const aoN=FX.ao(sp.getTextureNode('depth'),sp.getTextureNode('normal'),camera);aoN.resolutionScale=.5;aoN.radius.value=.6;aoN.distanceFallOff.value=1;
-    c=sp.getTextureNode('output');c=vec4(c.rgb.mul(mix(float(.35),float(1),aoN.getTextureNode().sample(screenUV).r)),c.a)}
+/* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
+   fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
+const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgr' = all three, '-' = not loaded or ?off= */
+/* #267: side targets blend like the material (opaque: no blending, as before), so a see-through overlay can leave the ground's normal, albedo
+   and velocity under it by writing alpha 0 there (contact shadows, csMrt). Outputs with alpha 1 (normalView, velocity) still replace. */
+const MRT_KEEP=['normal','diffuse','velocity'];
+function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4,diffuseColor,metalness,roughness,step,blendColor}=TSL;
+  const key=fxKey(),mx=key[0]==='t',gi=key[1]==='g',sr=key[2]==='r',pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass */
+  if(HQ){/* WebGPU allows 32 colour bytes per pixel (four 8-byte targets), so the SSR inputs ride in spare channels: normal.a = gloss mask
+      (SSR's metalness input: 0, skipped, unless the surface is smoother than MAX_SSR_ROUGH: helmets, wet or polished props), diffuse.a = roughness */
+    const ch={output,normal:sr?vec4(normalView,step(roughness,float(MAX_SSR_ROUGH)).mul(metalness.max(MAX_SSR_F0))):normalView};if(mx)ch.velocity=velocity;
+    if(gi||sr)ch.diffuse=vec4(diffuseColor.rgb,roughness);const M=mrt(ch),kb=new THREE.BlendMode(THREE.MaterialBlending);MRT_KEEP.forEach(n=>{if(ch[n])M.setBlendMode(n,kb)});sp.setMRT(M);if(ch.diffuse)sp.getTexture('diffuse').type=THREE.UnsignedByteType;/* 8-bit is enough here */
+    const dep=sp.getTextureNode('depth'),nor=sp.getTextureNode('normal');c=sp.getTextureNode('output');
+    if(gi){const g=FX.ssgi(c,dep,nor,camera);g.sliceCount.value=MAX_GI_SLICES;g.stepCount.value=MAX_GI_STEPS;g.radius.value=MAX_GI_RADIUS;g.giIntensity.value=MAX_GI_I;g.aoIntensity.value=MAX_GI_AO;
+      /* #256: bounce light is capped at MAX_GI_CAP before it meets the albedo, so a white plate, bag or chalk line next to lit dirt can not
+         climb past the bloom threshold (1.6) on bounce alone; at MAX_GI_I 4 a white surface got ~4x its neighbours' light and bloomed into blobs */
+      c=vec4(c.rgb.mul(g.a).add(sp.getTextureNode('diffuse').rgb.mul(g.rgb.min(float(MAX_GI_CAP)))),c.a)}
+    else{const aoN=FX.ao(dep,nor,camera);aoN.resolutionScale=gfxMax?MAX_AO_RES:AO_RES;aoN.radius.value=.6;aoN.distanceFallOff.value=1;
+      c=vec4(c.rgb.mul(mix(float(.35),float(1),aoN.getTextureNode().sample(screenUV).r)),c.a)}
+    if(sr){const r=FX.ssr(sp.getTextureNode('output'),dep,nor,{metalnessNode:nor.a,roughnessNode:sp.getTextureNode('diffuse').a,camera});
+      r.resolutionScale=MAX_SSR_RES;r.maxDistance.value=MAX_SSR_DIST;r.thickness.value=MAX_SSR_THICK;r.quality.value=MAX_SSR_Q;c=blendColor(c,r)}
+    if(mx)c=FX.traa(c,dep,sp.getTextureNode('velocity'),camera)}
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
-  pp.outputColorTransform=false;pp.outputNode=FX.fxaa(renderOutput(c));pp.scenePass=sp;return pp}catch(e){console.error('post',e);return null}}
+  pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.fx=key;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
+/* ---------- max tier (#211): the owner's desktop, above tier 0 ----------
+   Dev site only: ?q=max (or the 畫面 button's 最高 step) turns it on and zu_max remembers it; ?q=<anything else> turns it off. WebGPU backend
+   only: on the WebGL fallback the wish is kept but nothing changes (🐞 tier=0(max-gl)). While on: tier 0 at the screen's native pixel ratio,
+   no automatic drop, TRAA instead of FXAA, full-resolution AO, a MAX_SHADOW_MAP key shadow map with a wider PCF radius, image-based light from
+   the sky (skyEnv). TRAA's module is fetched only when max is on, so the default download does not grow. Tiers 0-3 are untouched. */
+const IS_GPU=!!(renderer.backend&&renderer.backend.isWebGPUBackend),IS_DEV=!!(window.SITE&&window.SITE.dev);
+/* SSGI presets: three's "medium with temporal filtering" (TRAA is on); radius in metres. #256: MAX_GI_I 1 = bounce equal to the light the
+   neighbours send (was 4: four times that), MAX_GI_CAP = most bounce light one pixel takes (direct ~1.06 on the plate + .45 stays under bloom's 1.6). SSR: half resolution, rays up to MAX_SSR_DIST m. */
+const MAX_GI_SLICES=2,MAX_GI_STEPS=8,MAX_GI_RADIUS=4,MAX_GI_I=1,MAX_GI_CAP=.45,MAX_GI_AO=1,MAX_SSR_ROUGH=.35,MAX_SSR_F0=.04,MAX_SSR_RES=.5,MAX_SSR_DIST=25,MAX_SSR_THICK=.05,MAX_SSR_Q=.5;
+const MAX_SHADOW_MAP=4096,MAX_SHADOW_RADIUS=2.5,TIER_SHADOW_RADIUS=1,MAX_AO_RES=1,AO_RES=.5,MAX_IBL_I=.6,SKY_ENV_FAR=1000,SKY_ENV_MIN_R=400;
+let maxWish=false;try{if(IS_DEV){const q=new URLSearchParams(location.search).get('q');if(q!==null)localStorage.setItem('zu_max',q==='max'?'1':'0');maxWish=localStorage.getItem('zu_max')==='1'}}catch(e){}
+let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
+if(window.PL&&PL.SKIN)PL.SKIN.on=()=>gfxMax;/* #207: the real skin maps follow max (players.js polls it; nothing extra loads while max is off) */
+const maxSave=v=>{maxWish=v;try{localStorage.setItem('zu_max',v?'1':'0')}catch(e){}};
+/* the max modules are fetched only when max is on; each one may fail alone (max then keeps FXAA / GTAO / no reflections). ?off=traa,ssgi,ssr skips one on dev; a skipped one is not fetched */
+const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode']];
+const maxLoad=()=>Promise.all(MAX_MODS.map(([k,f])=>FX[k]||OFF.has(k)?0:import(`three/addons/tsl/display/${f}.js`).then(m=>{FX[k]=m[k]}).catch(e=>console.warn(`${f} failed to load; max goes on without it`,e))));
+/* image-based light: the sky mesh is drawn alone into a PMREM. One entry point: applySky (#203 park skies) calls skyEnv() again after it changes the sky. */
+let skyEnvRT=null;
+function skySource(){let s=null;scene.traverse(o=>{const g=o.geometry&&o.geometry.parameters;if(!s&&o.isMesh&&o.material&&o.material.side===THREE.BackSide&&o.material.fog===false&&g&&g.radius>=SKY_ENV_MIN_R)s=o});return s}
+function skyEnv(){if(skyEnvRT){skyEnvRT.dispose();skyEnvRT=null}scene.environment=null;if(!gfxMax)return;const sky=skySource();if(!sky)return;
+  try{const sc=new THREE.Scene();sc.add(new THREE.Mesh(sky.geometry,sky.material));const g=new THREE.PMREMGenerator(renderer);skyEnvRT=g.fromScene(sc,0,1,SKY_ENV_FAR);g.dispose();
+    scene.environment=skyEnvRT.texture;scene.environmentIntensity=MAX_IBL_I}catch(e){console.warn('sky env failed',e);scene.environment=null}}
+window.skyEnv=skyEnv;
 PP=gfxLow?null:setupPost();
-const gfxText=()=>{$('gfx').innerHTML=(gfxLow?'畫面：順暢':'畫面：精緻')+'<small>卡卡的就選順暢</small>'};gfxText();
-$('gfx').onclick=()=>{gfxLow=!gfxLow;try{localStorage.setItem('zu_gfx',gfxLow?'low':'high')}catch(e){}PP=gfxLow?null:(PP||setupPost());if(typeof setTier==='function'){setTier(gfxLow?2:(IS_MOBILE?1:0));tierT0=performance.now()}gfxText();note(gfxLow?'畫面順暢：簡化光影，比較不卡':'畫面精緻：開啟完整光影')};
+if(gfxMax)maxLoad().then(()=>{if(gfxMax&&typeof setTier==='function')setTier(0)});
+const gfxText=()=>{$('gfx').innerHTML=(gfxLow?'畫面：順暢':gfxMax?'畫面：最高':'畫面：精緻')+'<small>卡卡的就選順暢</small>'};gfxText();
+$('gfx').onclick=()=>{
+  /* dev: 精緻 -> 最高 (WebGPU only) -> 順暢 -> 精緻; production keeps the two steps */
+  if(IS_DEV&&IS_GPU&&HQ&&!gfxLow&&!gfxMax){gfxMax=true;maxSave(true);gfxText();note('畫面最高：原生解析度、柔和陰影、不自動降畫質（給桌機）');
+    maxLoad().then(()=>{if(gfxMax){setTier(0);tierT0=performance.now()}});return}
+  if(gfxMax){gfxMax=false;maxSave(false)}
+  gfxLow=!gfxLow;try{localStorage.setItem('zu_gfx',gfxLow?'low':'high')}catch(e){}PP=gfxLow?null:(PP||setupPost());if(typeof setTier==='function'){setTier(gfxLow?2:(IS_MOBILE?1:0));tierT0=performance.now()}gfxText();note(gfxLow?'畫面順暢：簡化光影，比較不卡':'畫面精緻：開啟完整光影')};
 {const on=(()=>{try{return localStorage.getItem('zu_gl')==='1'}catch(e){return false}})();$('compat').setAttribute('aria-pressed',on);$('compat').textContent=on?'已切換相容畫面（點一下換回來）':'畫面怪怪的？點這裡';
  $('compat').onclick=()=>{try{localStorage.setItem('zu_gl',on?'0':'1')}catch(e){}note(on?'換回一般畫面，重新載入…':'改用相容畫面，重新載入…');setTimeout(()=>location.reload(),800)}}
 /* ---------- Team logos: the owner's own team marks, assets/logos/<team id>_<px>.webp (see assets/SOURCES.md), found by team id.
@@ -301,13 +468,118 @@ const SB_Y=18;
 const sbC=document.createElement('canvas');sbC.width=1024;sbC.height=400;const sbTex=new THREE.CanvasTexture(sbC);sbTex.colorSpace=THREE.SRGBColorSpace;
 const sbMesh=new THREE.Mesh(new THREE.PlaneGeometry(26,10),new THREE.MeshBasicMaterial({map:sbTex,toneMapped:false}));
 {const t=-28*Math.PI/180;sbMesh.position.set(Math.sin(t)*128,SB_Y,-Math.cos(t)*128);sbMesh.lookAt(0,10,0);scene.add(sbMesh);
- const back=new THREE.Mesh(new THREE.BoxGeometry(27,11,.6),mast);back.position.copy(sbMesh.position);back.quaternion.copy(sbMesh.quaternion);back.translateZ(-.35);scene.add(back);
- const leg=new THREE.Mesh(new THREE.BoxGeometry(2,SB_Y-5,1),mast);leg.position.set(sbMesh.position.x,(SB_Y-5)/2,sbMesh.position.z);scene.add(leg)}
+ const back=new THREE.Mesh(new THREE.BoxGeometry(27,11,.6),mast);back.name='old:scoreboard';back.position.copy(sbMesh.position);back.quaternion.copy(sbMesh.quaternion);back.translateZ(-.35);scene.add(back);
+ const leg=new THREE.Mesh(new THREE.BoxGeometry(2,SB_Y-5,1),mast);leg.name='old:scoreboard';leg.position.set(sbMesh.position.x,(SB_Y-5)/2,sbMesh.position.z);scene.add(leg)}
 let sbKey='';
 function drawBoard(s,txt){const k=s.sc.join()+txt;if(k===sbKey)return;sbKey=k;const g=sbC.getContext('2d');
   g.fillStyle='#05070d';g.fillRect(0,0,1024,400);g.font='600 64px "Noto Sans TC",sans-serif';g.textBaseline='middle';
   TEAMS.slice(0,2).forEach((T,i)=>{g.fillStyle=T.css;g.fillRect(40,70+i*120,18,80);const lg=logoImgs[T.id];if(lg&&lg.complete&&lg.naturalWidth)g.drawImage(lg,70,64+i*120,92,92);g.fillStyle='#fff';g.fillText(T.name,178,110+i*120);g.font='700 110px "Barlow Condensed",sans-serif';g.textAlign='right';g.fillStyle='#ffe28a';g.fillText(s.sc[i],980,112+i*120);g.textAlign='left';g.font='600 64px "Noto Sans TC",sans-serif'});
-  g.fillStyle='#9aa6bd';g.font='500 44px "Noto Sans TC",sans-serif';g.fillText(txt,80,350);sbTex.needsUpdate=true}
+  g.fillStyle='#9aa6bd';g.font='500 44px "Noto Sans TC",sans-serif';g.fillText(txt,80,350);
+  if(parkCur){const P=parkCur;g.strokeStyle=P.trimCss;g.lineWidth=SB_FRAME;g.strokeRect(SB_FRAME/2,SB_FRAME/2,1024-SB_FRAME,400-SB_FRAME);
+    g.textAlign='right';g.fillStyle=P.trimCss;g.font='600 40px "Noto Sans TC",sans-serif';g.fillText(`主場・${P.home}`,980,350);g.textAlign='left'}
+  sbTex.needsUpdate=true}
+/* ---------- #203 home parks: one park, four skins. The home team of the game picks the wall pads, the fence-top and foul-pole paint,
+   the scoreboard frame and three big wall logos (both power alleys and behind home plate). Colours only: no geometry, no new shader
+   (materials are made once, the logo is drawn into one shared canvas), so a reskin never recompiles. ?park=<team id> forces one. ---------- */
+/* power-alley logos are cut-out signs standing on the wall top (a 3 m wall would make them ~10 px from home plate) */
+const SB_FRAME=14,PARK_LOGO_PX=512,PARK_LOGO_M=6,PARK_LOGO_R=109.85,PARK_LOGO_ALLEY=Math.PI/7,PARK_LOGO_Y=3+PARK_LOGO_M/2-.4,
+  PLATE_LOGO_M=2.2,PLATE_LOGO_Y=1.4,PLATE_LOGO_Z=NET_Z-.15,PARK_LOGO_GLOW=.35;
+/* pad = wall vinyl behind the league boards, trim = fence top, foul poles and scoreboard frame (team colour, lifted to read at night) */
+const PARKS={
+  pheasants:{pad:'#0d3a35',trim:0x5fd8c9,sky:'night'},
+  owls:{pad:'#2a1436',trim:0xd58cf0,sky:'dusk'},
+  macaques:{pad:'#47200f',trim:0xffa463,sky:'afternoon'},
+  muntjacs:{pad:'#0e2450',trim:0x7fb0ff,sky:'morning'}};
+/* #203 item 5: PARKS[id].shape = how the four parks differ in shape and surroundings (shape and size only: no real names or marks).
+   Slice 1 reads `backdrop` only (the kit beyond the outfield and behind the stands, BACKDROPS below); stand levels, roof, bullpen,
+   light towers and turf look are the next slices and join this block. The field and the engine never change. */
+PARKS.pheasants.shape={backdrop:'hills'};/* 台北: hillside district, apartment blocks, hills behind */
+PARKS.owls.shape={backdrop:'city'};/* 新竹: dense town of row houses and mid-rise blocks, low hills far east */
+PARKS.macaques.shape={backdrop:'lake'};/* 高雄: a lake beyond the outfield, trees on its shore, low hills across */
+PARKS.muntjacs.shape={backdrop:'mountains'};/* 台東: open sky, two mountain ridges */
+const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night',shape:{backdrop:null}};
+/* ---------- #203 item 5 slice 1: backdrop kits. Built once on first use (applyPark), then only shown or hidden: no recompile on a park change
+   after the first. Four materials in all (ridge, block, tree, water); nothing casts or takes the key shadow. Buildings: instanced boxes, the
+   windows are drawn by the material from world position (BD_FLOOR x BD_BAY cells, BD_LIT of them lit, lit strength follows the sky's lamp
+   value: on at night, half at dusk, off by day). Angles: 0 = centre field (-z), as the outfield bleachers. ?off=backdrop (dev) = none. ---------- */
+const BD_FLOOR=3.2,BD_BAY=3.4,BD_LIT=.42,BD_WIN_I=1.6,BD_WIN_C=0xffd9a8,BD_GLASS=.42,BD_BASE_Y=-6,BD_TOWER_GAP=12,BD_SEED=2030,
+  BD_DAY_LAMP=.2;/* sky lamp value at or below which no window is lit */
+const D2R=Math.PI/180;
+const BACKDROPS={
+  hills:{ridges:[{r:300,a:[-115,115],h:[38,82],c:0x1f3a22,seed:1},{r:250,a:[115,245],h:[22,46],c:0x1d3420,seed:2},{r:420,a:[-180,180],h:[70,120],c:0x2a4436,seed:3}],
+    blocks:{n:70,r:[150,255],a:[[-110,110],[125,235]],w:[14,24],d:[10,16],h:[18,45],c:[0xb8b2a6,0x9a978f,0xcfc6b4,0x8c8a86]}},
+  city:{ridges:[{r:440,a:[-180,180],h:[26,48],c:0x334034,seed:4}],
+    blocks:{n:130,r:[135,215],a:[[-120,120],[120,240]],w:[6,9],d:[11,16],h:[9,16],c:[0xd8cdb8,0xbfb5a3,0xe2d9c8,0xa9a294,0xc9b79c]},
+    blocks2:{n:34,r:[225,330],a:[[-100,100],[135,225]],w:[16,26],d:[14,22],h:[26,62],c:[0xb4b8bc,0x9ea4aa,0xc8c4ba]}},
+  lake:{ridges:[{r:430,a:[-75,75],h:[34,60],c:0x41604a,seed:5},{r:380,a:[80,280],h:[14,30],c:0x3a5a40,seed:6}],
+    water:{r:[146,395],a:[-68,68],c:0x355a66},trees:{n:260,r:[126,148],a:[[-80,80]],s:[4,8],c:[0x2f5a2a,0x3c6a30,0x27502a,0x4a7034]},
+    trees2:{n:140,r:[395,412],a:[[-72,72]],s:[6,11],c:[0x2f5a2a,0x3c6a30,0x27502a]}},
+  mountains:{ridges:[{r:330,a:[-180,180],h:[34,78],c:0x2c4a30,seed:7},{r:470,a:[-180,180],h:[100,170],c:0x3e5668,seed:8}],
+    trees:{n:90,r:[126,150],a:[[-85,85]],s:[4,7],c:[0x2f5a2a,0x3c6a30,0x4a7034]}}};
+const bdWinU=TSL.uniform(1),bdKits={};let bdMats=null;
+const bdTowers=[[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]];/* same spots as the light towers below */
+function bdMaterials(){if(bdMats)return bdMats;
+  const ridge=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide}),tree=new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),
+    water=new THREE.MeshStandardMaterial({color:LC(0xffffff),roughness:.2,metalness:0});
+  let block;if(!PARK_SHADERS)block=new THREE.MeshStandardMaterial({roughness:.9});else{const {positionWorld:p,normalWorld:n,fract,floor,sin,dot,vec2,vec3,step,abs,mix,float,color}=TSL;
+    const u=dot(p.xz,vec2(n.z.negate(),n.x)).div(BD_BAY),v=p.y.div(BD_FLOOR),cell=floor(vec2(u,v)),f=fract(vec2(u,v));
+    const win=step(.2,f.x).mul(step(f.x,.8)).mul(step(.3,f.y)).mul(step(f.y,.82)).mul(step(abs(n.y),.5)).mul(step(1,p.y)),
+      lit=step(1-BD_LIT,fract(sin(dot(cell,vec2(12.9898,78.233))).mul(43758.5453)));
+    block=new THREE.MeshStandardNodeMaterial({roughness:.85});block.colorNode=vec3(mix(float(1),float(BD_GLASS),win));
+    block.emissiveNode=color(LC(BD_WIN_C)).mul(win.mul(lit).mul(bdWinU).mul(BD_WIN_I))}
+  return bdMats={ridge,tree,water,block}}
+function bdRidge(R0){const {r,h:[h0,h1],c,seed}=R0,a0=R0.a[0]*D2R,a1=R0.a[1]*D2R,full=R0.a[1]-R0.a[0]>=360,N=Math.max(24,Math.round((a1-a0)/D2R*1.2)),rnd=mulberry32(seed+BD_SEED),
+    ph=[rnd()*6.283,rnd()*6.283,rnd()*6.283],col=new THREE.Color(c),pos=[],cols=[],uvs=[],idx=[];
+  for(let i=0;i<=N;i++){const t=i/N,a=a0+(a1-a0)*t,k=.5+.5*(.55*Math.sin(a*3+ph[0])+.3*Math.sin(a*7+ph[1])+.15*Math.sin(a*17+ph[2])),
+      edge=full?1:Math.min(1,Math.min(t,1-t)*10),h=(h0+(h1-h0)*k)*edge,rb=r-h*.9,s=Math.sin(a),q=-Math.cos(a);
+    pos.push(s*rb,BD_BASE_Y,q*rb,s*r,h,q*r);cols.push(col.r*.55,col.g*.55,col.b*.55,col.r,col.g,col.b);uvs.push(t,0,t,1);
+    if(i<N){const j=i*2;idx.push(j,j+1,j+2,j+1,j+3,j+2)}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(idx);g.computeVertexNormals();
+  return new THREE.Mesh(g,bdMats.ridge)}
+/* n instances spread over the ranges (radius, angle sets in degrees), rejected near a light tower or an earlier instance */
+function bdScatter(S,geo,mat,seed,place){const rnd=mulberry32(seed+BD_SEED),m=new THREE.InstancedMesh(geo,mat,S.n),o=new THREE.Object3D(),done=[],c=new THREE.Color();let k=0;
+  for(let tries=0;k<S.n&&tries<S.n*12;tries++){const A=S.a[Math.floor(rnd()*S.a.length)],a=(A[0]+(A[1]-A[0])*rnd())*D2R,r=S.r[0]+(S.r[1]-S.r[0])*rnd(),x=Math.sin(a)*r,z=-Math.cos(a)*r,
+      sz=place(o,x,z,rnd);if(bdTowers.some(([tx,tz])=>Math.hypot(tx-x,tz-z)<BD_TOWER_GAP+sz)||done.some(([dx,dz,ds])=>Math.hypot(dx-x,dz-z)<(ds+sz)*.6))continue;
+    o.updateMatrix();m.setMatrixAt(k,o.matrix);m.setColorAt(k,c.set(S.c[Math.floor(rnd()*S.c.length)]));done.push([x,z,sz]);k++}
+  m.count=k;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;m.computeBoundingSphere();return m}
+const bdSpan=(v,t)=>v[0]+(v[1]-v[0])*t;
+function bdBlocks(S,seed){return bdScatter(S,new THREE.BoxGeometry(1,1,1).translate(0,.5,0),bdMats.block,seed,(o,x,z,rnd)=>{const w=bdSpan(S.w,rnd()),d=bdSpan(S.d,rnd()),h=bdSpan(S.h,rnd());
+  o.position.set(x,0,z);o.rotation.set(0,Math.atan2(x,z)+(rnd()-.5)*.3,0);o.scale.set(w,h,d);return Math.max(w,d)/2})}
+function bdTrees(S,seed){return bdScatter(S,new THREE.IcosahedronGeometry(1,0).scale(.8,1,.8).translate(0,1.1,0),bdMats.tree,seed,(o,x,z,rnd)=>{const s=bdSpan(S.s,rnd());
+  o.position.set(x,0,z);o.rotation.set(0,rnd()*6.283,0);o.scale.set(s,s*(1+rnd()*.5),s);return s*.8})}
+function bdBuild(id){const K=BACKDROPS[id];if(!K)return null;bdMaterials();const g=new THREE.Group();g.name='backdrop:'+id;
+  for(const R of K.ridges||[])g.add(bdRidge(R));
+  if(K.blocks)g.add(bdBlocks(K.blocks,11));if(K.blocks2)g.add(bdBlocks(K.blocks2,12));if(K.trees)g.add(bdTrees(K.trees,13));if(K.trees2)g.add(bdTrees(K.trees2,14));
+  if(K.water){const W=K.water,len=(W.a[1]-W.a[0])*D2R,geo=new THREE.RingGeometry(W.r[0],W.r[1],64,1,Math.PI/2-W.a[1]*D2R,len);/* ring in XY laid flat: x = cos theta, z = -sin theta, so theta = 90 deg - angle */
+    const wm=bdMats.water.clone();wm.color.set(W.c);const m=new THREE.Mesh(geo,wm);m.rotation.x=-Math.PI/2;m.position.y=.03;g.add(m)}
+  g.traverse(o=>{o.castShadow=o.receiveShadow=false});g.updateMatrixWorld(true);scene.add(g);return g}
+function applyBackdrop(P,S){const want=OFF.has('backdrop')?null:(P.shape||{}).backdrop;
+  if(want&&!bdKits[want])bdKits[want]=bdBuild(want);for(const k in bdKits)if(bdKits[k])bdKits[k].visible=k===want;
+  bdWinU.value=Math.max(0,(S.lamp-BD_DAY_LAMP)/(1-BD_DAY_LAMP))}
+let skyCur=SKIES.night;
+function applySky(S){skyCur=S;renderer.toneMappingExposure=S.exposure;key.intensity=S.key*Math.PI;key.color.set(S.keyC);fill.intensity=S.fill*Math.PI;fill.color.set(S.fillC);
+  hemi.intensity=S.hemi*Math.PI;hemi.color.set(S.hemiC);hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
+  skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
+  for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
+  stars.visible=S.stars;bugs.pts.material.visible=S.bugs;/* material switch: the tier code keeps owning bugs.pts.visible */
+  if(scene.environment)skyEnv()}/* #211 max: the image-based light follows the new sky; only once setTier has turned it on (renderer ready), same shaders, new texture */
+const PARK_Q=(()=>{try{return new URLSearchParams(location.search).get('park')||''}catch(e){return''}})();
+const PROP_Q=(()=>{try{return new URLSearchParams(location.search).get('prop')}catch(e){return null}})();if(PROP_Q!==null)import(new URL('props/viewer.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>M.startViewer({name:PROP_Q,renderer,scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('prop viewer off',err));/* #215: ?prop=<object> = one polished prop alone on a neutral floor (render/props/viewer.js, imported only with the switch) */
+let parkCur=null;
+const parkLogoC=document.createElement('canvas');parkLogoC.width=parkLogoC.height=PARK_LOGO_PX;
+const parkLogoTex=new THREE.CanvasTexture(parkLogoC);parkLogoTex.colorSpace=THREE.SRGBColorSpace;parkLogoTex.anisotropy=8;
+const parkLogoMat=new THREE.MeshStandardMaterial({map:parkLogoTex,transparent:true,alphaTest:.5,roughness:.7,emissive:0xffffff,emissiveMap:parkLogoTex,emissiveIntensity:PARK_LOGO_GLOW,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+{const geo=new THREE.PlaneGeometry(PARK_LOGO_M,PARK_LOGO_M);
+ for(const sd of [-1,1]){const a=Math.PI+sd*PARK_LOGO_ALLEY,m=new THREE.Mesh(geo,parkLogoMat);m.position.set(Math.sin(a)*PARK_LOGO_R,PARK_LOGO_Y,Math.cos(a)*PARK_LOGO_R);m.lookAt(0,PARK_LOGO_Y,0);scene.add(m)}
+ const pm=new THREE.Mesh(new THREE.PlaneGeometry(PLATE_LOGO_M,PLATE_LOGO_M),parkLogoMat);pm.position.set(0,PLATE_LOGO_Y,PLATE_LOGO_Z);pm.lookAt(0,PLATE_LOGO_Y,0);scene.add(pm)}
+const parkLogoImgs={};
+function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PARK_LOGO_PX,PARK_LOGO_PX);let im=parkLogoImgs[id];
+  if(!im&&id){im=parkLogoImgs[id]=new Image();im.onload=()=>{if(parkCur&&parkCur.id===id)drawParkLogo(id)};im.src=`${LOGO_DIR}${id}_${PARK_LOGO_PX}.webp`}
+  if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
+function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
+  const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
+  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
 const GEO={torso:new THREE.CylinderGeometry(.24,.19,.62,12),hips:new THREE.CylinderGeometry(.2,.22,.28,12),head:new THREE.SphereGeometry(.12,16,12),cap:new THREE.SphereGeometry(.13,16,8,0,Math.PI*2,0,Math.PI/2),brim:new THREE.BoxGeometry(.2,.02,.14),
@@ -315,7 +587,7 @@ const GEO={torso:new THREE.CylinderGeometry(.24,.19,.62,12),hips:new THREE.Cylin
 GEO.torso.scale(1,1,.62);GEO.hips.scale(1,1,.7);
 const SM=(h,r=.6)=>new THREE.MeshStandardMaterial({color:LC(h),roughness:r});
 const skin=SM(0xc99572,.7),pants=SM(0xeeeeee,.75),dark=SM(0x1a1a1e,.5),leather=SM(0x8a5a2b,.6),shadowMat=new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.35,depthWrite:false});
-const matDef=SM(0xffffff,.55),matOff=SM(0xffffff,.55),matUmp=SM(0x111318,.7);
+const matDef=SM(0xffffff,.55),matOff=SM(0xffffff,.55),matCo=SM(0xffffff,.55),matUmp=SM(0x111318,.7);/* matCo: base coaches (#42), the batting team's kit */
 {const n=tex('fabric_n'),r=tex('fabric_orm');n.repeat.set(5,5);r.repeat.set(5,5);/* Fabric texture is only used for jerseys and pants, so set the repeat directly */
  for(const m of [matDef,matOff,matUmp,pants]){m.normalMap=n;m.normalScale.set(.6,.6);m.roughnessMap=r;m.roughness=1;/* Roughness is in the G channel */}}
 {const c=tex('leather_c',1),n=tex('leather_n');leather.map=c;leather.color.setHex(0xb08060);leather.normalMap=n;leather.roughness=.5}
@@ -343,17 +615,19 @@ function figureBlocky(m,pm=pants,glove=false){
    role:'batter' skips the inner mirror; everyone else defaults to right-handed (inner mirror, arms[1] is the right hand). On a substitution call setBuild(build, height), and setThrows for pitchers */
 function figure(m,pm=pants,glove=false,o={}){
   if(!window.PL)return figureBlocky(m,pm,glove);
-  const f=PL.makePlayer({jersey:m,pants:pm,sock:m,skin,glove,head:o.head||'cap',role:o.role,throws:'R',parent:scene});
+  const f=PL.makePlayer({jersey:m,pants:pm,sock:m,kit:kitOf(m),skin,glove,head:o.head||'cap',role:o.role,throws:'R',parent:scene});
   if(f.glove)f.glove.traverse(x=>{if(x.isMesh)x.material=leather});
   return f}
+const KITS=new Map(),kitOf=m=>PL.makeKit&&(m===matDef||m===matOff||m===matCo)?KITS.get(m)||KITS.set(m,PL.makeKit(m)).get(m):undefined,paintKit=(m,t)=>{const k=window.PL&&kitOf(m);if(k)PL.setKit(k,TEAMS[t],t===1);else m.color.setHex(TEAMS[t].color)};/* #204: side 1 = home (white), side 0 = road */
 const BODY_OF=(team,name)=>{const R=ROSTERS[team];return R.bat.find(x=>x.name===name)||R.pit.find(x=>x.name===name)};
 /* Body-type weights are snapped to .25 steps so the geometry cache is not one entry per player */
 const qBody=b=>{const o={};for(const k in b){const v=Math.round(b[k]*4)/4;if(v)o[k]=v}return o};
 /* Prewarm: before first pitch, build every player's body geometry plus cap/helmet for both teams (one at a time while idle), so a substitution does not stutter mid-game */
 function prewarmBodies(){if(!window.PL)return;const dummies=[PL.makePlayer({head:'cap'}),PL.makePlayer({head:'helmet',role:'batter'})],list=[];
-  for(const t of [0,1])for(const p of [...ROSTERS[t].bat,...ROSTERS[t].pit])if(p.body)list.push(p);
-  const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(qBody(p.body),p.ht)}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
-function dress(f,p){if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht)}
+  for(const t of [0,1])for(const p of [...ROSTERS[t].bat,...ROSTERS[t].pit])list.push(p);
+  const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
+const headIx=id=>OFF.has('faces')?0:PL.headOf(id);/* ?off=faces: one head shape for all */
+function dress(f,p){if(f.setName)f.setName(p&&p.name);/* #204: family name on the back */if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}
 const fielders={};for(const k of FIELDER_KEYS){const f=figure(matDef,pants,true);f.home=spotXZ(...FIELD_SPOTS[k]);fielders[k]=f}
 fielders.C.home=[0,1.75];
 const ump=figure(matUmp,matUmp,false);ump.g.position.set(.3,0,2.6);ump.g.rotation.y=Math.PI;ump.g.scale.y=.95;
@@ -367,7 +641,7 @@ function addMask(f){if(!f.sockets||!f.sockets.head)return;const g=new THREE.Grou
   for(const x of [-.095,-.03,.03,.095]){const m=new THREE.Mesh(new THREE.BoxGeometry(.012,.19,.012),steel);m.position.set(x,-.065,.112-Math.abs(x)*.25);m.rotation.y=-x*2.2;g.add(m)}
   for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(.03,.17,.06),pad);m.position.set(s*.105,-.06,.075);g.add(m)}
   g.traverse(o=>{if(o.isMesh)o.castShadow=true});f.sockets.head.add(g);f.mask=g;return g}
-if(window.PL){fielders.C.setHead('helmet');addMask(fielders.C);addMask(ump)}
+if(window.PL){fielders.C.setHead('helmet');if(fielders.C.setGear)fielders.C.setGear('catcher');addMask(fielders.C);addMask(ump)}/* #204: catcher's gear in the defence's team colour */
 const BR=rigUpper(batter),CR=rigUpper(fielders.C),UR=rigUpper(ump),PR=rigUpper(fielders.P);
 const batPivot=new THREE.Group();BR.up.add(batPivot);
 const bat=window.PL?PL.makeBat(0xc9a06a):new THREE.Mesh(new THREE.CylinderGeometry(.04,.022,.85,8),SM(0xc9a06a,.45));if(!window.PL)bat.position.y=.42;bat.castShadow=true;batPivot.add(bat);
@@ -425,11 +699,98 @@ function poseBatter(e,u){
   const gap=lerp(BAT_HAND_GAP,BUNT.gap,bn);
   /* Hands apart on the bat: bottom hand (arms[1], a right-handed batter's left hand) on the handle, top hand (arms[0]) BAT_HAND_GAP toward the barrel */
   aimArm(BR.a0,-BAT_SHOULDER_X,gx+_bv.x*gap,gy+_bv.y*gap,gz+_bv.z*gap);aimArm(BR.a1,BAT_SHOULDER_X,gx,gy,gz)}
+/* #185 act 1: the real swing (CMU 124_07, assets/mocap) on the skinned batter, over the keyframes above. Clip time runs at real speed
+   with the clip's contact frame (SW_CONTACT, set by hand: the clip's auto release frame is noise for a swing) exactly at ARRIVE, held
+   between SW_START (stance) and SW_END (follow-through held). Blends in from the stance (SW_IN before the load starts) and out to the
+   run (in play, SW_OUT_HIT) or to the take and bat rest (SW_OUT). No clip mirror: a left-handed batter is the whole figure mirrored
+   (batterWalk), so the clip follows. While it holds, the bat leaves the keyframe pivot: handle in the bottom hand, axis through the top
+   hand. Called after batterWalk (the clip holds only while the proxies stay as set). Dev switch ?off=mocap. */
+const SWING_CLIP_URL='assets/mocap/swing_124_07.json',SW_FPS=30,SW_CONTACT=85/SW_FPS,SW_START=1.6,SW_END=3.6,SW_IN=.4,SW_OUT=[ARRIVE+.6,ARRIVE+1.1],SW_OUT_HIT=[ARRIVE+.2,ARRIVE+.35],SW_HAND_GAP_MIN=.03;
+let swingClip=null,swingClipP=null;const _sw0=new THREE.Vector3(),_sw1=new THREE.Vector3(),_swm=new THREE.Matrix4();
+const swTime=u=>Math.max(SW_START,Math.min(SW_END,SW_CONTACT+(u-ARRIVE)));
+function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
+  return Math.min(ease(sat01((u-a)/SW_IN)),1-ease(sat01((u-o[0])/(o[1]-o[0]))))}
+function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
+  if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
+  const w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return;
+  batter.handWorld(1,_sw0);batter.handWorld(0,_sw1);/* bottom hand (arms[1]) holds the handle, top hand (arms[0]) gives the axis */
+  const up=batPivot.parent;up.updateMatrixWorld(true);_sw1.sub(_sw0);const L=_sw1.length();
+  up.worldToLocal(_sw0);batPivot.position.lerp(_sw0,w);
+  if(L>SW_HAND_GAP_MIN){_swm.copy(up.matrixWorld).invert();_sw1.transformDirection(_swm);_bv.set(0,1,0).applyQuaternion(batPivot.quaternion).lerp(_sw1,w).normalize();batPivot.quaternion.setFromUnitVectors(_up,_bv)}}
 /* World position of the bat's sweet spot (call after batterWalk has placed the batter): a bunted pitch ends here and the bunted ball starts here */
 function buntContact(){batter.g.updateMatrixWorld(true);_ugs.set(0,BUNT_SWEET,0);bat.localToWorld(_ugs);buntPt[0]=_ugs.x;buntPt[1]=_ugs.y;buntPt[2]=_ugs.z;return buntPt}
 const BAT_HAND_GAP=.09,BUNT_CRACK=.3,HIT0=[0,1,.3];/* HIT0: where a swung-at ball leaves the bat */
 /* Six runner bodies: up to four movers or base runners of this play plus scorers of earlier plays still jogging off to their dugout (#43) */
 const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
+/* #42 slice 1, on-deck batter: the next batter waits on his team's on-deck circle (DECK in render/props/ondeck.js: |x| 11.3, z 1.2; the
+   circle is drawn on `max` only, the figure on every tier). Once the plate appearance before his is over (OD_GO_AT after a pitch that ends
+   it, or the last seconds of a ball in play) he walks up to BAT_FROM, the spot the first-pitch walk-in (batterWalk) starts from, going
+   round behind the umpire (OD_BEHIND_Z) when his box is on the other side; at the same moment the batter after him walks out of the
+   dugout to the circle. So nobody appears at the plate between two batters of one half inning. Only when the next pitch (past a vote or a
+   pitching change, where they hold) is to the same team. Slice 3: the leadoff pair comes out of the dugout in a BRK/PRE frame, the
+   on-deck man of the side just retired goes back to it (odLead, odOff). Pure function of (event, time, neighbouring events). */
+const OD_AT=[11.3,1.2],OD_GO_AT=ARRIVE+1.5,OD_WALK_V=1.8,OD_JOG_V=2.4,OD_HOLD=.6,OD_MIN_DUR=.5,OD_BEHIND_Z=4.2,OD_LEAD_PRE_AT=2;
+const odSpot=t=>[(t===0?1:-1)*OD_AT[0],OD_AT[1]];/* team 0 (road) on +x, like dugout(0) */
+const odNext=figure(matOff,pants,false,{head:'helmet'}),odDeck=figure(matOff,pants,false,{head:'helmet'});
+function odPath(pts){const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));return{pts,cum,L:cum[cum.length-1]}}
+function odAt(P,k){const d=k*P.L;let i=1;while(i<P.pts.length-1&&P.cum[i]<d)i++;const a=P.pts[i-1],b=P.pts[i],s=P.cum[i]-P.cum[i-1],t=s>0?sat01((d-P.cum[i-1])/s):1;
+  return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),b[0]-a[0],b[1]-a[1]]}
+const odGap=k=>k==='VOTE'||k==='CHG';/* frames with no pitch inside a half inning: a vote, a pitching change */
+function odNextP(ev,i){let j=i+1;while(ev[j]&&odGap(ev[j].k))j++;return ev[j]&&ev[j].k==='P'&&ev[j].bat?j:-1}
+/* The walk to the plate of the batter of pitch n (team t): `from` = the circle (he was on deck) or the dugout (leadoff, slice 3), the
+   batter after him jogs dugout -> circle. Both start at `go` (event-local s) and are done by OD_HOLD before the event ends. */
+function odMake(e,n,from,go,v){const t=n.bat[0],R=ROSTERS[t].bat,nb=R[n.bat[1]],lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]],G=dugout(t);
+  const F=from==='deck'?D:G,walk=odPath(Math.sign(F[0])===Math.sign(A[0])?[F,A]:[F,[0,OD_BEHIND_Z],A]),jog=odPath([G,D]),room=Math.max(e.d-OD_HOLD-go,OD_MIN_DUR);
+  return{go,walk,jog,t1:Math.min(walk.L/v,room),t2:Math.min(jog.L/OD_JOG_V,room),box:[lf?-BAT_BOX[0]:BAT_BOX[0],BAT_BOX[1]],nb,nn:R[(n.bat[1]+1)%R.length]}}
+/* Pitch i ends a plate appearance and the next pitch (past a vote or a pitching change) is to the same team: on-deck man walks up */
+function odPlan(ev,i){const e=ev[i],j=odNextP(ev,i),n=ev[j];if(!e||e.k!=='P'||!e.pa||!e.bat||j<0||n.bat[0]!==e.bat[0])return null;
+  const t=e.bat[0],R=ROSTERS[t].bat,nb=R[n.bat[1]],lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]];
+  const L=odPath(Math.sign(D[0])===Math.sign(A[0])?[D,A]:[D,[0,OD_BEHIND_Z],A]).L,J=odPath([dugout(t),D]).L;
+  return odMake(e,n,'deck',e.r==='inplay'?Math.max(0,e.d-OD_HOLD-Math.max(L/OD_WALK_V,J/OD_JOG_V)):OD_GO_AT,OD_WALK_V)}
+/* #42 slice 3: a half-inning break or the pregame (i = BRK/PRE) before the leadoff pitch: the leadoff man and the batter after him come
+   out of their dugout (BRK: when the fielders change, BRK_ON_AT; PRE: OD_LEAD_PRE_AT), jogging, and stand at BAT_FROM / on the circle */
+function odLead(ev,i){const e=ev[i],j=odNextP(ev,i);if(j<0||!(e.k==='BRK'||e.k==='PRE'))return null;return odMake(e,ev[j],'dugout',e.k==='BRK'?BRK_ON_AT:OD_LEAD_PRE_AT,OD_JOG_V)}
+/* ... and the on-deck man of the side that has just made its third out (or ended the game) jogs circle -> dugout and goes down the steps */
+function odOff(ev,i){const e=ev[i];if(e.k!=='BRK'&&e.k!=='END')return null;let b=i-1;while(ev[b]&&odGap(ev[b].k))b--;const q=ev[b];if(!q||q.k!=='P'||!q.bat)return null;
+  const t=q.bat[0],R=ROSTERS[t].bat,path=odPath([odSpot(t),dugout(t)]);return{go:e.k==='BRK'?BRK_OFF_AT:0,path,t:path.L/OD_JOG_V,team:t,p:R[(q.bat[1]+1)%R.length]}}
+const odEnd=(ev,i)=>{const o=odOff(ev,i),l=odLead(ev,i);return Math.max(o?o.go+o.t:0,l?l.go+Math.max(l.t1,l.t2):0)};/* cpEvents: they move until here */
+function poseOnDeck(e,u,ei){odNext.g.visible=odDeck.g.visible=false;if(!game)return;
+  const ev=game.ev,put=(f,p,x,z,fx,fz)=>{resetPose(f);f.noAnim=false;f.g.visible=true;f.g.position.set(x,0,z);setNum(f,p?p.num:undefined);dress(f,p);face(f,fx,fz)};
+  const deck=(t,p)=>{const D=odSpot(t);put(odDeck,p,D[0],D[1],-D[0],-D[1])};/* waiting on the circle, facing the plate */
+  const walkUp=(pl,u)=>{const k1=sat01((u-pl.go)/pl.t1),k2=sat01((u-pl.go)/pl.t2),[ax,az,adx,adz]=odAt(pl.walk,k1),[bx,bz,bdx,bdz]=odAt(pl.jog,k2);
+    if(k1<1)put(odNext,pl.nb,ax,az,adx,adz);else put(odNext,pl.nb,ax,az,pl.box[0]-ax,pl.box[1]-az);
+    if(k2<1)put(odDeck,pl.nn,bx,bz,bdx,bdz);else put(odDeck,pl.nn,bx,bz,-bx,-bz)};
+  if(e.k==='P'){if(!e.bat)return;const pl=odPlan(ev,ei);if(!pl||u<pl.go){const R=ROSTERS[e.bat[0]].bat;deck(e.bat[0],R[(e.bat[1]+1)%R.length]);return}walkUp(pl,u);return}
+  if(odGap(e.k)){/* a vote or a pitching change: everyone holds where the frame before left him */
+    let b=ei-1;while(ev[b]&&odGap(ev[b].k))b--;const q=ev[b];if(!q)return;
+    if(q.k==='BRK'||q.k==='PRE'){const pl=odLead(ev,b);if(pl)walkUp(pl,Infinity);return}
+    if(q.k!=='P'||!q.bat)return;const pl=odPlan(ev,b);if(pl){walkUp(pl,Infinity);return}const R=ROSTERS[q.bat[0]].bat;deck(q.bat[0],R[(q.bat[1]+1)%R.length]);return}
+  const o=odOff(ev,ei);if(o&&u<o.go+o.t){const k=sat01((u-o.go)/o.t),[x,z,dx,dz]=odAt(o.path,k);if(k>0)put(odDeck,o.p,x,z,dx,dz);else deck(o.team,o.p)}
+  const pl=odLead(ev,ei);if(pl&&u>=pl.go)walkUp(pl,u)}
+/* #42 slice 2 (owner 11/22 14:25): field umpires and base coaches at their posts, idle poses only (no signals yet). Base umpires (dark,
+   matUmp) stand at first, second and third on every event; their numbers, and the plate umpire's, come from league/staff.js
+   crewFor(seed). The two base coaches wear the batting team's kit (matCo) with the numbers and names of STAFF `<team>-first`/`<team>-third`
+   and stand in the coach's boxes facing the plate. At a half-inning break the old pair jogs to its dugout from BRK_OFF_AT and the new pair
+   jogs out from BRK_ON_AT (round behind home plate, ST_BEHIND_Z, when the box is on the far side); at PRE they jog out, at END they jog off.
+   Posts are [s, d]: s metres from home along the base line, d metres into foul ground, so one pair of numbers mirrors to third.
+   Pure function of (event, time); the names wait for the module (no number until it is in). */
+const ST_UMP_POST=[32,1.2],ST_U2_POST=[-2.5,-47],ST_BOX=[24,5.5],ST_JOG_V=4,ST_BEHIND_Z=5;
+const lineXZ=(side,[s,d])=>[side*(s+d)*Math.SQRT1_2,(d-s)*Math.SQRT1_2];/* side +1 = first-base line, -1 = third */
+const stUmpAt=[lineXZ(1,ST_UMP_POST),ST_U2_POST,lineXZ(-1,ST_UMP_POST)],ST_CREW=['first','second','third'],ST_ROLE=['first','third'];
+const umpB=stUmpAt.map(()=>{const f=figure(matUmp,matUmp,false);f.g.scale.y=.95;return f}),coaches=ST_ROLE.map(()=>figure(matCo,pants,false));
+let staffM=null;const stHere=document.currentScript&&document.currentScript.src;
+import(new URL('../league/staff.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{staffM=M}).catch(err=>console.warn('staff numbers off',err));
+const stCrew=new Map(),teamIdOf=t=>{const T=TEAMS[game&&game.teams?game.teams[t]:t];return T&&T.id};
+function crewNums(seed){if(!staffM||!staffM.crewFor)return null;if(!stCrew.has(seed)){const c=staffM.crewFor(seed),o={};for(const k in c){const u=staffM.umpire(c[k]);o[k]=u?u.num:undefined}stCrew.set(seed,o)}return stCrew.get(seed)}
+const stPath=(i,team)=>{const side=i?-1:1,B=lineXZ(side,ST_BOX),G=dugout(team);return odPath(Math.sign(G[0])===side?[G,B]:[G,[0,ST_BEHIND_Z],B])};
+const stJogDur=(team,i)=>stPath(i,team).L/ST_JOG_V,stJogEnd=(team,t0)=>t0+Math.max(stJogDur(team,0),stJogDur(team,1));/* cpEvents: they move until here */
+function poseStaff(e,u){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
+  umpB.forEach((f,i)=>{const [x,z]=stUmpAt[i];resetPose(f);f.noAnim=false;f.g.visible=true;f.g.position.set(x,0,z);face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined)});
+  const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
+  paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
+  coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
+    resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
+    setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name)})}
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
 const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
@@ -444,17 +805,23 @@ function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.
   const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8;
   /* f.mix: limb angles of the motion this run grows out of (the pitcher's follow-through), faded out by f.mix.k */
   const m=f.mix;if(m&&m.k>0){f.legs[0].rotation.x=lerp(sw,m.l0,m.k);f.legs[1].rotation.x=lerp(-sw,m.l1,m.k);f.arms[0].rotation.x=lerp(-sw*.8,m.a0,m.k);f.arms[1].rotation.x=lerp(sw*.8,m.a1,m.k)}return sp}
-/* Batter: before the first pitch of each plate appearance he walks from the on-deck circle into the box; if the PA ends without him running (strikeout) he walks back to the dugout, no more popping in and out */
-const BAT_BOX=[-.9,.15],BAT_FROM=[-7,2.6],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY=[-14,6],BAT_AWAY_AT=ARRIVE+.9,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7,BAT_LEAVE_BLEND=4,BAT_CROSS_FWD=.8;
+/* Batter: before the first pitch of each plate appearance he walks from BAT_FROM (where the on-deck walk-up left him, just outside the
+   box: #42 slice 4 moved it in from [-7, 2.6], a 6.6 m/s dash) into the box; if the PA ends without him running (strikeout) he walks
+   back to his own team's dugout (dugout(t), behind the plate at OD_BEHIND_Z when it is on the far side; slice 4: it was a fixed
+   batter-local spot, so every lefty went to the other team's side) and goes down the steps there. */
+const BAT_BOX=[-.9,.15],BAT_FROM=[-2.6,1],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY_AT=ARRIVE+.9,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7,BAT_LEAVE_BLEND=4,BAT_CROSS_FWD=.8;
+/* the strikeout walk-off, in the batter-local frame (a lefty's figure is mirrored, so his dugout is mirrored into that frame too) */
+function batAway(e){const lf=ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',G=dugout(e.bat[0]),D=[lf?-G[0]:G[0],G[1]];
+  return odPath(Math.sign(D[0])===Math.sign(BAT_BOX[0])?[BAT_BOX,D]:[BAT_BOX,[0,OD_BEHIND_Z],D])}
 function batterWalk(e,u){
   let x=BAT_BOX[0],z=BAT_BOX[1],yaw=Math.PI/2,sw=0;
   if(e.c0[0]===0&&e.c0[1]===0&&u<BAT_WALK_DUR){
     const t=ease(sat01(u/BAT_WALK_DUR)),k=sat01((u-(BAT_WALK_DUR-BAT_TURN))/BAT_TURN),wy=Math.atan2(BAT_BOX[0]-BAT_FROM[0],BAT_BOX[1]-BAT_FROM[1]);
     x=lerp(BAT_FROM[0],BAT_BOX[0],t);z=lerp(BAT_FROM[1],BAT_BOX[1],t);yaw=lerp(wy,Math.PI/2,k);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP*(1-k)}
-  else if(e.pa&&!(e.moves||[]).some(m=>m[0]===0)&&u>=(e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT)){
-    const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,dx=BAT_AWAY[0]-BAT_BOX[0],dz=BAT_AWAY[1]-BAT_BOX[1],L=Math.hypot(dx,dz),t=(u-at)*(e.r==='inplay'?BAT_AWAY_SPEED_HIT:BAT_AWAY_SPEED)/L;
+  else if(e.pa&&e.bat&&!(e.moves||[]).some(m=>m[0]===0)&&u>=(e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT)){
+    const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,P=batAway(e),t=(u-at)*(e.r==='inplay'?BAT_AWAY_SPEED_HIT:BAT_AWAY_SPEED)/P.L;
     if(t>=1)batter.g.visible=false;
-    x=lerp(BAT_BOX[0],BAT_AWAY[0],Math.min(t,1));z=lerp(BAT_BOX[1],BAT_AWAY[1],Math.min(t,1));yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP}
+    const [px,pz,dx,dz]=odAt(P,Math.min(t,1));x=px;z=pz;yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP}
   const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';/* Left-handed batter = the whole figure mirrored left/right */
   batter.g.scale.x=lf?-1:1;
   batter.g.position.set(lf?-x:x,-buntDrop,z);batter.g.rotation.y=lf?-yaw:yaw;batter.legs[0].rotation.x=sw;batter.legs[1].rotation.x=-sw}
@@ -477,10 +844,42 @@ const PITCH_SH_Y=.57,PITCH_ARM=.62,P_RUN_BLEND=.4;
 const COVER_BACK_AT=2.2,BAG_CROWD_R=2.5,CROWD_CLEAR_T=.6;
 /* Release point (closed form, same model as the proxy joints). Right-handed = inner x mirror, so world x flips sign; skinned figure scaled by k */
 const pitchTipAt=(u,px,pz)=>{const P=fielders.P,sg=P.mirrored?-1:1,k=P.k||1,L=kf(u,PK.lean),th=kf(u,PK.a1),y=kf(u,PK.yaw),lz=PITCH_SH_Y*Math.sin(L)-PITCH_ARM*Math.sin(th);return[px+sg*k*(.3*Math.cos(y)+lz*Math.sin(y)),k*(.95+PITCH_SH_Y*Math.cos(L)-PITCH_ARM*Math.cos(th)),pz+kf(u,PK.dz)+k*(-.3*Math.sin(y)+lz*Math.cos(y))]};
+/* #186: the real delivery (CMU 124_01, assets/mocap) on the skinned pitcher, over the keyframes above. Clip time is warped to the
+   event: PM_START (set, before the rock) at u 0, PM_KNEE (leg lift) at PM_KNEE_U, the clip's release frame exactly at RELEASE, then real
+   speed to PM_END. Blends in over PM_IN and back to the keyframes over PM_OUT. The ball leaves from the hand of the clip at RELEASE
+   (measured once per pitcher and spot), so release time and point are the engine's and the picture's together. The performer throws
+   right-handed: his clip is mirrored onto the throwing side (bones R) and the figure's own mirror makes it right- or left-handed. */
+const PITCH_CLIP_URL='assets/mocap/pitch_124_01.json',PM_START=1.2,PM_KNEE=2.33,PM_KNEE_U=.6,PM_END=4.6,PM_IN=.25,PM_OUT=[2.2,2.8];
+let pitchClip=null,pitchClipP=null;const pmRel=new Map();
+/* #186 (owner 11/22 10:33: no gliding back to the rubber). After the release the pitcher finishes on the spot his stride landed on: PM_LAND
+   (keyframes) or, with the clip, where the clip's hips stand at PM_END, so blending out of the clip moves nothing. Then he walks back to
+   the rubber in PM_STEPS backward steps between PM_BACK[0] and PM_BACK[1] (inside the pitch frame, PK_END): one foot swings (lifted by
+   PM_LIFT of its length) while the other stays planted, the hips ride at the middle of the two feet, every leg angle is solved from where
+   its foot is (leg PM_LEG m, hip over the rubber line), so a planted foot does not slide. Pure function of u. */
+const PM_LAND=.85,PM_BACK=[3.4,4.6],PM_STEPS=4,PM_LIFT=.12,PM_LEG=.9,PM_FOOT_MAX=.9;const pmLand=new Map();
+function pmBack(u,S,k){if(u<PM_BACK[0])return null;
+  const s=sat01((u-PM_BACK[0])/(PM_BACK[1]-PM_BACK[0]))*PM_STEPS,i=Math.min(PM_STEPS-1,Math.floor(s)),f=ease(Math.min(1,s-i)),d=S/(PM_STEPS-1),
+    at=n=>Math.max(0,S-n*d),/* foot 0 moves on steps 1, 3, ...; foot 1 on steps 2, 4, ... */
+    after=(ft,n)=>{let m=0;for(let j=1;j<=n;j++)if((j-1)%2===ft)m=j;return m?at(m):S},sw=i%2,
+    F=[0,1].map(ft=>ft===sw?lerp(after(ft,i),after(ft,i+1),f):after(ft,i)),z=(F[0]+F[1])/2;
+  return{z,leg:F.map(Fz=>Math.asin(clamp((z-Fz)/(PM_LEG*k),-PM_FOOT_MAX,PM_FOOT_MAX))),sc:[0,1].map(ft=>ft===sw?1-PM_LIFT*Math.sin(Math.PI*f):1)}}
+const pmTime=(u,c)=>{const tr=c.release.frame/c.fps;return u<PM_KNEE_U?PM_START+Math.max(0,u)*(PM_KNEE-PM_START)/PM_KNEE_U:u<RELEASE?PM_KNEE+(u-PM_KNEE_U)*(tr-PM_KNEE)/(RELEASE-PM_KNEE_U):Math.min(PM_END,tr+(u-RELEASE))};
+const pmW=u=>Math.min(ease(sat01(u/PM_IN)),1-ease(sat01((u-PM_OUT[0])/(PM_OUT[1]-PM_OUT[0]))));
 function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,PK.a1),bx=P.g.position.x,bz=P.g.position.z;
   PR.up.rotation.set(L,y,0);PR.hg.rotation.y=-y*.9;P.legs[0].rotation.x=kf(u,PK.l0);P.legs[1].rotation.x=kf(u,PK.l1);P.arms[0].rotation.x=kf(u,PK.a0);P.arms[1].rotation.x=th;
-  P.g.position.z+=kf(u,PK.dz);
-  return{tip:pitchTipAt(u,bx,bz),rel:pitchTipAt(RELEASE,bx,bz)}}
+  const mo=P.setMocap&&!OFF.has('mocap'),c=mo?pitchClip:null,mkey=[bx,bz,P.buildKey,P.throws,P.k].join();
+  let S=PM_LAND;if(c&&P.moTravel){S=pmLand.get(mkey);if(S===undefined){S=P.moTravel(c,PM_END,PM_START);pmLand.set(mkey,S)}}
+  const dz=u<PM_OUT[0]?kf(u,PK.dz):S,B=pmBack(u,S,P.k||1);P.legs[0].scale.y=P.legs[1].scale.y=1;
+  if(B){P.legs[0].rotation.x=B.leg[0];P.legs[1].rotation.x=B.leg[1];P.legs[0].scale.y=B.sc[0];P.legs[1].scale.y=B.sc[1]}
+  /* the stride foot comes back under the hips as a step (lifted), not dragged, while the clip hands over to the keyframes */
+  else if(u>=PM_OUT[0])P.legs[0].scale.y=1-PM_LIFT*Math.sin(Math.PI*sat01((u-PM_OUT[0])/(PM_BACK[0]-PM_OUT[0])));
+  P.g.position.z+=B?B.z:dz;
+  let rel=pitchTipAt(RELEASE,bx,bz);
+  if(mo){if(!pitchClipP&&window.PL&&PL.loadClip)pitchClipP=PL.loadClip(PITCH_CLIP_URL).then(c=>{pitchClip=c}).catch(e=>console.warn('mocap',e));
+    if(c){const mir=c.release.hand==='right',key=[bx,bz,P.buildKey,P.throws].join();let r=pmRel.get(key);
+      if(!r){const z=P.g.position.z,dR=kf(RELEASE,PK.dz);P.g.position.z=bz+dR;P.setMocap(c,pmTime(RELEASE,c),1,mir,PM_START,dR);const q=P.handWorld(1);r=[q.x,q.y,q.z];pmRel.set(key,r);P.g.position.z=z}
+      const w=pmW(u);P.setMocap(c,pmTime(u,c),w,mir,PM_START,dz);if(w>0)rel=r}}
+  return{tip:pitchTipAt(u,bx,bz),rel}}
 function arc(p0,p1,peak,t){return[lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)+peak*4*t*(1-t),lerp(p0[2],p1[2],t)]}
 
 /* ---------- Fielding: catch / transfer / throw (frame-steppable in the studio) ---------- */
@@ -528,7 +927,7 @@ function flyPath(e,p0,p1,T){const key=e.t;let tab=flyCache.get(key);
 const INTRO_GAP=.7,INTRO_RUN=4.5,INTRO_X=26,INTRO_Z=-6;
 /* ---------- per-frame scene from event ---------- */
 /* catcher + home-plate umpire crouch, mitt tracking, strike call; half-inning swap (defense jogs off, other team jogs on) */
-const CROUCH_FWD=.55,CROUCH_SPLAY=.45,CROUCH_LEAN=.2,CROUCH_SHRINK=.35,UMP_FWD=.35,UMP_SPLAY=.3,UMP_LEAN=.4,UMP_SHRINK=.18,UMP_HEAD_UP=.45,MITT_Z=1.1,MITT_SET_LEAD=.7,MITT_SET_DUR=.5,CALL_DELAY=.15,CALL_UP=.25,CALL_HOLD=1.4,CALL_DOWN=.4,CALL_STAND=.75,LEG_LEN=.86;
+const CROUCH_FWD=.7,CROUCH_SPLAY=.45,CROUCH_LEAN=.4,CROUCH_SHRINK=.5,UMP_FWD=.35,UMP_SPLAY=.3,UMP_LEAN=.4,UMP_SHRINK=.18,UMP_HEAD_UP=.45,MITT_Z=.8,MITT_SET_LEAD=.7,MITT_SET_DUR=.5,CALL_DELAY=.15,CALL_UP=.25,CALL_HOLD=1.4,CALL_DOWN=.4,CALL_STAND=.75,LEG_LEN=.86;
 const JOG_SPEED=6.5,JOG_GAP=.3,BRK_OFF_AT=1,BRK_ON_AT=17.5,_tv=new THREE.Vector3();
 const jogRank=k=>JOG_ORDER.indexOf(k),JOG_ORDER=FIELDER_KEYS.slice().sort((a,b)=>Math.hypot(...fielders[b].home)-Math.hypot(...fielders[a].home));
 const dugout=t=>[(t===0?1:-1)*INTRO_X,INTRO_Z];
@@ -537,17 +936,24 @@ function aimWorld(R,arm,sx,wx,wy,wz){R.up.updateWorldMatrix(true,false);_tv.set(
 function armsDown(R){R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1}
 /* #43 plate pose: a crouched catcher's head is ~1.1 m up, a high miss arrives at 1.3-1.55 m. Instead of an arm straight up he rises out of the
    crouch in a controlled way (up to C_HIGH_RISE of it, from C_HIGH_Y over C_HIGH_SPAN of pitch height). After the catch he holds the mitt
-   MITT_HOLD s, then brings it back to rest at his chest and sinks back into the crouch over MITT_BACK s (the return throw starts from there). */
-const C_HIGH_Y=.95,C_HIGH_SPAN=.5,C_HIGH_RISE=.6,MITT_HOLD=.35,MITT_BACK=.5;
+   MITT_HOLD s, then brings it back to rest at his chest and sinks back into the crouch over MITT_BACK s (the return throw starts from there).
+   #128: he receives from the crouch. The rise starts only C_RISE_LEAD s before the ball arrives (it used to follow the mitt set, 0.65 s early,
+   so he stood up into the swing); the bat has passed his head by the time he is half up */
+const C_HIGH_Y=.95,C_HIGH_SPAN=.5,C_HIGH_RISE=.6,C_RISE_LEAD=.3,MITT_HOLD=.35,MITT_BACK=.5;
+const pitchY=e=>.45+e.zy*.75,catchRise=e=>C_HIGH_RISE*sat01((pitchY(e)-C_HIGH_Y)/C_HIGH_SPAN);/* mitt height of a pitch; how far a catch there lifts him */
+/* #128: the glove arm cannot reach far across his body (backhand side, world +x), so for a pitch there he shifts his whole body over during
+   the mitt set, like a real catcher framing it: (zx - C_GLOVE_X) * C_SHIFT_K, at most C_SHIFT_MAX, back to his spot with the mitt */
+const C_GLOVE_X=-.1,C_SHIFT_K=.8,C_SHIFT_MAX=.25,cShift=e=>clamp((e.zx-C_GLOVE_X)*C_SHIFT_K,0,C_SHIFT_MAX);
 /* #43 overlaps at the plate: once a ball is in play the catcher and the plate umpire stand up (PLATE_UP_AT after contact, over PLATE_UP_DUR),
    the catcher's mitt goes back to rest and the umpire's arms hang, so either can move (legs animated) instead of gliding in a crouch.
    They sink back into the crouch PLATE_DOWN_AT s before the play ends, so the next pitch does not start with a jump into the crouch */
 const PLATE_UP_AT=.25,PLATE_UP_DUR=.45,PLATE_DOWN_AT=1,PLATE_DOWN_DUR=.6,ARM_HANG=[0,BAT_SHOULDER_Y-BAT_ARM_LEN,0];/* hand straight below the shoulder (x = the shoulder's own x) */
 function poseBattery(e,u){
   const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG',isP=e.k==='P',up=isP&&e.r==='inplay'?ease(sat01((u-ARRIVE-PLATE_UP_AT)/PLATE_UP_DUR))*(e.d?1-ease(sat01((u-(e.d-PLATE_DOWN_AT))/PLATE_DOWN_DUR)):1):0;
-  const py=isP?.45+e.zy*.75:MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
-    back=isP&&!e.sbGo?Math.max(up,ease(sat01((u-(ARRIVE+CATCH_SNAP+MITT_HOLD))/MITT_BACK))):0,rise=C_HIGH_RISE*sat01((py-C_HIGH_Y)/C_HIGH_SPAN)*k*(1-back),c=set?(1-rise)*(1-up):0;
-  C.noAnim=set&&up<1;crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
+  const py=isP?pitchY(e):MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
+    back=isP&&!e.sbGo?Math.max(up,ease(sat01((u-(ARRIVE+CATCH_SNAP+MITT_HOLD))/MITT_BACK))):0,rk=isP?ease(sat01((u-(ARRIVE-C_RISE_LEAD))/C_RISE_LEAD)):0,rise=C_HIGH_RISE*sat01((py-C_HIGH_Y)/C_HIGH_SPAN)*rk*(1-back),c=set?(1-rise)*(1-up):0;
+  C.noAnim=set&&up<1;if(C.noAnim)C.auto=false;/* #128: no automatic elbow bend on the glove arm, or a reach for a high/low/wide pitch falls ~.4 m short */crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
+  if(isP&&up<1)C.g.position.x+=cShift(e)*k*(1-back)*(1-up);
   if(set&&up<1){const gx=lerp(lerp(0,isP?e.zx:0,k),0,back),gy=lerp(lerp(MITT_REST_Y,py,k),MITT_REST_Y,back);
     aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,gx*.8,gy-.15,MITT_Z+.2)}else armsDown(CR);
   const call=isP&&(e.r==='cstr'||e.r==='sstr')?ease(sat01((u-(ARRIVE+CALL_DELAY))/CALL_UP))*(1-ease(sat01((u-(ARRIVE+CALL_HOLD))/CALL_DOWN))):0,cu=(set?1:0)*(1-CALL_STAND*call)*(1-up);
@@ -615,21 +1021,27 @@ function tagPose(f,u,ballIn,tagT,base,out){f.auto=false;f.noAnim=true;const R=f.
    runner), he comes up with the ball at his chest, holds it, and starts the arm action CATCHER_POP*(1-XFER_HAND_SWAP) before release.
    Then he watches the play standing and sinks back into the crouch before the next pitch. Returns the release point for the ball */
 const C_STEP=.45,C_RISE=.6,C_RECROUCH=.7,XFER_HAND_SWAP=.45,MITT_REST_Y=.7;
+/* #128: the transfer starts from the catch pose (mitt on the ball, body as high as the catch left him) and blends into the throw over
+   C_XFER_BLEND s, so neither the mitt nor the ball jumps at the catch */
+const C_XFER_BLEND=.18,_qa=new THREE.Quaternion(),_qb=new THREE.Quaternion();
 function catcherThrow(e,u,S,sp){const C=fielders.C,catchAt=ARRIVE+CATCH_SNAP,xfer=Math.min(CATCHER_POP,S.t0-catchAt),hold=S.t0-catchAt-xfer,tgt=[sp[0],1.2,sp[1]];
-  const [hx,hz]=C.pos,dx=sp[0]-hx,dz=sp[1]-hz,L=Math.hypot(dx,dz),at=[hx+dx/L*C_STEP,hz+dz/L*C_STEP],rel=throwRelease(e,C,at,xfer,tgt);
+  const [h0,hz]=C.pos,hx=h0+cShift(e),dx=sp[0]-hx,dz=sp[1]-hz,L=Math.hypot(dx,dz),at=[hx+dx/L*C_STEP,hz+dz/L*C_STEP],rel=throwRelease(e,C,at,xfer,tgt);
   /* Motion clock: transfer, hold at the end of the transfer, then the throw */
   const x0=xfer*XFER_HAND_SWAP,t=u-catchAt,tt=t<x0?t:t<x0+hold?x0:t-hold,r={rel,tgt,xfer,xferT:tt};
   if(t<0)return r;
-  const step=ease(sat01(tt/xfer)),back=e.d?ease(sat01((u-(e.d-C_RECROUCH))/C_RECROUCH)):0,c=Math.max(1-ease(sat01(t/(xfer*C_RISE))),back);
-  resetPose(C);C.noAnim=true;C.g.position.set(lerp(hx,at[0],step*(1-back)),0,lerp(hz,at[1],step*(1-back)));face(C,dx,dz);
+  const step=ease(sat01(tt/xfer)),back=e.d?ease(sat01((u-(e.d-C_RECROUCH))/C_RECROUCH)):0,c=Math.max((1-catchRise(e))*(1-ease(sat01(t/(xfer*C_RISE)))),back);
+  resetPose(C);C.noAnim=true;C.g.position.set(lerp(lerp(hx,at[0],step),h0,back),0,lerp(hz,at[1],step*(1-back)));{const a0=Math.atan2(-h0,-hz),d=((Math.atan2(dx,dz)-a0)%(2*Math.PI)+3*Math.PI)%(2*Math.PI)-Math.PI;C.g.rotation.y=a0+d*ease(sat01(t/C_XFER_BLEND))}/* #128: the throw starts from the shifted catch, turning from the pitcher; he re-crouches on his own spot */
   if(c>0)crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
   if(back>0){aimWorld(CR,CR.a0,-BAT_SHOULDER_X,0,MITT_REST_Y,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,0,MITT_REST_Y-.15,MITT_Z+.2)}
-  else if(u-S.t0<THROW_FT_DUR)throwPose(C,tt,xfer,tgt);
+  else if(u-S.t0<THROW_FT_DUR){throwPose(C,tt,xfer,tgt);
+    const bl=ease(sat01(t/C_XFER_BLEND));if(bl<1){const q0=_qa.copy(CR.a0.quaternion),q1=_qb.copy(CR.a1.quaternion),s0=CR.a0.scale.y,s1=CR.a1.scale.y,py=pitchY(e);
+      aimWorld(CR,CR.a0,-BAT_SHOULDER_X,e.zx,py,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,e.zx*.8,py-.15,MITT_Z+.2);
+      CR.a0.quaternion.slerp(q0,bl);CR.a1.quaternion.slerp(q1,bl);CR.a0.scale.y=lerp(CR.a0.scale.y,s0,bl);CR.a1.scale.y=lerp(CR.a1.scale.y,s1,bl)}}
   return r}
 const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 function poseScene(e,u,dt,ei){
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
-  matDef.color.setHex(TEAMS[defT].color);matOff.color.setHex(TEAMS[off].color);
+  paintKit(matDef,defT);paintKit(matOff,e.k==='BRK'&&u>=BRK_ON_AT?def:off);/* #42: after the change the walkers out of the dugout are the new batting side */
   applyNums(e,off,defT);
   /* fielders default */
   for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=fielderStart(k,e.s0.b,e.s0.outs);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
@@ -642,6 +1054,7 @@ function poseScene(e,u,dt,ei){
     if(tt<1)face(f,f.home[0]-sx,f.home[1]-sz);else face(f,-f.home[0],-f.home[1])})}
   batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
+  poseOnDeck(e,u,ei);poseStaff(e,u);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
   const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
@@ -655,17 +1068,17 @@ function poseScene(e,u,dt,ei){
   if(e.r==='inplay'&&(e.play.fielder==='P'||e.plan.CV.key==='P')&&u>=ARRIVE){const k=1-ease(sat01((u-ARRIVE-FIELD_REACT)/P_RUN_BLEND));
     P.pos=[P.pos[0],P.pos[1]+kf(ARRIVE,PK.dz)];P.noAnim=false;PR.up.rotation.x*=k;PR.up.rotation.y*=k;PR.hg.rotation.y*=k;
     P.mix={k,l0:P.legs[0].rotation.x,l1:P.legs[1].rotation.x,a0:P.arms[0].rotation.x,a1:wrapA(P.arms[1].rotation.x)}}
-  const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],mitt=[e.zx,plate[1],MITT_Z],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp';
+  const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp';
   const moving=new Set((e.moves||[]).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n))standRunner(i,u,n)}
   const contact=e.r==='inplay'||e.r==='foul';
-  poseBatter(e,u);batterWalk(e,u);placeUmp(e,u);
+  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);
   const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
   else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
-    else if(u<ARRIVE+CATCH_SNAP)bp=arc(plate,mitt,0,(u-ARRIVE)/CATCH_SNAP);else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
+    else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
@@ -896,12 +1309,19 @@ sayBtn.onclick=()=>{sayOn=!sayOn;sayBtn.setAttribute('aria-pressed',sayOn);if(sa
 /* ---------- camera & controls ---------- */
 let seat=3,yawOff=0,pitchOff=0,zoomed=false;
 const look=(sx,sy,sz,tx,ty,tz)=>[Math.atan2(-(tx-sx),-(tz-sz)),Math.atan2(ty-sy,Math.hypot(tx-sx,tz-sz))];
-let shotNow=-1,autoSeat=-1,hitPrev=false;
+let shotNow=-1,autoSeat=-1,hitPrev=false,tightPrev=false;
 /* Seat fovs are vertical. On a 19.5:9 phone 55 deg vertical is ~97 deg across, a fisheye that stretches the near stands while dragging the
    view around and makes the park feel like a model; cap the horizontal angle at HFOV_MAX (a 16:10 desktop stays as it was). */
 const HFOV_MAX=80,fitFov=f=>Math.min(f,2*Math.atan(Math.tan(HFOV_MAX*Math.PI/360)/camera.aspect)*180/Math.PI);
 /* Broadcast camera after contact: high behind home plate looking at the whole field, aim drifting slowly between the field centre and the ball */
 const HITCAM={x:0,y:8,z:11,fov:62,mid:[0,0,-26]};
+/* Tight shot of the batter (#158): on the first pitch of each plate appearance the broadcast lens (auto seat, also inside the director)
+   closes from 5.5 to TIGHT_FOV on the batter while he walks in from the on-deck circle and sets, holds until TIGHT_OUT_AT, then opens
+   back over TIGHT_OUT_DUR so the frame is the normal one .15 s before the release: pitch tracking is unchanged. Camera only, no
+   event timing. Weight and aim are a pure function of (event, time, batter pose), so a bar jump lands on the same framing. Off with
+   the 望遠鏡 toggle (already tighter). Aim: TIGHT_AIM_Y m up the batter (scaled by his build), head in the upper part of the frame. */
+const TIGHT_FOV=2.4,TIGHT_OUT_AT=RELEASE-.6,TIGHT_OUT_DUR=.45,TIGHT_AIM_Y=1.45;
+const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
   if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
@@ -918,8 +1338,12 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   if(s.auto&&autoSeat!==seat)FOLLOW_T.set(s.tx,s.ty,s.tz);autoSeat=s.auto?seat:-1;
   if(s.follow||s.auto){const want=s.follow?(ball.visible?ball.position:_fw.set(0,1.3,-9)):(trk?_fw.set(HITCAM.mid[0],HITCAM.mid[1],HITCAM.mid[2]).lerp(ball.position,.35):_fw.set(s.tx,s.ty,s.tz)),k=Math.min(1,dt*(ball.visible&&(s.follow||trk)?7:s.auto?4:2.5));FOLLOW_T.lerp(want,k);tx=FOLLOW_T.x;ty=FOLLOW_T.y;tz=FOLLOW_T.z;
     const d=Math.hypot(tx-s.x,tz-s.z);if(s.follow)bf=clamp(2*Math.atan(14/Math.max(d,8))*180/Math.PI,16,40);else if(trk)bf=HITCAM.fov}
+  const tw=s.auto&&!trk&&!zoomed&&batter.g.visible?tightW(curEvent,curU):0;
+  if(tw>0){const bp=batter.g.position;tx=lerp(tx,bp.x,tw);ty=lerp(ty,TIGHT_AIM_Y*(batter.k||1),tw);tz=lerp(tz,bp.z,tw)}
   const [y,p]=look(cs.x,py,cs.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
-  const fov=fitFov(zoomed?bf*.4:bf);if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}}
+  const fov=fitFov(zoomed?bf*.4:tw>0?lerp(bf,TIGHT_FOV,tw):bf);
+  if(tw>0||tightPrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(editing)return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
@@ -939,7 +1363,7 @@ addEventListener('orientationchange',()=>setTimeout(()=>{camera.aspect=innerWidt
 const ENTRY_WATCH_MS=15000;let entryT0=0,entryDraw=0,entryGap=0;const entryLog=[];
 const entryNote=x=>{if(entryT0&&entryLog.length<12)entryLog.push(`${x}@${Math.round(performance.now()-entryT0)}`)};
 function entryFrame(now){if(!entryT0||now-entryT0>ENTRY_WATCH_MS)return;if(!entryDraw)entryNote('f1');else entryGap=Math.max(entryGap,now-entryDraw);entryDraw=now}
-$('report').onclick=async()=>{const code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} fps=${fpsAvg.toFixed(0)} tier=${gfxTier} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
+$('report').onclick=async()=>{const B=window.BOOT,code=`#BUG entry=${entryLog.join(',')||'-'},gap${Math.round(entryGap)} boot=${B&&B.str?B.str()||'-':'-'}${OFF.size?` off=${[...OFF].join('+')}`:''} fps=${fpsAvg.toFixed(0)} tier=${gfxMax?`max(${PP?PP.fx:'nopost'})`:gfxTier}${maxWish&&!gfxMax?`(max-${IS_GPU?'off':'gl'})`:''} be=${IS_GPU?'gpu':'gl'} px=${renderer.domElement.width}x${renderer.domElement.height} seed=${seedCur} t=${curT().toFixed(1)} seat=${seat} zoom=${zoomed} mode=${mode} dec=${JSON.stringify(decisions||{})} ev=${curEvent?curEvent.k+(curEvent.r?'/'+curEvent.r:''):''} u=${curU.toFixed(2)}${studio?` act=${studio.key}#${studio.n+1}`:''}`;
   try{await navigator.clipboard.writeText(code);note('已複製，貼給 Claude 就能重現這一刻')}catch(err){prompt('複製這行貼給 Claude：',code)}};
 const luEl=$('lu');
 function showLineup(){let h='<div class="cols">';for(let t=0;t<2;t++){const R=ROSTERS[t],f=game.ev.find(x=>x.k==='P'&&x.pit&&x.pit[0]===t),sp=f?R.pit[f.pit[1]]:R.pit[0];
@@ -1029,10 +1453,11 @@ function cpEvents(g){const ev=g.ev;
     for(let j=i-1;j>=0&&e.t-ev[j].t<PEEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
       for(const [,to,,tl] of q.moves||[])if(to===4)pe=Math.max(pe,Math.min(q.t+PEEL_LOOK,q.t+tl.arriveT+peelLen(off,tl))-e.t)}
     if(e.k==='VOTE'||e.k==='CHG'){head=e.d;tail=0}
-    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=jogEnd(dugout(off),BRK_ON_AT)}
-    else if(e.k==='PRE')tail=jogEnd([dugout(1-off)[0],INTRO_Z],0);
+    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
+    else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),stJogEnd(off,0),odEnd(ev,i));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
-      if(e.pa&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+Math.hypot(BAT_AWAY[0]-BAT_BOX[0],BAT_AWAY[1]-BAT_BOX[1])/BAT_AWAY_SPEED);/* strikeout: he walks off */
+      if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAway(e).L/BAT_AWAY_SPEED);/* strikeout: he walks off to his dugout */
+      const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE))}/* walk: runners trot on */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
     return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch'}})}
@@ -1158,20 +1583,63 @@ function studioTick(dt){if(!studio)return;if(studio.play){replayT+=dt*studio.spd
 addEventListener('keydown',e=>{if(!studio||e.target.tagName==='SELECT')return;if(e.key===' '){e.preventDefault();$('stPlay').click()}else if(e.key==='ArrowRight'){replayT=Math.min(studio.t1,replayT+.05);studio.play=false;$('stPlay').textContent='播放'}else if(e.key==='ArrowLeft'){replayT=Math.max(studio.t0,replayT-.05);studio.play=false;$('stPlay').textContent='播放'}});
 
 /* ---------- Auto quality (target: steady 60 fps on a phone in landscape, no dropped frames on substitutions) ----------
-   0 everything on (desktop) -> 1 phone start: 1.25x resolution, 1024 shadow map -> 2 1x resolution, no post/grass blades/bugs -> 3 no realtime shadows, round blob shadows under players.
-   Drop one tier whenever the average over FPS_WIN frames exceeds FPS_BUDGET_MS (down only, never up, to avoid flip-flopping); a chosen tier is saved in zu_tier and used as the start next time */
+   0 everything on (desktop) -> 1 phone start: 1.25x resolution, 1024 shadow map -> 2 1x resolution, no post/grass blades/bugs -> 3 no realtime shadows (the contact shadows of #132 stay on every tier).
+   Drop one tier whenever the average over FPS_WIN frames exceeds FPS_BUDGET_MS (down only, never up, to avoid flip-flopping); a chosen tier is saved in zu_tier and used as the start next time.
+   #236: saved as "tier@ms" and used for TIER_KEEP_MS only, so one bad session (a GPU fault, a busy machine) no longer parks a browser on a low tier for good;
+   an old plain number from before is ignored. */
 const IS_MOBILE=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches,FPS_WIN=90,FPS_BUDGET_MS=19,FPS_WARMUP_MS=4000,TIER_MAX=3;
-let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{const t=+localStorage.getItem('zu_tier');if(t>gfxTier&&t<=TIER_MAX)gfxTier=t}catch(e){}
-const blobShadows=[...Object.values(fielders),batter,ump,...runners].map(f=>{const m=new THREE.Mesh(GEO.shadow,shadowMat);m.rotation.x=-Math.PI/2;m.position.y=.02;m.scale.setScalar(.8);m.visible=false;f.g.add(m);return m});
-function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);try{localStorage.setItem('zu_tier',String(gfxTier))}catch(e){}
-  renderer.setPixelRatio(Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
-  key.shadow.mapSize.set(gfxTier?1024:2048,gfxTier?1024:2048);/* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
-  PP=gfxTier>=2||gfxLow?null:(PP||setupPost());
-  const sh=gfxTier<3;renderer.shadowMap.enabled=sh;key.castShadow=sh;blobShadows.forEach(m=>m.visible=!sh);
+const TIER_KEEP_MS=2*864e5;/* two days */
+let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{const [a,b]=(localStorage.getItem('zu_tier')||'').split('@'),t=+a,at=+b;if(at&&Date.now()-at<TIER_KEEP_MS&&t>gfxTier&&t<=TIER_MAX)gfxTier=t}catch(e){}
+/* ---------- contact shadows (#132) ----------
+   Every figure, on every tier (Low included), gets a soft dark patch at the feet plus a fan of six faint long shadows pointing away from the six
+   towers, as a night game shows: what keeps players from looking pasted on the grass. Two instanced meshes, no depth write, matrices set each
+   frame from the figures' positions; fan length follows the lamp height. Replaces the old tier-3 round blobs. */
+const CS_R=.3,CS_R_CROUCH=.42,CS_PATCH_A=.45,CS_FAN_OP=.12,CS_FAN_W=.5,CS_BODY_H=1.85,LAMP_H=46,CS_FAN_MIN=1.2,CS_FAN_MAX=5,CS_Y=.02,CS_TEX=64;
+const csFigs=[...Object.values(fielders),batter,ump,...runners,...umpB,...coaches],csBig=new Set([fielders.C,ump]);
+const csTex=draw=>{const c=document.createElement('canvas');c.width=c.height=CS_TEX;draw(c.getContext('2d'),CS_TEX);return new THREE.CanvasTexture(c)};
+/* #267: three gives the scene pass's side targets (normal for AO/SSGI, diffuse for SSGI, velocity for TRAA) no blending by default, so each
+   patch and fan quad overwrote the ground's normal, albedo and velocity over its whole rectangle, alpha-0 corners included: AO/GI/TRAA read a
+   different ground there and drew a pale star of 6 spokes around every figure. setupPost now blends those targets like the material
+   (MRT_KEEP); csMrt writes alpha 0 into them, so they keep the ground's values and only the colour target gets the shadow. Only while the
+   renderer has an MRT: three uses a material MRT alone when the pass has none (tiers without AO), and that would drop the colour output. */
+const csMrt=TSL.mrt(Object.fromEntries(MRT_KEEP.map(n=>[n,TSL.vec4(0)])));
+const csMat=(map,opacity)=>{const m=new THREE.MeshBasicNodeMaterial({color:0,map,opacity,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  Object.defineProperty(m,'mrtNode',{get:()=>renderer.getMRT()?csMrt:null,set(){}});return m};
+const csPatch=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),csMat(csTex((g,n)=>{const gr=g.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);
+  gr.addColorStop(0,`rgba(0,0,0,${CS_PATCH_A})`);gr.addColorStop(.45,`rgba(0,0,0,${CS_PATCH_A*.7})`);gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)}),1),csFigs.length);
+const csFan=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2).translate(0,0,-.5),csMat(csTex((g,n)=>{/* canvas bottom = feet (v 0), fades to the tip and to both sides */
+  let gr=g.createLinearGradient(0,n,0,0);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n);
+  g.globalCompositeOperation='destination-in';gr=g.createLinearGradient(0,0,n,0);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.5,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)}),CS_FAN_OP),csFigs.length*LAMPS.length);
+const CS_ON=!OFF.has('shadows');if(CS_ON)[csPatch,csFan].forEach(m=>{m.frustumCulled=false;m.renderOrder=1;scene.add(m)});
+function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
+  if(!g.visible){csPatch.setMatrixAt(i,HIDE);for(let j=0;j<LAMPS.length;j++)csFan.setMatrixAt(i*LAMPS.length+j,HIDE);return}
+  const r=2*(csBig.has(f)?CS_R_CROUCH:CS_R);dummy.position.set(p.x,p.y+CS_Y,p.z);dummy.rotation.set(0,0,0);dummy.scale.set(r,1,r);dummy.updateMatrix();csPatch.setMatrixAt(i,dummy.matrix);
+  LAMPS.forEach(([lx,lz],j)=>{const dx=p.x-lx,dz=p.z-lz,d=Math.hypot(dx,dz)||1;dummy.rotation.set(0,Math.atan2(-dx/d,-dz/d),0);
+    dummy.scale.set(CS_FAN_W,1,clamp(CS_BODY_H*d/(LAMP_H-CS_BODY_H),CS_FAN_MIN,CS_FAN_MAX));dummy.updateMatrix();csFan.setMatrixAt(i*LAMPS.length+j,dummy.matrix)})});
+  csPatch.instanceMatrix.needsUpdate=true;csFan.instanceMatrix.needsUpdate=true}
+/* #258: the tier actually drawn, always on screen on dev (the owner will not open the console). A quiet line under the dev tag in the top-right corner,
+   away from the score box and the bar; setTier() is the only writer, so a ?q= force, the 畫面 button and the automatic drop all show up. A click or ?hud=0 hides it
+   (kept in zu_hud), ?hud=1 brings it back. Production never shows it. `var` on purpose: setTier may run before this line has been reached. */
+const TIER_HUD_CSS='margin-top:2px;font-size:12px;color:inherit;text-shadow:0 1px 2px rgba(0,0,0,.8);cursor:pointer;user-select:none';
+var tierHud=null;
+function tierHudInit(){if(!IS_DEV||tierHud!==null)return;tierHud=false;let on=true;
+  try{const q=new URLSearchParams(location.search).get('hud');if(q!==null)localStorage.setItem('zu_hud',q==='0'?'0':'1');on=localStorage.getItem('zu_hud')!=='0'}catch(e){}if(!on)return;
+  const el=document.createElement('div');el.id='tierTag';el.className='dev-only';el.style.cssText=TIER_HUD_CSS;
+  el.onclick=ev=>{ev.stopPropagation();el.remove();tierHud=false;try{localStorage.setItem('zu_hud','0')}catch(e){}note('畫質標籤收起來了（網址加 ?hud=1 叫回來）')};
+  ($('tag')||document.body).appendChild(el);tierHud=el}
+function tierHudText(){if(tierHud===null)tierHudInit();if(!tierHud)return;
+  const t=gfxMax?'畫質 max':`畫質 ${gfxTier}/${TIER_MAX}${maxWish&&!gfxTier?'（最高沒開）':''}`;tierHud.textContent=t;
+  tierHud.title=`${gfxMax?`max: ${PP?PP.fx||'-':'no post'} (t TRAA, g SSGI, r SSR; - = off)`:`0 = 最好、${TIER_MAX} = 最省`}・點一下收起來`}
+function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',`${gfxTier}@${Date.now()}`)}catch(e){}
+  renderer.setPixelRatio(gfxMax?devicePixelRatio:Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
+  {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
+  PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.fx===fxKey()?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
+  const sh=gfxTier<3&&!OFF.has('shadowmap');renderer.shadowMap.enabled=sh;key.castShadow=sh;
   envOn=gfxTier<2;bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
-  const sig=`${sh}|${!!PP}`;entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
+  tierHudText();/* #258: before the no-rebuild return below, so every tier change shows */
+  const sig=`${sh}|${!!PP}|${gfxMax}|${PP?PP.fx:''}`;/* max: environment map + velocity/diffuse MRT change every shader */entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
   if(!first&&key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
   if(warmStarted)warmUp()}/* a drop in play rebuilds every material: compile it off the frame instead of freezing the tab (#125) */
@@ -1182,39 +1650,102 @@ let envOn=true;
    Now the loop runs without drawing while compileAsync builds the whole park (it yields between objects; frustum culling is off for that call so
    what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
    then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
-const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk;window.READY=new Promise(ok=>readyOk=ok);setTimeout(()=>readyOk(),READY_MAX_MS);
+const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk,bootReady=false;window.READY=new Promise(ok=>readyOk=ok);
+/* #162: boot must not depend on the frame rate. A throttled tab (1 frame a second) or a hidden one (no frames) would make the READY_FRAMES
+   wait seconds or forever. When the compile ends and frames come slower than READY_SLOW_GAP_MS (median gap since w0), or the tab is hidden,
+   or READY_FRAMES are not drawn READY_AFTER_W1_MS after it, the buttons wake at once; the frames still draw when the tab gets them. */
+const READY_SLOW_GAP_MS=200,READY_AFTER_W1_MS=500,BOOT_SLOW_N=5;/* BOOT_SLOW_N: slowest compiled objects named in BOOT.t (s1 .. s5) */const bootGaps=[];
+const rafMedian=()=>{if(!bootGaps.length)return Infinity;const a=[...bootGaps].sort((x,y)=>x-y);return a[a.length>>1]};
+function readyNow(tag){if(bootReady)return;bootReady=true;if(tag)BOOT_MARK(tag);const B=window.BOOT;if(B&&B.t)B.t.raf=bootGaps.length?Math.round(rafMedian()):'none';
+  if(warmRun===1&&!warming)warmFramesLeft=0;/* the bar does not sit near the end waiting for frames */readyOk()}
+setTimeout(()=>{if(bootReady)return;if(readyN<READY_FRAMES)BOOT_MARK(`timeout${warming?'W':'F'}${readyN}`);if(warmRun===1&&!wbar.hidden&&warming){const p=wbar.querySelector('p');if(p)p.textContent='還在準備，可以先進場'}readyNow()},READY_MAX_MS);
+function bootCompiled(){if(bootReady)return;if(document.hidden||rafMedian()>READY_SLOW_GAP_MS){readyNow(document.hidden?'rdyHidden':'rdySlow');return}
+  setTimeout(()=>{if(!bootReady&&readyN<READY_FRAMES)readyNow(`rdyWait${readyN}`)},READY_AFTER_W1_MS)}/* #162: timeoutW = the compile never ended, timeoutFn = n of READY_FRAMES drawn */
 /* #133 progress bar: from the start of a warm-up (behind the entry card, or a quality drop in play) until the frames after it are drawn.
    Real progress only: objects compiled / objects to compile (compileAsync's onProgress), then the WARM_BAR_FRAME_SHARE for the frames that
    compile the shadow and post passes. It shows only once the wait passes WARM_BAR_DELAY_MS, so a warm visit does not flash it. */
+const BOOT_COMPILE_Q=[.25,.5,.75,.9,1];/* compile progress points timed in BOOT.t (c25 .. c100) */
 const WARM_BAR_DELAY_MS=700,WARM_BAR_FRAME_SHARE=.15,WARM_FRAMES=READY_FRAMES;let warmT0=0,warmLoaded=0,warmTotal=0,warmFramesLeft=0;
-const wbar=document.createElement('div');wbar.id='warmBar';wbar.hidden=true;wbar.setAttribute('role','progressbar');wbar.setAttribute('aria-valuemin','0');wbar.setAttribute('aria-valuemax','100');wbar.setAttribute('aria-label','球場準備中');
-wbar.style.cssText='position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none';
-wbar.innerHTML='<div style="height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden"><i style="display:block;height:100%;width:0;background:#f2c230;transition:width .2s linear"></i></div><p style="margin:8px 0 0;font-size:14px;color:#cfd8e8;text-shadow:0 1px 3px rgba(0,0,0,.6)">球場準備中…</p>';
-document.body.appendChild(wbar);const wbarFill=wbar.querySelector('i');
+/* the bar element is static markup in index.html (on screen from the first paint, BOOT fills its loading share); the first warm-up continues it from BOOT.share */
+const BOOT=window.BOOT||{share:0};let wbar=document.getElementById('warmBar');if(!wbar){wbar=document.createElement('div');wbar.id='warmBar';wbar.setAttribute('role','progressbar');wbar.innerHTML='<div><i></i></div><p>球場準備中…</p>';document.body.appendChild(wbar)}
+const wbarFill=wbar.querySelector('i');BOOT.own=true;
 function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wbar.hidden)wbar.hidden=true;return}
-  if(now-warmT0<WARM_BAR_DELAY_MS)return;
-  const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,pc=Math.round(100*f);
+  const first=warmRun===1;if(!first&&now-warmT0<WARM_BAR_DELAY_MS)return;/* the first one is already on screen (index.html) */
+  const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,base=first?BOOT.share:0,pc=Math.round(100*(base+(1-base)*f));
   wbarFill.style.width=pc+'%';wbar.setAttribute('aria-valuenow',String(pc));if(wbar.hidden)wbar.hidden=false}
+/* #162: on the owner's throttled Chrome the compile moved in whole frames. three 0.186.1 (read): its yields are scheduler.yield when present
+   (Chrome 157 has it), so what is left to wait is the browser's pipeline promises (WebGPU createRenderPipelineAsync, WebGL parallel-compile
+   polls via requestAnimationFrame), awaited one object after another. In a
+   throttled tab (1 frame a second) that made the compile 30 s. So the warm-up first compiles one object per distinct material and geometry
+   layout, all at once (WARM_PARALLEL), so those waits overlap; then the usual whole-scene compile only finds what is left (cache hits).
+   Same programs, same picture: it only changes the order and overlap of the compile. Dev switch ?off=par = the old serial compile. */
+const WARM_PARALLEL=true,WARM_PAR_SHARE=.8;/* share of the compile part of the bar given to the parallel phase */
+/* #236: a warm-up phase that has not finished after WARM_STALL_MS is let go (the objects still building are named in BOOT.t.stall) so the
+   buttons never wait for the 30 s READY_MAX_MS timeout; WARM_FAIL_N failed pipelines are named in BOOT.t.pf (count) and pf1 .. pfN. */
+const WARM_STALL_MS=12000,WARM_FAIL_N=3;let warmHold=null;/* warmHold: the renderer's own target and MRT while a warm-up holds the scene pass's */
 async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();warmT0=w0;warmLoaded=warmTotal=0;warmFramesLeft=WARM_FRAMES;
-  const prog=ev=>{if(run!==warmRun)return;warmLoaded=ev.loaded;warmTotal=ev.total;warmBarTick(performance.now())};
+  let parF=0,serF=0,nObj=0;const setF=()=>{warmTotal=1;warmLoaded=WARM_PAR_SHARE*parF+(1-WARM_PAR_SHARE)*serF;if(run===1)for(const q of BOOT_COMPILE_Q)if(warmLoaded>=q-1e-9)BOOT_MARK(`c${Math.round(q*100)}`);warmBarTick(performance.now())};
+  const prog=ev=>{if(run!==warmRun)return;nObj=ev.total;serF=ev.total?ev.loaded/ev.total:1;setF()};
+  if(run===1)BOOT_MARK('w0');
+  /* #162: time each compiled object of the first warm-up: from getForRenderAsync to its new pipelines done (or to the pipeline lookup when nothing
+     new is made); the BOOT_SLOW_N slowest go into BOOT.t as s1..sN = "material name or type / object name or type, xN = instances / vN = vertices:ms".
+     The same wrapper makes concurrent builds of one node cache key wait for the first one (no duplicate shader builds in the parallel phase). */
+  const nd=renderer._nodes,pl=renderer._pipelines,slow=[],failed=[],gfr=nd&&nd.getForRenderAsync,gpr=pl&&pl.getForRender,t0=new Map(),pend=new Map();
+  const roName=ro=>{const m=ro.material||{},ob=ro.object||{},g=ob.geometry,nv=g&&g.attributes&&g.attributes.position?g.attributes.position.count:0;return `${m.name||m.type||'?'}/${ob.name||ob.type||'?'}${ob.isInstancedMesh?'x'+ob.count:''}/v${nv}`};
+  const done=ro=>{const t=t0.get(ro);if(t!==undefined){t0.delete(ro);if(run===1)slow.push([performance.now()-t,roName(ro)])}};
+  if(gfr&&gpr){nd.getForRenderAsync=function(ro){if(!t0.has(ro))t0.set(ro,performance.now());let k=null;try{k=nd.getForRenderCacheKey(ro)}catch(e){}
+      const q=k!==null&&pend.get(k);if(q)return q.then(()=>gfr.call(nd,ro));const r=gfr.call(nd,ro);if(k!==null){pend.set(k,r);r.finally(()=>{if(pend.get(k)===r)pend.delete(k)})}
+      /* #236: a build that ends after a stall let go of the scene pass's MRT read the wrong one: rebuild it at its first real draw */
+      r.then(()=>{if(stalled){const m=ro.material;if(m)m.needsUpdate=true}},()=>{});return r};
+    /* #236: a pipeline the GPU refused is marked error by the backend: name its object (pf in the bug report) instead of a black object */
+    const chk=(ro,r)=>{try{const b=renderer.backend.get(r);if(b&&b.error&&failed.length<WARM_FAIL_N*10)failed.push(roName(ro))}catch(e){}};
+    pl.getForRender=function(ro,promises){const n=promises?promises.length:0,r=gpr.call(pl,ro,promises);if(promises&&promises.length>n)Promise.all(promises.slice(n)).then(()=>{done(ro);chk(ro,r)});else done(ro);return r}}
   scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
-  /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one */
-  const sp=PP&&PP.scenePass;let p=null;
-  /* the post path does what PassNode.compileAsync does (its target and MRT around the compile), so the progress callback can be passed */
-  try{if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;const rt=renderer.getRenderTarget(),mrt=renderer.getMRT();
-      renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT());p=renderer.compileAsync(sp.scene,sp.camera,null,prog).finally(()=>{renderer.setRenderTarget(rt);renderer.setMRT(mrt)})}
-    else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera,null,prog)}
-  catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true}
-  try{await p}catch(e){console.warn('warm-up failed',e)}
-  if(run!==warmRun)return;warming=false;entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
+  /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one.
+     #236: compileAsync picks the render context (target + MRT: the pipeline's colour targets) before its first await, but builds each shader
+     after it, reading renderer.getMRT() then. Putting the MRT back right after the call (#182) built shaders with one output for a pipeline
+     with two targets: refused on a real GPU ("Color target has no corresponding fragment stage output ... targets[1]"), black on every tier.
+     So the scene pass's target and MRT are held for the whole warm-up (the loop does not draw while warming) and put back at its end. */
+  const sp=PP&&PP.scenePass,cs=sp?sp.scene:scene,cc=sp?sp.camera:camera;
+  if(!warmHold)warmHold={rt:renderer.getRenderTarget(),mrt:renderer.getMRT()};
+  if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT())}
+  else{renderer.setRenderTarget(warmHold.rt);renderer.setMRT(warmHold.mrt)}
+  const inTarget=f=>f();
+  /* a phase that never settles (a pipeline promise the driver never answers) is let go after WARM_STALL_MS */
+  let stalled=false;const jobs=[],stall=pr=>{jobs.push(pr);return Promise.race([pr,new Promise(r=>setTimeout(()=>{stalled=true;r()},WARM_STALL_MS))])};
+  try{
+    if(OFF.has('warm')){}
+    else if(OFF.has('prog'))await (sp?(sp.compileAsync?sp.compileAsync(renderer):null):renderer.compileAsync(scene,camera));
+    else if(renderer.compileAsync){
+      if(WARM_PARALLEL&&!OFF.has('par')){
+        /* one object per distinct (material, geometry layout, mesh kind); objects holding lights are left to the whole-scene pass (a light passed
+           twice would change the light set of the shader) */
+        const reps=new Map();cs.traverseVisible(o=>{if(!(o.isMesh||o.isLine||o.isPoints||o.isSprite)||!o.material)return;let lit=false;o.traverse(c=>{if(c.isLight)lit=true});if(lit)return;
+          const g=o.geometry,ms=Array.isArray(o.material)?o.material:[o.material],key=ms.map(m=>m.uuid).join('+')+'|'+(g?Object.keys(g.attributes).sort().join(',')+(g.index?'i':'')+Object.keys(g.morphAttributes||{}).join(','):'')+'|'+(o.isInstancedMesh?'I':'')+(o.isBatchedMesh?'B':'')+(o.isSkinnedMesh?'S':'')+(o.isSprite?'P':'')+(o.isLine?'L':'')+(o.isPoints?'O':'');
+          if(!reps.has(key))reps.set(key,o)});
+        let nd2=0;const N=reps.size||1;
+        await stall(Promise.all([...reps.values()].map(o=>inTarget(()=>renderer.compileAsync(o,cc,cs)).catch(e=>console.warn('warm-up part failed',e)).finally(()=>{if(run!==warmRun)return;parF=++nd2/N;setF()}))));
+        if(run===1)BOOT_MARK(`wp/${reps.size}`)}
+      else parF=1;
+      if(run===warmRun&&!stalled){setF();await stall(inTarget(()=>renderer.compileAsync(cs,cc,null,prog)))}}}
+  catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true;
+    const unwrap=()=>{if(gfr&&gpr&&nd.getForRenderAsync!==gfr){nd.getForRenderAsync=gfr;pl.getForRender=gpr}};
+    if(stalled)Promise.allSettled(jobs).then(unwrap);else unwrap();/* after a stall the wrappers stay until the late builds end (they mark them) */
+    if(run===warmRun&&warmHold){renderer.setRenderTarget(warmHold.rt);renderer.setMRT(warmHold.mrt);warmHold=null}}/* a newer warm-up holds on */
+  {const B=window.BOOT,nm=x=>x.replace(/[,@]/g,'_');if(B&&B.t){
+    if(run===1){slow.sort((a,b)=>b[0]-a[0]);slow.slice(0,BOOT_SLOW_N).forEach(([ms,n],i)=>B.t[`s${i+1}`]=`${nm(n)}:${Math.round(ms)}`)}
+    if(failed.length){B.t.pf=failed.length;[...new Set(failed)].slice(0,WARM_FAIL_N).forEach((n,i)=>B.t[`pf${i+1}`]=nm(n));console.warn('#236 pipelines refused by the GPU:',failed)}
+    if(stalled){B.t.stall=[...t0.keys()].slice(0,WARM_FAIL_N).map(ro=>nm(roName(ro))).join('+')||'?';console.warn('#236 warm-up let go after',WARM_STALL_MS,'ms; still building:',B.t.stall)}}}
+  if(run!==warmRun)return;warming=false;if(run===1){BOOT_MARK(`w1/${nObj}`);bootCompiled()}entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
+  if(gfxMax){const B=window.BOOT;if(B&&B.t&&!warming)B.t.ftmax=Math.round(avg*10)/10;return}/* #211: max never drops; its frame time (ms, last FPS_WIN frames) goes to boot= */
   if(performance.now()-tierT0>FPS_WARMUP_MS&&$('intro').hidden&&!document.hidden&&avg>FPS_BUDGET_MS&&gfxTier<TIER_MAX){setTier(gfxTier+1);tierT0=performance.now();note(`有點卡，自動降畫質（${gfxTier}/${TIER_MAX}）`)}}
-setTier(gfxTier);
+setTier(gfxMax?0:gfxTier);
 
 /* ---------- loop ---------- */
 applyLayout();let lastNow=performance.now(),stKey='',outFixed=null,introVis=null;prewarmBodies();
 renderer.setAnimationLoop(()=>{
-  const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);
+  const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);if(!bootReady&&warmStarted)bootGaps.push(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
   if(mode==='studio')studioTick(dt);
   else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));const prev=replayT;replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed));if(cpOn())replayT=cpClock.step(prev,replayT)}
@@ -1224,17 +1755,17 @@ renderer.setAnimationLoop(()=>{
   curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
   const s=poseScene(e,u,dt,i);
-  if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
-  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});if(!ump.noAnim)animate(ump,dt);
+  if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump,...umpB,...coaches]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
+  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck,...umpB,...coaches].forEach(f=>{if(f.g.visible)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);
   hud(e,u,s);if(mode!=='studio'&&!scrubbing)commentary(T);renderVote(voteEv,T);plUpdate();
   {const iv=!$('intro').hidden;if(iv!==introVis){introVis=iv;$('bug').style.visibility=iv?'hidden':''}}/* Hide the scorebug on the intro screen */
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(envOn){updateBugs(now/1000);updateBlades()}
+  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
-  if(readyN<READY_FRAMES&&++readyN===READY_FRAMES)readyOk();
+  if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyNow()}
 });
 warmUp();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});

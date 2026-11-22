@@ -1,0 +1,43 @@
+/* Fan agent page (agent.html, #179). Builds on ui/guide.css (night palette, .p rows). Phone first: one column, 44 px targets. */
+html[data-site="production"] .dev-only{display:none!important}
+.prod-note{display:none;width:min(100%,980px);margin:24px auto;padding:12px;border:1px dashed var(--line);border-radius:10px;color:var(--muted)}
+html[data-site="production"] .prod-note{display:block}
+main{--tc:var(--gold)}
+main section{margin-top:26px}
+main h2{margin:0 0 10px;font-size:20px}
+.status{margin:14px 0 0;color:var(--muted)}
+.status.err{color:#ff8a80}
+.btn{min-height:48px;padding:0 20px;border:0;border-radius:10px;background:var(--gold);color:#1a1400;font:600 16px 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.field{margin:0 0 16px;padding:0;border:0}
+.field>legend,.field>label.t{display:block;margin:0 0 6px;padding:0;color:var(--muted);font-size:13px;letter-spacing:.15em}
+.chips,.seg{display:flex;flex-wrap:wrap;gap:8px}
+.chip,.seg button{min-height:44px;min-width:44px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--glass);color:var(--ink);font:600 15px 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}
+.chip[aria-pressed="true"],.seg button[aria-pressed="true"]{border-color:var(--gold);background:rgba(242,194,48,.16);color:var(--gold)}
+.chips.nums .chip{min-width:44px;padding:0 8px}
+.namebox{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.namebox b{font-size:30px;letter-spacing:.08em}
+.pts{display:grid;gap:2px}
+.pt{display:grid;grid-template-columns:3em 1fr 3ch;align-items:center;gap:10px;min-height:44px}
+.pt input[type=range]{width:100%;height:44px;accent-color:var(--gold)}
+.pt output{text-align:right;font-weight:600}
+.left{margin:4px 0 0;color:var(--muted);font-size:13px}
+.left.ok{color:var(--gold)}
+.me{margin-bottom:8px}
+/* the live preview (#189): sticky at the top, about 40 % of the screen height, so it stays in view while the sliders are used */
+.stage{position:sticky;top:8px;z-index:5;margin:10px 0 0;height:40vh;height:40svh;min-height:200px;max-height:380px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#232b3a,#0c0f16 75%)}
+.stage[hidden]{display:none}
+.stage-sil{position:absolute;inset:0;margin:auto;height:78%;fill:#2a3242;opacity:.9}
+.stage.live .stage-sil,.stage.dead .stage-sil{display:none}
+.stage.dead .stage-sil{display:block;opacity:.35}
+.stage-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;cursor:grab}
+.stage-note{position:absolute;left:0;right:0;bottom:10px;margin:0;padding:0 14px;text-align:center;color:var(--muted);font-size:13px}
+.stage-cap{position:absolute;left:0;right:0;top:8px;margin:0;padding:0 14px;text-align:center;font-size:14px;font-weight:600;pointer-events:none;text-shadow:0 1px 3px #000}
+.roster .see{margin-left:auto;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass);color:var(--ink);font:600 14px 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}
+.roster li.p[aria-current="true"]{outline:1px solid var(--gold)}
+/* wide screens (#197): the page may use up to 1600 px, but the forms stay one readable column; the free-agent list takes three columns */
+@media(min-width:1000px){
+  #status,#stage,#account,#maker,#mine{width:min(100%,980px);margin-inline:auto}
+}
+@media(min-width:1400px){#faList{grid-template-columns:repeat(3,1fr)}}

@@ -5,7 +5,7 @@ html{background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans TC',system-u
 body{margin:0;padding:0 max(16px,env(safe-area-inset-right)) 48px max(16px,env(safe-area-inset-left))}
 a{color:var(--gold)}
 .num{font-family:'Barlow Condensed','Noto Sans TC',sans-serif;font-variant-numeric:tabular-nums}
-.top,main,#staff,footer{width:min(100%,980px);margin-inline:auto}
+.top,main,#staff,#box,footer{width:min(100%,980px);margin-inline:auto}
 .top{padding-top:max(16px,env(safe-area-inset-top))}
 .back{display:inline-block;padding:10px 0;text-decoration:none;font-weight:600}
 h1{font:700 clamp(26px,5vw,40px)/1.15 'Barlow Condensed','Noto Sans TC',sans-serif;letter-spacing:.2em;margin:4px 0 6px}
@@ -18,18 +18,26 @@ h1{font:700 clamp(26px,5vw,40px)/1.15 'Barlow Condensed','Noto Sans TC',sans-ser
 .team>header img{width:72px;height:72px;object-fit:contain;flex:none}
 .team h2{margin:0;font-size:clamp(20px,4vw,28px);line-height:1.2}
 .team h3{margin:22px 0 8px;font-size:13px;letter-spacing:.2em;color:var(--muted);font-weight:600}
+.sortbar{display:flex;gap:6px;overflow-x:auto;margin:0 0 8px;padding-bottom:2px}
+.sortbar button{flex:none;min-height:44px;min-width:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass);color:var(--ink);font:600 14px 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}
+.sortbar button[aria-pressed="true"]{border-color:var(--gold);background:rgba(242,194,48,.16);color:var(--gold)}
 .roster{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.p{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass)}
-.p .no{grid-row:1/3;align-self:center;min-width:2.2ch;text-align:center;font-size:28px;font-weight:700;color:var(--tc)}
+.p{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass)}
 .p .who{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline}
 .p .who b{font-size:17px}
 .p .who span{color:var(--muted);font-size:13px}
-.r{grid-column:2;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 16px;margin:4px 0 0}
-.r div{display:grid;grid-template-columns:2.6em 1fr 2.2ch;align-items:center;gap:8px;font-size:13px}
+/* ability bars (#192, ui/bars.js): one row per ability, label / bar / number; --bc is the cold-to-warm colour of the value */
+.r{display:grid;gap:5px;margin:2px 0 0}
+.r>div{display:grid;grid-template-columns:3em 1fr 3ch;align-items:center;gap:10px;font-size:14px}
 .r dt{color:var(--muted)}
-.r dd{margin:0;text-align:right;font-weight:600}
-.r .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
-.r .bar i{display:block;height:100%;background:var(--tc);border-radius:3px}
+.r dd{margin:0;text-align:right;font-weight:600;color:var(--ink);font-size:16px}
+.r .bar{height:8px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.r .bar i{display:block;height:100%;background:var(--bc,var(--tc));border-radius:4px}
+.r .ovr{grid-template-columns:3em 1fr 3.2ch;margin-bottom:3px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+.r .ovr dt{color:var(--ink);font-weight:600;font-size:15px}
+.r .ovr .bar{height:14px;border-radius:7px}
+.r .ovr .bar i{border-radius:7px}
+.r .ovr dd{font-size:30px;line-height:1;font-weight:700}
 .r .pot dt{color:var(--gold)}
 .empty{margin:14px 0 0;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13px}
 #staff h2{margin:36px 0 8px;font-size:20px}
@@ -37,4 +45,125 @@ h1{font:700 clamp(26px,5vw,40px)/1.15 'Barlow Condensed','Noto Sans TC',sans-ser
 .crew li{padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass)}
 .crew .line{display:block;color:var(--muted);font-size:13px}
 footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+/* compare panel (#192 item 3, ui/compare.js): bottom sheet, two slots, mirrored bars; numbers at the outer ends, name in the middle */
+.cmp-add,.cmp-btn{min-height:44px;min-width:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass);color:var(--ink);font:600 14px 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}
+.p .who .cmp-add{margin-left:auto;color:var(--ink);font-size:14px}
+.p .who .see+.cmp-add{margin-left:0}
+.cmp-add[aria-pressed="true"]{border-color:var(--gold);background:rgba(242,194,48,.16);color:var(--gold)}
+.cmp{position:fixed;left:0;right:0;bottom:0;z-index:20;max-height:50vh;max-height:50svh;overflow:auto;padding:8px max(16px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));border-top:2px solid var(--gold);background:#0d1424;box-shadow:0 -8px 24px rgba(0,0,0,.5)}
+.cmp[hidden]{display:none}
+.cmp>*{width:min(100%,640px);margin-inline:auto}
+.cmp-head{display:flex;align-items:center;gap:8px}
+.cmp-head b{margin-right:auto;font-size:15px;letter-spacing:.2em;color:var(--gold)}
+.cmp.folded .cmp-body{display:none}
+.cmp-heads{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 8px}
+.cmp-who{display:flex;flex-direction:column;gap:0;font-size:13px;color:var(--muted)}
+.cmp-who b{color:var(--ink);font-size:16px}
+.cmp-who.r{text-align:right;align-items:flex-end}
+.cmp-who.hint{justify-content:center}
+.cmp-note{margin:0 0 6px;color:var(--muted);font-size:13px}
+.cmp-rows{display:grid;gap:6px}
+.cmp-row{display:grid;grid-template-columns:3.2ch 1fr 3em 1fr 3.2ch;align-items:center;gap:6px;font-size:14px}
+.cmp-row .lab{text-align:center;color:var(--muted)}
+.cmp-row .num{font-size:18px;font-weight:600}
+.cmp-row .n-l{text-align:left}.cmp-row .n-r{text-align:right}
+.cmp-row .bar{display:flex;height:8px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.cmp-row .bar.l{justify-content:flex-end}
+.cmp-row .bar i{display:block;height:100%;border-radius:4px}
+.cmp-row[data-win="l"] .n-l,.cmp-row[data-win="r"] .n-r{color:var(--gold);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.cmp-row.big{grid-template-columns:60px 1fr 3em 1fr 60px;gap:8px;padding-bottom:7px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+.cmp-row.big .num{font-size:30px;line-height:1;min-width:2ch}
+.cmp-row.big .bar{height:14px;border-radius:7px}
+body.cmp-open{padding-bottom:calc(50vh + 24px)}
 @media(min-width:700px){.roster{grid-template-columns:1fr 1fr}}
+/* Star strip, dense table, wide layout (#197). The table shows from 1000 px; below it the card list stays.
+ * Phone (under 700 px): cards are compact, the abilities in two columns of short bars. */
+.nstar{display:block;margin-left:2px;color:var(--gold);font-size:12px;font-weight:600;white-space:nowrap}
+.nstar b{font-size:16px}
+#nav a{flex-wrap:nowrap}
+.star{display:flex;align-items:center;gap:14px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--gold);border-left:6px solid var(--gold);border-radius:12px;background:linear-gradient(90deg,rgba(242,194,48,.16),rgba(242,194,48,.04))}
+.star .bigovr{flex:none;display:flex;flex-direction:column;align-items:center;min-width:2.4ch}
+.star .bigovr b{font-size:52px;line-height:1;font-weight:700;color:var(--gold)}
+.star .bigovr small{color:var(--muted);font-size:12px;letter-spacing:.2em}
+.star .top1{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px}
+.star .top1 b{font-size:20px}
+.star .top1 span{color:var(--muted);font-size:13px}
+.star .top1 .tag{padding:1px 8px;border-radius:6px;background:var(--gold);color:#1a1400;font-weight:700;font-size:13px;letter-spacing:.15em}
+.star .bio{margin:3px 0 0;font-size:14px}
+.tblw{display:none}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th,.tbl td{padding:3px 8px;text-align:left;white-space:nowrap}
+.tbl thead th{color:var(--muted);font-weight:600;font-size:13px;border-bottom:1px solid var(--line)}
+.tbl thead button{padding:2px 0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
+.tbl thead th[aria-sort="descending"] button{color:var(--gold)}
+.tbl thead th[aria-sort="descending"] button::after{content:" ▼";font-size:10px}
+.tbl tr.row{cursor:pointer;border-top:1px solid rgba(255,255,255,.07)}
+.tbl tr.row:hover{background:var(--glass)}
+.tbl .rowtog{display:flex;align-items:baseline;gap:8px;padding:0;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer;text-align:left}
+.tbl .rowtog b{font-size:15px}
+.tbl .no,.tbl .mt,.tbl .ag{color:var(--muted)}
+.tbl .mini{display:inline-block;width:36px;height:6px;margin-right:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;vertical-align:middle}
+.tbl .mini i{display:block;height:100%;border-radius:3px}
+.tbl td .num{font-size:15px;font-weight:600;display:inline-block;min-width:2ch;text-align:right}
+.tbl td.ov .mini{width:52px;height:10px;border-radius:5px}
+.tbl td.ov .mini i{border-radius:5px}
+.tbl td.ov .num{font-size:24px;line-height:1;font-weight:700;min-width:2.2ch;vertical-align:middle}
+.tbl td.pt{color:var(--gold)}
+.tbl tr.more td{padding:2px 8px 10px;background:var(--glass)}
+.tbl .detail{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.tbl .detail .bio{margin:0;font-size:14px}
+.tbl .detail .who{display:flex}
+@media(min-width:1000px){
+  body.wide{padding-inline:max(12px,env(safe-area-inset-left))}
+  body.wide .top,body.wide main,body.wide #staff,body.wide #box,body.wide footer{width:min(100%,1600px)}
+  .pair .roster,.pair .sortbar{display:none}
+  .pair .tblw{display:block}
+  .crew{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+}
+/* both groups side by side only when each table has room (a whole team in one screen on a 1900 px desktop) */
+@media(min-width:1500px){.pair{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:24px;align-items:start}}
+@media(pointer:coarse){.tbl tr.row td{padding-block:6px}.tbl thead button,.tbl .rowtog{min-height:44px}}
+@media(max-width:699px){
+  .p{gap:4px;padding:8px 10px}
+  .r{grid-template-columns:1fr 1fr;gap:4px 14px}
+  .r>div{grid-template-columns:2.6em 1fr 3ch;gap:6px;font-size:13px}
+  .r dd{font-size:15px}
+  .r .ovr{grid-column:1/-1;grid-template-columns:3em 1fr 3.2ch}
+  .star{gap:10px;padding:8px 10px}
+  .star .bigovr b{font-size:40px}
+}
+
+html[data-site="production"] .dev-only{display:none!important}
+.agent-entry{margin:0 0 12px;font-size:14px}
+
+/* Box score of the first game (#53 part 2, ui/boxscore.js). Phone first: tables scroll sideways inside their own wrapper, never the page. */
+#box{margin-top:36px;border-top:3px solid var(--gold);padding-top:14px}
+#box h2{margin:0 0 4px;font-size:clamp(20px,4vw,28px);line-height:1.2}
+#box .boxtag{margin:0 0 6px;color:var(--muted);font-size:14px}
+#box .result{margin:0 0 12px;font-size:16px}
+#box .result b{font:700 26px 'Barlow Condensed','Noto Sans TC',sans-serif;letter-spacing:.04em}
+#box .bwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.box{width:100%;border-collapse:collapse;font-size:14px}
+table.box caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+table.box th,table.box td{padding:6px 8px;text-align:left;white-space:nowrap}
+table.box thead th{color:var(--muted);font-weight:600;font-size:13px;border-bottom:1px solid var(--line)}
+table.box tbody tr{border-top:1px solid rgba(255,255,255,.07)}
+table.box tfoot th,table.box tfoot td{border-top:1px solid var(--line);font-weight:700}
+table.box th[scope=row]{font-weight:600}
+table.box th[scope=row] small{margin-left:6px;color:var(--muted);font-weight:400;font-size:12px}
+table.box small.dec{padding:0 5px;border:1px solid var(--gold);border-radius:4px;color:var(--gold)}
+table.box .n{text-align:right}
+table.box td.num{font-size:16px}
+.linescore{margin-bottom:6px}
+.linescore table.box td,.linescore table.box thead th.n{padding-inline:7px;min-width:2.1ch}
+.linescore .tn{font-weight:600}
+.linescore td.tot{font-weight:700;color:var(--gold);border-left:1px solid var(--line)}
+.linescore tr.win th{color:var(--gold)}
+.boxteams{display:grid;gap:8px}
+.boxteam{margin-top:20px;border-top:3px solid var(--tc);padding-top:4px}
+.boxteam h3{margin:12px 0 4px;font-size:13px;letter-spacing:.2em;color:var(--muted);font-weight:600}
+.boxteam .bwrap~.bwrap{margin-top:16px}
+#box .note{margin:6px 0 0;font-size:13px;color:var(--muted)}
+#box .note b{color:var(--ink);font-weight:600}
+@media(max-width:699px){.linescore table.box th,.linescore table.box td{padding-inline:3px}.linescore table.box th[scope=row]{padding-left:0}.linescore table.box td{min-width:0;font-size:14px;padding-inline:2px}.linescore table.box th{padding-inline:2px;font-size:12px}.linescore table.box th[scope=row]{font-size:13px}table.box th,table.box td{padding-inline:5px}}
+@media(min-width:1000px){.boxteams{grid-template-columns:1fr 1fr;gap:28px}}

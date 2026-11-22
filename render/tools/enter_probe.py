@@ -3,6 +3,7 @@
 # ACT=quick: click the moment the button is enabled (an impatient or returning visitor). ACT=tier: enter, then time one automatic quality drop (setTier(+1)) the way the fps watchdog does it.
 # Also counts the shader programs (WebGL2 linkProgram) and pipelines (WebGPU createRenderPipeline*) created after the click, and the files fetched after it (#133):
 # in headless every frame costs seconds, so the count of compiles left for after the click is the number to read, not the milliseconds.
+# Always printed (#162): boot_to_button_ms (page open -> enter awake) and click_to_first_frame_ms; put both in the PR body of any picture change.
 # Headless swiftshader is not a real desktop or phone: read the numbers as relative (before/after), not absolute.
 import sys,os,asyncio,mimetypes,json,collections
 from playwright.async_api import async_playwright
@@ -16,7 +17,7 @@ window.__lp=[];window.__rs=[];
 {const P=self.WebGL2RenderingContext&&WebGL2RenderingContext.prototype;if(P){const o=P.linkProgram;P.linkProgram=function(p){__lp.push(performance.now());return o.call(this,p)}}
  const D=self.GPUDevice&&GPUDevice.prototype;if(D)for(const k of ['createRenderPipeline','createRenderPipelineAsync','createComputePipeline','createComputePipelineAsync']){const o=D[k];if(o)D[k]=function(...a){__lp.push(performance.now());return o.apply(this,a)}}}
 window.__click=null;if(%s){const go=()=>{const b=document.getElementById('enter');if(b&&!b.disabled&&!__click){__click=performance.now();b.click();return true}};const mo=new MutationObserver(()=>{if(go())mo.disconnect()});document.addEventListener('DOMContentLoaded',()=>mo.observe(document.body,{attributes:true,subtree:true,attributeFilter:['disabled']}))}
-try{localStorage.setItem('zu_gl','%s');localStorage.setItem('zu_tier','%s')}catch(e){}
+try{localStorage.setItem('zu_gl','%s');localStorage.setItem('zu_tier','%s@'+Date.now())}catch(e){}
 """%('true' if os.environ.get('ACT')=='quick' else 'false','1' if MODE=='gl' else '0',TIER)
 async def main():
   async with async_playwright() as p:
@@ -43,7 +44,7 @@ async def main():
       await pg.wait_for_function("()=>__click&&__fr.filter(t=>t>__click).length>=5",timeout=600000,polling=500)
       c=await pg.evaluate("__click");lt=await pg.evaluate("__lt");fr=await pg.evaluate("__fr")
       after=[f for f in fr if f>c]
-      print(json.dumps({'mode':MODE,'tier':TIER,'click_at_ms':round(c),'click_to_first_frame_ms':round(after[0]-c),'longtasks_from_click':[(round(s-c),round(d)) for s,d in lt if s+d>c][:6],'frames_before_click':len([f for f in fr if f<c]),'longest_before_click':sorted([round(d) for s,d in lt if s<c])[-4:],'steady_frame_ms':sorted([round(b-a) for a,b in zip(after,after[1:])])[len(after)//2-1] if len(after)>2 else None}))
+      print(json.dumps({'mode':MODE,'tier':TIER,'boot_to_button_ms':round(c),'click_at_ms':round(c),'click_to_first_frame_ms':round(after[0]-c),'longtasks_from_click':[(round(s-c),round(d)) for s,d in lt if s+d>c][:6],'frames_before_click':len([f for f in fr if f<c]),'longest_before_click':sorted([round(d) for s,d in lt if s<c])[-4:],'steady_frame_ms':sorted([round(b-a) for a,b in zip(after,after[1:])])[len(after)//2-1] if len(after)>2 else None}))
       await b.close();return
     await pg.wait_for_function("()=>!document.getElementById('enter').disabled&&/進場/.test(document.getElementById('enter').textContent)",timeout=600000)
     tReady=await pg.evaluate("performance.now()")
@@ -73,6 +74,8 @@ async def main():
     lp=await pg.evaluate("__lp");res=await pg.evaluate("performance.getEntriesByType('resource').map(r=>[r.startTime,r.responseEnd,r.name.split('/').slice(-2).join('/'),r.transferSize||r.encodedBodySize])")
     print('compiles before ready',len([x for x in lp if x<tReady]),'| while poster',len([x for x in lp if tReady<=x<t0]),'| after click',len([x for x in lp if x>=t0]),'at ms',[round(x-t0) for x in lp if x>=t0][:40])
     print('fetched after click',[(round(a-t0),round(b-a),n,z) for a,b,n,z in res if a>=t0][:40])
+    f1=next((t for t in fr if t>t0),None)
+    print('#162 boot_to_button_ms',round(tReady),'| click_to_first_frame_ms',round(f1-t0) if f1 else None,'| longest_gap_ms',max(gaps or [0]))
     print(json.dumps({'mode':MODE,'tier':TIER,'ready_at_ms':round(tReady),'longtasks_while_poster':[round(x) for x in before],'longtasks_after_click':after[:15],'max_after':max([d for _,d in after] or [0]),'frame_gaps_after_click':gaps[:30],'errs':errs[:3]}))
     # self time by function
     nodes={n['id']:n for n in prof['nodes']};self=collections.Counter()

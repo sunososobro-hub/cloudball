@@ -4,19 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>球隊與球員介紹・雲端職棒</title>
+<script src="ui/site.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="ui/guide.css">
 </head>
-<body>
+<body class="wide">
 <header class="top">
   <a class="back" href="index.html">← 回球場</a>
   <h1>球隊與球員介紹</h1>
-  <p class="lead">季前熱身賽的名單。能力欄是出廠設定，分數 20 到 80，50 是聯盟平均。</p>
+  <p class="lead">季前熱身賽的名單。每位球員最前面是綜合評分，後面的各項能力也都是 1 到 100，越高越強。</p>
+  <p class="agent-entry dev-only" id="agentLink"><a href="agent.html">開發版：建立你自己的球員</a></p>
   <nav id="nav" aria-label="球隊"></nav>
 </header>
 <main id="teams"></main>
 <section id="staff" hidden></section>
+<section id="box" hidden></section>
 <footer>
   <p>資料為 CC0，直接讀自倉庫的 <a href="https://github.com/sunososobro-hub/cloudball/tree/main/league">league 資料夾</a>。球隊名稱與標誌不在 CC0 範圍內。</p>
 </footer>
