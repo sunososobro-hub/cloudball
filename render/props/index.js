@@ -6,6 +6,9 @@
 import {buildDugout} from './dugout.js';
 import {buildField} from './field.js';
 import {buildWall} from './wall.js';
+import {buildFoulPoles} from './foulpoles.js';
+import {buildBackstop,oldBackstop} from './backstop.js';
+import {buildScoreboard} from './scoreboard.js';
 import {buildBases} from './bases.js';
 
 /* Polished props are drawn on the `max` tier only (manager 11/22 10:30, #211): game.js imports this file only once max is on,
@@ -19,9 +22,19 @@ export const PROPS=[
   {name:'homeDugout',build:c=>{const [x,z]=c.dugout(1);return buildDugout({x,z,colors:c.park()})},old:()=>[]},
   /* outfield wall pads and fence top: replaces the field face of the old wall and its flat top band (game.js names them old:wall, old:wall:top) */
   {name:'wall',build:c=>buildWall({colors:c.park(),old:c.scene.getObjectByName('old:wall')}),old:c=>['old:wall','old:wall:top'].map(n=>c.scene.getObjectByName(n)).filter(Boolean)},
+  /* both foul poles: the two plain cylinders at the ends of the fence arc in game.js */
+  {name:'foulPoles',build:c=>buildFoulPoles({colors:c.park()}),old:c=>[-1,1].map(s=>c.scene.getObjectByName('old:foulpole:'+s)).filter(Boolean)},
+  /* the road team's dugout at dugout(0), first-base side: same shell mirrored, plus the visitors' gear. Never existed before either. */
+  {name:'roadDugout',build:c=>{const [x,z]=c.dugout(0);return buildDugout({x,z,colors:c.park(),name:'roadDugout',road:true})},old:()=>[]},
+  /* the backstop behind the plate (wall, net, posts, cables): replaces game.js's old net, posts and top cable, all named 'old:backstop' */
+  {name:'backstop',build:c=>buildBackstop({old:oldBackstop(c.scene),colors:c.park()}),old:c=>oldBackstop(c.scene)},
+  /* the outfield scoreboard: new housing, bezel, LED grid, catwalk and columns; the score face of game.js stays (it is not old:scoreboard) */
+  {name:'scoreboard',build:c=>buildScoreboard({old:oldOf(c,'scoreboard'),colors:c.park()}),old:c=>oldOf(c,'scoreboard')},
   /* bases, home plate and pitcher's rubber: only painted into the field map before (no geometry), so nothing to hide */
   {name:'bases',build:()=>buildBases(),old:()=>[]},
 ];
+/* every mesh game.js named old:<name> (one object can be several meshes), in the order game.js made them */
+const oldOf=(c,n)=>{const a=[];c.scene.traverse(o=>{if(o.name==='old:'+n)a.push(o)});return a};
 
 /* ctx from game.js: {scene, tier: () => current quality tier, max: () => true while the `max` tier is on, dugout: team -> [x, z], park: () => {pad, trim} of the home park} */
 export function mountProps(ctx){const live=[];
