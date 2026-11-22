@@ -112,10 +112,14 @@ export function simGame(seed, decisions, opts) {
     while (st.outs < K.OUTS_PER_HALF && !over) {
       if (ev.length > K.MAX_FRAMES) throw new Error(`game ${seed} did not terminate`);
       /* ---- pitching change ---- */
-      const tired = () => st.pi[def] === 0 ? (st.pc[def] > span(R, K.SP_PULL_PITCHES) || st.ra[def] >= span(R, K.SP_PULL_RUNS)) : (st.pc[def] > span(R, K.RP_PULL_PITCHES) || st.ra[def] >= K.RP_PULL_RUNS);
+      /* The question comes up a little before the coach himself would act. His own pick: a reliever who is asked
+       * about comes out; a starter stays until his pitch budget (shorter with every run allowed, and late) is spent. */
+      const spBudget = K.SP_LIMIT_PITCHES - st.ra[def] * K.SP_LIMIT_PER_RUN - (st.inn >= K.SP_LATE_INNING ? K.SP_LATE_CUT : 0);
+      const tired = () => st.pi[def] === 0 ? (st.pc[def] > spBudget - span(R, K.SP_ASK_BEFORE) || st.ra[def] >= span(R, K.SP_PULL_RUNS)) : (st.pc[def] > span(R, K.RP_PULL_PITCHES) || st.ra[def] >= K.RP_PULL_RUNS);
       if (st.pi[def] < RR[def].pit.length - 1 && st.hold[def] <= 0 && tired()) {
         const cur = RR[def].pit[st.pi[def]], nx = RR[def].pit[st.pi[def] + 1];
-        const pick = vote(def, 'P', COPY.askChange(cur, st.pc[def]), [['change', COPY.optChange(nx)], ['stay', COPY.optStay(cur)]], 'change');
+        const coach = st.pi[def] > 0 || st.pc[def] >= spBudget || st.ra[def] >= K.SP_MAX_RUNS ? 'change' : 'stay';
+        const pick = vote(def, 'P', COPY.askChange(cur, st.pc[def]), [['change', COPY.optChange(nx)], ['stay', COPY.optStay(cur)]], coach);
         if (pick === 'stay') { st.hold[def] = K.STAY_HOLD_BATTERS; continue; }
         const s0 = snap(); st.pi[def]++; st.pc[def] = 0; st.ra[def] = 0;
         emit('substitution', t, { team: def, role: 'pitcher', out: cur.name, in: nx.name });
@@ -331,7 +335,7 @@ export function simGame(seed, decisions, opts) {
         }
         if (paDone) { balls = 0; strikes = 0; }
         Object.assign(e, { c1: [balls, strikes], moves, play, plan, outs, runs, desc, pa: paDone });
-        if (st.half === 1 && st.inn >= K.REGULATION_INNINGS && st.sc[1] > st.sc[0]) { over = true; e.walkoff = true; e.desc += COPY.walkoff(); e.big = K.BIG.HUGE; }
+        if (st.half === 1 && st.inn >= K.REGULATION_INNINGS && st.sc[1] > st.sc[0]) { over = true; e.walkoff = true; e.desc += COPY.walkoff(e.desc); e.big = K.BIG.HUGE; }
         e.s1 = snap();
 
         /* ---- when each runner starts and arrives ---- */

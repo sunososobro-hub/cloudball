@@ -12,6 +12,8 @@
  *   - a count table of the engine does not cover every count, or holds something that is not a probability
  *   - the league-wide rates of the default sample drift away from the reference league (REFERENCE below)
  *   - a fielder waits to tag in the lane of the runner sliding into his base
+ *   - the coach, left to himself, takes out a starter who is pitching well and has not thrown many pitches
+ *   - starters leave much earlier or later than in the reference league (innings per start)
  *
  * Every team plays every other team, home and away. The league-wide rates are printed for tuning.
  * Usage: node tests/replay/run.mjs            (GAMES=200 node ... for a quicker run, rates not checked) */
@@ -32,6 +34,11 @@ const EPS = 2e-3;             /* stream times are rounded to the millisecond */
 const REGULATION = 9, MAX_INNINGS = 15, LINEUP = 9;
 const SPOT_SLACK = 1.5;       /* a covering fielder stands within this distance of the bag */
 const TAG_LANE_CLEAR = 0.3;   /* a fielder waiting to tag stands at least this far beside the arriving runner's lane */
+/* The quick hook (#59): with nobody voting, a starter who has allowed at most GOOD_START_RUNS runs is not
+ * taken out by his coach before he has thrown GOOD_START_PITCHES pitches. */
+const GOOD_START_RUNS = 1, GOOD_START_PITCHES = 80;
+/* Innings per start of the reference league (MLB 2025 starters, about 5.2) and how far the default sample may be from it. */
+const IP_PER_START = 5.2, IP_PER_START_TOL = 0.15;
 
 /* Reference league: MLB 2025 regular season (2,430 games; league totals from Baseball Savant, runs and
  * intentional walks from the league pitching line). GIDP and steals: MLB 2026 through early August.
@@ -255,6 +262,25 @@ function checkGame(seed, g) {
   return box;
 }
 
+/* ---------- one game: how long the starters lasted and who took them out ---------- */
+const hook = { starts: 0, outs: 0, pitches: 0, changes: 0, asked: 0, coachChange: 0 };
+function checkHook(seed, S) {
+  const sp = [0, 1].map(() => ({ inGame: true, outs: 0, runs: 0, pitches: 0 }));   /* indexed by the team in the field */
+  for (const x of S) {
+    if (x.type === 'pitch') { const p = sp[1 - x.team]; if (p.inGame) p.pitches = x.n; }
+    else if (x.type === 'out') { const p = sp[1 - x.team]; if (p.inGame) p.outs++; }
+    else if (x.type === 'run_scored') { const p = sp[1 - x.team]; if (p.inGame) p.runs++; }
+    else if (x.type === 'substitution' && x.role === 'pitcher') { sp[x.team].inGame = false; hook.changes++; }
+    else if (x.type === 'decision' && x.kind === 'P' && x.pending) {
+      hook.asked++; if (x.pick === 'change') hook.coachChange++;
+      const p = sp[x.team];
+      if (p.inGame && x.pick === 'change' && p.runs <= GOOD_START_RUNS && p.pitches < GOOD_START_PITCHES)
+        fail(seed, `the coach takes out his starter after ${p.pitches} pitches and ${p.runs} run(s) (a starter with at most ${GOOD_START_RUNS} run(s) allowed gets at least ${GOOD_START_PITCHES} pitches)`);
+    }
+  }
+  for (const p of sp) { hook.starts++; hook.outs += p.outs; hook.pitches += p.pitches; }
+}
+
 /* ---------- run ---------- */
 checkPurity();
 checkTables();
@@ -271,7 +297,7 @@ for (let n = 0; n < GAMES; n++) {
   try { if (JSON.stringify(simGame(seed, {}, opts).stream) !== json) fail(seed, 'not deterministic: two runs differ'); } catch (err) { fail(seed, `second run threw: ${err.message}`); }
   digest.update(json);
   const box = checkGame(seed, g);
-  if (box) boxes.push(box);
+  if (box) { boxes.push(box); checkHook(seed, g.stream); }
   for (const x of g.stream) { if (x.type === 'out') outReasons[x.reason] = (outReasons[x.reason] || 0) + 1; if (x.type === 'pa_end') results[x.result] = (results[x.result] || 0) + 1; }
 }
 const ms = Number(process.hrtime.bigint() - started) / 1e6;
@@ -284,11 +310,14 @@ console.log(`runs/game ${A.runsPerGame.toFixed(2)}   K% ${pct(A.kPct)}   BB% ${p
 console.log(`HR/game ${A.hrPerGame.toFixed(2)}   2B/game ${A.doublesPerGame.toFixed(2)}   3B/game ${A.triplesPerGame.toFixed(2)}   GIDP/game ${A.gidpPerGame.toFixed(2)}   HBP% ${pct(A.hbpPct)}   PA/game ${A.paPerGame.toFixed(1)}   pitches/game ${A.pitchesPerGame.toFixed(0)}   innings/game ${A.inningsPerGame.toFixed(2)}`);
 console.log(`SF/game ${A.sfPerGame.toFixed(2)}   SH/game ${A.shPerGame.toFixed(2)}   IBB/game ${A.ibbPerGame.toFixed(2)}   SB/game ${A.sbPerGame.toFixed(2)}   CS/game ${A.csPerGame.toFixed(2)}   SB% ${pct(A.sbPct)}   ROE/game ${A.roePerGame.toFixed(2)}   H/game ${A.hitsPerGame.toFixed(2)}`);
 console.log(`pitches/PA ${A.pitchesPerPa.toFixed(2)}   zone ${pct(A.zonePct)}   swing ${pct(A.swingPct)}   zone swing ${pct(A.zoneSwingPct)}   chase ${pct(A.chasePct)}   whiff ${pct(A.whiffPct)}   zone contact ${pct(A.zoneContactPct)}   chase contact ${pct(A.chaseContactPct)}`);
+const ipPerStart = hook.outs / 3 / (hook.starts || 1);
+console.log(`IP/start ${ipPerStart.toFixed(2)}   pitches/start ${(hook.pitches / (hook.starts || 1)).toFixed(1)}   pitching changes/game ${(hook.changes / (boxes.length || 1)).toFixed(2)}   coach's own pick when asked about a change: change ${pct(hook.coachChange / (hook.asked || 1))}`);
 /* ---------- the league stays close to real baseball ---------- */
 const show = (x, digits, percent) => percent ? pct(x) : digits === 3 ? f3(x) : x.toFixed(digits);
 if (GAMES >= RATE_SAMPLE_MIN) {
   for (const [key, label, ref, tol, digits, percent] of REFERENCE) if (!(Math.abs(A[key] - ref) <= tol)) fail('league', `${label} is ${show(A[key], digits, percent)}, reference ${show(ref, digits, percent)} (tolerance ${show(tol, digits, percent)})`);
-  console.log(`rates within tolerance of the reference league on ${REFERENCE.length} measures`);
+  if (!(Math.abs(ipPerStart - IP_PER_START) <= IP_PER_START_TOL)) fail('league', `IP/start is ${ipPerStart.toFixed(2)}, reference ${IP_PER_START} (tolerance ${IP_PER_START_TOL})`);
+  console.log(`rates within tolerance of the reference league on ${REFERENCE.length + 1} measures`);
 } else console.log(`rates not checked against the reference league: fewer than ${RATE_SAMPLE_MIN} games`);
 console.log(`outs ${totalOuts}: ` + Object.entries(outReasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', '));
 console.log('plate appearances: ' + Object.entries(results).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', '));
