@@ -203,11 +203,28 @@ const asMat = (v, rough) => v && v.isMaterial ? v : stdMat(v, rough);
  * Home: white jersey and pants, team colour on trim (sleeve hems, collar, placket piping), cap, socks, belt.
  * Road: jersey in the team colour, grey pants, trim in the team's second colour, cap and socks in the team colour. */
 export const KIT_WHITE = 0xf4f3ee, KIT_ROAD_PANTS = 0xa9acb3, KIT_BELT_ROAD = 0x1c1d22;
-export const KIT_HELMET_ROUGH = .3;
+export const KIT_HELMET_ROUGH = .3, KIT_GEAR_ROUGH = .45;
+/* #204 item 3: luminance contrast (WCAG ratio) decides what may sit on what. Piping below KIT_TRIM_MIN on its jersey falls back to the next colour,
+ * letters (numbers, back name) below KIT_INK_MIN likewise; the letter outline is whichever kit colour stands out most from the letter fill */
+export const KIT_TRIM_MIN = 2.5, KIT_INK_MIN = 3, KIT_INK_DARK = 0x14161c;
+const lin = v => (v /= 255) <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+const lum = h => .2126 * lin(h >> 16 & 255) + .7152 * lin(h >> 8 & 255) + .0722 * lin(h & 255);
+export const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05) };
+const best = (on, cs) => cs.reduce((a, c) => contrast(c, on) > contrast(a, on) ? c : a);
+const firstOk = (on, cs, min) => cs.find(c => contrast(c, on) >= min) ?? best(on, cs);
+/* kitInk(team, home): jersey, trim, letter fill and outline for one side (pure; the studio prints it) */
+export function kitInk(team, home) {
+  const tc = team.color, t2 = team.color2 ?? tc, jersey = home ? KIT_WHITE : tc;
+  const trim = firstOk(jersey, home ? [tc, t2] : [t2, KIT_WHITE], KIT_TRIM_MIN);
+  const fill = firstOk(jersey, home ? [tc, t2, KIT_INK_DARK] : [KIT_WHITE, t2, KIT_INK_DARK], KIT_INK_MIN);
+  const stroke = best(fill, [KIT_WHITE, tc, t2, KIT_INK_DARK].filter(c => c !== fill && c !== jersey));
+  return { jersey, trim, fill, stroke, key: fill.toString(16) + '/' + stroke.toString(16) };
+}
+const css = h => '#' + h.toString(16).padStart(6, '0');
 /* makeKit(jersey): jersey = the side's shared jersey material (its fabric maps are reused by the clones) */
 export function makeKit(jersey) {
   const c = (rough) => { const m = jersey.clone(); if (rough != null) { m.roughnessMap = null; m.normalMap = null; m.roughness = rough } return m };
-  return { jersey, pants: c(), trim: c(), sock: c(), cap: c(), belt: c(.5), helmet: c(KIT_HELMET_ROUGH), logo: null, team: null, home: null };
+  return { jersey, pants: c(), trim: c(), sock: c(), cap: c(), belt: c(.5), helmet: c(KIT_HELMET_ROUGH), gear: c(KIT_GEAR_ROUGH), logo: null, ink: null, team: null, home: null };
 }
 /* Team marks (#204 item 2): logo decal material per team (assets/logos/<id>_128.webp), family name above the back number */
 let LOGO_BASE = './assets/';
@@ -219,13 +236,13 @@ function logoMat(id) {
   m = decalMat(t); m.visible = false; logoMats.set(id, m); return m;   /* Hidden until the image is in (no black square) */
 }
 export const NAME_PX = [256, 64], NAME_FONT_PX = 56, NAME_STROKE_PX = 8;
-function nameMat(nm) {
-  let m = nameMats.get(nm); if (m) return m;
+function nameMat(nm, ink) {
+  const key = ink ? nm + '|' + ink.key : nm; let m = nameMats.get(key); if (m) return m;
   const c = document.createElement('canvas'); [c.width, c.height] = NAME_PX; const g = c.getContext('2d');
   g.font = `900 ${NAME_FONT_PX}px 'Noto Sans TC',sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = NAME_STROKE_PX;
-  g.strokeStyle = '#14161c'; g.fillStyle = '#fff'; g.strokeText(nm, NAME_PX[0] / 2, NAME_PX[1] / 2 + 2); g.fillText(nm, NAME_PX[0] / 2, NAME_PX[1] / 2 + 2);
+  g.strokeStyle = ink ? css(ink.stroke) : '#14161c'; g.fillStyle = ink ? css(ink.fill) : '#fff'; g.strokeText(nm, NAME_PX[0] / 2, NAME_PX[1] / 2 + 2); g.fillText(nm, NAME_PX[0] / 2, NAME_PX[1] / 2 + 2);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  m = new THREE.MeshBasicMaterial({ map: t, transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); nameMats.set(nm, m); return m;
+  m = new THREE.MeshBasicMaterial({ map: t, transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); nameMats.set(key, m); return m;
 }
 /* Family name for the back: the first character of a Chinese name (compound surnames listed), else the last word */
 const COMPOUND = ['歐陽', '司馬', '諸葛', '上官', '張簡', '范姜'];
@@ -233,23 +250,28 @@ export const familyName = nm => !nm ? '' : /^[\u4e00-\u9fff]/.test(nm) ? (COMPOU
 /* Decal spots on the body (model space): chest logo on the left chest, small number on the right, cap logo above the brim */
 const LOGO_CHEST = { x: .085, y: 1.4, size: .085 }, NUM_FRONT = { x: -.085, y: 1.33, size: .09 }, NAME_BACK = { dy: .125, w: .28, h: .07 };
 const CAP_LOGO = { size: .055, ringA: 3, ringB: 8, out: .004 }, DECAL_GAP = .006;
+/* Catcher's gear (#204 item 4), in the kit's gear material (team colour). Chest protector: a wedge of a tapered cylinder whose axis runs through
+ * the torso centre, so only its curved front shows (y0..y1 model height, arc in radians, out = gap over the chest, sx = width stretch, bottom = belly flare).
+ * Shin guards: tapered tubes along knee->ankle, pushed forward, with a knee cap */
+const PROTECTOR = { y0: 1.1, y1: 1.46, arc: 1.5, out: .03, sx: 1.25, bottom: .97, seg: 14 };
+const SHIN_GUARD = { r: .058, rBot: .047, len: .82, fwd: .016, knee: 1.05, seg: 10 };
 /* setKit(kit, team, home): team = a TEAMS entry (color, color2); cheap to call every frame (only recolours on a change) */
 export function setKit(kit, team, home) {
   if (kit.team === team && kit.home === home) return; kit.team = team; kit.home = home; kit.logo = team.id ? logoMat(team.id) : null;
-  const tc = team.color, t2 = team.color2 ?? tc, set = (m, hex) => m.color.setHex(hex, THREE.SRGBColorSpace);
-  set(kit.jersey, home ? KIT_WHITE : tc); set(kit.pants, home ? KIT_WHITE : KIT_ROAD_PANTS); set(kit.trim, home ? tc : t2);
-  set(kit.sock, tc); set(kit.cap, tc); set(kit.helmet, tc); set(kit.belt, home ? tc : KIT_BELT_ROAD);
+  const tc = team.color, ink = kit.ink = kitInk(team, home), set = (m, hex) => m.color.setHex(hex, THREE.SRGBColorSpace);
+  set(kit.jersey, ink.jersey); set(kit.pants, home ? KIT_WHITE : KIT_ROAD_PANTS); set(kit.trim, ink.trim);
+  set(kit.sock, tc); set(kit.cap, tc); set(kit.helmet, tc); set(kit.gear, tc); set(kit.belt, home ? tc : KIT_BELT_ROAD);
 }
 
 /* Jersey number: one shared material per number (compatible with the old numMat, which can also be used directly) */
 const numMats = new Map();
-export function numMat(n) {
-  let m = numMats.get(n); if (m) return m;
+export function numMat(n, ink) {   /* ink = kitInk(): letters in the kit's colours (#204 item 3); without it white with a dark outline as before */
+  const key = ink ? n + '|' + ink.key : n; let m = numMats.get(key); if (m) return m;
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
   g.font = "bold 92px 'Barlow Condensed','Arial Narrow',sans-serif"; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 10;
-  g.strokeStyle = '#14161c'; g.fillStyle = '#fff'; g.strokeText(String(n), 64, 68); g.fillText(String(n), 64, 68);
+  g.strokeStyle = ink ? css(ink.stroke) : '#14161c'; g.fillStyle = ink ? css(ink.fill) : '#fff'; g.strokeText(String(n), 64, 68); g.fillText(String(n), 64, 68);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  m = new THREE.MeshBasicMaterial({ map: t, transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); numMats.set(n, m); return m;
+  m = new THREE.MeshBasicMaterial({ map: t, transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); numMats.set(key, m); return m;
 }
 
 /* ---------- Gear ---------- */
@@ -728,12 +750,31 @@ function makeRealPlayer(opts, A) {
     numFront.position.set(NUM_FRONT.x, NUM_FRONT.y - D.NUM_Y, A.fnumZ - A.backZ + DECAL_GAP);
     nameBack.position.set(0, NAME_BACK.dy, -NUM_GAP);
   };
+  /* Catcher's gear: built on setGear('catcher'), re-seated per build like the decals */
+  let gearOn = false; const gearMeshes = [];
+  const placeGear = () => {
+    for (const m of gearMeshes.splice(0)) m.parent.remove(m);
+    if (!gearOn || !kit) return; const mat = kit.gear, lk = bd.limb || 1;
+    const half = (A.logoZ - A.backZ) / 2, R = half + PROTECTOR.out, H = PROTECTOR.y1 - PROTECTOR.y0;
+    const pro = new THREE.Mesh(new THREE.CylinderGeometry(R, R * PROTECTOR.bottom, H, PROTECTOR.seg, 1, false, -PROTECTOR.arc / 2, PROTECTOR.arc), mat);
+    pro.scale.x = PROTECTOR.sx; pro.position.set(0, (PROTECTOR.y0 + PROTECTOR.y1) / 2 - D.NUM_Y, half); deco.add(pro); gearMeshes.push(pro);
+    for (const [kn, ft] of [['knL', 'ftL'], ['knR', 'ftR']]) {
+      const off = V3(J[ft]).sub(V3(J[kn])), len = off.length() * SHIN_GUARD.len, dir = off.clone().normalize();
+      const shin = new THREE.Mesh(new THREE.CylinderGeometry(SHIN_GUARD.r * lk, SHIN_GUARD.rBot * lk, len, SHIN_GUARD.seg), mat);
+      shin.quaternion.setFromUnitVectors(_Y, dir);   /* _Y is down: the wide top sits at the knee */ shin.position.copy(dir).multiplyScalar(len / 2).add(new THREE.Vector3(0, 0, SHIN_GUARD.fwd));
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(SHIN_GUARD.r * lk * SHIN_GUARD.knee, SHIN_GUARD.seg, 6), mat); cap.scale.z = .7; cap.position.set(0, 0, SHIN_GUARD.fwd + SHIN_GUARD.r * lk * .4);
+      for (const m of [shin, cap]) { m.castShadow = true; bones[B[kn]].add(m); gearMeshes.push(m) }
+    }
+    pro.castShadow = true;
+  };
   placeDeco();
   const dressSync = s => {   /* Every sync: follow the kit's team logo and the back number (game.js sets numMesh directly) */
     deco.scale.x = capLogo.scale.x = s;
-    const lg = kit && kit.logo; chestLogo.visible = capLogo.visible = !!lg; if (lg) chestLogo.material = capLogo.material = lg;
-    numFront.visible = !!kit && numMesh.visible; numFront.material = numMesh.material;
-    nameBack.visible = !!kit && !!f.nameN && numMesh.visible;
+    const lg = kit && kit.logo; chestLogo.visible = !!lg && !gearOn; capLogo.visible = !!lg; if (lg) chestLogo.material = capLogo.material = lg;
+    const ink = kit && kit.ink;   /* #204 item 3: letters in the kit's colours (game.js sets the plain number material; swap it here) */
+    if (ink && numMesh.visible && f.numN != null) numMesh.material = numMat(f.numN, ink);
+    numFront.visible = !!kit && numMesh.visible && !gearOn; numFront.material = numMesh.material;
+    nameBack.visible = !!kit && !!f.nameN && numMesh.visible; if (ink && f.nameN) nameBack.material = nameMat(f.nameN, ink);
   };
   const putHead = kind => {
     if (cap) capRoot.remove(cap); cap = null; if (kind === 'none') return;
@@ -752,13 +793,14 @@ function makeRealPlayer(opts, A) {
     auto: true, bend: { knee: [0, 0], elbow: [0, 0] }, numN: undefined,
     setNum(n) { if (f.numN === n) return; f.numN = n; numMesh.visible = n != null; if (n != null) numMesh.material = numMat(n) },
     setHead(kind) { headKind = kind; putHead(kind) },
+    setGear(kind) { const on = kind === 'catcher'; if (on === gearOn) return; gearOn = on; placeGear() },   /* #204 item 4: chest protector and shin guards */
     setName(nm) { const fn = familyName(nm); if (f.nameN === fn) return; f.nameN = fn; if (fn) nameBack.material = nameMat(fn) },
     handWorld(i, out = new THREE.Vector3()) { g.updateMatrixWorld(true); return (i ? sockets.handR : sockets.handL).getWorldPosition(out) },
     /* Change handedness: 'R' mirrors the inner node (old keyframes -> right-handed), 'L' does not. Batters unchanged */
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
     setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; if (f.buildKey === k) return; f.buildKey = k;
-      A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+      A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0';
   if (opts.num != null) f.setNum(opts.num);
