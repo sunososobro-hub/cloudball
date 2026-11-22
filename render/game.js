@@ -146,6 +146,10 @@ function fieldTex(){
 }
 let FIELD_PIX=null;
 const isGrassAt=(x,z)=>{const F=FIELD_PIX;if(!F)return false;const px=Math.round(F.X(x)),py=Math.round(F.Y(z));if(px<0||py<0||px>=F.w||py>=F.h)return false;const i=(py*F.w+px)*4;return F.d[i+1]-F.d[i]>18};
+/* #203 item 5 slice 4: turf look per park (TURF below, picked by PARKS[id].shape.turf in applyPark). Uniforms only, so a park change does
+   not recompile: grass and dirt colour gains, and `even` = how much of the grass's light/dark variation is flattened (artificial turf
+   reads flatter; below 0 = patchier natural grass). Tier 0-3 ground only: on max props/field.js draws the field and ignores this. */
+const turfU={grass:TSL.uniform(new THREE.Vector3(1,1,1)),dirt:TSL.uniform(new THREE.Vector3(1,1,1)),even:TSL.uniform(0)};
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {texture,positionWorld,mx_fractal_noise_float:fn,vec2,vec3,float,clamp:tc,mix,smoothstep,uv,dot,normalMap}=TSL;
   const map=fieldTex(),m=new THREE.MeshStandardNodeMaterial({roughness:.95,metalness:0});const base=texture(map,uv()),w=positionWorld.xz;
   const isGrass=smoothstep(.02,.12,base.g.sub(base.r));/* Field map: more green than red = grass */
@@ -155,8 +159,8 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
   const gC=mix(texture(tex('grass_c',1),gUV),texture(tex('grass_c',1),gUV2),.35),dC=mix(texture(tex('dirt_c',1),dUV),texture(tex('dirt_c',1),dUV2),.35);
   const gK=dot(gC.rgb,LUM).div(GR_MEAN),dK=dot(dC.rgb,LUM).div(DR_MEAN);
   const big=fn(vec3(w.mul(.045),0),3,2,.5).mul(.12);
-  const k=tc(mix(dK,gK,isGrass).add(big),.45,1.7);
-  m.colorNode=base.rgb.mul(k).mul(mix(dC.rgb.div(vec3(.20,.14,.08)).mul(.25).add(.75),vec3(1),isGrass));
+  const k=tc(mix(dK.add(big),mix(gK.add(big),float(1),turfU.even),isGrass),.45,1.7);
+  m.colorNode=base.rgb.mul(k).mul(mix(dC.rgb.div(vec3(.20,.14,.08)).mul(.25).add(.75),vec3(1),isGrass)).mul(mix(turfU.dirt,turfU.grass,isGrass));
   const nG=texture(tex('grass_n'),gUV),nD=texture(tex('dirt_n'),dUV);
   m.normalNode=normalMap(mix(nD,nG,isGrass),vec2(mix(float(1.2),float(.8),isGrass)));
   const oG=texture(tex('grass_orm'),gUV),oD=texture(tex('dirt_orm'),dUV);const orm=mix(oD,oG,isGrass);
@@ -492,13 +496,18 @@ const PARKS={
   muntjacs:{pad:'#0e2450',trim:0x7fb0ff,sky:'morning'}};
 /* #203 item 5: PARKS[id].shape = how the four parks differ in shape and surroundings (shape and size only: no real names or marks).
    Slice 1 reads `backdrop` only (the kit beyond the outfield and behind the stands, BACKDROPS below); stand levels, roof, bullpen,
-   light towers and turf look are the next slices and join this block (slice 3 added `links`). The field and the engine never change. */
-PARKS.pheasants.shape={backdrop:'hills',upper:'low'};/* 台北: hillside district, apartment blocks, hills behind; low two-level stands */
-PARKS.owls.shape={backdrop:'city',upper:'block',links:'bridges'};/* 新竹: dense town of row houses and mid-rise blocks, low hills far east; roofed four-level infield block,
+   light towers are the next slice and join this block (slice 3 added `links`, slice 4 `turf`). The field and the engine never change. */
+PARKS.pheasants.shape={backdrop:'hills',upper:'low',turf:'artificial'};/* 台北: hillside district, apartment blocks, hills behind; low two-level stands */
+PARKS.owls.shape={backdrop:'city',upper:'block',links:'bridges',turf:'natural'};/* 新竹: dense town of row houses and mid-rise blocks, low hills far east; roofed four-level infield block,
    glazed bridges from the infield building to the outfield stands, a tight row of houses packed against the outfield stands */
-PARKS.macaques.shape={backdrop:'lake',upper:'tall'};/* 高雄: a lake beyond the outfield, trees on its shore, low hills across; the tallest stands */
-PARKS.muntjacs.shape={backdrop:'mountains',upper:'arcade',roof:false};/* 台東: open sky, two mountain ridges; small park, arcade gallery on the home stand */
-const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night',shape:{backdrop:null,upper:null,links:null}};
+PARKS.macaques.shape={backdrop:'lake',upper:'tall',turf:'sunbaked'};/* 高雄: a lake beyond the outfield, trees on its shore, low hills across; the tallest stands */
+PARKS.muntjacs.shape={backdrop:'mountains',upper:'arcade',roof:false,turf:'redclay'};/* 台東: open sky, two mountain ridges; small park, arcade gallery on the home stand */
+const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night',shape:{backdrop:null,upper:null,links:null,turf:'natural'}};
+/* slice 4: turf looks (gains on the field map; 1 = as painted). artificial: 台北's synthetic carpet, cooler green, even; natural: as before;
+   sunbaked: 高雄's natural grass in a hot afternoon, a touch yellow and patchier; redclay: 台東's 紅土 infield, much redder dirt. ?off=turf = natural. */
+const TURF={natural:{grass:[1,1,1],dirt:[1,1,1],even:0},artificial:{grass:[.76,1.06,1.12],dirt:[1,1,1],even:.85},
+  sunbaked:{grass:[1.28,1.04,.66],dirt:[1.06,1,.9],even:-.6},redclay:{grass:[1,1,1],dirt:[1.32,.8,.6],even:0}};
+function applyTurf(P){const T=(!OFF.has('turf')&&TURF[P.shape&&P.shape.turf])||TURF.natural;turfU.grass.value.set(...T.grass);turfU.dirt.value.set(...T.dirt);turfU.even.value=T.even}
 /* ---------- #203 item 5 slice 1: backdrop kits. Built once on first use (applyPark), then only shown or hidden: no recompile on a park change
    after the first. Four materials in all (ridge, block, tree, water); nothing casts or takes the key shadow. Buildings: instanced boxes, the
    windows are drawn by the material from world position (BD_FLOOR x BD_BAY cells, BD_LIT of them lit, lit strength follows the sky's lamp
@@ -666,7 +675,7 @@ function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PAR
   if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
 function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
   const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
-  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);applyUpper(P);applyLinks(P);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);applyUpper(P);applyLinks(P);applyTurf(P);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
 parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
