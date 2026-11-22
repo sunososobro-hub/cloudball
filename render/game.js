@@ -411,8 +411,8 @@ const SB_Y=18;
 const sbC=document.createElement('canvas');sbC.width=1024;sbC.height=400;const sbTex=new THREE.CanvasTexture(sbC);sbTex.colorSpace=THREE.SRGBColorSpace;
 const sbMesh=new THREE.Mesh(new THREE.PlaneGeometry(26,10),new THREE.MeshBasicMaterial({map:sbTex,toneMapped:false}));
 {const t=-28*Math.PI/180;sbMesh.position.set(Math.sin(t)*128,SB_Y,-Math.cos(t)*128);sbMesh.lookAt(0,10,0);scene.add(sbMesh);
- const back=new THREE.Mesh(new THREE.BoxGeometry(27,11,.6),mast);back.position.copy(sbMesh.position);back.quaternion.copy(sbMesh.quaternion);back.translateZ(-.35);scene.add(back);
- const leg=new THREE.Mesh(new THREE.BoxGeometry(2,SB_Y-5,1),mast);leg.position.set(sbMesh.position.x,(SB_Y-5)/2,sbMesh.position.z);scene.add(leg)}
+ const back=new THREE.Mesh(new THREE.BoxGeometry(27,11,.6),mast);back.name='old:scoreboard';back.position.copy(sbMesh.position);back.quaternion.copy(sbMesh.quaternion);back.translateZ(-.35);scene.add(back);
+ const leg=new THREE.Mesh(new THREE.BoxGeometry(2,SB_Y-5,1),mast);leg.name='old:scoreboard';leg.position.set(sbMesh.position.x,(SB_Y-5)/2,sbMesh.position.z);scene.add(leg)}
 let sbKey='';
 function drawBoard(s,txt){const k=s.sc.join()+txt;if(k===sbKey)return;sbKey=k;const g=sbC.getContext('2d');
   g.fillStyle='#05070d';g.fillRect(0,0,1024,400);g.font='600 64px "Noto Sans TC",sans-serif';g.textBaseline='middle';
