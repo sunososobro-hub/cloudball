@@ -5,7 +5,8 @@
 const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,
   runDist,runTime,leadAt,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
 const $=id=>document.getElementById(id);
-/* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park
+/* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park,par
+   par = the serial compile (no WARM_PARALLEL phase),
    shadows = #152 contact shadows, faces = #157 head shapes (every player on head 0), warm = no compileAsync (the frames compile it), prog = the old
    PassNode.compileAsync path without the #149 progress callback, post = no post pass, shadowmap = no key-light shadow map, park = #150 shaders off.
    Production ignores the URL. BOOT_MARK writes a stage time into window.BOOT.t (index.html), read back by the 🐞 report's boot= field. */
@@ -1302,27 +1303,50 @@ function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wba
   const first=warmRun===1;if(!first&&now-warmT0<WARM_BAR_DELAY_MS)return;/* the first one is already on screen (index.html) */
   const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,base=first?BOOT.share:0,pc=Math.round(100*(base+(1-base)*f));
   wbarFill.style.width=pc+'%';wbar.setAttribute('aria-valuenow',String(pc));if(wbar.hidden)wbar.hidden=false}
+/* #162: on the owner's throttled Chrome the compile moved in whole frames. three 0.186.1 (read): its yields are scheduler.yield when present
+   (Chrome 157 has it), so what is left to wait is the browser's pipeline promises (WebGPU createRenderPipelineAsync, WebGL parallel-compile
+   polls via requestAnimationFrame), awaited one object after another. In a
+   throttled tab (1 frame a second) that made the compile 30 s. So the warm-up first compiles one object per distinct material and geometry
+   layout, all at once (WARM_PARALLEL), so those waits overlap; then the usual whole-scene compile only finds what is left (cache hits).
+   Same programs, same picture: it only changes the order and overlap of the compile. Dev switch ?off=par = the old serial compile. */
+const WARM_PARALLEL=true,WARM_PAR_SHARE=.8;/* share of the compile part of the bar given to the parallel phase */
 async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=performance.now();warmT0=w0;warmLoaded=warmTotal=0;warmFramesLeft=WARM_FRAMES;
-  const prog=ev=>{if(run===1)slowNote();if(run!==warmRun)return;warmLoaded=ev.loaded;warmTotal=ev.total;if(run===1)for(const q of BOOT_COMPILE_Q)if(ev.loaded>=q*ev.total)BOOT_MARK(`c${Math.round(q*100)}`);warmBarTick(performance.now())};
+  let parF=0,serF=0,nObj=0;const setF=()=>{warmTotal=1;warmLoaded=WARM_PAR_SHARE*parF+(1-WARM_PAR_SHARE)*serF;if(run===1)for(const q of BOOT_COMPILE_Q)if(warmLoaded>=q-1e-9)BOOT_MARK(`c${Math.round(q*100)}`);warmBarTick(performance.now())};
+  const prog=ev=>{if(run!==warmRun)return;nObj=ev.total;serF=ev.total?ev.loaded/ev.total:1;setF()};
   if(run===1)BOOT_MARK('w0');
-  /* #162: time each compiled object of the first warm-up (getForRenderAsync starts one, the next progress event ends it); the BOOT_SLOW_N slowest go
-     into BOOT.t as s1..sN = "material name:ms" (material name or type / object name or type, xN = instances / vN = vertices) */
-  const nd=renderer._nodes,slow=[],gfr=run===1&&nd&&nd.getForRenderAsync;let woCur=null,woT=0;
-  if(gfr)nd.getForRenderAsync=function(ro){woCur=ro;woT=performance.now();return gfr.call(this,ro)};
-  const slowNote=()=>{if(!woCur)return;const m=woCur.material||{},ob=woCur.object||{},g=ob.geometry,nv=g&&g.attributes&&g.attributes.position?g.attributes.position.count:0,nm=`${m.name||m.type||'?'}/${ob.name||ob.type||'?'}${ob.isInstancedMesh?'x'+ob.count:''}/v${nv}`;slow.push([performance.now()-woT,nm]);woCur=null};
+  /* #162: time each compiled object of the first warm-up: from getForRenderAsync to its new pipelines done (or to the pipeline lookup when nothing
+     new is made); the BOOT_SLOW_N slowest go into BOOT.t as s1..sN = "material name or type / object name or type, xN = instances / vN = vertices:ms".
+     The same wrapper makes concurrent builds of one node cache key wait for the first one (no duplicate shader builds in the parallel phase). */
+  const nd=renderer._nodes,pl=renderer._pipelines,slow=[],gfr=nd&&nd.getForRenderAsync,gpr=pl&&pl.getForRender,t0=new Map(),pend=new Map();
+  const roName=ro=>{const m=ro.material||{},ob=ro.object||{},g=ob.geometry,nv=g&&g.attributes&&g.attributes.position?g.attributes.position.count:0;return `${m.name||m.type||'?'}/${ob.name||ob.type||'?'}${ob.isInstancedMesh?'x'+ob.count:''}/v${nv}`};
+  const done=ro=>{const t=t0.get(ro);if(t!==undefined){t0.delete(ro);if(run===1)slow.push([performance.now()-t,roName(ro)])}};
+  if(gfr&&gpr){nd.getForRenderAsync=function(ro){if(!t0.has(ro))t0.set(ro,performance.now());let k=null;try{k=nd.getForRenderCacheKey(ro)}catch(e){}
+      const q=k!==null&&pend.get(k);if(q)return q.then(()=>gfr.call(nd,ro));const r=gfr.call(nd,ro);if(k!==null){pend.set(k,r);r.finally(()=>{if(pend.get(k)===r)pend.delete(k)})}return r};
+    pl.getForRender=function(ro,promises){const n=promises?promises.length:0,r=gpr.call(pl,ro,promises);if(promises&&promises.length>n)Promise.all(promises.slice(n)).then(()=>done(ro));else done(ro);return r}}
   scene.traverse(o=>{if(o.frustumCulled){o.frustumCulled=false;off.push(o)}});
-  /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one */
-  const sp=PP&&PP.scenePass;let p=null;
-  /* the post path does what PassNode.compileAsync does (its target and MRT around the compile), so the progress callback can be passed */
-  try{if(OFF.has('warm'))p=null;
-    else if(OFF.has('prog'))p=sp?(sp.compileAsync?sp.compileAsync(renderer):null):renderer.compileAsync(scene,camera);
-    else if(sp){if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;const rt=renderer.getRenderTarget(),mrt=renderer.getMRT();
-      renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT());p=renderer.compileAsync(sp.scene,sp.camera,null,prog).finally(()=>{renderer.setRenderTarget(rt);renderer.setMRT(mrt)})}
-    else if(renderer.compileAsync)p=renderer.compileAsync(scene,camera,null,prog)}
-  catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true}
-  try{await p}catch(e){console.warn('warm-up failed',e)}
-  if(gfr){nd.getForRenderAsync=gfr;const B=window.BOOT;if(B&&B.t){slow.sort((a,b)=>b[0]-a[0]);slow.slice(0,BOOT_SLOW_N).forEach(([ms,nm],i)=>B.t[`s${i+1}`]=`${nm.replace(/[,@]/g,'_')}:${Math.round(ms)}`)}}
-  if(run!==warmRun)return;warming=false;if(run===1){BOOT_MARK(`w1/${warmTotal}`);bootCompiled()}entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
+  /* with post on, the scene is drawn by the post's scene pass (its own target and MRT outputs, part of every shader): compile for that one.
+     compileAsync reads the target and MRT only before its first await, so they are set around each call and put back right after it. */
+  const sp=PP&&PP.scenePass,cs=sp?sp.scene:scene,cc=sp?sp.camera:camera;
+  const inTarget=f=>{if(!sp)return f();if(sp.options.samples===undefined)sp.renderTarget.samples=renderer.samples;const rt=renderer.getRenderTarget(),mrt=renderer.getMRT();
+    renderer.setRenderTarget(sp.renderTarget);renderer.setMRT(sp.getMRT());try{return f()}finally{renderer.setRenderTarget(rt);renderer.setMRT(mrt)}};
+  try{
+    if(OFF.has('warm')){}
+    else if(OFF.has('prog'))await (sp?(sp.compileAsync?sp.compileAsync(renderer):null):renderer.compileAsync(scene,camera));
+    else if(renderer.compileAsync){
+      if(WARM_PARALLEL&&!OFF.has('par')){
+        /* one object per distinct (material, geometry layout, mesh kind); objects holding lights are left to the whole-scene pass (a light passed
+           twice would change the light set of the shader) */
+        const reps=new Map();cs.traverseVisible(o=>{if(!(o.isMesh||o.isLine||o.isPoints||o.isSprite)||!o.material)return;let lit=false;o.traverse(c=>{if(c.isLight)lit=true});if(lit)return;
+          const g=o.geometry,ms=Array.isArray(o.material)?o.material:[o.material],key=ms.map(m=>m.uuid).join('+')+'|'+(g?Object.keys(g.attributes).sort().join(',')+(g.index?'i':'')+Object.keys(g.morphAttributes||{}).join(','):'')+'|'+(o.isInstancedMesh?'I':'')+(o.isBatchedMesh?'B':'')+(o.isSkinnedMesh?'S':'')+(o.isSprite?'P':'')+(o.isLine?'L':'')+(o.isPoints?'O':'');
+          if(!reps.has(key))reps.set(key,o)});
+        let nd2=0;const N=reps.size||1;
+        await Promise.all([...reps.values()].map(o=>inTarget(()=>renderer.compileAsync(o,cc,cs)).catch(e=>console.warn('warm-up part failed',e)).finally(()=>{if(run!==warmRun)return;parF=++nd2/N;setF()})));
+        if(run===1)BOOT_MARK(`wp/${reps.size}`)}
+      else parF=1;
+      if(run===warmRun){setF();await inTarget(()=>renderer.compileAsync(cs,cc,null,prog))}}}
+  catch(e){console.warn('warm-up failed',e)}finally{for(const o of off)o.frustumCulled=true;if(gfr&&gpr){nd.getForRenderAsync=gfr;pl.getForRender=gpr}}
+  if(run===1){const B=window.BOOT;if(B&&B.t){slow.sort((a,b)=>b[0]-a[0]);slow.slice(0,BOOT_SLOW_N).forEach(([ms,nm],i)=>B.t[`s${i+1}`]=`${nm.replace(/[,@]/g,'_')}:${Math.round(ms)}`)}}
+  if(run!==warmRun)return;warming=false;if(run===1){BOOT_MARK(`w1/${nObj}`);bootCompiled()}entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
 function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
   if(performance.now()-tierT0>FPS_WARMUP_MS&&$('intro').hidden&&!document.hidden&&avg>FPS_BUDGET_MS&&gfxTier<TIER_MAX){setTier(gfxTier+1);tierT0=performance.now();note(`有點卡，自動降畫質（${gfxTier}/${TIER_MAX}）`)}}
 setTier(gfxTier);
