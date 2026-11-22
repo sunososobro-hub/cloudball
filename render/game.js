@@ -235,7 +235,7 @@ function stand(px,pz,rotY,len,rows,side,roof,base=0){
   for(let r=0;r<rows;r++){const h=base+FRONT_H+r*ROW_RISE,d=r*ROW_D+ROW_D/2;const b=new THREE.Mesh(new THREE.BoxGeometry(len,h,ROW_D),standMat);b.position.set(0,h/2,d);g.add(b);
     for(let x=-len/2+.4;x<len/2-.3;x+=SEAT_W)fans.push({g,x,y:h,z:d,side,empty:Math.random()<CROWD_EMPTY})}
   const top=base+FRONT_H+rows*ROW_RISE,w=new THREE.Mesh(new THREE.BoxGeometry(len,top+BACK_WALL,1),standMat);w.position.set(0,(top+BACK_WALL)/2,rows*ROW_D+.5);g.add(w);
-  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(len,RAIL_H,.25),seatMat);rail.name='old:rail';rail.position.set(0,base+RAIL_H/2,-.1);g.add(rail);
   if(roof){const rf=new THREE.Mesh(new THREE.BoxGeometry(len+2,.5,rows*.9+6),standMat);rf.position.set(0,top+8,rows*.45-2);rf.rotation.x=-.08;g.add(rf);
     const lip=new THREE.Mesh(new THREE.BoxGeometry(len+2,FASCIA_H,.25),fasciaMat(len+2));lip.position.set(0,top+7.4-FASCIA_H/2+.12,-4.9);g.add(lip);
     const n=Math.floor((len+2)/RIB_GAP),ribs=new THREE.InstancedMesh(ribGeo(rows*.9+6),ribMat,n);/* #150 round 3: steel ribs under the roof, one draw call per stand */
@@ -285,7 +285,7 @@ for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-
 const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty);
 for(let i=people.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[people[i],people[j]]=[people[j],people[i]]}/* random order: a lower quality tier draws a prefix, i.e. a random subset */
 people.forEach((f,i)=>f.pi=i);const cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
-const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.55}),fans.length);
+const seats=new THREE.InstancedMesh(seatGeo,new THREE.MeshStandardMaterial({color:LC(0x1d4f8f),roughness:.55}),fans.length);seats.name='old:seats';
 /* #150 round 3: moulded seats are not one flat blue: each seat a little lighter or darker (SEAT_VAR), higher rows sun-faded (SEAT_FADE per metre),
    a few newer replacement seats (SEAT_NEW share). Seats only: the people on them are untouched. */
 const SEAT_VAR=.16,SEAT_FADE=.018,SEAT_NEW=.03;
