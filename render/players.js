@@ -911,13 +911,17 @@ export function clipFeet(c, t, mirror = false) {
 export const PLANT_Y = .08, PLANT_V = .3;
 export function footDrift(c, t0 = 0, t1 = c.dur, dt = 1 / c.fps, mirror = false) {
   const F = []; for (let t = t0; t <= t1 + 1e-9; t += dt) F.push(clipFeet(c, t, mirror));
-  const floor = Math.min(...F.map(f => Math.min(f.L[1], f.R[1])));
+  return plantedDrift(F, t0, dt, 1);
+}
+/* Shared by footDrift (clip skeleton, hip heights) and rigFootDrift (our rig, metres: scale = the figure's hip height in m) */
+function plantedDrift(F, t0, dt, scale) {
+  const floor = Math.min(...F.map(f => Math.min(f.L[1], f.R[1]))), py = PLANT_Y * scale, pv = PLANT_V * scale;
   const out = { floor, L: { max: 0, at: 0, runs: 0, frames: 0 }, R: { max: 0, at: 0, runs: 0, frames: 0 } };
   for (const s of ['L', 'R']) {
     let anchor = null;
     for (let i = 1; i < F.length; i++) {
       const a = F[i - 1][s], b = F[i][s], v = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / dt;
-      if (b[1] - floor < PLANT_Y && v < PLANT_V) {
+      if (b[1] - floor < py && v < pv) {
         if (!anchor) { anchor = b; out[s].runs++ }
         out[s].frames++;
         const d = Math.hypot(b[0] - anchor[0], b[2] - anchor[2]); if (d > out[s].max) { out[s].max = d; out[s].at = t0 + i * dt }
@@ -925,6 +929,18 @@ export function footDrift(c, t0 = 0, t1 = c.dur, dt = 1 / c.fps, mirror = false)
     }
   }
   return out;
+}
+/* #186: the same planted-foot check on the retargeted rig: figure f (makePlayer, real rig) driven by setMocap at clip times t0..t1, ankle bones
+ * read in world space after the skinning sync. Same thresholds scaled to this figure (hip height x f.k). Returns metres. L/R = our bones ftL/ftR.
+ * Compare with footDrift(): the difference is what the retarget adds. Moves the figure's mocap state (call setMocap(null) afterwards). */
+export function rigFootDrift(f, c, t0 = 0, t1 = c.dur, dt = 1 / c.fps, mirror = false) {
+  const nm = {}; f.g.traverse(o => { if (o.name === 'ftL' || o.name === 'ftR') nm[o.name] = o });
+  const F = [], v = new THREE.Vector3();
+  for (let t = t0; t <= t1 + 1e-9; t += dt) {
+    f.setMocap(c, t, 1, mirror, t0, 0); f.g.updateMatrixWorld(true);
+    F.push({ L: nm.ftL.getWorldPosition(v).toArray(), R: nm.ftR.getWorldPosition(v).toArray() });
+  }
+  return plantedDrift(F, t0, dt, D.PELVIS_Y * (f.k || 1));
 }
 /* Per (clip, mirror): target bone index per clip joint and the rest-direction fix of each target bone (same skeleton for every build) */
 function clipFix(c, mirror, J) {
