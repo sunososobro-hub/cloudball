@@ -1,17 +1,15 @@
 # assets/ handoff (max 20 lines)
-
 ## Done
 - #3: Chinese comments/docstrings in `tools/*.py` translated (PR #12).
 - #16: team logos in `logos/<id>_{128,512}.webp`, cut from the owner's PNGs by `tools/make_logos.py` (not CC0).
 - #185 first half (feat/185, lane B): rig 16 -> 24 bones (chest, clL/clR, wrL/wrR = forearm twist, toeL/toeR, head appended; old indices kept). Pack v2 header has `bones`/`parent`/`group`; weights are the old u8 split per old bone, so `tools/rig_check.mjs` shows 0.0000 mm on 72 random poses.
-
 - #207 round 1 half (feat/207-maps): `skin_uv.b64.txt` = UVs of skin/hair (MakeHuman base.obj vt) + eyes (generated), joined to the pack by vertex + seam rows (`extra`/`fix`, see `tools/skin_uv.py` docstring); pack unchanged. 100 KB of the 600 KB budget.
-
+- #186 items 3-4 (feat/186-pitch, lane B): `loadClip`/`decodeClip`/`clipSample`/`clipFix` + `f.setMocap` in players.js (retarget by world rotation with a rest-direction fix per bone; root turns about the pelvis joint). Call site: game.js `pitchPose` (PM_* time warp, release frame on RELEASE, ball leaves from the clip hand at RELEASE, `?off=mocap` dev switch).
 ## Next
 - #207 round 1 pick up: skin colour maps. MakeHuman's `data/skins/` holds only `default.mhmat` (no image); its textured skins were in `makehumancommunity/makehuman-assets`, which is gone from GitHub (asks for login), so no map is covered by that repo's LICENSE.ASSETS.md. Manager's call: another CC0 source, or a map baked by code from the UV layout (rule 16 allows code-drawn). Any atlas crop must remap the UVs in `tools/skin_uv.py`.
 - #185 second half (pick up here): turn the new bones, one act per round: pitcher delivery (chest vs pelvis, clavicle, wrist snap), swing (hips lead chest), running (toe push-off). Poses are set in `sync()` of `makeRealPlayer` (players.js); the acts live in game.js (lane A): name the call site in the PR. Back number socket is on `spine`: move it to `chest` once the chest turns.
 - Any new third-party file must be CC0 and listed in SOURCES.md (rule 16).
-
+- #186 pick up: item 6 sheet if missing; a pitcher who fields drops the clip at ARRIVE (fielding code moves the proxies, `proxyKey` no longer matches): blend instead; tune PM_* against the side shot; then swing (`swing_124_07.json`, set its `--release`).
 ## Traps
 - UV tool needs a MakeHuman clone with `makehuman/data/3dobjs` only; it asserts the pack's vertex count, so rerun it whenever `players.b64.txt` is rebuilt.
 - Logos: macaque may be replaced again; rerun `tools/make_logos.py <dir> macaques`, no code change. Source PNGs are not in the repo.
