@@ -30,6 +30,7 @@ const NAME = { P: '投手', '1B': '一壘手', '2B': '二壘手', SS: '游擊手
 const cams = [
   ['轉播鏡頭 (default)', SEATS[3], { cam: true }],
   ['轉播鏡頭 + 望遠鏡', SEATS[3], { cam: true, zoom: true }],
+  ['轉播鏡頭 tight shot (#158, first pitch of a PA)', { ...SEATS[3], tx: -.9, ty: num('TIGHT_AIM_Y'), tz: .15, fov: num('TIGHT_FOV') }, { cam: true }],
   ['擊球後轉播 (HITCAM)', { ...HITCAM, tx: HITCAM.mid[0], ty: HITCAM.mid[1], tz: HITCAM.mid[2], cam: true }, {}],
   ['跟球鏡頭 (seat 4, ball at the pitcher)', SEATS[4], { follow: true }],
   ['本壘高空 (seat 5)', SEATS[5], {}],
