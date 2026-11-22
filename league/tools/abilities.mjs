@@ -20,12 +20,15 @@ const { ROSTERS } = await import(pathToFileURL(FILE));
 const { TEAMS } = await import(pathToFileURL(path.join(HERE, '../teams.js')));
 const { BIOS } = await import(pathToFileURL(path.join(HERE, '../bios.js')));
 const { simGame } = await import(pathToFileURL(path.join(HERE, '../../engine/index.js')));
+const { ratingScale } = await import(pathToFileURL(path.join(HERE, '../ratings.js')));
 
 export const ABILITY_SEED = 169;
-const SEED_TRIES = 40;
+const SEED_TRIES = 400;
 const SKEW = 0.6;                 /* lognormal sigma: skewness about 2.3, long right tail */
 const SPREAD = 1.25;              /* new standard deviation relative to today's */
-const STAR_Z = 3.0, STAR_SECOND_Z = 1.2, GOOD_Z = 1.7, HOLE_Z = -2.0, HOLE_JITTER = 0.5;
+const STAR_Z = 3.3, STAR_SECOND_Z = 2.2, REST_CAP_Z = 1.8, GOOD_Z = 1.7, HOLE_Z = -2.3, HOLE_JITTER = 0.5;
+/* the 1 to 100 display (../ratings.js) must read: every star first on his team and at least STAR_OVR, every hole under HOLE_OVR */
+const STAR_OVR = 90, HOLE_OVR = 45, LEAGUE_OVR = [60, 65];
 const WIN_MIN = 0.45, WIN_MAX = 0.55, MC_SEARCH = 200, MC_FINAL = 600;
 const BAT = ['con', 'pow', 'eye', 'spd', 'arm'], PIT = ['stuff', 'ctrl', 'arm'];
 /* the engine's use of each rating: the league value of this function stays the same after the redraw */
@@ -83,13 +86,21 @@ const OLD_BY_ID = new Map([...OLD.bat, ...OLD.pit].map(p => [p.id, p]));
 export function draw(seed) {
   const rng = mulberry32(seed), R = ROSTERS.map(t => ({ bat: t.bat.map(p => ({ ...p })), pit: t.pit.map(p => ({ ...p })) }));
   for (const g of ['bat', 'pit']) for (const p of groups(R)[g]) for (const k of keysOf(g)) p[k] = 1 + TARGET[g + k].sd * SPREAD * skewed(rng);
+  /* the long tail belongs to the named players: everyone else stays under REST_CAP_Z */
+  R.forEach((t, i) => {
+    const id = TEAMS[i].id, named = new Set([STARS[id].slot, ...GOOD[id]]);
+    for (const p of [...t.bat, ...t.pit]) if (!named.has(slotOf(p))) for (const k of keysOf(p.pos ? 'bat' : 'pit')) if (k !== 'pot')
+      p[k] = Math.min(p[k], 1 + REST_CAP_Z * TARGET[(p.pos ? 'bat' : 'pit') + k].sd * SPREAD);
+  });
   R.forEach((t, i) => {
     const id = TEAMS[i].id, find = s => [...t.bat, ...t.pit].find(p => slotOf(p) === s), z = (p, k, n) => { p[k] = Math.max(p[k], 1 + n * TARGET[(p.pos ? 'bat' : 'pit') + k].sd * SPREAD); };
     const S = STARS[id], star = find(S.slot);
+    for (const k of (star.pos ? BAT : PIT)) z(star, k, 0);
     z(star, S.main, STAR_Z); z(star, S.second, STAR_SECOND_Z);
     if (S.short) star[S.short] = Math.min(star[S.short], 1 - 0.5 * TARGET['bat' + S.short].sd * SPREAD);
     for (const s of GOOD[id]) { const p = find(s), bio = BIOS[p.id], keys = p.pos ? BAT : PIT; z(p, bio ? bestOf(OLD_BY_ID.get(p.id), keys) : bestOf(p, keys), GOOD_Z); }
-    const hole = find(HOLES[id]); for (const k of ['con', 'pow']) hole[k] = Math.min(hole[k], 1 + (HOLE_Z - HOLE_JITTER * rng()) * TARGET['bat' + k].sd * SPREAD);
+    const hole = find(HOLES[id]); for (const k of BAT) hole[k] = Math.min(hole[k], 1);
+    for (const k of ['con', 'pow']) hole[k] = Math.min(hole[k], 1 + (HOLE_Z - HOLE_JITTER * rng()) * TARGET['bat' + k].sd * SPREAD);
   });
   for (let i = 0; i < 6; i++) { rescale(R); keepBioBest(R); }
   for (const p of groups(R).bat) {
@@ -100,6 +111,18 @@ export function draw(seed) {
   for (const p of groups(R).pit) { const st = p.stuff - 1; p.body = { slim: 0, power: r2(clamp01((st - 0.01) / 0.08)), heavy: 0 }; }
   for (const g of ['bat', 'pit']) for (const p of groups(R)[g]) for (const k of keysOf(g)) p[k] = r3(p[k]);
   return R;
+}
+
+export function ratingsCheck(R) {
+  const rate = ratingScale(R), all = [], out = [];
+  R.forEach((t, i) => {
+    const id = TEAMS[i].id, ps = [...t.bat, ...t.pit].map(p => ({ p, r: rate(p) })), star = ps.find(x => slotOf(x.p) === STARS[id].slot), hole = ps.find(x => slotOf(x.p) === HOLES[id]);
+    all.push(...ps.map(x => x.r.ovr));
+    if (star.r.ovr < STAR_OVR || ps.some(x => x !== star && x.r.ovr >= star.r.ovr)) out.push(`${id}: star ${star.r.ovr} is not first or under ${STAR_OVR}`);
+    if (hole.r.ovr >= HOLE_OVR) out.push(`${id}: hole ${hole.r.ovr}`);
+  });
+  const m = mean(all); if (m < LEAGUE_OVR[0] || m > LEAGUE_OVR[1]) out.push(`league overall ${m.toFixed(1)}`);
+  return out;
 }
 
 export function winRates(R, games) {
@@ -116,7 +139,8 @@ const stats = a => { const m = mean(a), s = sd(a), skew = mean(a.map(x => ((x - 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   let seed = ABILITY_SEED, R = null, wr = null;
   for (; seed < ABILITY_SEED + SEED_TRIES; seed++) {
-    R = draw(seed); wr = winRates(R, MC_SEARCH);
+    R = draw(seed); if (ratingsCheck(R).length) continue;
+    wr = winRates(R, MC_SEARCH);
     if (wr.every(x => x > WIN_MIN + 0.025 && x < WIN_MAX - 0.025)) break;
   }
   wr = winRates(R, MC_FINAL);
@@ -131,6 +155,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const id = TEAMS[i].id, find = s => [...t.bat, ...t.pit].find(p => slotOf(p) === s), S = STARS[id], st = find(S.slot), ho = find(HOLES[id]);
     console.log(`${id}: win ${(wr[i] * 100).toFixed(1)}%  star ${st.name} (${S.kind}, ${S.main} ${st[S.main]})  good ${GOOD[id].map(s => find(s).name).join(' ')}  hole ${ho.name} (con ${ho.con} pow ${ho.pow})`);
   });
+  const before = ratingScale(ROSTERS), after = ratingScale(R);
+  console.log('overall 1..100, before -> after (batters in lineup order, then pitchers):');
+  R.forEach((t, i) => console.log(`${TEAMS[i].id}: ` + [...t.bat, ...t.pit].map(p => `${p.name} ${before(OLD_BY_ID.get(p.id)).ovr}->${after(p).ovr}`).join(', ')));
+  const avgOvr = (rate, ps) => mean(ps.map(p => rate(p).ovr)).toFixed(1);
+  console.log(`league overall mean ${avgOvr(before, [...OLD.bat, ...OLD.pit])} -> ${avgOvr(after, [...NEW.bat, ...NEW.pit])}`);
   const bad = wr.filter(x => x < WIN_MIN || x > WIN_MAX).length;
   if (bad) { console.error(`${bad} team(s) outside ${WIN_MIN * 100}..${WIN_MAX * 100}%`); process.exit(1); }
   if (process.argv.includes('--write')) {
