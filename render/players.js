@@ -689,6 +689,56 @@ const capGeoCache = new Map();
 const V3 = a => new THREE.Vector3(...a);
 const _q3 = new THREE.Quaternion(), _q4 = new THREE.Quaternion(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const _Y = new THREE.Vector3(0, -1, 0);
+/* ---------- #186 mocap clips (assets/mocap/*.json, format cloudball-mocap/1, see assets/mocap/README.md) ----------
+ * The pose is a pure function of (clip, clip time): frames are slerped, nothing is integrated. Retarget per joint by world rotation:
+ * source world = parent world * local (source rest = identity, T-pose); target world = source world * FIX, where FIX turns the target
+ * bone's rest direction (J points) into the source bone's rest direction, so every bone points where the performer's did.
+ * Sides: the clip's Left (+X) is our 'R' bones (+x, see the B note). mirror = x -> -x, swap sides, quaternion (x, -y, -z, w). */
+const MO_MAP = { hips: 'root', spine: 'spine', chest: 'chest', neck: 'neck', head: 'head',
+  clavicleLeft: 'clR', upperArmLeft: 'shR', forearmLeft: 'elR', handLeft: 'handR', clavicleRight: 'clL', upperArmRight: 'shL', forearmRight: 'elL', handRight: 'handL',
+  thighLeft: 'thR', shinLeft: 'knR', footLeft: 'ftR', toeLeft: 'toeR', thighRight: 'thL', shinRight: 'knL', footRight: 'ftL', toeRight: 'toeL' };
+/* Target bone -> joint its direction points at (J names); bones not listed keep the source turn without a direction fix */
+const MO_AIM = { spine: 'chest', chest: 'neck', neck: 'head', clL: 'shL', clR: 'shR', shL: 'elL', shR: 'elR', elL: 'handL', elR: 'handR', handL: 'gripL', handR: 'gripR',
+  thL: 'knL', thR: 'knR', knL: 'ftL', knR: 'ftR', ftL: 'toeL', ftR: 'toeR' };
+const swapSide = n => n.replace(/Left$|Right$/, s => s === 'Left' ? 'Right' : 'Left');
+const b64i16 = s => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new Int16Array(u.buffer) };
+export async function loadClip(url) { const r = await fetch(url); if (!r.ok) throw new Error('mocap ' + url + ' ' + r.status); return decodeClip(await r.json()) }
+export function decodeClip(d) {
+  if (d.format !== 'cloudball-mocap/1') throw new Error('mocap format ' + d.format);
+  const names = d.joints.map(j => j.name), nj = names.length, R = b64i16(d.rot), P = b64i16(d.pos), rot = new Float32Array(R.length), pos = new Float32Array(P.length);
+  for (let i = 0; i < R.length; i++) rot[i] = R[i] / d.rotQ;
+  for (let i = 0; i < P.length; i++) pos[i] = P[i] / d.posQ;
+  return { fps: d.fps, n: d.frames, names, nj, parent: d.joints.map(j => names.indexOf(j.parent)), rest: d.joints.map(j => j.rest), rot, pos, release: d.release, dur: (d.frames - 1) / d.fps, fix: {} };
+}
+/* Local rotations and hips position of clip at time t (s), into out = {q: Quaternion[nj], p: Vector3}; mirror swaps sides */
+const _ma = new THREE.Quaternion(), _mb = new THREE.Quaternion();
+function clipSample(c, t, mirror, out) {
+  const ft = Math.max(0, Math.min(c.n - 1, t * c.fps)), f0 = Math.floor(ft), f1 = Math.min(c.n - 1, f0 + 1), s = ft - f0;
+  for (let j = 0; j < c.nj; j++) {
+    const src = mirror ? c.names.indexOf(swapSide(c.names[j])) : j, a = (f0 * c.nj + src) * 4, b = (f1 * c.nj + src) * 4, R = c.rot;
+    _ma.set(R[a], R[a + 1], R[a + 2], R[a + 3]).normalize(); _mb.set(R[b], R[b + 1], R[b + 2], R[b + 3]).normalize(); _ma.slerp(_mb, s);
+    if (mirror) _ma.set(_ma.x, -_ma.y, -_ma.z, _ma.w);
+    out.q[j].copy(_ma);
+  }
+  const P = c.pos, a = f0 * 3, b = f1 * 3; out.p.set(P[a] + (P[b] - P[a]) * s, P[a + 1] + (P[b + 1] - P[a + 1]) * s, P[a + 2] + (P[b + 2] - P[a + 2]) * s);
+  if (mirror) out.p.x = -out.p.x;
+  return out;
+}
+/* Per (clip, mirror): target bone index per clip joint and the rest-direction fix of each target bone (same skeleton for every build) */
+function clipFix(c, mirror, J) {
+  const key = mirror ? 'm' : 'n'; if (c.fix[key]) return c.fix[key];
+  const tb = c.names.map(n => B[MO_MAP[n]] ?? -1), fix = c.names.map(() => new THREE.Quaternion());
+  c.names.forEach((n, j) => {
+    const bn = MO_MAP[n], aim = MO_AIM[bn], kid = c.names.findIndex((m, i) => c.parent[i] === j && MO_MAP[m] === aim); if (kid < 0) return;
+    const r = c.rest[mirror ? c.names.indexOf(swapSide(c.names[kid])) : kid], sdir = new THREE.Vector3(mirror ? -r[0] : r[0], r[1], r[2]);
+    const tdir = V3(J[aim]).sub(V3(J[bn])); if (sdir.lengthSq() < 1e-8 || tdir.lengthSq() < 1e-8) return;
+    fix[j].setFromUnitVectors(tdir.normalize(), sdir.normalize());
+  });
+  /* Hands and toes have no clip child: they carry on their parent's fix (forearm, foot) */
+  c.names.forEach((n, j) => { if (/^(hand|toe)/.test(n)) fix[j].copy(fix[c.parent[j]]) });
+  return c.fix[key] = { tb, fix };
+}
+
 function makeRealPlayer(opts, A) {
   const bd = { h: opts.height || buildHeight(opts.build || 'normal') };
   const jersey = asMat(opts.jersey ?? 0xffffff, .55), pants = asMat(opts.pants ?? 0xeeeeee, .75), skin = asMat(opts.skin ?? 0xc99572, .62);
@@ -794,6 +844,10 @@ function makeRealPlayer(opts, A) {
     setNum(n) { if (f.numN === n) return; f.numN = n; numMesh.visible = n != null; if (n != null) numMesh.material = numMat(n) },
     setHead(kind) { headKind = kind; putHead(kind) },
     setGear(kind) { const on = kind === 'catcher'; if (on === gearOn) return; gearOn = on; placeGear() },   /* #204 item 4: chest protector and shin guards */
+    /* #186: drive the skeleton from a mocap clip at clip time t, blended over the proxy pose by w (0..1). t0 = clip time that stands on
+       the figure's spot (hips travel is measured from there), dz = metres of g.position.z the caller already moved (taken back off).
+       The clip holds only while the proxies stay as they were at this call: any later pose (another event, resetPose) drops it. */
+    setMocap(clip, t, w, mirror, t0 = 0, dz = 0) { f.mo = clip && w > 0 ? { clip, t, w, mirror, t0, dz, key: proxyKey() } : null },
     setName(nm) { const fn = familyName(nm); if (f.nameN === fn) return; f.nameN = fn; if (fn) nameBack.material = nameMat(fn) },
     handWorld(i, out = new THREE.Vector3()) { g.updateMatrixWorld(true); return (i ? sockets.handR : sockets.handL).getWorldPosition(out) },
     /* Change handedness: 'R' mirrors the inner node (old keyframes -> right-handed), 'L' does not. Batters unchanged */
@@ -836,6 +890,35 @@ function makeRealPlayer(opts, A) {
   }
   const SH = [V3(J.shL).sub(V3(J.spine)), V3(J.shR).sub(V3(J.spine))], TH = [V3(J.thL), V3(J.thR)];
   const shRest = [bones[B.shL].position.clone(), bones[B.shR].position.clone()];
+  /* #186 mocap: bones nothing else turns go back to rest once a clip let go of them */
+  const MO_FREE = [B.root, B.chest, B.clL, B.clR, B.wrL, B.wrR, B.toeL, B.toeR, B.head, B.handL, B.handR], rootRest = bones[0].position.clone(), pelvisAt = V3(J.pelvis);
+  const MO_ORDER = []; { const walk = i => { MO_ORDER.push(i); PAR.forEach((p, k) => { if (p === i) walk(k) }) }; walk(0) }
+  const PX = [up, hg, l0, l1, a0, a1, hips];
+  const proxyKey = () => { let k = g.position.x + ',' + g.position.z; for (const o of PX) k += ',' + o.quaternion.x + ',' + o.quaternion.y + ',' + o.quaternion.z + ',' + o.quaternion.w + ',' + o.scale.y; return k };
+  let moDirty = false;
+  const moS = { q: [], p: new THREE.Vector3(), p0: new THREE.Vector3() }, moW = [], moT = bones.map(() => new THREE.Quaternion()), moSet = bones.map(() => false), _ml = new THREE.Quaternion();
+  function moClear() { for (const i of MO_FREE) bones[i].quaternion.identity(); bones[0].position.copy(rootRest); moDirty = false }
+  function moApply(m) {
+    const c = m.clip, F = clipFix(c, m.mirror, J);
+    while (moS.q.length < c.nj) { moS.q.push(new THREE.Quaternion()); moW.push(new THREE.Quaternion()) }
+    clipSample(c, m.t0, m.mirror, moS); moS.p0.copy(moS.p); clipSample(c, m.t, m.mirror, moS);
+    moSet.fill(false);
+    for (let j = 0; j < c.nj; j++) {   /* clip joints come parent first */
+      const pj = c.parent[j]; moW[j].copy(pj < 0 ? moS.q[j] : _ml.copy(moW[pj]).multiply(moS.q[j]));
+      const bi = F.tb[j]; if (bi >= 0) { moT[bi].copy(moW[j]).multiply(F.fix[j]); moSet[bi] = true }
+    }
+    for (const i of MO_ORDER) {   /* bones the clip does not drive (pelvis, forearm twist) keep rest under their parent */
+      const p = PAR[i]; if (!moSet[i]) moT[i].copy(p < 0 ? _ml.identity() : moT[p]);
+      _ml.copy(p < 0 ? moT[i] : _q4.copy(moT[p]).invert().multiply(moT[i]));
+      bones[i].quaternion.slerp(_ml, m.w);
+    }
+    /* Hips travel in hip heights, measured from the clip's start spot; the caller's own stride (dz) comes back off */
+    /* The root bone sits on the floor: its turn (the hips') pivots about the pelvis joint instead */
+    const hh = pelvisAt.y, k = f.k || 1;
+    _v3.set((moS.p.x - moS.p0.x) * hh, (moS.p.y - moS.p0.y) * hh, (moS.p.z - moS.p0.z) * hh - m.dz / k);
+    bones[0].position.copy(rootRest).addScaledVector(_v3, m.w).add(pelvisAt).sub(_v2.copy(pelvisAt).applyQuaternion(bones[0].quaternion));
+    moDirty = true;
+  }
   function sync() {
     const b = bones;
     const z0 = _v.copy(_DN).applyQuaternion(l0.quaternion).z, z1 = _v.copy(_DN).applyQuaternion(l1.quaternion).z;
@@ -845,6 +928,8 @@ function makeRealPlayer(opts, A) {
     solve(a1, C.aR, b[B.shR], b[B.elR], null, SH[1], true, 1, true);
     solve(l0, C.lL, b[B.thL], b[B.knL], b[B.ftL], TH[0], false, 0, false);
     solve(l1, C.lR, b[B.thR], b[B.knR], b[B.ftR], TH[1], false, 1, false);
+    if (moDirty) moClear();
+    if (f.mo && f.mo.key === proxyKey()) moApply(f.mo);
     numMesh.scale.x = Math.sign(g.scale.x || 1) * mir.scale.x < 0 ? -1 : 1;
     dressSync(numMesh.scale.x);
   }
