@@ -401,7 +401,9 @@ function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,len
     if(gi||sr)ch.diffuse=vec4(diffuseColor.rgb,roughness);sp.setMRT(mrt(ch));if(ch.diffuse)sp.getTexture('diffuse').type=THREE.UnsignedByteType;/* 8-bit is enough here */
     const dep=sp.getTextureNode('depth'),nor=sp.getTextureNode('normal');c=sp.getTextureNode('output');
     if(gi){const g=FX.ssgi(c,dep,nor,camera);g.sliceCount.value=MAX_GI_SLICES;g.stepCount.value=MAX_GI_STEPS;g.radius.value=MAX_GI_RADIUS;g.giIntensity.value=MAX_GI_I;g.aoIntensity.value=MAX_GI_AO;
-      c=vec4(c.rgb.mul(g.a).add(sp.getTextureNode('diffuse').rgb.mul(g.rgb)),c.a)}
+      /* #256: bounce light is capped at MAX_GI_CAP before it meets the albedo, so a white plate, bag or chalk line next to lit dirt can not
+         climb past the bloom threshold (1.6) on bounce alone; at MAX_GI_I 4 a white surface got ~4x its neighbours' light and bloomed into blobs */
+      c=vec4(c.rgb.mul(g.a).add(sp.getTextureNode('diffuse').rgb.mul(g.rgb.min(float(MAX_GI_CAP)))),c.a)}
     else{const aoN=FX.ao(dep,nor,camera);aoN.resolutionScale=gfxMax?MAX_AO_RES:AO_RES;aoN.radius.value=.6;aoN.distanceFallOff.value=1;
       c=vec4(c.rgb.mul(mix(float(.35),float(1),aoN.getTextureNode().sample(screenUV).r)),c.a)}
     if(sr){const r=FX.ssr(sp.getTextureNode('output'),dep,nor,{metalnessNode:nor.a,roughnessNode:sp.getTextureNode('diffuse').a,camera});
@@ -418,8 +420,9 @@ let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
    no automatic drop, TRAA instead of FXAA, full-resolution AO, a MAX_SHADOW_MAP key shadow map with a wider PCF radius, image-based light from
    the sky (skyEnv). TRAA's module is fetched only when max is on, so the default download does not grow. Tiers 0-3 are untouched. */
 const IS_GPU=!!(renderer.backend&&renderer.backend.isWebGPUBackend),IS_DEV=!!(window.SITE&&window.SITE.dev);
-/* SSGI presets: three's "medium with temporal filtering" (TRAA is on); radius in metres. SSR: half resolution, rays up to MAX_SSR_DIST m. */
-const MAX_GI_SLICES=2,MAX_GI_STEPS=8,MAX_GI_RADIUS=4,MAX_GI_I=4,MAX_GI_AO=1,MAX_SSR_ROUGH=.35,MAX_SSR_F0=.04,MAX_SSR_RES=.5,MAX_SSR_DIST=25,MAX_SSR_THICK=.05,MAX_SSR_Q=.5;
+/* SSGI presets: three's "medium with temporal filtering" (TRAA is on); radius in metres. #256: MAX_GI_I 1 = bounce equal to the light the
+   neighbours send (was 4: four times that), MAX_GI_CAP = most bounce light one pixel takes (direct ~1.06 on the plate + .45 stays under bloom's 1.6). SSR: half resolution, rays up to MAX_SSR_DIST m. */
+const MAX_GI_SLICES=2,MAX_GI_STEPS=8,MAX_GI_RADIUS=4,MAX_GI_I=1,MAX_GI_CAP=.45,MAX_GI_AO=1,MAX_SSR_ROUGH=.35,MAX_SSR_F0=.04,MAX_SSR_RES=.5,MAX_SSR_DIST=25,MAX_SSR_THICK=.05,MAX_SSR_Q=.5;
 const MAX_SHADOW_MAP=4096,MAX_SHADOW_RADIUS=2.5,TIER_SHADOW_RADIUS=1,MAX_AO_RES=1,AO_RES=.5,MAX_IBL_I=.6,SKY_ENV_FAR=1000,SKY_ENV_MIN_R=400;
 let maxWish=false;try{if(IS_DEV){const q=new URLSearchParams(location.search).get('q');if(q!==null)localStorage.setItem('zu_max',q==='max'?'1':'0');maxWish=localStorage.getItem('zu_max')==='1'}}catch(e){}
 let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
