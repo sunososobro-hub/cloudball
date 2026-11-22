@@ -401,12 +401,13 @@ const PARKS={
 const PARK_DEFAULT={pad:'#1d4d2a',trim:0xf2c230,sky:'night'};
 /* #203 item 2, four skies: linear sky colours (horizon, zenith, low glow; see SKY_*), fog colour, exposure, [colour, intensity] of the key light
    (main lamp at night, the sun by day), fill and hemisphere, lamps = tower spots, glow, beams and bugs (1 = night, 0 = day), stars on or off.
-   Lights and exposure are uniforms already: nothing recompiles. */
+   Lights and exposure are uniforms already: nothing recompiles. Day horizons stay a clear blue below the white ball's brightness (ball luma ~200,
+   horizon ~150 at 800x500), or a fly ball against the sky vanishes. */
 const SKIES={
   night:{h:SKY_HORIZON,z:SKY_ZENITH,g:SKY_GLOW,fog:0x0d1220,exp:EXPOSURE,key:[0xfff1dc,KEY_I],fill:[0xd6e2ff,FILL_I],hemi:[0x9fb4e6,HEMI_I],lamps:1,stars:true},
   dusk:{h:[.30,.12,.05],z:[.025,.03,.09],g:[.35,.10,.02],fog:0x2a2030,exp:.8,key:[0xffc48a,.9*Math.PI],fill:[0x9fa8ff,.3*Math.PI],hemi:[0xc79aa8,.22*Math.PI],lamps:.8,stars:false},
-  afternoon:{h:[.62,.62,.6],z:[.10,.22,.55],g:[.25,.2,.12],fog:0xb8c0c4,exp:.62,key:[0xfff3e0,2*Math.PI],fill:[0xd6e2ff,.35*Math.PI],hemi:[0xbcd4ff,.6*Math.PI],lamps:0,stars:false},
-  morning:{h:[.38,.55,.8],z:[.04,.13,.45],g:[.15,.12,.08],fog:0x8fb0d4,exp:.7,key:[0xffe8cc,1.5*Math.PI],fill:[0xcfe0ff,.35*Math.PI],hemi:[0xa8c8ff,.5*Math.PI],lamps:0,stars:false}};
+  afternoon:{h:[.32,.42,.62],z:[.06,.17,.55],g:[.25,.2,.12],fog:0xb8c0c4,exp:.62,key:[0xfff3e0,2*Math.PI],fill:[0xd6e2ff,.35*Math.PI],hemi:[0xbcd4ff,.6*Math.PI],lamps:0,stars:false},
+  morning:{h:[.26,.4,.7],z:[.035,.11,.42],g:[.15,.12,.08],fog:0x8fb0d4,exp:.7,key:[0xffe8cc,1.5*Math.PI],fill:[0xcfe0ff,.35*Math.PI],hemi:[0xa8c8ff,.5*Math.PI],lamps:0,stars:false}};
 const LAMP_RGB=[5,4.8,4.4],LAMP_DAY=.15,BUG_OP=.9;/* LAMP_DAY: the lamp boxes in daylight are switched-off grey panels, not black */
 function applySky(name){const S=SKIES[name]||SKIES.night;SKY_U.h.value.set(...S.h);SKY_U.z.value.set(...S.z);SKY_U.g.value.set(...S.g);
   scene.fog.color.set(S.fog);renderer.toneMappingExposure=S.exp;key.color.set(S.key[0]);key.intensity=S.key[1];fill.color.set(S.fill[0]);fill.intensity=S.fill[1];
