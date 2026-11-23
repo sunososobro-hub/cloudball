@@ -30,7 +30,7 @@ for (const [name, d] of [['fixtures', full], ['array form', plain], ['empty', no
     if (/<b>王大明|javascript:/.test(html)) bad(`${name}/${tab}: unescaped data or unsafe link`);
     if (name === 'empty' && tab !== 'me' && !/class="empty"/.test(html)) bad(`empty/${tab}: needs an empty state`);
   }
-const t = render('teams', full), m = render('minors', full), f = render('fa', full), g = render('games', full);
+const t = render('teams', full, '', 'pheasants'), m = render('minors', full), f = render('fa', full), g = render('games', full);
 if (!t.includes('&lt;b&gt;王大明') || t.includes('李二軍') || t.includes('gone')) bad('teams tab: shows tier 1 roster ids that exist, nothing else');
 if (!m.includes('李二軍') || m.includes('陳自由')) bad('minors tab must list tier 2 only');
 if (!f.includes('陳自由') || f.includes('李二軍')) bad('free agents tab must list tier 3 only');
@@ -40,7 +40,20 @@ for (const [what, html] of [['no player', myPlayerView(full, '')], ['unknown id'
   if (!html.includes('<a href="agent.html">')) bad(`my player tab (${what}) must link to agent.html (#341)`);
 const ag = readFileSync(path.join(ROOT, 'ui/agent.js'), 'utf8');
 if (/Object\.entries\(LOOK\)|外觀：/.test(ag)) bad('agent.js: the look chips (head, skin, hair) stay hidden until #151 (#341)');
-if (seasonLabel(full) !== '第 0 季' || seasonLabel(plain) !== '') bad('season label comes from teams.json season only');
+if (seasonLabel(full) !== '熱身賽' || seasonLabel(plain) !== '' || seasonLabel(combine({ teams: { season: '1', teams: [] } })) !== '第 1 季') bad('season label comes from teams.json season only: 0 reads 熱身賽 (#343), later seasons 第 N 季');
+/* 球團 tab (#343): one card per team on first load, no roster open; a card opens its roster, the open card links back to close it */
+const t0 = render('teams', full), cards = h => (h.match(/class="tc"/g) || []).length;
+if (cards(t0) !== 2 || /<table/.test(t0) || /class="team"/.test(t0)) bad('teams tab: first load is the cards only, no team open');
+if (!t0.includes('href="#teams/pheasants"') || !t0.includes('href="#teams/owls"') || !t0.includes('aria-expanded="false"')) bad('teams tab: each card links to its own roster');
+if (cards(t) !== 2 || !/<table/.test(t) || !t.includes('href="#teams"') || !t.includes('aria-expanded="true"') || t.includes('href="#teams/pheasants"')) bad('teams tab: the open card shows the roster and links back to #teams');
+if (/<table/.test(render('teams', full, '', 'nope'))) bad('teams tab: an unknown team id opens nothing');
+{ const cd = combine({ teams: { season: '0', teams: [{ id: 'x', name: '甲隊', record: { w: 2, l: 1 }, roster: ['p', 'q', 'r', 'z'] }] },
+    players: { p: { name: '投一', num: 18, role: 'P', overall: 80, team: 'x', tier: 1 }, q: { name: '投二', role: 'P', overall: 70, team: 'x', tier: 1 }, r: { name: '打一', num: 7, role: 'B', overall: 60, team: 'x', tier: 1 } }, games: [] });
+  const h = render('teams', cd);
+  if (!/王牌<\/dt><dd>投一 <span class="no">#18/.test(h) || !/主砲<\/dt><dd>打一 <span class="no">#7/.test(h) || !/戰力<\/dt><dd class="num">70\.0</.test(h)) bad('teams card: ace = best pitcher, top bat = best batter, strength = mean overall of the 一軍');
+  if (!/王牌<\/dt><dd>—/.test(render('teams', combine({ teams: [{ id: 'e', name: '空隊', roster: [] }], players: {} }))) || /NaN/.test(render('teams', combine({ teams: [{ id: 'e', name: '空隊', roster: [] }], players: {} })))) bad('teams card: a team with no 一軍 shows dashes, not NaN'); }
+const css = readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+if (!/ui\/site\/teams\.css/.test(css)) bad('index.html must load ui/site/teams.css');
 if (safeUrl('data:text/html,x') || safeUrl('JavaScript:x') || !safeUrl('https://a.b/c') || !safeUrl('replay/1.json')) bad('safeUrl');
 
 /* the real files, when the league window has published them */
