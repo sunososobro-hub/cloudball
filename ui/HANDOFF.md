@@ -1,6 +1,7 @@
 # ui / root files / functions: HANDOFF (2026-11-23)
 Agent: the interface window: `ui/`, `functions/`, root files.
 ## Done
+- #350 (PR feat/350): `agent.html` has no 「一鍵開始」 step: `register()` in `ui/agent.js` makes the key and posts `/api/agent` by itself, then shows the maker with a one-line key warning under the form (`#account` section removed). Storage refused / sign-up failed show the old `say(...)` texts. Guard `tests/agentpage.check.mjs` (fake DOM + fake API; wired into `tests/replay/static.mjs`).
 - #344 (PR feat/344): data site split by tab: `ui/site/{shared,teams,games,me,minors,fa}.js` (each `view(data, myId)`, pure), `ui/site/me.css`; `ui/site-data.js` = `TABS`, `DATA_FILES`, `VIEWS`, `render` + re-exports. New tab = one file + a line in `TABS` and `VIEWS`. Shots identical, check unchanged. Next in queue: #343 (teams tab cards, 熱身賽).
 - #341 (PR feat/341): `agent.html` no longer draws the 外觀 chips (head, skin, hair; `state.look` stays 0,0,0 so the posted choice and API are unchanged); the 我的球員 tab of the data site links to `agent.html` in every state (`agentEntry` in `ui/site-data.js`, guarded in `tests/sitedata.check.mjs`). The look chips return when #151 lands a real look mapping. The link shows on production too, but `agent.html` is dev-only there.
 - #289 (PR fix/289): entry screen lost the 「今晚 A 對 B」 line (`#introMatch` gone from `index.html`). #53 part 2 is merged. #192 (`ui/compare.js`, PRs #193 and #198; the agent page needs D1, Preview only), #60, #25, #58, #53 part 1, #89, #117, #122, #47 round 1 (opening.json, `ui/site.js` dev/production by host, class `dev-only`).
@@ -9,7 +10,6 @@ Agent: the interface window: `ui/`, `functions/`, root files.
 ## Next
 - #197 half (`feat/197`, items 1-4): `ui/guide.js` star strip per team (best overall, pitcher or not) + nav chip 「球星 N」; from 1000 px a dense sortable table per group (`.tbl`, row tap = bio + 比較), 1500 px puts fielders and pitchers side by side; cards below 1000 px, compact under 700 px. `body.wide` + `agent.css` widen agent.html (forms 980 px, free-agent list 3 columns from 1400 px). Shots `ui/guide-1900.jpg`, `ui/guide-390.jpg`. Left: dense table for the `agent.html` free-agent list (still cards); no guard in `tests/` (roster window's folder).
 - #4 HUD out of `render/game.js` (needs the render window idle), #47 round 2 / #55. Queue lives in issue #68.
-- #4 HUD out of `render/game.js` (needs the render window idle), #47 round 2 / #55. Queue lives in issue #68. #179: after merge, make one agent by hand on dev.
 
 ## Traps
 - Preview must stay a read-only user of `render/players.js`; heights are drawn at creation, so a choice previews the middle of the build's range.
