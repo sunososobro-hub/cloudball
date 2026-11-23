@@ -5,6 +5,7 @@
 - #169 halves (PRs #172, #173): frozen rosters of seed 704, `tools/abilities.mjs`, `ratings.js`. #178: `freeagents.js` (drawName, CREATE budget, validateCreate, makePlayer), `namepool.js`, `ratingsOf.raw`.
 - #169 written (PR #188): seed 201, rating knees (stars 95..98, nobody 1 or 100), CREATE bat 305/70, pit 183/66.
 - #54 wave 2 (PR #194): the other 44 lines; bios.check needs all 72 players. #37: `tests/replay/README.md`. #336: `tools/site.mjs` -> `site/*.json`.
+- #276: commentary checks read the frozen game from `preseason/opening.json` (`parseRecording`), not a re-sim.
 
 ## Next
 1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes. Order: issue #68.
@@ -16,5 +17,6 @@
 - Any change to `players.js`, `ratings.js`, `teams.js` or a recording: rerun `node league/tools/site.mjs --write` (leaguesite check).
 - Any change to `players.js` or `ratings.js` moves the free-agent overall: retune `CREATE.budget`/`cap` (keep each
   budget divisible by its ability count: the UI splits it evenly), never the check; fixtures in agent/freeagents checks.
+- Seed 704 in any check: use the recording (`parseRecording(opening.json).game`), never `simGame` + `OPENING_ROSTERS`.
 - Free agents may share names (uniqueness is the store's job, #179). Staff and bio lines: change only with the owner's strike list.
 - Team names (#60) belong to the interface window; do not touch `teams.js` strings.
