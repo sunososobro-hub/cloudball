@@ -65,7 +65,7 @@ export function buildBox(rec){
     teams.appendChild(col)});
   sec.append(head,lsw,teams);return sec}
 
-/* Fetch and parse the recording the same way index.html does; null on any failure. */
+/* Fetch and parse the recording the same way play.html does; null on any failure. */
 export async function loadBox(url='league/preseason/opening.json'){
   try{const r=await fetch(url);if(!r.ok)return null;const rec=parseRecording(await r.text());return rec?buildBox(rec):null}
   catch(e){return null}}

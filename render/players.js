@@ -255,6 +255,9 @@ const CAP_LOGO = { size: .055, ringA: 3, ringB: 8, out: .004 }, DECAL_GAP = .006
  * the torso centre, so only its curved front shows (y0..y1 model height, arc in radians, out = gap over the chest, sx = width stretch, bottom = belly flare).
  * Shin guards: tapered tubes along knee->ankle, pushed forward, with a knee cap */
 const PROTECTOR = { y0: 1.1, y1: 1.46, arc: 1.5, out: .03, sx: 1.25, bottom: .97, seg: 14 };
+const BAT_GLOVE = { r: .05, sy: .8, sz: 1.05, y: -.02, seg: 10 };   /* batting glove: a squashed sphere over each hand socket, in the kit's gear colour */
+const ARM_GEAR = { bandR: .043, bandH: .034, bandAt: .84, padR: .058, padLen: .42, padAt: .3, padFwd: .006, seg: 10 };   /* forearm radius is ~.035: the band sits proud of it; fractions of forearm length */
+const LEG_STYLE = { r: .056, rBot: .047, grow: 1.06, longTo: .94, highFrom: .04, highTo: .5, seg: 10 };   /* #151: lower-leg sleeves on the shin bone; fractions of knee-to-ankle, proud of the built leg by `grow` */
 const SHIN_GUARD = { r: .058, rBot: .047, len: .82, fwd: .016, knee: 1.05, seg: 10 };
 /* setKit(kit, team, home): team = a TEAMS entry (color, color2); cheap to call every frame (only recolours on a change) */
 export function setKit(kit, team, home) {
@@ -506,6 +509,25 @@ function skinMat(hex, key = 'light') {
   m.roughnessNode = a.y.add(T.mx_noise_float(T.vec3(u.mul(PORE_FREQ * .5), 1)).mul(fade.mul(PORE_ROUGH)));
   skinMats.set(mk, m); return m;
 }
+/* Eyes (#207 round 3, max tier only): the eye spheres of the pack (white r 11.5 mm; iris+pupil sphere r 5.5 mm sitting 8.5 mm forward, poles on y, front = +z)
+ * get node materials shaded from the rest-pose normal: pupil, a brown iris that brightens toward the pupil, a dark limbal rim, pinker sclera toward the
+ * corners, a soft upper-lid shadow on both, and a clearcoat that gives the cornea a wet highlight from the park lamps. Shared by every player. */
+export const EYE = { white: 0xf2f0ea, corner: 0xd9a99a, cornerK: .45, pupil: 0x060403, irisIn: 0x7d5532, irisOut: 0x3b2415, rim: .5, rimEnd: .66, pupilR: .915, ring: .62,
+  lid: .5, lidFrom: .12, lidTo: .8, coat: 1, coatRough: .04, whiteRough: .28, irisRough: .22 };
+let eyeMats = null;
+function eyeMat(kind) {
+  if (!SKIN.full) return null;
+  if (!eyeMats) {
+    const T = THREE.TSL, n = T.normalLocal, col = h => T.color(new THREE.Color().setHex(h, THREE.SRGBColorSpace)), c = n.z.saturate();
+    const lid = T.float(1).sub(T.smoothstep(EYE.lidFrom, EYE.lidTo, n.y).mul(EYE.lid));
+    const mk = (colorNode, rough) => { const m = new THREE.MeshPhysicalNodeMaterial({ roughness: rough, metalness: 0, clearcoat: EYE.coat, clearcoatRoughness: EYE.coatRough }); m.colorNode = colorNode.mul(lid); return m };
+    const white = T.mix(col(EYE.white), col(EYE.corner), T.smoothstep(.55, .95, n.x.abs()).mul(EYE.cornerK));
+    const body = T.mix(col(EYE.irisOut), col(EYE.irisIn), T.smoothstep(EYE.ring, EYE.pupilR, c)), rim = T.smoothstep(EYE.rim, EYE.rimEnd, c).mul(.75).add(.25);
+    const iris = T.mix(body.mul(rim), col(EYE.pupil), T.smoothstep(EYE.pupilR - .015, EYE.pupilR + .015, c));
+    eyeMats = { white: mk(white, EYE.whiteRough), iris: mk(iris, EYE.irisRough) };
+  }
+  return eyeMats[kind];
+}
 /* Join skin_uv.b64.txt to the pack (format in assets/tools/skin_uv.py): seam vertices get copies (same position, weights, offsets)
  * carrying their other UV, and the listed corners point at the copies. Returns the grown arrays, or null if the files do not match. */
 function joinSkinUV(txt, H, A) {
@@ -603,9 +625,9 @@ const skinKeyOf = head => SKIN_KEYS[Math.floor((head | 0) / HEAD_SHAPES.length) 
 const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
 /* Get (cached) the geometry for a build, plus head shape (for the cap) and back depth (for the number) */
 function realAsset(build, head = 0) {
-  const look = PACK.uv ? faceLookOf(head) : 0;   /* #207 step 2: facial hair and brows per player, only on the UV (max) pack */
+  const look = PACK.uv ? faceLookOf(head) : 0, G = gearOf(head), eye = G.eye, hair = look ? G.hair : 0;   /* #207 step 2: facial hair and brows per player, only on the UV (max) pack */
   head = (head | 0) % HEAD_SHAPES.length;
-  const key = buildKey(build) + (head ? '|h' + head : '') + (look ? '|f' + look : ''); if (PACK.geos.has(key)) return PACK.geos.get(key);
+  const key = buildKey(build) + (head ? '|h' + head : '') + (look ? '|f' + look + (hair ? 'c' + hair : '') : '') + (eye ? '|e' : ''); if (PACK.geos.has(key)) return PACK.geos.get(key);
   const { H, P0, D: Dl, SI, SW, DG, DW, IX } = PACK, J = H.joints, n = H.n;
   const w = typeof build === 'string' ? (build === 'normal' ? {} : { [build]: 1 }) : build || {};
   const P = new Float32Array(P0);
@@ -619,7 +641,7 @@ function realAsset(build, head = 0) {
   geo.setAttribute('skinIndex', PACK.att.si); geo.setAttribute('skinWeight', PACK.att.sw);
   if (PACK.att.uv) { geo.setAttribute('uv', PACK.att.uv); geo.setAttribute('skinAttr', PACK.att.sk) }
   geo.setIndex(PACK.att.ix);
-  geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P, look), 4, true));
+  geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P, look, eye, hair), 4, true));
   for (const [start, count, name] of PACK.groups) geo.addGroup(start, count, R_SLOTS.indexOf(name));
   geo.computeVertexNormals(); geo.computeBoundingSphere();
   if (PACK.seam) {   /* UV seam copies: one normal shared by a vertex and its copies, so the seam does not show in the light */
@@ -684,10 +706,27 @@ export function headOf(id) {
   const v = ((Math.imul(h ^ (h >>> 7), 3266489917) >>> 0) % 10007) / 10007, w = (v * 6151) % 1;
   let fh = 0; for (let c = 0, k = 0; k < FACE_HAIR.length; k++) { c += FACE_HAIR[k].share; if (v < c) { fh = k; break } }
   const look = fh + FACE_HAIR.length * Math.min(BROWS.length - 1, Math.floor(w * BROWS.length));
-  return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * (map + SKIN_KEYS.length * look);
+  /* #151 second PR: a fourth draw picks his gear (GEAR_SHARES); it rides above the look digit */
+  const q = ((Math.imul(h ^ (h >>> 11), 668265263) >>> 0) % 10007) / 10007, pick = (u, sh) => { let c = 0; for (let k = 0; k < sh.length; k++) { c += sh[k]; if (u < c) return k } return sh.length - 1 };
+  const gear = pick(q, GEAR_SHARES.wrist) + GEAR_SHARES.wrist.length * (pick((q * 6151) % 1, GEAR_SHARES.elbow) + GEAR_SHARES.elbow.length * (pick((q * 4093) % 1, GEAR_SHARES.eye) + GEAR_SHARES.eye.length * (pick((q * 2909) % 1, GEAR_SHARES.glove) + GEAR_SHARES.glove.length * (pick((q * 1327) % 1, GEAR_SHARES.hair) + GEAR_SHARES.hair.length * pick((q * 877) % 1, GEAR_SHARES.leg)))));
+  return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * (map + SKIN_KEYS.length * (look + FACE_LOOKS * gear));
+}
+/* #191: head index of a roster row. A created player (his row has `look`) keeps the face the fan picked in the create page: look.head
+   replaces only the shape digit of headOf(id), so map, facial hair and gear stay his hashed ones. Factory players have no `look`: unchanged. */
+export function headOfPlayer(p) {
+  const h = headOf(p && p.id), n = p && p.look && p.look.head;
+  if (!Number.isInteger(n) || n < 0) return h;
+  return h - h % HEAD_SHAPES.length + n % HEAD_SHAPES.length;
 }
 /* Look digit of a head index: facial hair + FACE_HAIR.length x brow weight */
-const faceLookOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length));
+const faceLookOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length)) % FACE_LOOKS;
+/* Gear digit of a head index (#151 second PR): wrist 0 none / 1 left / 2 right / 3 both; elbow guard 0 none / 1 left / 2 right; eye black 0 / 1;
+   batting gloves 0 none / 1 both hands; hair colour = index into HAIR_TONES; leg 0 as built (pants mid-calf) / 1 long pants to the shoe / 2 high socks to the knee */
+export const GEAR_SHARES = { wrist: [.55, .15, .15, .15], elbow: [.72, .14, .14], eye: [.82, .18], glove: [.7, .3], hair: [.4, .22, .18, .1, .1], leg: [.55, .25, .2] };
+export const HAIR_TONES = [0x1c1612, 0x3a2618, 0x5a3b22, 0x7a4a26, 0x6b6760];   /* black-brown (the old default), dark brown, brown, chestnut, greying */
+export const gearOf = head => { let g = Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS)); const W = GEAR_SHARES.wrist.length, E = GEAR_SHARES.elbow.length;
+  const Y = GEAR_SHARES.eye.length, L = GEAR_SHARES.glove.length;
+  return { wrist: g % W, elbow: Math.floor(g / W) % E, eye: Math.floor(g / (W * E)) % Y, glove: Math.floor(g / (W * E * Y)) % L, hair: Math.floor(g / (W * E * Y * L)) % GEAR_SHARES.hair.length, leg: Math.floor(g / (W * E * Y * L * GEAR_SHARES.hair.length)) % GEAR_SHARES.leg.length } };
 function shapeHead(P, S) {
   if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin) return;
   const { DG, DW, H } = PACK, n = H.n;
@@ -704,6 +743,7 @@ function shapeHead(P, S) {
 }
 /* Face paint as RGBA8 multipliers (white = skin as is): cap shadow over the eyes, eye sockets, brows, lips and mouth line, nostrils, a little cheek colour */
 const FACE_PAINT = { capShade: .34, socket: .28, brow: .75, mouth: .55, nostril: .35, chinShade: .18 };
+const EYE_BLACK = { k: .82, dy: .016, h: .0055, w: .019 };   /* darkening, metres under the eye line, half height, half width */
 const LIP_RGB = [.82, .56, .56], CHEEK_RGB = [1, .9, .88];
 /* #207 step 2 (max pack only): facial hair painted over the skin map as a multiplier, per player from headOf. `k` = how much the skin is
  * darkened at full cover, `grain` = share of that broken up per vertex (stubble reads as dots, not a stain). Zones: jaw (cheeks down to the
@@ -716,7 +756,12 @@ export const FACE_HAIR = [
   { name: 'beard', share: .2, k: .66, grain: .35, jaw: 1, lip: 1, chin: 1 },
 ];
 export const BROWS = [{ k: .75, w: .0055 }, { k: .55, w: .0046 }, { k: .9, w: .0068 }];   /* as before (look 0 = the old face) / light / heavy: darkening, half height */
-const STUBBLE_RGB = [.86, .92, 1], BEARD_TOP = { side: .07, mid: .026, below: .03 }, BEARD_EDGE = .011, BEARD_LOW = .045;
+/* Look digit count (#207 step 2). Declared here, after FACE_HAIR and BROWS: above them it read both before they existed and the module threw on load. */
+const FACE_LOOKS = FACE_HAIR.length * BROWS.length;
+/* #207 step 3: stubble, beard and brows follow his hair colour. Per HAIR_TONES index, how hard each channel (r, g, b) is darkened at full cover:
+ * index 0 = the old tint (black-brown keeps a little blue in shaved skin), warmer browns keep more red, greying is a light neutral grey. */
+export const STUBBLE_BY_HAIR = [[.86, .92, 1], [.78, .9, 1], [.7, .86, 1], [.55, .8, 1], [.5, .52, .55]];
+const BEARD_TOP = { side: .07, mid: .026, below: .03 }, BEARD_EDGE = .011, BEARD_LOW = .045;
 const grain = (x, y, z) => { const t = Math.sin(x * 12.9898e3 + y * 78.233e3 + z * 37.719e3) * 43758.5453; return t - Math.floor(t) };   /* fixed per vertex */
 function faceHair(x, y, z, ax, eyeY, H) {
   /* Upper edge of the jaw zone: high at the sideburns (ax BEARD_TOP.side, just under the eyes), down along the cheek to the mouth corners */
@@ -728,25 +773,27 @@ function faceHair(x, y, z, ax, eyeY, H) {
   const m = Math.min(1, Math.max(jaw * (H.jaw || 0), lip * (H.lip || 0), chin * (H.chin || 0)));
   return m * H.k * (1 - (H.grain || 0) * grain(x, y, z));
 }
-function faceColors(P, look = 0) {
+function faceColors(P, look = 0, eye = 0, hair = 0) {
   const { DG, H } = PACK, n = H.n, C = new Uint8Array(n * 4).fill(255), J = H.joints, eyeY = J.eyeL[1], F = FACE_PAINT;
   for (let i = 0; i < n; i++) {
     if (DG[i] !== B.neck) continue;
     const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], ax = Math.abs(x), fr = ramp(z, FACE.faceZ - .03, FACE.faceZ);
     if (!fr && !(look % FACE_HAIR.length)) continue;   /* facial hair reaches past the face front (jaw sides, under the chin) */
+    const HT = STUBBLE_BY_HAIR[hair] || STUBBLE_BY_HAIR[0];
     let r = 1, g = 1, b = 1; const mul = (k, cr = k, cg = k, cb = k) => { r *= cr; g *= cg; b *= cb };
     const cap = ramp(y, eyeY - .035, eyeY + .03); mul(1 - F.capShade * cap * fr);                                  /* The cap brim's shadow on the upper face */
     const de = Math.hypot(ax - FACE.eyeX, (y - eyeY) * 1.3); mul(1 - F.socket * g1(de, 0, .021) * fr);              /* Eye sockets */
     const by = FACE.browY + .006 * g1(ax, .036, .018), brow = g1(y, by, .0055) * ramp(ax, .01, .018) * (1 - ramp(ax, .055, .066));
     if (look) { const bw = BROWS[Math.floor(look / FACE_HAIR.length) % BROWS.length], b2 = g1(y, by, bw.w) * ramp(ax, .01, .018) * (1 - ramp(ax, .055, .066));
-      mul(1 - bw.k * b2 * fr) }   /* #207 step 2: brow weight per player */
+      const bd = bw.k * b2 * fr; mul(1, 1 - bd * HT[0], 1 - bd * HT[1], 1 - bd * HT[2]) }   /* #207 step 2: brow weight per player */
     else if (!(PACK.uv && SKIN.brows)) mul(1 - F.brow * brow * fr);                                                                                   /* Brows (skin darkened toward the hair) */
     const lip = PACK.uv && SKIN.lips ? 0 : g1(y, FACE.lipY, .0075) * g1(x, 0, .02) * fr; mul(1, 1 - (1 - LIP_RGB[0]) * lip, 1 - (1 - LIP_RGB[1]) * lip, 1 - (1 - LIP_RGB[2]) * lip);
     mul(1 - F.mouth * g1(y, FACE.mouthY, .0028) * g1(x, 0, .019) * fr);                                          /* Mouth line */
     mul(1 - F.nostril * g1(y, FACE.nostrilY, .004) * g1(ax, .011, .006) * fr);                                     /* Nostrils / under the nose */
     const ck = g1(y, FACE.cheekY - .006, .016) * g1(ax, .052, .016) * fr; mul(1, 1 - (1 - CHEEK_RGB[0]) * ck, 1 - (1 - CHEEK_RGB[1]) * ck, 1 - (1 - CHEEK_RGB[2]) * ck);
+    if (eye) mul(1 - EYE_BLACK.k * g1(y, eyeY - EYE_BLACK.dy, EYE_BLACK.h) * g1(ax, FACE.eyeX, EYE_BLACK.w) * fr);   /* #151: eye black under both eyes */
     mul(1 - F.chinShade * ramp(y, FACE.chinY - .005, FACE.chinY - .035) * fr);                                          /* Under the chin */
-    const FH = FACE_HAIR[look % FACE_HAIR.length]; if (look && FH.k) { const d = faceHair(x, y, z, ax, eyeY, FH); mul(1 - d, 1 - d * STUBBLE_RGB[0], 1 - d * STUBBLE_RGB[1], 1 - d * STUBBLE_RGB[2]) }
+    const FH = FACE_HAIR[look % FACE_HAIR.length]; if (look && FH.k) { const d = faceHair(x, y, z, ax, eyeY, FH); mul(1, 1 - d * HT[0], 1 - d * HT[1], 1 - d * HT[2]) }
     C[i * 4] = Math.round(r * 255); C[i * 4 + 1] = Math.round(g * 255); C[i * 4 + 2] = Math.round(b * 255);
   }
   return C;
@@ -890,6 +937,58 @@ function clipSample(c, t, mirror, out) {
   if (mirror) out.p.x = -out.p.x;
   return out;
 }
+/* #186: where the clip's ankles and toes are at time t, by forward kinematics on the clip's own skeleton (the target the retarget aims at).
+ * Returns {L:[x,y,z], R:[x,y,z], tL, tR} in hip heights, world (hips travel included); L/R = the performer's own sides, mirror swaps them.
+ * Pure function of (clip, t, mirror): footDrift() below turns it into the per-frame planted-foot check. */
+export function clipFeet(c, t, mirror = false) {
+  const o = { q: c.names.map(() => new THREE.Quaternion()), p: new THREE.Vector3() }; clipSample(c, t, false, o);
+  const W = c.names.map(() => new THREE.Quaternion()), P = c.names.map(() => new THREE.Vector3()), r = new THREE.Vector3();
+  for (let j = 0; j < c.nj; j++) {   /* clip joints come parent first */
+    const pj = c.parent[j];
+    if (pj < 0) { W[j].copy(o.q[j]); P[j].copy(o.p) }
+    else { W[j].copy(W[pj]).multiply(o.q[j]); P[j].copy(P[pj]).add(r.fromArray(c.rest[j]).applyQuaternion(W[pj])) }
+  }
+  const at = n => { const j = c.names.indexOf(n); return P[j].toArray().map((v, i) => mirror && i === 0 ? -v : v) };
+  const A = mirror ? ['Right', 'Left'] : ['Left', 'Right'];
+  return { L: at('foot' + A[0]), R: at('foot' + A[1]), tL: at('toe' + A[0]), tR: at('toe' + A[1]) };
+}
+/* Planted-foot check over [t0, t1] at step dt. The clip's hips y carries a constant offset (about +1 hip height, tool data quirk), so the
+ * floor is taken as the lowest ankle of the range. A foot counts as planted while its ankle is within PLANT_Y (hip heights) of that floor and
+ * slower than PLANT_V (hip heights per s). Returns per foot the worst travel inside any planted run (hip heights; x hip height in m for metres). */
+export const PLANT_Y = .08, PLANT_V = .3;
+export function footDrift(c, t0 = 0, t1 = c.dur, dt = 1 / c.fps, mirror = false) {
+  const F = []; for (let t = t0; t <= t1 + 1e-9; t += dt) F.push(clipFeet(c, t, mirror));
+  return plantedDrift(F, t0, dt, 1);
+}
+/* Shared by footDrift (clip skeleton, hip heights) and rigFootDrift (our rig, metres: scale = the figure's hip height in m) */
+function plantedDrift(F, t0, dt, scale) {
+  const floor = Math.min(...F.map(f => Math.min(f.L[1], f.R[1]))), py = PLANT_Y * scale, pv = PLANT_V * scale;
+  const out = { floor, L: { max: 0, at: 0, runs: 0, frames: 0 }, R: { max: 0, at: 0, runs: 0, frames: 0 } };
+  for (const s of ['L', 'R']) {
+    let anchor = null;
+    for (let i = 1; i < F.length; i++) {
+      const a = F[i - 1][s], b = F[i][s], v = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / dt;
+      if (b[1] - floor < py && v < pv) {
+        if (!anchor) { anchor = b; out[s].runs++ }
+        out[s].frames++;
+        const d = Math.hypot(b[0] - anchor[0], b[2] - anchor[2]); if (d > out[s].max) { out[s].max = d; out[s].at = t0 + i * dt }
+      } else anchor = null;
+    }
+  }
+  return out;
+}
+/* #186: the same planted-foot check on the retargeted rig: figure f (makePlayer, real rig) driven by setMocap at clip times t0..t1, ankle bones
+ * read in world space after the skinning sync. Same thresholds scaled to this figure (hip height x f.k). Returns metres. L/R = our bones ftL/ftR.
+ * Compare with footDrift(): the difference is what the retarget adds. Moves the figure's mocap state (call setMocap(null) afterwards). */
+export function rigFootDrift(f, c, t0 = 0, t1 = c.dur, dt = 1 / c.fps, mirror = false) {
+  const nm = {}; f.g.traverse(o => { if (o.name === 'ftL' || o.name === 'ftR') nm[o.name] = o });
+  const F = [], v = new THREE.Vector3();
+  for (let t = t0; t <= t1 + 1e-9; t += dt) {
+    f.setMocap(c, t, 1, mirror, t0, 0); f.g.updateMatrixWorld(true);
+    F.push({ L: nm.ftL.getWorldPosition(v).toArray(), R: nm.ftR.getWorldPosition(v).toArray() });
+  }
+  return plantedDrift(F, t0, dt, D.PELVIS_Y * (f.k || 1));
+}
 /* Per (clip, mirror): target bone index per clip joint and the rest-direction fix of each target bone (same skeleton for every build) */
 function clipFix(c, mirror, J) {
   const key = mirror ? 'm' : 'n'; if (c.fix[key]) return c.fix[key];
@@ -909,6 +1008,7 @@ function makeRealPlayer(opts, A) {
   const bd = { h: opts.height || buildHeight(opts.build || 'normal') };
   const jersey = asMat(opts.jersey ?? 0xffffff, .55), pants = asMat(opts.pants ?? 0xeeeeee, .75); let skin = asMat(opts.skin ?? 0xc99572, .62);
   const dark = stdMat(0x1a1a1e, .5), sock = asMat(opts.sock ?? jersey, .6), hair = asMat(opts.hair ?? 0x1c1612, .8), leather = stdMat(0x8a5a2b, .6);
+  const ownHair = opts.hair == null;   /* #151: hair colour per player from his head index, unless the caller gave a colour or a material */
   const kit = opts.kit;   /* #204: shared side kit (makeKit); without one, trim = jersey and belt = dark as before */
   let throws = opts.throws || 'R', mirrored = opts.role !== 'batter' && throws === 'R', headKind = opts.head || 'cap';
   const J = A.J;
@@ -986,6 +1086,33 @@ function makeRealPlayer(opts, A) {
     }
     pro.castShadow = true;
   };
+  /* #151 second PR, fourth slice: leg style per player. 1 = long pants (a pants sleeve down to the shoe), 2 = high socks (sock sleeve from
+     the ankle up to the knee, so the pant leg reads as knee-length). Sleeves ride the shin bones, re-seated per setBuild. */
+  const legGear = [];
+  const placeLegStyle = () => {
+    for (const m of legGear.splice(0)) m.parent.remove(m);
+    const style = gearOf(gearHead).leg; if (!style || gearOn) return; const lk = bd.limb || 1, mat = style === 1 ? (kit ? kit.pants : pants) : (kit ? kit.sock : sock), S = LEG_STYLE;
+    for (const [kn, ft] of [['knL', 'ftL'], ['knR', 'ftR']]) {
+      const off = V3(J[ft]).sub(V3(J[kn])), full = off.length(), dir = off.clone().normalize();
+      const t0 = S.highFrom, t1 = style === 1 ? S.longTo : S.highTo, len = full * (t1 - t0), mid = (t0 + t1) / 2;
+      const rTop = S.r * lk * S.grow * (1 - .45 * t0), rBot = S.r * lk * S.grow * (1 - .45 * t1) * (S.rBot / S.r);
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, len, S.seg, 1, true), mat);
+      m.quaternion.setFromUnitVectors(_Y, dir); m.position.copy(dir).multiplyScalar(full * mid); m.castShadow = true; bones[B[kn]].add(m); legGear.push(m);
+    }
+  };
+  /* #151 second PR: wristbands, elbow guard per player (gearOf of the head index); meshes on the forearm bones, re-seated per setBuild */
+  const armGear = []; let gearHead = 0;
+  const placeArmGear = () => {
+    for (const m of armGear.splice(0)) m.parent.remove(m);
+    const G = gearOf(gearHead), lk = bd.limb || 1, band = kit ? kit.trim : stdMat(0xf2f0ea, .6), pad = kit ? kit.gear : stdMat(0x1a1a1e, .45);
+    for (const [i, el, hd] of [[0, 'elL', 'handL'], [1, 'elR', 'handR']]) {
+      const off = V3(J[hd]).sub(V3(J[el])), len = off.length(), dir = off.clone().normalize(), q = new THREE.Quaternion().setFromUnitVectors(_Y, dir);
+      const put = (geo, mat, t, z = 0) => { const m = new THREE.Mesh(geo, mat); m.quaternion.copy(q); m.position.copy(dir).multiplyScalar(len * t).add(new THREE.Vector3(0, 0, z)); m.castShadow = true; bones[B[el]].add(m); armGear.push(m) };
+      if (G.wrist === 3 || G.wrist === i + 1) put(new THREE.CylinderGeometry(ARM_GEAR.bandR * lk, ARM_GEAR.bandR * lk, ARM_GEAR.bandH, ARM_GEAR.seg), band, ARM_GEAR.bandAt);
+      if (G.glove) { const gl = new THREE.Mesh(new THREE.SphereGeometry(BAT_GLOVE.r * lk, BAT_GLOVE.seg, 8), pad); gl.scale.set(1, BAT_GLOVE.sy, BAT_GLOVE.sz); gl.position.y = BAT_GLOVE.y; gl.castShadow = true; sockets[hd].add(gl); armGear.push(gl) }
+      if (G.elbow === i + 1) put(new THREE.CylinderGeometry(ARM_GEAR.padR * lk, ARM_GEAR.padR * .8 * lk, len * ARM_GEAR.padLen, ARM_GEAR.seg), pad, ARM_GEAR.padAt, ARM_GEAR.padFwd);
+    }
+  };
   placeDeco();
   const dressSync = s => {   /* Every sync: follow the kit's team logo and the back number (game.js sets numMesh directly) */
     deco.scale.x = capLogo.scale.x = s;
@@ -1012,7 +1139,7 @@ function makeRealPlayer(opts, A) {
     auto: true, bend: { knee: [0, 0], elbow: [0, 0] }, numN: undefined,
     setNum(n) { if (f.numN === n) return; f.numN = n; numMesh.visible = n != null; if (n != null) numMesh.material = numMat(n) },
     setHead(kind) { headKind = kind; putHead(kind) },
-    setGear(kind) { const on = kind === 'catcher'; if (on === gearOn) return; gearOn = on; placeGear() },   /* #204 item 4: chest protector and shin guards */
+    setGear(kind) { const on = kind === 'catcher'; if (on === gearOn) return; gearOn = on; placeGear(); placeLegStyle() },   /* #204 item 4: chest protector and shin guards */
     /* #186: drive the skeleton from a mocap clip at clip time t, blended over the proxy pose by w (0..1). t0 = clip time that stands on
        the figure's spot (hips travel is measured from there), dz = metres of g.position.z the caller already moved (taken back off).
        The clip holds only while the proxies stay as they were at this call: any later pose (another event, resetPose) drops it. */
@@ -1027,11 +1154,13 @@ function makeRealPlayer(opts, A) {
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
     setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; f.buildArgs = [build, height, head]; if (f.buildKey === k) return; f.buildKey = k;
-      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); gearHead = head; placeArmGear(); placeLegStyle(); if (ownHair) hair.color.setHex(HAIR_TONES[gearOf(head).hair]); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
-  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2])) || plainSkin; if (mesh.material[MAT.skin] !== m) { mesh.material[MAT.skin] = m; mesh.material = mesh.material.slice() } };
+  const plainEye = [mesh.material[6], mesh.material[7]];   /* #207 round 3: eye materials follow SKIN.full like the skin */
+  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2])) || plainSkin, ew = eyeMat('white') || plainEye[0], ei = eyeMat('iris') || plainEye[1];
+    if (mesh.material[MAT.skin] !== m || mesh.material[6] !== ew || mesh.material[7] !== ei) { mesh.material[MAT.skin] = m; mesh.material[6] = ew; mesh.material[7] = ei; mesh.material = mesh.material.slice() } };
   f.rebuild = () => { f.buildKey = null; f.setBuild(...f.buildArgs) };
   LIVE.add(new WeakRef(f));
   if (opts.num != null) f.setNum(opts.num);

@@ -1,7 +1,7 @@
 /* Production shows no development tools (owner direction, #47). Checks:
  * - ui/site.js (run in a sandbox for sample host names) says dev for localhost, a file, and every subdomain of the Pages
  *   project, and production for the bare Pages host and any other host;
- * - every development control in index.html sits inside an element with class "dev-only", and index.html has the CSS
+ * - every development control in play.html sits inside an element with class "dev-only", and play.html has the CSS
  *   rule that hides it on data-site="production" (so none of them is reachable with the production host name);
  * - render/game.js only writes the dev status text when SITE.dev says so.
  * Usage: node tests/site.check.mjs */
@@ -44,9 +44,9 @@ const scan = file => {
   return found;
 };
 /* The fan-agent pages (#179): the entry link on the guide page and the whole content of agent.html. Each page loads ui/site.js
- * in <head> and carries the CSS rule (inline in index.html, in a stylesheet for the others). The API answers closed on a production
+ * in <head> and carries the CSS rule (inline in play.html, in a stylesheet for the others). The API answers closed on a production
  * host by itself (functions/lib/agents.js, checked by tests/agent.check.mjs). */
-export const DEV_ONLY_PAGES = { 'index.html': DEV_ONLY_IDS, 'guide.html': ['agentLink'], 'agent.html': ['agentMain'] };
+export const DEV_ONLY_PAGES = { 'play.html': DEV_ONLY_IDS, 'guide.html': ['agentLink'], 'agent.html': ['agentMain'] };
 const HIDE_RULE = /html\[data-site="production"\]\s+\.dev-only\s*\{[^}]*display\s*:\s*none\s*!important/;
 for (const [file, ids] of Object.entries(DEV_ONLY_PAGES)) {
   const found = scan(file), html = read(file);
