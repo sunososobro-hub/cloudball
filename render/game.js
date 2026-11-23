@@ -845,6 +845,10 @@ const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
    on-deck man of the side just retired goes back to it (odLead, odOff). Pure function of (event, time, neighbouring events). */
 const OD_AT=[11.3,1.2],OD_GO_AT=ARRIVE+1.5,OD_WALK_V=1.8,OD_JOG_V=2.4,OD_HOLD=.6,OD_MIN_DUR=.5,OD_BEHIND_Z=4.2,OD_LEAD_PRE_AT=2;
 const odSpot=t=>[(t===0?1:-1)*OD_AT[0],OD_AT[1]];/* team 0 (road) on +x, like dugout(0) */
+/* #128 item 3: the walk F -> A of a man whose box is on the far side goes round behind the umpire, then down the far side at OD_ROUND_X:
+   the straight line from behind the plate to BAT_FROM ran through the plate umpire walking back from UMP_GIVE after a ball in play
+   (0.19 m apart on seed 704, 445 passes under 0.55 m on 31 seeds) */
+const OD_ROUND_X=3,odRoute=(F,A)=>Math.sign(F[0])===Math.sign(A[0])?[F,A]:[F,[0,OD_BEHIND_Z],[Math.sign(A[0])*OD_ROUND_X,OD_BEHIND_Z],A];
 const odNext=figure(matOff,pants,false,{role:'batter',head:'helmet'}),odDeck=figure(matOff,pants,false,{role:'batter',head:'helmet'});
 /* #42 slice 5: both on-deck men carry a bat (role 'batter' = the batter's rig and frame, lefty = whole figure mirrored, like batterWalk).
    On the circle he stands side-on to the plate and takes one slow practice swing per pitch (BK stance -> contact -> follow-through, then
@@ -873,12 +877,12 @@ function odNextP(ev,i){let j=i+1;while(ev[j]&&odGap(ev[j].k))j++;return ev[j]&&e
 /* The walk to the plate of the batter of pitch n (team t): `from` = the circle (he was on deck) or the dugout (leadoff, slice 3), the
    batter after him jogs dugout -> circle. Both start at `go` (event-local s) and are done by OD_HOLD before the event ends. */
 function odMake(e,n,from,go,v){const t=n.bat[0],R=ROSTERS[t].bat,nb=R[n.bat[1]],lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]],G=dugout(t);
-  const F=from==='deck'?D:G,walk=odPath(Math.sign(F[0])===Math.sign(A[0])?[F,A]:[F,[0,OD_BEHIND_Z],A]),jog=odPath([G,D]),room=Math.max(e.d-OD_HOLD-go,OD_MIN_DUR);
+  const F=from==='deck'?D:G,walk=odPath(odRoute(F,A)),jog=odPath([G,D]),room=Math.max(e.d-OD_HOLD-go,OD_MIN_DUR);
   return{go,walk,jog,t1:Math.min(walk.L/v,room),t2:Math.min(jog.L/OD_JOG_V,room),box:[lf?-BAT_BOX[0]:BAT_BOX[0],BAT_BOX[1]],nb,nn:R[(n.bat[1]+1)%R.length]}}
 /* Pitch i ends a plate appearance and the next pitch (past a vote or a pitching change) is to the same team: on-deck man walks up */
 function odPlan(ev,i){const e=ev[i],j=odNextP(ev,i),n=ev[j];if(!e||e.k!=='P'||!e.pa||!e.bat||j<0||n.bat[0]!==e.bat[0])return null;
   const t=e.bat[0],R=ROSTERS[t].bat,nb=R[n.bat[1]],lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]];
-  const L=odPath(Math.sign(D[0])===Math.sign(A[0])?[D,A]:[D,[0,OD_BEHIND_Z],A]).L,J=odPath([dugout(t),D]).L;
+  const L=odPath(odRoute(D,A)).L,J=odPath([dugout(t),D]).L;
   return odMake(e,n,'deck',e.r==='inplay'?Math.max(0,e.d-OD_HOLD-Math.max(L/OD_WALK_V,J/OD_JOG_V)):OD_GO_AT,OD_WALK_V)}
 /* #42 slice 3: a half-inning break or the pregame (i = BRK/PRE) before the leadoff pitch: the leadoff man and the batter after him come
    out of their dugout (BRK: when the fielders change, BRK_ON_AT; PRE: OD_LEAD_PRE_AT), jogging, and stand at BAT_FROM / on the circle */
