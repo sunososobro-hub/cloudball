@@ -22,7 +22,7 @@ const none = combine({ teams: { season: '0', teams: [] }, players: {}, games: []
 const noTier = combine({ teams: { season: '0', teams: teamList }, players: { a1: players.a1 }, games: [] });
 const missing = combine({});
 
-if (TABS.map(t => t[0]).join() !== 'teams,games,me,minors,fa') bad('tabs must be teams, games, me, minors, fa');
+if (TABS.map(t => t[0]).join() !== 'home,teams,games,me,minors,fa') bad('tabs must be home, teams, games, me, minors, fa');
 for (const [name, d] of [['fixtures', full], ['array form', plain], ['empty', none], ['no tier 2/3', noTier], ['missing files', missing]])
   for (const [tab] of TABS) {
     let html; try { html = render(tab, d, tab === 'me' ? 'a1' : ''); } catch (e) { bad(`${name}/${tab} threw: ${e.message}`); continue; }
@@ -92,6 +92,20 @@ if (!/ui\/site\/teams\.css/.test(css)) bad('index.html must load ui/site/teams.c
 if (safeUrl('data:text/html,x') || safeUrl('JavaScript:x') || !safeUrl('https://a.b/c') || !safeUrl('replay/1.json')) bad('safeUrl');
 
 /* the real files, when the league window has published them */
+/* 首頁 (#358): hero = newest finished game, 看重播 link, highlight button only when the data has one, standings share a rank on equal wins, blocks without data are left out */
+{
+  const h = render('home', full), tie = combine({ teams: { teams: [{ id: 'a', name: 'A隊', record: { w: 2, l: 0 } }, { id: 'b', name: 'B隊', record: { w: 1, l: 1 } }, { id: 'c', name: 'C隊', record: { w: 1, l: 1 } }, { id: 'd', name: 'D隊', record: { w: 0, l: 2 } }] } });
+  const ranks = x => [...render('home', x).matchAll(/class="num rk">(\d+)</g)].map(m => m[1]).join();
+  if (!h.includes('class="hero"') || !/最新一場・2026-11-22/.test(h) || !render('home', combine({ teams: { teams: teamList }, games: [games[0]] })).includes('href="play.html">看重播<') || h.includes('>看重播<') || h.includes('看重點影片') || !h.includes('href="agent.html"') || !h.includes('建立我的球員')) bad('home: hero shows the newest game, 看重播 (only with a safe link) and the join card; no highlight button without a highlight');
+  if (!render('home', combine({ teams: { teams: teamList }, games: [{ ...games[0], highlight: 'https://x.y/h.mp4' }] })).includes('>看重點影片<')) bad('home: 看重點影片 appears when the game has a highlight');
+  if (ranks(tie) !== '1,2,2,4') bad(`home: standings by wins, equal wins share a rank (got ${ranks(tie)})`);
+  if ((h.match(/class="hc"/g) || []).length !== 2 || !h.includes('href="#teams/pheasants"') || !/class="vid"|class="vid" /.test(h) || !h.includes('href="#games"')) bad('home: team cards link to the team page, videos link to 比賽影片');
+  const noGames = render('home', noTier), noTeams = render('home', combine({ games })), nothing = render('home', none);
+  if (/class="hero"|class="vids"/.test(noGames) || !/aria-label="戰績"/.test(noGames)) bad('home: no games hides the hero and the videos');
+  if (/aria-label="戰績"|class="hcards"/.test(noTeams) || !/class="hero"/.test(noTeams)) bad('home: no teams hides 戰績 and the team cards');
+  if (!/class="empty"/.test(nothing) || !/class="join"/.test(nothing)) bad('home: no data at all says so and still shows the join card');
+  if (render('home', combine({ teams: { teams: teamList }, games: [{ ...games[0], replay: 'javascript:alert(1)' }] })).includes('javascript:')) bad('home: unsafe replay link is dropped');
+}
 const real = {}; let any = false;
 for (const [k, f] of Object.entries(DATA_FILES)) if (existsSync(path.join(ROOT, f))) { real[k] = JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')); any = true; }
 if (any) { const d = combine(real); for (const [tab] of TABS) { const h = render(tab, d, Object.keys(d.players)[0]); if (/undefined|NaN|\[object/.test(h)) bad(`real data/${tab}: bad output`); } }

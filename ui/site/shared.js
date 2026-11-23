@@ -38,7 +38,7 @@ const GROUPS = [['p', '投手', ['SP', 'RP']], ['c', '捕手', ['C']], ['if', '�
 const OTHER = '其他';
 export const filterOf = f => (FILTERS.some(x => x[0] === f) ? f : 'all');
 const groupKey = p => { const g = GROUPS.find(([, , ps]) => ps.includes(p.pos)) || (!p.pos && p.role === 'P' ? GROUPS[0] : null); return g ? g[0] : ''; };
-const teamCss = id => { const t = TEAMS.find(x => x.id === id); return t && /^#[0-9a-f]{6}$/i.test(t.css) ? t.css : '#5b6479'; };
+export const teamCss = id => { const t = TEAMS.find(x => x.id === id); return t && /^#[0-9a-f]{6}$/i.test(t.css) ? t.css : '#5b6479'; };
 const SIDE = { L: '左', R: '右', S: '左右' };
 const handText = p => (SIDE[p.hand] ? SIDE[p.hand] + (p.role === 'P' ? '投' : '打') : '');
 export function filterRow(base, filter) {
@@ -64,3 +64,7 @@ export function rosterCards(rows, { base, filter, openId } = {}) {
 const byOverallCmp = (a, b) => (b[1].overall || 0) - (a[1].overall || 0) || String(a[1].name).localeCompare(String(b[1].name));
 export const byOverall = rows => rows.slice().sort(byOverallCmp);
 export const tierRows = (d, tier, team) => byOverall(Object.entries(d.players).filter(([, p]) => p && p.tier === tier && (team === undefined || p.team === team)));
+/* Front page summaries (#358): display only, read from the published ratings, nothing here decides a game (rule 10). */
+export const tierOneRows = (d, t) => byOverall((t.roster || []).filter(id => d.players[id]).map(id => [id, d.players[id]]));
+export const meanOverall = rows => (rows.length ? rows.reduce((s, [, p]) => s + (Number(p.overall) || 0), 0) / rows.length : null);
+export const bestOf = (rows, role) => (rows.find(([, p]) => p.role === role) || [])[1] || null;
