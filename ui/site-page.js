@@ -10,7 +10,7 @@ let data = combine({});
 function draw() {
   const tab = tabOf();
   $('tabs').innerHTML = TABS.map(([k, label]) => `<a role="tab" href="#${k}" aria-selected="${k === tab}">${label}</a>`).join('');
-  $('view').innerHTML = render(tab, data, myId, parts()[1]);
+  $('view').innerHTML = render(tab, data, myId, ...parts().slice(1));
   $('season').innerHTML = seasonLabel(data);
 }
 addEventListener('hashchange', draw);
