@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { simGame, TEAMS } from '../engine/index.js';
-import { OPENING_ROSTERS } from '../league/preseason/rosters-opening.js';
+import { parseRecording } from '../league/recording.js';
 import { createBooth, coachOnAir } from './player.js';
 import { banterScores, topBanter, exchangesOf, MIN_GAP_SEC, TOP_DEFAULT } from './banter.js';
 
@@ -19,8 +19,8 @@ const DIR = path.dirname(fileURLToPath(import.meta.url));
 const GAMES = Number(process.env.GAMES || 20), problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 const bank = JSON.parse(readFileSync(path.join(DIR, 'lines.json'), 'utf8'));
 /* the demonstration game was recorded against the rosters of its day (#171) */
-const openingSeed = JSON.parse(readFileSync(path.join(DIR, '../league/preseason/opening.json'), 'utf8')).seed;
-const rostersOf = seed => (seed === openingSeed ? { rosters: OPENING_ROSTERS } : {});
+const opening = parseRecording(readFileSync(path.join(DIR, '../league/preseason/opening.json'), 'utf8'));
+const gameOf = seed => (seed === opening.seed ? opening.game : simGame(seed, {}));
 
 function check(name, script, stream) {
   const L = script.lines, opts = { bank, stream };
@@ -55,14 +55,14 @@ function check(name, script, stream) {
 const index = JSON.parse(readFileSync(path.join(DIR, 'scripts', 'index.json'), 'utf8')).scripts;
 let frozen = null;
 for (const [seed, file] of Object.entries(index)) {
-  const script = JSON.parse(readFileSync(path.join(DIR, 'scripts', file), 'utf8')), g = simGame(Number(seed), {}, rostersOf(Number(seed)));
+  const script = JSON.parse(readFileSync(path.join(DIR, 'scripts', file), 'utf8')), g = gameOf(Number(seed));
   const top = check(file, script, g.stream);
   if (!frozen) frozen = { file, script, top, g };
 }
 /* bank drafts: the viewer's own scripts for games without one */
 let drafted = 0, coachNamed = 0;
 for (let seed = 1; seed <= GAMES; seed++) {
-  const g = simGame(seed, {}, rostersOf(seed)), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
+  const g = gameOf(seed), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
   const lines = createBooth({ stream: g.stream, seed, bank, teams, describe }).lines;
   drafted += topBanter({ lines }, { bank, stream: g.stream }).length;
   check(`draft ${seed}`, { lines }, g.stream);
@@ -82,7 +82,7 @@ if (!coachNamed) bad('bank drafts: no pitching change names a coach');
 const VERDICT = { seed: 704, funny: [1126, 246, 1200, 30], flat: [1296, 311, 382, 617] };
 if (index[VERDICT.seed]) {
   const script = JSON.parse(readFileSync(path.join(DIR, 'scripts', index[VERDICT.seed]), 'utf8'));
-  const g = simGame(VERDICT.seed, {}, rostersOf(VERDICT.seed)), opts = { bank, stream: g.stream };
+  const g = gameOf(VERDICT.seed), opts = { bank, stream: g.stream };
   const top = topBanter(script, opts).map(x => x.at), all = banterScores(script, opts);
   const scoreAt = at => { const x = all.find(y => y.at === at); return x ? x.score : -1; };
   for (const at of VERDICT.funny) if (!top.includes(at)) bad(`seed ${VERDICT.seed}: the owner's funny exchange @${at} is not in the top list`);
