@@ -1217,10 +1217,12 @@ const SLIDE_DROP=.62;
 /* #43 a runner who reaches home (scored, or out at the plate) does not stay on it: he runs through a little along his line (less when he
    turns back toward a third-base-side dugout, hardly at all after a slide, which he first gets up from), eases to a jog and goes to his
    team's dugout, where he is gone. Path: quadratic Bezier home -> home + PEEL_IN * through -> dugout, walked by arc length. The same
-   function draws him in the next events (peelers) until he gets there, so he never vanishes on the plate when the play ends */
-const PEEL_THRU=1.6,PEEL_THRU_TURN=.6,PEEL_THRU_SLIDE=.3,PEEL_SPEED=5.5,PEEL_MIN=3,PEEL_DECEL=.8,PEEL_N=32,PEEL_LOOK=15,PEEL_IN=[Math.SQRT1_2,Math.SQRT1_2],peelCache={};
+   function draws him in the next events (peelers) until he gets there, so he never vanishes on the plate when the play ends.
+   #128 item 4: after a slide toward a first-base-side dugout the straight line ran through the catcher covering home on the 1B side
+   (sac fly, tag-up): PEEL_THRU_SLIDE_1B bends it behind the plate first (plate_scan, 31 seeds: catcher vs runner min .44 m -> .74 m) */
+const PEEL_THRU=1.6,PEEL_THRU_TURN=.6,PEEL_THRU_SLIDE=.3,PEEL_THRU_SLIDE_1B=1.8,PEEL_SPEED=5.5,PEEL_MIN=3,PEEL_DECEL=.8,PEEL_N=32,PEEL_LOOK=15,PEEL_IN=[Math.SQRT1_2,Math.SQRT1_2],peelCache={};
 function peelPath(team,slide){const key=team+(slide?'s':'');if(peelCache[key])return peelCache[key];
-  const D=dugout(team),thr=slide?PEEL_THRU_SLIDE:D[0]<0?PEEL_THRU_TURN:PEEL_THRU,P1=[PEEL_IN[0]*thr,PEEL_IN[1]*thr],pts=[],cum=[0];
+  const D=dugout(team),thr=slide?(D[0]<0?PEEL_THRU_SLIDE:PEEL_THRU_SLIDE_1B):D[0]<0?PEEL_THRU_TURN:PEEL_THRU,P1=[PEEL_IN[0]*thr,PEEL_IN[1]*thr],pts=[],cum=[0];
   for(let i=0;i<=PEEL_N;i++){const t=i/PEEL_N,a=2*t*(1-t),b=t*t;pts.push([a*P1[0]+b*D[0],a*P1[1]+b*D[1]]);if(i)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]))}
   return peelCache[key]={pts,cum,L:cum[PEEL_N]}}
 /* tp = seconds since the engine's arrival at home. Returns [x, z, faceX, faceZ], or null once he is in the dugout */
