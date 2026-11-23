@@ -36,6 +36,10 @@ if (!m.includes('李二軍') || m.includes('陳自由')) bad('minors tab must li
 if (!f.includes('陳自由') || f.includes('李二軍')) bad('free agents tab must list tier 3 only');
 if (g.indexOf('2026-11-22') > g.indexOf('2026-11-21') || !g.includes('href="play.html"') || g.includes('opening.json') || g.includes('javascript:')) bad('games tab: newest first, safe link only');
 if (!/還沒有自己的球員/.test(myPlayerView(full, '')) || !/找不到/.test(myPlayerView(full, 'zzz')) || !myPlayerView(full, 'a2').includes('二軍')) bad('my player tab: empty state, unknown id, tier shown');
+for (const [what, html] of [['no player', myPlayerView(full, '')], ['unknown id', myPlayerView(full, 'zzz')], ['player', myPlayerView(full, 'a1')]])
+  if (!html.includes('<a href="agent.html">')) bad(`my player tab (${what}) must link to agent.html (#341)`);
+const ag = readFileSync(path.join(ROOT, 'ui/agent.js'), 'utf8');
+if (/Object\.entries\(LOOK\)|外觀：/.test(ag)) bad('agent.js: the look chips (head, skin, hair) stay hidden until #151 (#341)');
 if (seasonLabel(full) !== '第 0 季' || seasonLabel(plain) !== '') bad('season label comes from teams.json season only');
 if (safeUrl('data:text/html,x') || safeUrl('JavaScript:x') || !safeUrl('https://a.b/c') || !safeUrl('replay/1.json')) bad('safeUrl');
 
