@@ -1,0 +1,14 @@
+[
+  {"role": "pbp", "tone": "快速明亮，球打出去時音量拉高", "text": "打出去了——很遠喔！"},
+  {"role": "pbp", "tone": "平穩清楚，報比數", "text": "九局上，兩出局，三比二。"},
+  {"role": "color", "tone": "低沉乾冷，帶一點酸", "text": "這球啊，球先到，手套就等在那邊。"},
+  {"role": "color", "tone": "慢，被抓包後勉強承認", "text": "這球如果是我當年，一定抓得到。好啦，可能啦。"},
+  {"role": "fan_pheasants", "tone": "苦笑、疲憊但還在撐", "text": "再不贏，我這個月房貸都繳不出來了。"},
+  {"role": "fan_pheasants", "tone": "突然興奮", "text": "全壘打！這一支可以抵一個月利息！"},
+  {"role": "fan_owls", "tone": "熬夜後的亢奮，沙啞", "text": "我是主場客人，加班加到凌晨還是要來看！"},
+  {"role": "fan_owls", "tone": "快速，又累又開心", "text": "主場的客人今天肝都醒了，這球漂亮！"},
+  {"role": "fan_macaques", "tone": "豪邁大嗓門", "text": "兄弟，這球打得夠力，煞氣啦！"},
+  {"role": "fan_macaques", "tone": "粗啞低沉，不爽", "text": "裁判你眼睛放在哪裡，這球明明是好球。"},
+  {"role": "fan_muntjacs", "tone": "慵懶，剛睡醒", "text": "嗯……現在幾局了，我頭好痛。"},
+  {"role": "fan_muntjacs", "tone": "突然大聲又縮回去", "text": "跑啊！……啊，我頭好暈。"}
+]

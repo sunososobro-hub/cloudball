@@ -1,0 +1,6 @@
+Code and the script format in this folder are MIT (see /LICENSE).
+
+Persona files, the voices.json persona text, and the dialogue in lines.json and scripts/ are
+reserved character material, not licensed: see /TRADEMARKS.md.
+
+Audio in commentary/audio/ has its own LICENSE.
