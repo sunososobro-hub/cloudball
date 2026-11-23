@@ -101,9 +101,13 @@ byte. Outcome draws and cosmetic draws (pitch type, speed, who slides at home) u
 seeded RNGs, so looks can change without changing results. The engine never reads the clock
 or `Math.random`.
 
-Known limit: geometry uses `Math.sin`/`Math.cos`, whose last bit is not guaranteed to be equal
-across JavaScript engines. Node and Chromium (both V8) agree; official games are computed once
-under Node and recorded with their seed and engine commit in `cloudball-league`.
+Across JavaScript engines (#7): the engine computes with `+ - * /` and `Math.sqrt` only, which are
+exactly rounded everywhere, so V8, JavaScriptCore and SpiderMonkey get the same bits. Sine and
+cosine come from `sinCosDeg` in `rules/field.js`, not from `Math.sin`/`Math.cos`, whose last bit
+differs between engines; `run.mjs` fails when `engine/` calls such a function (`Math.sin`,
+`Math.pow`, `**`, ...) and pins the bits of `sinCosDeg` (`TRIG_PRINT`). The checks run under Node
+only: nobody has compared a stream in Safari or Firefox yet. Official games are still computed
+once under Node and recorded with their seed and engine commit in `cloudball-league`.
 
 ## Tuning
 

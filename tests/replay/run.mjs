@@ -8,6 +8,8 @@
  *   - the batting order is broken
  *   - the score differs from the runs recorded in the stream
  *   - two runs of the same seed differ (determinism)
+ *   - engine/ calls a Math function whose last bit is not the same in every JavaScript engine (sin, cos,
+ *     pow, ...), or the engine's own sine and cosine are wrong or no longer give the recorded bits
  *   - engine/ touches the DOM, three.js, wall-clock time, unseeded randomness or the viewer code
  *   - a count table of the engine does not cover every count, or holds something that is not a probability
  *   - the league-wide rates of the default sample drift away from the reference league (REFERENCE below)
@@ -21,7 +23,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { simGame, boxFromStream, aggregate, fielderStart, BASES, ENGINE_VERSION, TEAMS, ZONE_BY_COUNT, SWING_ZONE_BY_COUNT, SWING_CHASE_BY_COUNT, BALLS_FOR_WALK, STRIKES_FOR_OUT } from '../../engine/index.js';
+import { simGame, boxFromStream, aggregate, fielderStart, sinCosDeg, BASES, ENGINE_VERSION, TEAMS, ZONE_BY_COUNT, SWING_ZONE_BY_COUNT, SWING_CHASE_BY_COUNT, BALLS_FOR_WALK, STRIKES_FOR_OUT } from '../../engine/index.js';
 
 const GAMES = Number(process.env.GAMES || 1000);
 const FIRST_SEED = Number(process.env.SEED || 1);
@@ -66,13 +68,37 @@ const segDist = (p, a, b) => {
 /* ---------- static check: the engine is pure ---------- */
 function checkPurity() {
   const banned = [[/\bdocument\b|\bwindow\b|\blocalStorage\b|\bnavigator\b/, 'DOM access'], [/from\s+['"]three|THREE\./, 'three.js'], [/Math\.random\s*\(/, 'unseeded randomness'],
-    [/\bDate\.now\b|new Date\b|performance\.now/, 'wall-clock time'], [/from\s+['"][^'"]*\/(render|ui|commentary)\//, 'import from viewer code'], [/\bfetch\s*\(|XMLHttpRequest/, 'network access']];
+    [/\bDate\.now\b|new Date\b|performance\.now/, 'wall-clock time'], [/from\s+['"][^'"]*\/(render|ui|commentary)\//, 'import from viewer code'], [/\bfetch\s*\(|XMLHttpRequest/, 'network access'],
+    [/\bMath\.(a?sinh?|a?cosh?|a?tanh?|atan2|exp|expm1|log(1p|2|10)?|pow|cbrt|hypot)\b|\*\*/, 'a Math function (or **) whose last bit differs between JavaScript engines: use + - * / and Math.sqrt (#7)']];
   const walk = dir => readdirSync(dir).flatMap(f => { const p = path.join(dir, f); return statSync(p).isDirectory() ? walk(p) : /\.m?js$/.test(f) ? [p] : []; });
   for (const file of walk(path.join(ROOT, 'engine'))) {
     const src = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     if (file.endsWith('season.js')) continue;   /* CLI tool: reads process.argv, prints a report */
     for (const [re, what] of banned) if (re.test(src)) fail('static', `${path.relative(ROOT, file)}: ${what}`);
   }
+}
+
+/* ---------- static check: the engine's own sine and cosine (#7) ---------- */
+const TRIG_GRID = 7, TRIG_TURNS = 2;   /* the angles checked are k / TRIG_GRID degrees, TRIG_TURNS full turns each way */
+const TRIG_TOL = 2e-15;                /* against Math.sin and Math.cos of this Node, which round their own argument */
+/* sha256 (first 16 hex digits) of every value on the grid. The arithmetic behind it is exactly rounded, so any
+ * JavaScript engine gives this print. If sinCosDeg is changed on purpose: every stream may change, so bump
+ * ENGINE_VERSION and record the new print here. */
+const TRIG_PRINT = 'a96b371e0cf68775';
+function checkTrig() {
+  for (const [a, sin, cos] of [[0, 0, 1], [90, 1, 0], [180, 0, -1], [270, -1, 0], [360, 0, 1], [-90, -1, 0]]) {
+    const [s, c] = sinCosDeg(a);
+    if (!Object.is(s, sin) || !Object.is(c, cos)) fail('static', `sinCosDeg(${a}) is [${s}, ${c}], expected exactly [${sin}, ${cos}]`);
+  }
+  const values = [], DEG = Math.PI / 180, last = TRIG_TURNS * 360 * TRIG_GRID;
+  for (let k = -last; k <= last; k++) {
+    const a = k / TRIG_GRID, [s, c] = sinCosDeg(a), [sm, cm] = sinCosDeg(-a);
+    values.push(s, c);
+    if (!(Math.abs(s - Math.sin(a * DEG)) <= TRIG_TOL && Math.abs(c - Math.cos(a * DEG)) <= TRIG_TOL)) fail('static', `sinCosDeg(${a}) is [${s}, ${c}]: not the sine and cosine of ${a} degrees`);
+    if (sm !== -s || cm !== c || Object.is(s, -0) || Object.is(c, -0)) fail('static', `sinCosDeg(${a}) and sinCosDeg(${-a}) are not mirror images, or one holds a negative zero`);
+  }
+  const print = createHash('sha256').update(JSON.stringify(values)).digest('hex').slice(0, 16);
+  if (print !== TRIG_PRINT) fail('static', `sinCosDeg gives print ${print}, recorded ${TRIG_PRINT}: its bits changed (see TRIG_PRINT)`);
 }
 
 /* ---------- static check: the count tables cover every count ---------- */
@@ -284,6 +310,7 @@ function checkHook(seed, S) {
 /* ---------- run ---------- */
 checkPurity();
 checkTables();
+checkTrig();
 const boxes = [], outReasons = {}, results = {};
 const digest = createHash('sha256');
 const started = process.hrtime.bigint();
