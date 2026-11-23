@@ -5,11 +5,6 @@ h1 small{font-size:.5em;letter-spacing:.1em;color:var(--gold);font-weight:600}
 #tabs a[aria-selected="true"]{border-color:var(--gold);background:rgba(242,194,48,.16);color:var(--gold)}
 main{padding-top:14px}
 .empty{margin:14px 0;padding:14px;border:1px dashed var(--line);border-radius:10px;color:var(--muted)}
-.team{margin-bottom:28px}
-.team h2{display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;margin:0 0 6px;font-size:20px}
-.team h2 small{color:var(--muted);font-size:14px;font-weight:400}.team h2 em{margin-left:auto;font-style:normal;color:var(--gold)}
-.team h2 .lg{width:40px;height:40px;object-fit:contain}
-.cnt{margin:0 0 6px;color:var(--muted);font-size:13px}
 .tblscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .dt{width:100%;border-collapse:collapse;font-size:14px}
 .dt th,.dt td{padding:6px 10px;text-align:left;white-space:nowrap}

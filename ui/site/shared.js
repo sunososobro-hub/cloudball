@@ -18,7 +18,8 @@ export function combine({ teams, players, games } = {}) {
   const n = normalize(teams);
   return { season: n.season, teams: n.teams, players: players && typeof players === 'object' && !Array.isArray(players) ? players : {}, games: Array.isArray(games) ? games : [] };
 }
-export const seasonLabel = d => (d.season !== '' && d.season != null ? `第 ${esc(d.season)} 季` : '');
+/* season "0" is the pre-season: on screen it reads 熱身賽 (#343); the data key stays "0". Later seasons read 第 N 季. */
+export const seasonLabel = d => (d.season === '' || d.season == null ? '' : String(d.season) === '0' ? '熱身賽' : `第 ${esc(d.season)} 季`);
 
 export const empty = msg => `<p class="empty">${esc(msg)}</p>`;
 export const teamOf = (d, id) => d.teams.find(t => t.id === id);
