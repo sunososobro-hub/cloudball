@@ -1,6 +1,5 @@
 # ui / root files / functions: HANDOFF (2026-11-23)
 Agent: the interface window: `ui/`, `functions/`, root files.
-
 ## Done
 - #341 (PR feat/341): `agent.html` no longer draws the 外觀 chips (head, skin, hair; `state.look` stays 0,0,0 so the posted choice and API are unchanged); the 我的球員 tab of the data site links to `agent.html` in every state (`agentEntry` in `ui/site-data.js`, guarded in `tests/sitedata.check.mjs`). The look chips return when #151 lands a real look mapping. The link shows on production too, but `agent.html` is dev-only there.
 - #289 (PR fix/289): entry screen lost the 「今晚 A 對 B」 line (`#introMatch` gone from `index.html`). #53 part 2 is merged. #192 (`ui/compare.js`, PRs #193 and #198; the agent page needs D1, Preview only), #60, #25, #58, #53 part 1, #89, #117, #122, #47 round 1 (opening.json, `ui/site.js` dev/production by host, class `dev-only`).
