@@ -13,7 +13,6 @@ const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘�
 const ROLE = { SP: '先發投手', RP: '後援投手' };
 const HAND = { L: '左', R: '右' };
 const BUILD = { normal: '標準', slim: '精瘦', power: '力量型', heavy: '壯碩' };
-const LOOK = { head: '臉型', skin: '膚色', hair: '髮型' };
 const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球' };
 const PIT_RATINGS = { stuff: '球威', ctrl: '控球', arm: '臂力' };
 const KIND = { bat: '打者', pit: '投手' };
@@ -134,10 +133,7 @@ function buildMaker(key, state) {
       chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; })),
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
       chipGroup('體型', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), state.build, edit(v => { state.build = v; })));
-    for (const [k, label] of Object.entries(LOOK)) {
-      const [lo, hi] = CREATE.look[k], opts = []; for (let v = lo; v <= hi; v++) opts.push([v, v + 1]);
-      fields.appendChild(chipGroup(`外觀：${label}`, opts, state.look[k], edit(v => { state.look[k] = Number(v); }), 'nums'));
-    }
+    /* 外觀 chips (head, skin, hair) are hidden until #151 lands a real look mapping: they draw nothing yet. `state.look` keeps its defaults (0) so the posted choice is unchanged. */
     const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = CREATE.budget[state.kind];
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));
     for (const k of CREATE.keys[state.kind]) {
