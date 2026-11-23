@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const problems = [], seen = new Set(), queue = ['index.html', 'render/players_test.html', 'guide.html', 'agent.html'];
+const problems = [], seen = new Set(), queue = ['index.html', 'play.html', 'render/players_test.html', 'guide.html', 'agent.html'];
 const isLocal = ref => ref && !/^(https?:|data:|blob:|#|three($|\/))/.test(ref);
 const refsOf = (file, src) => {
   const out = [], dir = path.dirname(file), push = (ref, base = dir) => { if (isLocal(ref)) out.push(path.normalize(path.join(base, ref.split(/[?#]/)[0]))); };
@@ -37,7 +37,7 @@ for (const f of ['assets/players.b64.txt', 'commentary/lines.json', 'commentary/
 for (const f of ['commentary/lines.json', 'commentary/scripts/index.json']) { try { JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { problems.push(`${f} is not valid JSON`); } }
 /* #162: in every page the import map comes before the first modulepreload, preload and module script (a module linked
  * before the map exists fails on its bare "three/..." imports and stays failed for the real import) */
-for (const f of ['index.html', 'render/players_test.html']) {
+for (const f of ['play.html', 'render/players_test.html']) {
   const src = readFileSync(path.join(ROOT, f), 'utf8'), at = re => { const m = src.search(re); return m < 0 ? Infinity : m; };
   const map = at(/<script\s+type=["']importmap["']/), first = Math.min(at(/<link[^>]*rel=["'](?:modulepreload|preload)["']/), at(/<script\s+type=["']module["']/));
   if (first < Infinity && !(map < first)) problems.push(`${f}: the import map must come before every modulepreload, preload and module script`);

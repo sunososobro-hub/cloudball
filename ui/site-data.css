@@ -1,4 +1,4 @@
-/* Text-first data site (site.html, #335). Builds on ui/guide.css (night palette). Phone first; tables scroll sideways. */
+/* Text-first data site (index.html, #335). Builds on ui/guide.css (night palette). Phone first; tables scroll sideways. */
 h1 small{font-size:.5em;letter-spacing:.1em;color:var(--gold);font-weight:600}
 #tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;border-bottom:1px solid var(--line);scrollbar-width:none}
 #tabs a{flex:none;display:flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--ink);font-weight:600}
@@ -17,4 +17,5 @@ main{padding-top:14px}
 .dt tbody tr{border-top:1px solid rgba(255,255,255,.07)}
 .dt td.num{text-align:right}.dt td.ov{font-size:20px;font-weight:700;color:var(--gold)}
 .dt a{color:var(--gold)}
+.play{margin:6px 0 10px}.play a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:10px;background:var(--gold);color:#14110a;font-weight:700;text-decoration:none}
 .me dl{display:grid;grid-template-columns:5em 1fr;gap:8px 12px;margin:0}.me dt{color:var(--muted)}.me dd{margin:0}
