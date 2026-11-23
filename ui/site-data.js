@@ -16,5 +16,5 @@ export { teams as teamsView, games as gamesView, me as myPlayerView, minors as m
 export const DATA_FILES = { teams: 'league/site/teams.json', players: 'league/site/players.json', games: 'league/site/games.json' };
 export const TABS = [['teams', '球團'], ['games', '比賽影片'], ['me', '我的球員'], ['minors', '二軍'], ['fa', '自由市場']];
 export const VIEWS = { teams, games, me, minors, fa };
-/* `arg` is the second hash segment (#teams/<team id>): the 球團 tab opens that team's roster; other tabs ignore it */
-export function render(tab, d, myId, arg) { return (VIEWS[tab] || teams)(d, myId, arg); }
+/* `args` are the hash segments after the tab. 球團: #teams/<team id>/<filter>/<player id>; 二軍 and 自由市場: #<tab>/<filter>/<player id> (#353); other tabs ignore them */
+export function render(tab, d, myId, ...args) { return (VIEWS[tab] || teams)(d, myId, ...args); }
