@@ -4,12 +4,13 @@ import { DATA_FILES, MY_PLAYER_KEY, TABS, combine, render, seasonLabel } from '.
 const $ = id => document.getElementById(id);
 const get = async url => { try { const r = await fetch(url, { cache: 'no-cache' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
 let myId = ''; try { myId = localStorage.getItem(MY_PLAYER_KEY) || ''; } catch (e) { /* storage blocked: no player yet */ }
-const tabOf = () => { const h = location.hash.slice(1); return TABS.some(t => t[0] === h) ? h : TABS[0][0]; };
+const parts = () => location.hash.slice(1).split('/').map(decodeURIComponent);
+const tabOf = () => { const h = parts()[0]; return TABS.some(t => t[0] === h) ? h : TABS[0][0]; };
 let data = combine({});
 function draw() {
   const tab = tabOf();
   $('tabs').innerHTML = TABS.map(([k, label]) => `<a role="tab" href="#${k}" aria-selected="${k === tab}">${label}</a>`).join('');
-  $('view').innerHTML = render(tab, data, myId);
+  $('view').innerHTML = render(tab, data, myId, parts()[1]);
   $('season').innerHTML = seasonLabel(data);
 }
 addEventListener('hashchange', draw);
