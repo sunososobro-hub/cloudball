@@ -1,0 +1,25 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Static site check (no missing files, scripts parse)
+        run: node tests/replay/static.mjs
+      - name: Headless game suite (1000 full games)
+        run: node tests/replay/run.mjs
+      - name: Commentary checks
+        run: node tests/replay/commentary.mjs

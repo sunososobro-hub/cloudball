@@ -1,0 +1,13 @@
+/* 球團 tab only (#343, #344): four team cards (2x2 on a phone, four across on a wide screen) and the open team's roster below. Shared table styles are in ui/site-data.css */
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 16px}
+@media (min-width:900px){.cards{grid-template-columns:repeat(4,1fr);gap:14px}}
+.tc{display:block;min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;color:var(--ink);text-decoration:none;background:rgba(255,255,255,.03)}
+.tc[aria-expanded="true"]{border-color:var(--gold);background:rgba(242,194,48,.12)}
+.tc header{display:flex;align-items:center;gap:10px}
+.tc .lg{flex:none;width:48px;height:48px;object-fit:contain}
+.tc .nm{display:flex;flex-direction:column;min-width:0}.tc .nm b{font-size:16px;line-height:1.25}.tc .nm small{color:var(--muted);font-size:13px}
+.tc .rec{margin:8px 0;color:var(--gold);font-weight:700}
+.tc dl{margin:0;display:grid;gap:4px;font-size:14px}.tc dl>div{display:flex;justify-content:space-between;gap:8px}
+.tc dt{color:var(--muted)}.tc dd{margin:0;text-align:right}.tc .no{color:var(--muted);font-size:12px}
+.team h2{display:flex;align-items:baseline;gap:12px;margin:0 0 8px;font-size:20px}.team h2 small{color:var(--muted);font-size:14px;font-weight:400}
+.team{margin:0 0 28px;padding-top:12px;border-top:1px solid var(--line)}/* guide.css gives .team a 28px top margin and a 3px team-colour rule: the band under the tab row (#343) */

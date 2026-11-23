@@ -1,0 +1,131 @@
+# engine
+
+Pure game logic. Runs under plain Node with no DOM and no three.js, and must never import
+`render/`, `ui/` or `commentary/`. Only the engine decides what happens in a game.
+
+```js
+import { simGame } from './engine/index.js';
+const game = simGame(seed, decisions, opts);   // same inputs + same commit = same game
+```
+
+- `seed`: unsigned 32-bit integer.
+- `decisions`: `{ [decisionId]: choice }`, the resolved fan votes (`P0: 'stay'`, `I1: 'ibb'`...).
+  A decision without an entry uses the coach's own pick and is marked `pending`.
+  Pitching change (`P`): a reliever the question is about comes out; a starter stays until his
+  pitch budget is spent (`SP_LIMIT_PITCHES`, shorter per run allowed and from `SP_LATE_INNING` on)
+  or he has allowed `SP_MAX_RUNS`. 0.4.2, 40,000 games: 5.23 innings and 86 pitches a start.
+- `opts`: `{ teams: [awayIndex, homeIndex], rosters, starters, pen }`. Rosters default to the
+  factory settings in `league/`.
+
+## What is where
+
+| Path | Contents |
+| --- | --- |
+| `constants.js` | Every tunable number, named. Change behaviour here, not inline. |
+| `rng.js` | The seeded RNG. All randomness goes through it. |
+| `rules/outs.js` | The only place an out can be created. Each constructor checks its rule and throws on missing evidence. |
+| `rules/fielding.js` | Turns a batted ball or a steal into a defensive play: who fields, who covers, every throw and when it arrives. Decides out or safe from travel times. |
+| `rules/field.js` | Field geometry, defensive alignment, running and throwing kinematics. |
+| `sim/game.js` | The game loop: pitch by pitch, inning by inning. |
+| `sim/copy.js` | On-screen text that goes with each frame (game content). |
+| `sim/season.js` | Season runner, a development tool: `node engine/sim/season.js 3`. |
+| `stats/box.js` | Box score and league rates rebuilt from the event stream alone. |
+
+## Why an out is always legal
+
+The simulation only proposes what the defence tries (go for two, go for the lead runner on a
+bunt, throw out a base stealer). `rules/fielding.js` then works out where the fielders are and
+how long everything takes. An out is recorded only through `rules/outs.js`:
+
+- **force**: the fielder holds the ball **and** is on the base before the forced runner arrives;
+- **tag**: the fielder has the ball in his glove at the base before the runner arrives;
+- **fly catch**: the fielder is under the ball when it comes down;
+- **strikeout**: three strikes.
+
+If the ball cannot be there in time the runner is safe: a double-play try becomes a fielder's
+choice, a slow roller becomes an infield hit. A throw is never released to a base before the
+receiver is standing on it. The out's time is the moment the ball is held on the base, never
+earlier. A ball that beats the runner by less than `CLOSE_PLAY_MARGIN` is no out: the tie goes
+to the runner, and every out can be proven again from the millisecond-rounded stream.
+
+A fielder who waits to tag stands beside the lane of the runner sliding in, never in it
+(`SECOND_TAG_OFF`, `THIRD_TAG_OFF`, `HOME_TAG_SPOT`). The referee measures it on every tag play.
+
+## A plate appearance
+
+Each pitch is drawn from the count. `ZONE_BY_COUNT[balls][strikes]` (times the pitcher's
+control) is the chance of a strike-zone pitch: pitchers come into the zone when behind and
+work off the plate when ahead. `SWING_ZONE_BY_COUNT` and `SWING_CHASE_BY_COUNT` (the latter
+divided by the batter's eye) are the chance of a swing: batters take early and on 3-0, and
+protect with two strikes. Contact, foul or in play, and the batted ball follow from the
+ratings. On a fly out a runner on third may tag and score (`SAC_FLY_P`) and a runner on second
+may tag and take an open third (`TAG_2ND_TO_3RD_P`); the throw goes to the lead runner and
+arrives after him.
+
+## Output
+
+`game.ev` is the list of broadcast frames the viewer plays back (one per pitch, half-inning
+break, pitching change, fan decision). A pitch frame carries the result (`r`), the batted ball
+(`play`), the defensive plan (`plan`), the outs with their evidence (`outs`), each runner's
+start/slide/arrival (`moves[n][3]`) and the game state before and after (`s0`, `s1`).
+
+`game.stream` is the flat event stream. Every event has `i` (its index), `f` (the frame it
+belongs to), `t` (seconds on the broadcast timeline) and `type`:
+
+| `type` | Main fields |
+| --- | --- |
+| `game_start` | `seed`, `engine`, `teams`, `lineups`, `starters` |
+| `half_start` / `half_end` | `inning`, `half`, `team`; on end also `runs`, `outs`, `score` |
+| `runner_placed` | extra-inning runner: `runner`, `base` |
+| `decision` | `id`, `team`, `kind`, `pick`, `pending` |
+| `substitution` | `team`, `role`, `out`, `in` |
+| `pitch` | `pitcher`, `batter`, `lineup`, `pitchType`, `kmh`, `inZone`, `count`, `n` |
+| `swing` | `batter` |
+| `call` | `call`: `ball`, `called_strike`, `swinging_strike`, `foul`, `hit_by_pitch`; `count` after it |
+| `contact` | `ball` (`GB`/`LD`/`FB`/`PU`), `bunt`, `spray`, `dist`, `hang`, `land`, `fielder` |
+| `fielder_action` | `action`: `field`, `catch`, `throw`, `cover`, `receive`, `touch`, `tag`; `fielder`, `base`, `to` |
+| `out` | `reason` (`force`, `tag`, `fly_catch`, `strikeout_swinging`, `strikeout_looking`), `runner`, `base`, `fielder`, `ballAt`, `touchAt`/`fielderAt`, `runnerAt`, `outs` |
+| `runner_advance` | `runner`, `from`, `to`, `how` (`batted`, `walk`, `steal`) |
+| `run_scored` | `runner`, `team`, `runs` (team total) |
+| `intentional_walk` | `batter`, `pitcher` |
+| `pa_end` | `batter`, `lineup`, `pitcher`, `result`, `rbi` |
+| `game_end` | `score`, `innings`, `winner`, `walkoff` |
+
+Commentary scripts and the test suite bind to stream indices. Adding a field is fine; changing
+the order or meaning of events changes every game and needs an engine version bump.
+
+## Determinism
+
+Same seed + same decisions + same rosters + same engine commit = the same stream, byte for
+byte. Outcome draws and cosmetic draws (pitch type, speed, who slides at home) use separate
+seeded RNGs, so looks can change without changing results. The engine never reads the clock
+or `Math.random`.
+
+Across JavaScript engines (#7): the engine computes with `+ - * /` and `Math.sqrt` only, which are
+exactly rounded everywhere, so V8, JavaScriptCore and SpiderMonkey get the same bits. Sine and
+cosine come from `sinCosDeg` in `rules/field.js`, not from `Math.sin`/`Math.cos`, whose last bit
+differs between engines; `run.mjs` fails when `engine/` calls such a function (`Math.sin`,
+`Math.pow`, `**`, ...) and pins the bits of `sinCosDeg` (`TRIG_PRINT`). The checks run under Node
+only: nobody has compared a stream in Safari or Firefox yet. Official games are still computed
+once under Node and recorded with their seed and engine commit in `cloudball-league`.
+
+## Tuning
+
+The reference league is the MLB 2025 regular season. `node tests/replay/run.mjs` plays every
+team against every other team, prints the league-wide rates and fails when the default sample
+leaves the tolerance around the reference (`REFERENCE` in that file). To re-tune: change
+`constants.js`, measure on far more games than the default (`GAMES=20000 SEED=100001`, the
+1000-game sample moves runs/game by about +-0.3 on its own), bump `ENGINE_VERSION`, put the
+before and after numbers in the pull request.
+
+| Per game, both teams | MLB 2025 | engine 0.4.0 (48,000 games) |
+| --- | --- | --- |
+| runs | 8.89 | 8.65 |
+| AVG / OBP / SLG | .245 / .315 / .404 | .247 / .317 / .404 |
+| K% / BB% / HBP% | 22.2 / 8.4 / 1.05 | 22.2 / 8.3 / 1.06 |
+| HR / 2B / 3B | 2.33 / 3.19 / 0.26 | 2.36 / 3.23 / 0.25 |
+| pitches per PA, zone%, swing%, whiff% | 3.88, 50.7, 47.8, 25.3 | 3.82, 50.7, 47.7, 24.7 |
+
+Not modelled yet, which is why the same batting line scores about 0.25 runs a game less than
+the reference and sacrifice flies are low (0.34 a game against 0.54): wild pitches, passed
+balls, balks, steals of third, advancing on throws and errors, runners thrown out on the bases.
