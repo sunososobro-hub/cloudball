@@ -1,4 +1,4 @@
-/* League guide page. Same night palette as index.html; no build step, no framework. */
+/* League guide page. Same night palette as play.html; no build step, no framework. */
 :root{color-scheme:dark;--bg:#070b16;--ink:#eef2f8;--muted:#9aa6bd;--glass:rgba(255,255,255,.05);--line:rgba(255,255,255,.14);--gold:#f2c230;--tc:#fff}
 *{box-sizing:border-box;min-width:0}
 html{background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans TC',system-ui,sans-serif;scroll-padding-top:64px}

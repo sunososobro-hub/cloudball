@@ -1,10 +1,10 @@
 /* Text-first data site (#335): every view of ui/site-data.js renders with fixtures, with an empty list, and (when published) with the real
- * league/site/*.json files; data text is escaped and unsafe links are dropped; site.html loads the page script and nothing remote but fonts.
+ * league/site/*.json files; data text is escaped and unsafe links are dropped; index.html loads the page script and nothing remote but fonts.
  * Usage: node tests/sitedata.check.mjs */
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { DATA_FILES, TABS, combine, render, myPlayerView, safeUrl, seasonLabel } from '../ui/site-data.js';
+import { DATA_FILES, TABS, combine, render, myPlayerView, replayLink, safeUrl, seasonLabel } from '../ui/site-data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const problems = [], bad = m => problems.push(m);
@@ -15,7 +15,7 @@ const players = {
   a3: { name: '陳自由', age: 30, role: 'B', pos: 'CF', overall: 64, abilities: ab, team: null, tier: 3 },
 };
 const teamList = [{ id: 'pheasants', name: '台北房貸帝雉', city: '台北', logo: 'javascript:alert(1)', record: { w: 3, l: 1 }, roster: ['a1', 'gone'] }, { id: 'owls', name: '新竹爆肝貓頭鷹', record: { w: 1, l: 3 }, roster: [] }];
-const games = [{ id: 'g1', date: '2026-11-21', home: 'pheasants', away: 'owls', score: [5, 2], replay: 'index.html?game=g1' }, { id: 'g2', date: '2026-11-22', home: 'owls', away: 'pheasants', score: [1, 0], replay: 'javascript:alert(1)' }];
+const games = [{ id: 'g1', date: '2026-11-21', home: 'pheasants', away: 'owls', score: [5, 2], replay: 'league/preseason/opening.json' }, { id: 'g2', date: '2026-11-22', home: 'owls', away: 'pheasants', score: [1, 0], replay: 'javascript:alert(1)' }];
 const full = combine({ teams: { season: '0', teams: teamList }, players, games });
 const plain = combine({ teams: teamList, players, games });
 const none = combine({ teams: { season: '0', teams: [] }, players: {}, games: [] });
@@ -34,7 +34,7 @@ const t = render('teams', full), m = render('minors', full), f = render('fa', fu
 if (!t.includes('&lt;b&gt;王大明') || t.includes('李二軍') || t.includes('gone')) bad('teams tab: shows tier 1 roster ids that exist, nothing else');
 if (!m.includes('李二軍') || m.includes('陳自由')) bad('minors tab must list tier 2 only');
 if (!f.includes('陳自由') || f.includes('李二軍')) bad('free agents tab must list tier 3 only');
-if (g.indexOf('2026-11-22') > g.indexOf('2026-11-21') || !g.includes('index.html?game=g1') || g.includes('javascript:')) bad('games tab: newest first, safe link only');
+if (g.indexOf('2026-11-22') > g.indexOf('2026-11-21') || !g.includes('href="play.html"') || g.includes('opening.json') || g.includes('javascript:')) bad('games tab: newest first, safe link only');
 if (!/還沒有自己的球員/.test(myPlayerView(full, '')) || !/找不到/.test(myPlayerView(full, 'zzz')) || !myPlayerView(full, 'a2').includes('二軍')) bad('my player tab: empty state, unknown id, tier shown');
 if (seasonLabel(full) !== '第 0 季' || seasonLabel(plain) !== '') bad('season label comes from teams.json season only');
 if (safeUrl('data:text/html,x') || safeUrl('JavaScript:x') || !safeUrl('https://a.b/c') || !safeUrl('replay/1.json')) bad('safeUrl');
@@ -44,8 +44,10 @@ const real = {}; let any = false;
 for (const [k, f] of Object.entries(DATA_FILES)) if (existsSync(path.join(ROOT, f))) { real[k] = JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')); any = true; }
 if (any) { const d = combine(real); for (const [tab] of TABS) { const h = render(tab, d, Object.keys(d.players)[0]); if (/undefined|NaN|\[object/.test(h)) bad(`real data/${tab}: bad output`); } }
 
-const html = readFileSync(path.join(ROOT, 'site.html'), 'utf8'), page = readFileSync(path.join(ROOT, 'ui/site-page.js'), 'utf8');
-if (!/ui\/site-page\.js/.test(html)) bad('site.html must load ui/site-page.js');
+const html = readFileSync(path.join(ROOT, 'index.html'), 'utf8'), page = readFileSync(path.join(ROOT, 'ui/site-page.js'), 'utf8');
+if (!/ui\/site-page\.js/.test(html)) bad('index.html must load ui/site-page.js');
+if (!/href="play\.html"/.test(html) || !existsSync(path.join(ROOT, 'play.html'))) bad('the data site must link to the game (play.html)');
+if (replayLink('https://x.y/v.mp4') !== 'https://x.y/v.mp4' || replayLink('a/b.json?x=1') !== 'play.html') bad('replayLink');
 if (/https?:\/\/(?!fonts\.|github\.com\/sunososobro)/.test(html + page)) bad('the data site makes no network call besides its own data files');
 console.log(problems.length ? problems.map(p => 'FAIL ' + p).join('\n') : `OK site data (${any ? 'real files + ' : ''}fixtures, empty lists, ${TABS.length} tabs)`);
 process.exit(problems.length ? 1 : 0);

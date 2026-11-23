@@ -1,5 +1,5 @@
 /* Player bar of the frozen game (#47): play / pause, progress track with a mark at every half inning, elapsed / total.
- * Markup in index.html, behaviour in render/game.js (plUpdate, seekTo). Shown on production: it is a viewer feature. */
+ * Markup in play.html, behaviour in render/game.js (plUpdate, seekTo). Shown on production: it is a viewer feature. */
 #player{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));z-index:7;
   display:flex;align-items:center;gap:10px;padding:2px 14px 2px 2px;--p:0;user-select:none;-webkit-user-select:none}
 #player #plPlay{flex:none;width:44px;min-height:40px;padding:0;font-size:16px;border:0;background:transparent;color:var(--ink)}
@@ -20,7 +20,7 @@
 @media(max-width:560px){#plMarks i[data-inn]::after{display:none}#plTime{font-size:13px}}
 body.studio #player{display:none}
 /* Highlights showing (#118): card above the field after every jump, final score card with two buttons; a third button on the entry screen.
- * Markup in index.html, behaviour in render/game.js (startHighlights, hlTick). */
+ * Markup in play.html, behaviour in render/game.js (startHighlights, hlTick). */
 #intro .acts button{flex-basis:170px}
 #hlCard{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 58px);left:50%;transform:translateX(-50%);z-index:8;padding:8px 22px 10px;text-align:center;
   max-width:calc(100vw - 24px);pointer-events:none;transition:opacity .45s}
