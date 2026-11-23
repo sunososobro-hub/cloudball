@@ -17,6 +17,14 @@
  * scans, the park light and the same grain as the dirt round it, and the ratio fades to 1 over EDGE_FADE so the rim has no seam.
  * Without old:field (it should always be there) the round-1 dirt material is used. (3) small parts: the catcher's box (it was never
  * drawn), chalk strips closer to continuous, a rosin bag on the back slope.
+ * Round 3 (board: box pads show the painted box under them, clay redder than the infield dirt from afar, rosin bag a plain lump, no
+ * cleat tracks leading off): (1) the box decals wear the ground's own material too, read from clean dirt CLEAN_DZ behind the plate
+ * (no painted line there), solid over the box and fading out across the margin into the same material, so the painted rectangle is
+ * gone and only the 3D chalk and the dug holes remain; (2) clay and dry skirt pulled toward the map's dirt (less red, a shade darker);
+ * (3) the rosin bag is a cloth pouch gathered at the neck with a tie and a flared frill, its cloth dusted, and a pale spill of rosin
+ * on the clay round it; (4) cleat tracks: the pitcher's footprints (oval dents with toe and heel cleat dimples, darker packed clay)
+ * leading off the rubber toward both dugouts and back to the rosin bag (TRACKS); (5) #267 MRT trap: the box decals and the powder
+ * are transparent overlays and now keep the normal, diffuse and velocity under them on max (keepBehind, as ondeck.js and backstop.js).
  * Everything is seeded (fixed LCG / hash): same park every load. Frame: world, home plate at the origin, pitcher toward -z. */
 import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
@@ -35,7 +43,7 @@ export const MOUND={C:[0,-18.4],R:2.74,/* the old painted circle: centre (x, z),
   TRENCH:[.42,.22,.018],/* push-off trench in front of the rubber: half width, length toward home, depth */
   PIT:[.08,-16.8,.42,.022],/* landing pit: x, z, radius, depth */DIGS:70,DIG_R:.06,DIG_D:.008,/* cleat digs round the rubber and the pit */
   RAGGED:.035,/* edge radius wobble (share of R) */NOISE:.004,/* surface lumps (m) */
-  CLAY:[.53,.32,.21],DRY:[.60,.37,.24],DAMP:.85,/* sRGB colours: packed clay, dry skirt (the field map's dirt is about .61/.42/.26); damp factor at the pit */
+  CLAY:[.54,.355,.225],DRY:[.61,.40,.25],DAMP:.85,/* round 3: was .53/.32/.21 and .60/.37/.24 (read redder than the infield from afar) *//* sRGB colours: packed clay, dry skirt (the field map's dirt is about .61/.42/.26); damp factor at the pit */
   DECAL_A:.45,/* clay decal opacity away from the holes */
   BOX:[[.6,1.5],[-1.5,-.6]],BOX_Z:[-.9,.9],/* the old chalk rectangles: x ranges, z range */CHALK_W:.076,CHALK_H:.006,CHALK_GAP:.22,/* share of line pieces rubbed out near the feet */
   DECAL_PAD:.35,DECAL_PX:256,/* clay decal: margin round each box (m), texture size */
@@ -43,7 +51,19 @@ export const MOUND={C:[0,-18.4],R:2.74,/* the old painted circle: centre (x, z),
   HOLE_N:3,/* normal strength of the holes */
   CATCHER:[.546,.9,3.34],/* round 2: catcher's box, 43 in wide, 8 ft long behind the batter's boxes: half width, front z, back z */
   ROSIN:[.55,-19.55,.6],ROSIN_R:.055,/* round 2: rosin bag on the back slope: x, z, turn; radius */
+  ROSIN_DUST:[.2,.45],/* round 3: pale rosin spill on the clay round the bag: radius, strength */
+  CLEAN_DZ:2.2,/* round 3: the box decals read the field map this far behind the plate (+z): clean dirt, no painted chalk */
+  TRACKS:[[1,.74],[-1,.74],[.45,-.4]],/* round 3: footprint trails off the rubber: direction (x, z, normalised in code) toward each dugout and back to the rosin bag */
+  PRINT:[.27,.1,.009,.72,.11],/* round 3: one footprint: length, width, depth, stride, half step (left/right offset) */PRINT_DARK:.18,/* packed clay in a print is this much darker */
 };
+
+/* round 3, #267 trap (same as ondeck.js and backstop.js): a transparent overlay keeps the normal, diffuse and velocity under it on max
+   (game.js MRT_KEEP blends those targets like the material; alpha 0 there = keep). Only while the renderer has an MRT. */
+const KEEP=['normal','diffuse','velocity'];let KEEP_MRT=null;
+function keepBehind(m){let Rn=null;const setup=m.setup;
+  m.setup=function(b){Rn=b.renderer;return setup.call(this,b)};
+  Object.defineProperty(m,'mrtNode',{get:()=>Rn&&Rn.getMRT&&Rn.getMRT()?(KEEP_MRT||(KEEP_MRT=TSL.mrt(Object.fromEntries(KEEP.map(n=>[n,TSL.vec4(0)]))))):null,set(){}});
+  return m}
 
 /* seeded helpers */
 const lcg=s=>()=>(s=(Math.imul(s,1103515245)+12345)&0x7fffffff)/0x7fffffff;
@@ -55,6 +75,16 @@ const sat=x=>x<0?0:x>1?1:x,smooth=(a,b,x)=>{const t=sat((x-a)/(b-a));return t*t*
 /* the dig list: fixed, so moundY is a pure function */
 const DIGS=(()=>{const R=lcg(2150),M=MOUND,a=[];for(let i=0;i<M.DIGS;i++){const pit=i%3===0,t=R()*6.283,d=Math.sqrt(R())*(pit?M.PIT[2]*1.6:.6);
   a.push([(pit?M.PIT[0]:0)+Math.cos(t)*d,(pit?M.PIT[1]:-18.25)+Math.sin(t)*d*(pit?1:.6),M.DIG_R*(.6+R()*.8)])}return a})();
+
+/* round 3: the footprints leading off the rubber (x, z, heading, depth weight): fixed, so moundY stays a pure function */
+const PRINTS=(()=>{const R=lcg(2152),M=MOUND,[,,,st,hs]=M.PRINT,a=[];for(const [tx,tz] of M.TRACKS){const l=Math.hypot(tx,tz),ux=tx/l,uz=tz/l,
+  far=tz<0?1.3:M.R-.25;for(let d=.55,k=0;d<far;d+=st*(.92+R()*.16),k++){const s=k%2?1:-1,x=ux*d-uz*hs*s+(R()-.5)*.04,z=-18.45+uz*d+ux*hs*s+(R()-.5)*.04;
+    a.push([x,z,Math.atan2(uz,ux)+(R()-.5)*.25+s*.08,.6+R()*.5])}}return a})();
+/* round 3: 0..1 footprint depth at (x, z): an oval sole with three toe and two heel cleat dimples */
+function printAt(x,z){const [L,W]=MOUND.PRINT;let v=0;for(const [px,pz,h,w] of PRINTS){const dx=x-px,dz=z-pz;if(dx*dx+dz*dz>L*L)continue;
+  const c=Math.cos(h),s=Math.sin(h),u=(dx*c+dz*s)/(L/2),q=(-dx*s+dz*c)/(W/2)/(1-.25*u),e=u*u+q*q;if(e>=1.2)continue;
+  let f=e<1?1-e*e:0;for(const [cu,cq] of [[.7,-.45],[.7,0],[.7,.45],[-.65,-.35],[-.65,.35]]){const g=((u-cu)*L/2)**2+((q-cq)*W/2)**2;if(g<.0004)f+=.6*(1-g/.0004)}
+  v=Math.max(v,f*w)}return Math.min(v,1.4)}
 
 /* distance from (x, z) to the rubber rectangle (0 inside) */
 const rubberD=(x,z)=>{const [x0,x1,z0,z1]=MOUND.RUBBER;return Math.hypot(Math.max(x0-x,0,x-x1),Math.max(z0-z,0,z-z1))};
@@ -71,6 +101,7 @@ export function moundY(x,z){const M=MOUND,[cx,cz]=M.C,dx=x-cx,dz=z-cz,r=Math.hyp
   {const cap=M.FOOT[5]-M.EDGE_Y,f=footAt(x,z);if(f>0&&h>cap)h=h+(cap-h)*f}/* round 2: worn down where his feet go (the holes below stay deeper) */
   h+=rimAt(x,z)*M.RIM[0];
   for(const [gx,gz,gr] of DIGS){const d=Math.hypot(x-gx,z-gz);if(d<gr)h-=M.DIG_D*(1-(d/gr)**2)}
+  h-=M.PRINT[2]*printAt(x,z);/* round 3: footprints leading off */
   h+=M.NOISE*(vn(x*6,z*6,3)-.5)+M.NOISE*.5*(vn(x*22,z*22,4)-.5);
   return M.EDGE_Y+Math.max(h,0)}
 
@@ -97,9 +128,10 @@ function moundGeo(drape){const M=MOUND,[cx,cz]=M.C,S=M.GRID,N=Math.ceil(M.R*(1+M
     {const a=Math.atan2(z-cz,x-cx),re=edgeR(a)-.001;if(Math.hypot(x-cx,z-cz)>re){x=cx+Math.cos(a)*re;z=cz+Math.sin(a)*re}}/* outline vertices slide onto the edge: no grid stairs */
     const y=moundY(x,z)||M.EDGE_Y;
     const c=clayAt(x,z),dry=DR,cl=CL,d=sat(1-Math.hypot(x-M.PIT[0],z-M.PIT[1])/1.4),damp=1-(1-M.DAMP)*d,rim=rimAt(x,z),
-      worn=footAt(x,z)*M.FOOT_DARK,k=(1-worn)*damp*(.92+.16*vn(x*9,z*9,11))*(1+M.RIM_DRY*rim),
+      worn=footAt(x,z)*M.FOOT_DARK+printAt(x,z)*M.PRINT_DARK,k=(1-worn)*damp*(.92+.16*vn(x*9,z*9,11))*(1+M.RIM_DRY*rim),
       e=smooth(0,M.EDGE_FADE,edgeR(Math.atan2(z-cz,x-cx))-Math.hypot(x-cx,z-cz));/* round 2: 0 at the grass edge, so the rim is the ground's own colour */
-    const C=[0,1,2].map(n=>MP[n]+((dry[n]+(cl[n]-dry[n])*c*(1-rim*.6))*k-MP[n])*e);
+    const rd=M.ROSIN_DUST[1]*sat(1-Math.hypot(x-M.ROSIN[0],z-M.ROSIN[1])/(M.ROSIN_DUST[0]*(.7+.6*vn(x*25,z*25,24))))**1.5,/* round 3: rosin spill */
+      C=[0,1,2].map(n=>{const v=MP[n]+((dry[n]+(cl[n]-dry[n])*c*(1-rim*.6))*k-MP[n])*e;return v+([.82,.79,.72][n]-v)*rd});
     pos.push(x,y,z);col.push(...(drape?C.map((v,n)=>v/MP[n]):C));
     if(drape){const r=Math.hypot(x-cx,z-cz),f=r>M.MAP_R?M.MAP_R/r:1,ux=cx+(x-cx)*f,uz=cz+(z-cz)*f;uv.push((ux-M.MAP[0])/M.MAP[2],(M.MAP[1]+M.MAP[3]-uz)/M.MAP[3])}else uv.push(x/tile,z/tile);return at[q]=pos.length/3-1};
   for(let j=0;j<W-1;j++)for(let i=0;i<W-1;i++){const x=cx+(i-N+.5)*S,z=cz+(j-N+.5)*S;if(!inside(x,z)||inRubber(x,z))continue;
@@ -118,10 +150,28 @@ function decalMaps(bx){const M=MOUND,P=M.DECAL_PAD,[xa,xb]=bx,[za,zb]=M.BOX_Z,w=
     const t=new THREE.CanvasTexture(c);t.anisotropy=8;return t};
   const at=(i,j)=>H[Math.min(Ny-1,Math.max(0,j))*N+Math.min(N-1,Math.max(0,i))];
   const alb=cv((i,j)=>{const d=sat(1-at(i,j)),k=(1-.5*d)*(.92+.16*vn(i/6,j/6,15)),c=MOUND.CLAY;return[c[0]*k,c[1]*k,c[2]*k]});alb.colorSpace=THREE.SRGBColorSpace;
+  /* round 3: the same darkening as a ratio for the draped decal (linear, stored /2 so the dug-up clay can go a little lighter than 1) */
+  const ratio=cv((i,j)=>{const d=sat(1-at(i,j)),k=(1-.7*d)*(.94+.12*vn(i/6,j/6,15))*(1+.06*sat(at(i,j)-1)*8);return[k*.5,k*.49,k*.485]});ratio.colorSpace=THREE.NoColorSpace;
   /* alpha: solid over the box, fading out across the margin (so the decal melts into the painted plate circle) */
   const alpha=cv((i,j)=>{const x=(i+.5)/N*w,z=(j+.5)/Ny*h,e=Math.min(x,w-x,z,h-z),a=smooth(0,P*.9,e+.12*(vn(i/10,j/10,16)-.5))*Math.min(1,M.DECAL_A*(.7+.6*vn(i/14,j/14,18))+sat(1-at(i,j))*2.5);return[a,a,a]});/* patchy clay, solid in and round the holes */
+  /* round 3: the draped decal is the ground's own material, so it can be solid over the box (the painted lines must not show) and fade over the margin */
+  const solid=cv((i,j)=>{const x=(i+.5)/N*w,z=(j+.5)/Ny*h,e=Math.min(x,w-x,z,h-z),a=smooth(.04,P*.8,e+.1*(vn(i/10,j/10,16)-.5));return[a,a,a]});
   const nm=cv((i,j)=>{const dx=(at(i+1,j)-at(i-1,j))*M.HOLE_N,dy=(at(i,j+1)-at(i,j-1))*M.HOLE_N,l=Math.hypot(dx,dy,1);return[.5-dx/l/2,.5+dy/l/2,.5+.5/l]});
-  return {alb,alpha,nm,w,h,cx:(xa+xb)/2,cz:(za+zb)/2}}
+  return {alb,alpha,nm,ratio,solid,w,h,cx:(xa+xb)/2,cz:(za+zb)/2}}
+
+/* round 3: a box decal in the ground's own material (old:field cloned), its field-map uv moved CLEAN_DZ behind the plate (clean dirt, no
+   painted chalk) while the scans stay in world space (no seam in the grain); the dug holes as a colour ratio and a normal map on uv1;
+   solid over the box, fading out over the margin. null without old:field (then the round-2 clay decal is used). */
+function boxDrapeMat(ctx,D){try{const old=ctx&&ctx.scene&&ctx.scene.getObjectByName('old:field');if(!old||!old.material||!old.material.colorNode)return null;
+  const {positionWorld,mx_fractal_noise_float:fn,vec3,float,vec4,texture,uv,normalMap}=TSL,m=old.material.clone();m.name='prop:mound:box';
+  const patch=fn(vec3(positionWorld.xz.mul(.12),3),3,2,.5),wet=float(FIELD.WET).add(patch.mul(FIELD.WET_PATCH)),c=old.material.colorNode;
+  m.colorNode=vec4((c.rgb||c).mul(texture(D.ratio,uv(1)).rgb.mul(2)).mul(wet),1);m.opacityNode=texture(D.solid,uv(1)).r;
+  m.normalNode=normalMap(texture(D.nm,uv(1)));if(old.material.roughnessNode)m.roughnessNode=old.material.roughnessNode.mul(FIELD.WET_ROUGH);
+  m.transparent=true;m.depthWrite=false;m.polygonOffset=true;m.polygonOffsetFactor=-2;m.polygonOffsetUnits=-2;return keepBehind(m)}catch(e){console.warn('mound: box drape off, round-2 decal kept',e);return null}}
+/* round 3: the decal plane in world xz with uv = the field map moved CLEAN_DZ behind the plate, uv1 = the decal's own 0..1 */
+function boxPlane(D){const M=MOUND,g=new THREE.PlaneGeometry(D.w,D.h).rotateX(-Math.PI/2),p=g.attributes.position,u=[];
+  for(let i=0;i<p.count;i++){const x=D.cx+p.getX(i),z=D.cz+p.getZ(i)+M.CLEAN_DZ;u.push((x-M.MAP[0])/M.MAP[2],(M.MAP[1]+M.MAP[3]-z)/M.MAP[3])}
+  g.setAttribute('uv1',g.attributes.uv.clone());g.setAttribute('uv',new THREE.Float32BufferAttribute(u,2));return g}
 
 function chalkGeo(R){const M=MOUND,parts=[],W=M.CHALK_W,piece=(x0,z0,x1,z1,worn)=>{const L=Math.hypot(x1-x0,z1-z0),n=Math.max(1,Math.round(L/.18));
   for(let k=0;k<n;k++){const t0=k/n,t1=(k+1)/n,mx=x0+(x1-x0)*(t0+t1)/2,mz=z0+(z1-z0)*(t0+t1)/2;
@@ -146,12 +196,24 @@ function drapeMat(ctx){try{const old=ctx&&ctx.scene&&ctx.scene.getObjectByName('
   if(old.material.roughnessNode)m.roughnessNode=old.material.roughnessNode.mul(FIELD.WET_ROUGH);
   m.polygonOffset=true;m.polygonOffsetFactor=-1;m.polygonOffsetUnits=-1;return m}catch(e){console.warn('mound: drape off, round-1 clay kept',e);return null}}
 
-/* round 2: the rosin bag on the back slope: a cloth pouch (squashed, sagging, one gathered neck), dusted white */
-function rosinBag(){const M=MOUND,g=new THREE.SphereGeometry(M.ROSIN_R,20,12),p=g.attributes.position,v=new THREE.Vector3();
-  for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);const r=M.ROSIN_R,u=v.y/r,sag=1+.35*(1-u*u)*(u<0?1:.6),lump=1+.08*(vn(v.x*60+3,v.z*60+5,23)-.5);
-    v.x*=sag*lump;v.z*=sag*lump*.85;v.y=(u<0?v.y*.35:v.y*.55)+r*.35;if(u>.8){const k=(u-.8)/.2;v.x*=1-.45*k;v.z*=1-.45*k;v.y+=r*.12*k}p.setXYZ(i,v.x,v.y,v.z)}
-  g.computeVertexNormals();const m=new THREE.MeshStandardMaterial({color:0xe9e4d6,roughness:1,metalness:0});
-  const b=new THREE.Mesh(g,m);b.castShadow=true;b.receiveShadow=true;b.name='mound:rosin';return b}
+/* round 2: the rosin bag on the back slope. Round 3: a cloth pouch that slumps on the clay, gathered at the neck by a tie, the cloth above
+   the tie flared into a ruffled frill; fold creases running up into the neck, rosin dust on the cloth (vertex colour, heaviest low down) */
+function rosinBag(){const M=MOUND,r=M.ROSIN_R,G=new THREE.Group();G.name='mound:rosin';
+  const g=new THREE.SphereGeometry(r,28,16),p=g.attributes.position,v=new THREE.Vector3(),col=[];
+  for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);const u=v.y/r,a=Math.atan2(v.z,v.x),sag=1+.38*(1-u*u)*(u<0?1:.6),lump=1+.08*(vn(v.x*60+3,v.z*60+5,23)-.5),
+    crease=1-.07*Math.max(0,u+.2)*(.5+.5*Math.cos(a*7+vn(a*2,u*3,25)*2));/* folds that run up into the gathered neck */
+    v.x*=sag*lump*crease;v.z*=sag*lump*crease*.85;v.y=(u<0?v.y*.35:v.y*.55)+r*.35;if(u>.6){const k=(u-.6)/.4;v.x*=1-.62*k;v.z*=1-.62*k;v.y+=r*.1*k}p.setXYZ(i,v.x,v.y,v.z);
+    const dust=.75+.25*sat(.6-u)+.12*(vn(v.x*90,v.z*90+v.y*40,26)-.5),grime=u<-.5?.82:1;col.push(dust*grime*.96,dust*grime*.94,dust*grime*.88)}
+  g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.computeVertexNormals();
+  const m=new THREE.MeshStandardMaterial({color:0xece6d8,vertexColors:true,roughness:1,metalness:0});
+  const bag=new THREE.Mesh(g,m);bag.castShadow=true;bag.receiveShadow=true;G.add(bag);
+  const top=r*.35+r*.55+r*.1;/* where the neck ends */
+  const tie=new THREE.Mesh(new THREE.TorusGeometry(r*.36,r*.07,6,16).rotateX(Math.PI/2),new THREE.MeshStandardMaterial({color:0x6b5a44,roughness:.9}));tie.position.y=top-r*.06;tie.castShadow=true;G.add(tie);
+  /* the frill: an open cone of cloth above the tie, its rim ruffled */
+  const fr=new THREE.CylinderGeometry(r*.58,r*.3,r*.3,24,2,true),fp=fr.attributes.position;
+  for(let i=0;i<fp.count;i++){v.fromBufferAttribute(fp,i);if(v.y>0){const a=Math.atan2(v.z,v.x),w=1+.14*Math.sin(a*9)+.1*(vn(a*3,1,27)-.5);v.x*=w;v.z*=w;v.y+=r*.03*Math.sin(a*9+1)-r*.08*(1-w)}fp.setXYZ(i,v.x,v.y,v.z)}
+  fr.computeVertexNormals();const fm=new THREE.MeshStandardMaterial({color:0xe6dfcf,roughness:1,side:THREE.DoubleSide});
+  const frill=new THREE.Mesh(fr,fm);frill.position.y=top+r*.12;frill.castShadow=true;G.add(frill);return G}
 
 /* chalk powder: a soft white veil round each line (alpha drawn per box) */
 function powderTex(bx){const M=MOUND,P=M.DECAL_PAD,[xa,xb]=bx,[za,zb]=M.BOX_Z,w=xb-xa+2*P,h=zb-za+2*P,N=M.DECAL_PX,Ny=Math.round(N*h/w),c=document.createElement('canvas');
@@ -168,11 +230,11 @@ export function buildMound(ctx){const M=MOUND,G=new THREE.Group();G.name='mound'
   if(!dm){dm=mat('dirt',{color:0xffffff}).clone();dm.vertexColors=true;dm.roughnessMap=null;dm.roughness=.96}/* the relief's worn-smooth spots made the clay shine like wet paint */
   const mound=new THREE.Mesh(moundGeo(!!dr),dm);mound.receiveShadow=true;mound.name='mound:table';G.add(mound);
   const rosin=rosinBag();rosin.position.set(M.ROSIN[0],moundY(M.ROSIN[0],M.ROSIN[1])-.004,M.ROSIN[1]);rosin.rotation.y=M.ROSIN[2];G.add(rosin);
-  for(const bx of M.BOX){const D=decalMaps(bx),pl=new THREE.PlaneGeometry(D.w,D.h).rotateX(-Math.PI/2);
-    const m=new THREE.MeshStandardMaterial({map:D.alb,alphaMap:D.alpha,normalMap:D.nm,roughness:.96,metalness:0,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  for(const bx of M.BOX){const D=decalMaps(bx),bd=dr&&boxDrapeMat(ctx,D),pl=bd?boxPlane(D):new THREE.PlaneGeometry(D.w,D.h).rotateX(-Math.PI/2);
+    const m=bd||keepBehind(new THREE.MeshStandardNodeMaterial({map:D.alb,alphaMap:D.alpha,normalMap:D.nm,roughness:.96,metalness:0,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
     const d=new THREE.Mesh(pl,m);d.position.set(D.cx,.002,D.cz);d.receiveShadow=true;d.renderOrder=1;d.name='mound:box';G.add(d);
-    const pw=new THREE.MeshStandardMaterial({color:0xf2efe6,alphaMap:powderTex(bx),roughness:1,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
-    const p=new THREE.Mesh(pl.clone(),pw);p.position.set(D.cx,.003,D.cz);p.renderOrder=2;p.name='mound:powder';G.add(p)}
+    const pw=keepBehind(new THREE.MeshStandardNodeMaterial({color:0xf2efe6,alphaMap:powderTex(bx),roughness:1,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}));
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(D.w,D.h).rotateX(-Math.PI/2),pw);p.position.set(D.cx,.003,D.cz);p.renderOrder=2;p.name='mound:powder';G.add(p)}
   const chalk=new THREE.Mesh(chalkGeo(lcg(2151)),new THREE.MeshStandardMaterial({color:0xf4f1ea,roughness:.98,metalness:0}));chalk.receiveShadow=true;chalk.name='mound:chalk';G.add(chalk);
   return G}
 
