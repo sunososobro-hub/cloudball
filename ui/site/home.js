@@ -1,6 +1,6 @@
 /* 首頁 tab (#358): the league front page. Pure: data in, HTML string out. Real data only; a block with no data is left out, nothing is invented.
  * Order: latest game (hero) + join card, 戰績, four team cards, latest game videos. Records and strength are display summaries of the published files (rule 10). */
-import { esc, safeUrl, empty, teamOf, teamName, teamCss, tierOneRows, meanOverall, bestOf } from './shared.js';
+import { esc, safeUrl, empty, teamOf, teamName, teamCss, tierOneRows, meanOverall, bestOf, logoImg } from './shared.js';
 import { replayLink } from './games.js';
 import { AGENT_PAGE } from './me.js';
 
@@ -18,14 +18,14 @@ export function standings(d) {
 
 function hero(d, g) {
   const [h, a] = g.score, home = teamOf(d, g.home), away = teamOf(d, g.away), link = replayLink(g.replay), hl = safeUrl(g.highlight);
-  const side = (id, t, score) => `<div class="sd"><b class="tn">${esc(teamName(d, id))}</b><span class="rc">${recText(t) || '&nbsp;'}</span><b class="sc num">${esc(score)}</b></div>`;
+  const side = (id, t, score) => `<div class="sd">${logoImg(id, 128, 'lg', teamName(d, id), true)}<b class="tn">${esc(teamName(d, id))}</b><span class="rc">${recText(t) || '&nbsp;'}</span><b class="sc num">${esc(score)}</b></div>`;
   const buttons = (link ? `<a class="btn" href="${esc(link)}">看重播</a>` : '') + (hl ? `<a class="btn ghost" href="${esc(hl)}">看重點影片</a>` : '');
   return `<section class="hero" aria-label="最新一場"><p class="eyebrow">最新一場${g.date ? `・${esc(g.date)}` : ''}</p><div class="vs">${side(g.away, away, a)}<span class="at">對</span>${side(g.home, home, h)}</div>${buttons ? `<p class="acts">${buttons}</p>` : ''}</section>`;
 }
 const joinCard = () => `<section class="join" aria-label="加入聯盟"><h2>捏一個你的球員，看他上場</h2><p>每人一位球員：你決定名字和能力，比賽怎麼打由引擎決定。</p><p class="acts"><a class="btn" href="${esc(AGENT_PAGE)}">建立我的球員</a></p></section>`;
 
 function table(d) {
-  const rows = standings(d).map(({ t, w, l, rank }) => `<tr><td class="num rk">${rank}</td><td><a href="#teams/${encodeURIComponent(t.id)}">${esc(t.name)}</a></td><td class="num">${w}</td><td class="num">${l}</td><td class="num">${esc(strengthOf(d, t) ?? '—')}</td></tr>`).join('');
+  const rows = standings(d).map(({ t, w, l, rank }) => `<tr><td class="num rk">${rank}</td><td><a class="tl" href="#teams/${encodeURIComponent(t.id)}">${logoImg(t.id, 128, 'lg', t.name)}${esc(t.name)}</a></td><td class="num">${w}</td><td class="num">${l}</td><td class="num">${esc(strengthOf(d, t) ?? '—')}</td></tr>`).join('');
   return `<section aria-label="戰績"><h2 class="sec">戰績</h2><div class="tblscroll"><table class="dt st"><thead><tr><th>名次</th><th>球團</th><th>勝</th><th>敗</th><th>戰力</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 
@@ -33,7 +33,7 @@ const person = (rows, role) => { const p = bestOf(rows, role); return p ? `${esc
 function teamCards(d) {
   const cards = d.teams.map(t => {
     const rows = tierOneRows(d, t);
-    return `<a class="hc" href="#teams/${encodeURIComponent(t.id)}"><span class="blk" style="--tc:${teamCss(t.id)}"><b>${esc(t.name)}</b></span><dl><div><dt>王牌</dt><dd>${person(rows, 'P')}</dd></div><div><dt>主砲</dt><dd>${person(rows, 'B')}</dd></div></dl></a>`;
+    return `<a class="hc" href="#teams/${encodeURIComponent(t.id)}"><span class="blk" style="--tc:${teamCss(t.id)}">${logoImg(t.id, 512, 'lg', t.name)}<b>${esc(t.name)}</b></span><dl><div><dt>王牌</dt><dd>${person(rows, 'P')}</dd></div><div><dt>主砲</dt><dd>${person(rows, 'B')}</dd></div></dl></a>`;
   }).join('');
   return `<section aria-label="四個球團"><h2 class="sec">四個球團</h2><div class="hcards">${cards}</div></section>`;
 }

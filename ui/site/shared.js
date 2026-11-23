@@ -38,6 +38,10 @@ const GROUPS = [['p', '投手', ['SP', 'RP']], ['c', '捕手', ['C']], ['if', '�
 const OTHER = '其他';
 export const filterOf = f => (FILTERS.some(x => x[0] === f) ? f : 'all');
 const groupKey = p => { const g = GROUPS.find(([, , ps]) => ps.includes(p.pos)) || (!p.pos && p.role === 'P' ? GROUPS[0] : null); return g ? g[0] : ''; };
+/* Team mark (#361): the owner's own files assets/logos/<team id>_<px>.webp (128 small, 512 big), found by team id. A plain <img> with the team name as alt and a fixed size;
+ * a team with no file shows nothing (the broken image removes itself). `eager` only for what is above the fold, the rest loads lazily. */
+export const logoImg = (id, px, cls, name, eager) => (/^[\w-]+$/.test(String(id ?? ''))
+  ? `<img class="${cls}" src="assets/logos/${esc(id)}_${px}.webp" alt="${esc(name)}" width="${px === 512 ? 72 : 28}" height="${px === 512 ? 72 : 28}"${eager ? '' : ' loading="lazy"'} onerror="this.remove()">` : '');
 export const teamCss = id => { const t = TEAMS.find(x => x.id === id); return t && /^#[0-9a-f]{6}$/i.test(t.css) ? t.css : '#5b6479'; };
 const SIDE = { L: '左', R: '右', S: '左右' };
 const handText = p => (SIDE[p.hand] ? SIDE[p.hand] + (p.role === 'P' ? '投' : '打') : '');
