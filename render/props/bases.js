@@ -1,5 +1,5 @@
-/* render/props/bases.js: bases, home plate and pitcher's rubber (#215 polish lane, round 1). Polish rounds edit only this file (slot rule #237).
- * Before: no geometry at all. The three bags, the plate and the rubber were white shapes painted into the field map (game.js fieldTex),
+/* render/props/bases.js: bases, home plate and pitcher's rubber (#215 polish lane, rounds 1-2). Polish rounds edit only this file (slot rule #237).
+ * (rounds 1-2) Before: no geometry at all. The three bags, the plate and the rubber were white shapes painted into the field map (game.js fieldTex),
  * flat on the dirt, so from the low cameras they had no edge, no thickness and no shadow. Nothing to hide: old() is [].
  * Shape: every piece is one "rounded slab": its outline (square bag, pentagon plate, rectangle rubber) inset by the edge radius, a top
  * that crowns a little, a rolled edge (quarter circle, corners rounded too) and a side wall that sinks just under the dirt.
@@ -9,20 +9,33 @@
  *   pbr.js's KINDS/RELIEFS from this file (pbr.js itself stays read-only, slot rule); UVs in metres.
  * Wear, baked per vertex from seeded noise (same picture every load): dirt specks on the tops, heavier near the edges, a dirt band
  * climbing the sides, cleat scuffs where the runners' feet land on the bags and where the pitcher's foot pushes off the rubber.
- * Frame: world. Bag centres are the engine's BASES (the painted squares are centred there too), plate at home, rubber at RUBBER_Z. */
+ * Frame: world. Bag centres are the engine's BASES (the painted squares are centred there too), plate at home, rubber at RUBBER_Z.
+ * Round 2 (board: feet sink into the bags, the plate floats, barely changes the broadcast shot):
+ *   (1) shape: bags 7.6 cm (BAG_H, the 3 in floor of the rule book; was 9 cm), so the runners' soles at y 0 sink less; every piece now
+ *   sits in a berm of loose dirt (BERM: kicked up against its sides, ragged outer edge, falls to the dirt), so nothing floats.
+ *   (2) surface: the berm wears the ground's own material (old:field cloned at its field-map uv, the polished field's watering, the same
+ *   ratio trick as props/mound.js), so it has no seam; without old:field (prop viewer) the shared `dirt` kind is used.
+ *   (3) small parts: the plate's bevel is black rubber like a real plate (PLATE_RIM), wider and taller, so from the CF camera it reads as
+ *   a white pentagon with a dark outline instead of a white smear; a slide mark of loose dirt fans out on the near side of each bag. */
 import * as THREE from 'three/webgpu';
 import {BASES} from '../../engine/index.js';
+import * as TSL from 'three/tsl';
 import {mat,KINDS,RELIEFS} from '../pbr.js';
+import {FIELD} from './field.js';/* round 2: the watering of the polished field (read only), so the berms match the dirt round them */
 
 export const BASE={
-  BAG_W:.44,BAG_H:.09,BAG_R:.03,BAG_CROWN:.008,WELT_R:.0055,/* bag: side (m, = the painted square), height, edge roll, crown, piping radius */
-  PLATE_W:.44,PLATE_H:.014,PLATE_R:.008,PLATE_CROWN:.002,/* home plate: width (= the painted pentagon), top above the dirt, bevel */
+  BAG_W:.44,BAG_H:.076,BAG_R:.03,BAG_CROWN:.008,WELT_R:.0055,/* bag: side (m, = the painted square), height, edge roll, crown, piping radius */
+  PLATE_W:.44,PLATE_H:.024,PLATE_R:.02,PLATE_RIM:.86,/* round 2: the bevel is black rubber (darkening) */PLATE_CROWN:.002,/* home plate: width (= the painted pentagon), top above the dirt, bevel */
   RUBBER_W:.6,RUBBER_D:.15,RUBBER_Z:-18.425,RUBBER_H:.022,RUBBER_R:.008,RUBBER_CROWN:.002,/* pitcher's rubber (= the painted strip) */
   SINK:.012,/* the side wall goes this far under the dirt so no gap shows at grazing angles */
   RINGS:9,EDGE_SEG:5,CORNER_SEG:4,SIDE_M:.04,/* top rings, points per quarter-circle edge, per corner, side subdivision (m) */
   SPECK:.15,EDGE_DIRT:.2,SIDE_DIRT:.32,SCUFF:.22,/* how dark (fraction) dirt specks, edge dirt, the side band and cleat scuffs get */
   SHADOW_K:1.55,SHADOW_A:.55,/* contact shadow: size in bag widths, darkest alpha */
   BAG_ROUGH:.58,RUBBER_ROUGH:.78,/* #256: flat roughness, no roughness map (see the note above buildBases) */
+  /* round 2: loose dirt round every piece: ring width (m), height against the side (below the plate bevel, so the black rim shows), ragged share of the width, rings, lift at the outer edge */
+  BERM:{bag:[.2,.022],plate:[.26,.005],rubber:[.16,.007]},BERM_RAG:.45,BERM_RINGS:6,BERM_EDGE:.0015,
+  BERM_DRY:.12,BERM_SLIDE:[.55,.32,.012],/* loose dirt is drier (lighter) by this; slide fan: length, half width, height (bags only) */
+  MAP:[-130,-150,260,190],/* the field map in game.js (x0, z0, width, depth), the same numbers as MOUND.MAP */
 };
 function hash(x,y,k){let h=Math.imul(x*73856093^y*19349663^k*83492791,2654435761);h^=h>>>15;h=Math.imul(h,2246822519);h^=h>>>13;return(h>>>0)/4294967296}
 function vn(x,y,k){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy),
@@ -103,7 +116,7 @@ function shadowTex(){if(SHADOW_TEX)return SHADOW_TEX;const N=64,c=document.creat
    mirror spots: SSR on max took it (its gloss mask is roughness under .35), it mirrored the tower lamps and halos (HDR > the 1.6 bloom
    threshold) and bloom grew them past the plate. Here the map is dropped and the roughness set flat; the wear stays in the vertex colours,
    the grain and scuffs in the normal map. Diffuse alone under key + fill + towers is about 1.06 from the broadcast seat: under 1.6. */
-export function buildBases(){const B=BASE,g=new THREE.Group();g.name='prop:bases';
+export function buildBases(ctx){const B=BASE,g=new THREE.Group(),berms=[];g.name='prop:bases';
   const vinyl=mat('basesVinyl').clone(),rub=mat('basesRubber').clone();vinyl.vertexColors=rub.vertexColors=true;
   vinyl.roughnessMap=rub.roughnessMap=null;vinyl.roughness=B.BAG_ROUGH;rub.roughness=B.RUBBER_ROUGH;
   const shM=new THREE.MeshBasicMaterial({color:0x000000,alphaMap:shadowTex(),transparent:true,opacity:B.SHADOW_A,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
@@ -114,6 +127,7 @@ export function buildBases(){const B=BASE,g=new THREE.Group();g.name='prop:bases
     /* cleat scuffs: where the runner's foot lands, on the corners facing the previous and the next base (local frame after the 45 degree turn) */
     feet=[[-hw*.55,hw*.55,.16],[hw*.5,hw*.6,.12],[hw*.3,-hw*.5,.1]].map(([fx,fz,fr])=>[fx*(hash(b,1,7)>.5?1:-1),fz,fr]);
     add(slab(sq,B.BAG_H,B.BAG_R,B.BAG_CROWN,vinyl.userData.tileM||1,wearFn(300+b*17,B.BAG_H,feet)),vinyl,x,z,Math.PI/4);
+    berms.push([sq,B.BAG_R,x,z,Math.PI/4,B.BERM.bag,310+b*17,Math.atan2(BASES[b-1][0]-x,BASES[b-1][1]-z)]);/* slide fan on the side the runner comes in from (the previous base) */
     const W=insetOutline(sq,B.BAG_R,.03,B.CORNER_SEG),ws=Math.sin(Math.PI/6)*B.BAG_R,wy=B.BAG_H-B.BAG_R+Math.cos(Math.PI/6)*B.BAG_R,
       curve=new THREE.CatmullRomCurve3(W.map(o=>new THREE.Vector3(o[0]+o[2]*ws,wy,o[1]+o[3]*ws)),true,'centripetal');
     const wm=add(new THREE.TubeGeometry(curve,96,B.WELT_R,6,true),vinyl,x,z,Math.PI/4);
@@ -122,11 +136,45 @@ export function buildBases(){const B=BASE,g=new THREE.Group();g.name='prop:bases
     const sh=new THREE.Mesh(new THREE.PlaneGeometry(B.BAG_W*B.SHADOW_K,B.BAG_W*B.SHADOW_K),shM);sh.rotation.set(-Math.PI/2,0,Math.PI/4);sh.position.set(x,.004,z);sh.renderOrder=1;g.add(sh)}
   /* home plate: the painted pentagon (front edge toward the pitcher at -z, point toward the catcher), nearly flush */
   const p=B.PLATE_W/2,plate=[[-p,-p],[-p,0],[0,p],[p,0],[p,-p]];
-  add(slab(plate,B.PLATE_H,B.PLATE_R,B.PLATE_CROWN,rub.userData.tileM||1,wearFn(400,B.PLATE_H,[[-.16,.02,.12],[.16,.02,.12],[0,-.2,.1]])),rub,BASES[0][0],BASES[0][1],0);
+  const pw=wearFn(400,B.PLATE_H,[[-.16,.02,.12],[.16,.02,.12],[0,-.2,.1]]);
+  add(slab(plate,B.PLATE_H,B.PLATE_R,B.PLATE_CROWN,rub.userData.tileM||1,(x,z,y,side)=>side>0?Math.max(pw(x,z,y,side),B.PLATE_RIM*smooth(.05,.35,side)):pw(x,z,y,side)),rub,BASES[0][0],BASES[0][1],0);
+  berms.push([plate,B.PLATE_R,BASES[0][0],BASES[0][1],0,B.BERM.plate,410,null]);
   /* pitcher's rubber: scuffed in front where the pivot foot pushes off */
   const rw=B.RUBBER_W/2,rd=B.RUBBER_D/2,rr=[[-rw,-rd],[-rw,rd],[rw,rd],[rw,-rd]];
   add(slab(rr,B.RUBBER_H,B.RUBBER_R,B.RUBBER_CROWN,rub.userData.tileM||1,wearFn(500,B.RUBBER_H,[[-.08,-rd,.14],[.1,-rd,.1]])),rub,0,B.RUBBER_Z,0);
+  berms.push([rr,B.RUBBER_R,0,B.RUBBER_Z,0,B.BERM.rubber,510,null]);
+  /* round 2: one mesh for every berm, in world coordinates (the draped material reads the field map at world x/z) */
+  const dr=drapeMat(ctx);let dm=dr;if(!dm){dm=mat('dirt',{color:0xffffff}).clone();dm.vertexColors=true;dm.roughnessMap=null;dm.roughness=.96}
+  const bm=new THREE.Mesh(bermGeo(berms,!!dr),dm);bm.receiveShadow=true;bm.name='bases:berm';g.add(bm);
   return g}
 
+/* round 2: the loose dirt round one piece: rings from the piece's outer outline (its side wall, a hair inside so no gap shows) out to a
+   ragged edge, height falling from h against the side to BERM_EDGE; for a bag, a low fan of slid dirt toward angle `slide` (world).
+   Vertex colour is a ratio to the ground under it (1 at the edge: no seam), a little lighter where the dirt is loose. */
+function bermGeo(list,drape){const B=BASE,pos=[],uv=[],col=[],idx=[];
+  for(const [P,r,cx,cz,ry,[W,H],seed,slide] of list){const O=insetOutline(P,r,.03,B.CORNER_SEG),n=O.length,c=Math.cos(ry),s=Math.sin(ry),base=pos.length/3;
+    for(let j=0;j<=B.BERM_RINGS;j++){const t=j/B.BERM_RINGS;
+      for(let i=0;i<=n;i++){const o=O[i%n],lx0=o[0]+o[2]*r,lz0=o[1]+o[3]*r,
+        wx0=cx+lx0*c+lz0*s,wz0=cz-lx0*s+lz0*c,nwx=o[2]*c+o[3]*s,nwz=-o[2]*s+o[3]*c,a=Math.atan2(nwx,nwz),
+        fan=slide==null?0:Math.max(0,Math.cos(a-slide))**3,rag=1-B.BERM_RAG*.5+B.BERM_RAG*vn(Math.cos(a)*3+seed,Math.sin(a)*3,seed),
+        w=W*rag+fan*B.BERM_SLIDE[0]*(.8+.4*vn(a*5,seed,seed+1)),d=-.003+t*w,x=wx0+nwx*d,z=wz0+nwz*d,
+        hk=(1-t)**1.6,y=B.BERM_EDGE+(H*(.75+.5*vn(x*20,z*20,seed+2))*hk+fan*B.BERM_SLIDE[2]*Math.sin(Math.PI*Math.min(1,t*1.3))*(1-t))+.003*(vn(x*45,z*45,seed+3)-.5)*(1-t);
+        pos.push(x,y,z);uv.push(...(drape?[(x-B.MAP[0])/B.MAP[2],(B.MAP[1]+B.MAP[3]-z)/B.MAP[3]]:[x,z]));
+        const k=1+B.BERM_DRY*smooth(1,.25,t)*(.6+.4*vn(x*30,z*30,seed+4))-.05*smooth(.6,.85,vn(x*70,z*70,seed+5))*(1-t);col.push(k,k*.99,k*.97)}}
+    for(let j=0;j<B.BERM_RINGS;j++){const A=base+j*(n+1),C=A+n+1;for(let i=0;i<n;i++)idx.push(A+i,C+i,A+i+1,A+i+1,C+i,C+i+1)}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();
+  /* winding: the berm must face up */const ny=g.attributes.normal;let up=0;for(let i=0;i<ny.count;i++)up+=ny.getY(i);
+  if(up<0){const a=g.index.array;for(let i=0;i<a.length;i+=3){const t=a[i+1];a[i+1]=a[i+2];a[i+2]=t}g.computeVertexNormals()}return g}
+
+/* round 2: the ground's own material (field map at its uv, the CC0 scans, the watering of the polished field) times the vertex colour;
+   null without old:field (the prop viewer): then the shared `dirt` kind is used */
+function drapeMat(ctx){try{const old=ctx&&ctx.scene&&ctx.scene.getObjectByName('old:field');if(!old||!old.material||!old.material.colorNode)return null;
+  const {attribute,positionWorld,mx_fractal_noise_float:fn,vec3,float,vec4}=TSL,m=old.material.clone();m.name='prop:bases:berm';
+  const patch=fn(vec3(positionWorld.xz.mul(.12),3),3,2,.5),wet=float(FIELD.WET).add(patch.mul(FIELD.WET_PATCH));
+  const c=old.material.colorNode,rgb=(c.rgb||c).mul(attribute('color','vec3')).mul(wet);m.colorNode=vec4(rgb,1);
+  if(old.material.roughnessNode)m.roughnessNode=old.material.roughnessNode.mul(FIELD.WET_ROUGH);
+  m.polygonOffset=true;m.polygonOffsetFactor=-1;m.polygonOffsetUnits=-1;return m}catch(e){console.warn('bases: berm drape off, dirt kind used',e);return null}}
+
 /* slot descriptor (render/props/index.js): painted on the field map before, so there are no old meshes to hide */
-export const PROPS=[{name:'bases',build:()=>buildBases(),old:()=>[]}];
+export const PROPS=[{name:'bases',build:c=>buildBases(c),old:()=>[]}];

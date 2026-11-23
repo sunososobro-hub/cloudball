@@ -23,7 +23,7 @@ No build step. Serve the folder with any static server and open it:
 python3 -m http.server 8080      # then open http://localhost:8080
 ```
 
-Opening `index.html` straight from disk does not work (textures and modules need http).
+`index.html` is the text-first data site (teams, game videos, my player, 二軍, free market; it reads `league/site/*.json`); the 3D game is `play.html`. Opening a page straight from disk does not work (textures and modules need http).
 The page loads three.js from a CDN, so it needs internet. WebGPU is used when available;
 the settings panel has a compatibility (WebGL) switch.
 

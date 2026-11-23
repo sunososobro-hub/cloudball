@@ -2,7 +2,7 @@
  * refer to exists, every script parses, and the workflow folder holds only the two allowed files.
  * It also runs tests/names.check.mjs (league name rules), tests/staff.check.mjs (league staff
  * rules), tests/bios.check.mjs (player bio rules), tests/ratings.check.mjs (1 to 100 display
- * ratings) and tests/freeagents.check.mjs (created free agents) as child processes, so CI covers them.
+ * ratings), tests/freeagents.check.mjs (created free agents) and tests/leaguesite.check.mjs (site data, #336) as child processes, so CI covers them.
  * Usage: node tests/replay/static.mjs */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const problems = [], seen = new Set(), queue = ['index.html', 'render/players_test.html', 'guide.html', 'agent.html'];
+const problems = [], seen = new Set(), queue = ['index.html', 'play.html', 'render/players_test.html', 'guide.html', 'agent.html'];
 const isLocal = ref => ref && !/^(https?:|data:|blob:|#|three($|\/))/.test(ref);
 const refsOf = (file, src) => {
   const out = [], dir = path.dirname(file), push = (ref, base = dir) => { if (isLocal(ref)) out.push(path.normalize(path.join(base, ref.split(/[?#]/)[0]))); };
@@ -37,7 +37,7 @@ for (const f of ['assets/players.b64.txt', 'commentary/lines.json', 'commentary/
 for (const f of ['commentary/lines.json', 'commentary/scripts/index.json']) { try { JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { problems.push(`${f} is not valid JSON`); } }
 /* #162: in every page the import map comes before the first modulepreload, preload and module script (a module linked
  * before the map exists fails on its bare "three/..." imports and stays failed for the real import) */
-for (const f of ['index.html', 'render/players_test.html']) {
+for (const f of ['play.html', 'render/players_test.html']) {
   const src = readFileSync(path.join(ROOT, f), 'utf8'), at = re => { const m = src.search(re); return m < 0 ? Infinity : m; };
   const map = at(/<script\s+type=["']importmap["']/), first = Math.min(at(/<link[^>]*rel=["'](?:modulepreload|preload)["']/), at(/<script\s+type=["']module["']/));
   if (first < Infinity && !(map < first)) problems.push(`${f}: the import map must come before every modulepreload, preload and module script`);
@@ -47,7 +47,7 @@ if (existsSync(wf)) for (const f of readdirSync(wf)) if (!['ci.yml', 'merge-gate
 const rules = readFileSync(path.join(ROOT, '.agent/rules.md'), 'utf8').split('\n').length - 1;
 if (rules > 50) problems.push(`.agent/rules.md has ${rules} lines (cap is 50)`);
 if (readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8').trimEnd().split('\n').length !== 3) problems.push('CLAUDE.md must be exactly 3 lines');
-for (const check of ['tests/names.check.mjs', 'tests/staff.check.mjs', 'tests/bios.check.mjs', 'tests/ratings.check.mjs', 'tests/freeagents.check.mjs', 'tests/opening.check.mjs', 'tests/site.check.mjs', 'tests/agent.check.mjs']) {
+for (const check of ['tests/names.check.mjs', 'tests/staff.check.mjs', 'tests/bios.check.mjs', 'tests/ratings.check.mjs', 'tests/freeagents.check.mjs', 'tests/opening.check.mjs', 'tests/site.check.mjs', 'tests/agent.check.mjs', 'tests/leaguesite.check.mjs']) {
   const res = spawnSync(process.execPath, [path.join(ROOT, check)], { encoding: 'utf8' });
   process.stdout.write(res.stdout || ''); process.stderr.write(res.stderr || '');
   if (res.status !== 0) problems.push(`${check} failed (exit ${res.status === null ? 'killed by ' + res.signal : res.status})`);

@@ -11,14 +11,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { simGame, TEAMS } from '../engine/index.js';
-import { OPENING_ROSTERS } from '../league/preseason/rosters-opening.js';
+import { parseRecording } from '../league/recording.js';
 import { createBooth, CALL_GRACE } from './player.js';
 import { lineId } from './tools/line-id.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url)), TOOL = path.join(DIR, 'tools', 'wire-audio.mjs');
 const EPS = 1e-6;
 /* the demonstration game was recorded against the rosters of its day (#171) */
-const openingSeed = JSON.parse(readFileSync(path.join(DIR, '../league/preseason/opening.json'), 'utf8')).seed;
+const opening = parseRecording(readFileSync(path.join(DIR, '../league/preseason/opening.json'), 'utf8'));
 const errs = [];
 const bad = m => errs.push(m);
 const run = a => spawnSync(process.execPath, [TOOL, ...a], { encoding: 'utf8' });
@@ -73,7 +73,7 @@ try {
     if (sameWords(said2, line) !== same) bad(`transcript "${said2}" vs line "${line}" should be ${same ? 'the same' : 'different'}`);
 
   /* 3: the whole frozen game recorded, every other line without a file */
-  const g = simGame(Number(seed), {}, Number(seed) === openingSeed ? { rosters: OPENING_ROSTERS } : {}), teams = g.teams.map(i => TEAMS[i]), bank = JSON.parse(readFileSync(path.join(DIR, 'lines.json'), 'utf8'));
+  const g = Number(seed) === opening.seed ? opening.game : simGame(Number(seed), {}), teams = g.teams.map(i => TEAMS[i]), bank = JSON.parse(readFileSync(path.join(DIR, 'lines.json'), 'utf8'));
   const rec = { ...script, lines: script.lines.map((l, n) => (n % 7 === 3 ? l : { ...l, audio: `audio/${name}/${n}.mp3`, dur: 1 + (n % 5) * 0.9 })) };
   const booth = createBooth({ stream: g.stream, seed: g.seed, bank, script: rec, teams, describe: x => g.ev[x.f].desc });
   if (!booth.recorded) bad('a script with audio is not seen as recorded');

@@ -55,7 +55,7 @@ footer input{flex:1;accent-color:var(--a);height:40px}
 <script type="module">
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { makePlayer, makeBat, BUILDS, loadPlayerAssets, loadClip, footDrift, rigFootDrift } from './players.js';
+import { makePlayer, makeBat, BUILDS, loadPlayerAssets, loadClip, footDrift, rigFootDrift, headOf, headOfPlayer, HEAD_SHAPES, gearOf, HAIR_TONES, STUBBLE_BY_HAIR, EYE } from './players.js';
 {
 
 const $ = id => document.getElementById(id), Q = new URLSearchParams(location.search);
@@ -184,6 +184,16 @@ loadClip('../assets/mocap/pitch_124_01.json').then(c => { const d = footDrift(c,
   const r = rigFootDrift(f, c, 1.2, 4.6, 1 / 30, c.release.hand === 'right'), cl = footDrift(c, 1.2, 4.6, 1 / 30, c.release.hand === 'right'); f.setMocap(null);
   window.footRig = { rig: r, clip: cl };
   driftTxt += `・綁到骨架後 左 ${(r.L.max * 100).toFixed(1)} cm／右 ${(r.R.max * 100).toFixed(1)} cm（clip 同段 ${cm(cl.L.max)}／${cm(cl.R.max)} cm）` }).catch(() => {});
+/* #191: a created player's look.head picks the shape and nothing else of headOf(id) moves; factory rows are unchanged. Result on window.headCheck. */
+{ const N = HEAD_SHAPES.length, ok = []; for (const id of ['a1', 'b22', 'fa-7', 'x']) for (let n = 0; n < 8; n++) { const h = headOf(id), g = headOfPlayer({ id, look: { head: n } });
+    ok.push(g % N === n % N && Math.floor(g / N) === Math.floor(h / N)) }
+  ok.push(headOfPlayer({ id: 'a1' }) === headOf('a1'), headOfPlayer({ id: 'a1', look: null }) === headOf('a1'), headOfPlayer(null) === headOf(undefined));
+  window.headCheck = ok.every(Boolean) }
+/* #151 fourth slice: leg style from the id hash. Counts over 2000 ids on window.legCheck ({0,1,2} shares); a build with a long-pants or high-sock head holds one sleeve per leg. */
+{ const n = [0, 0, 0]; for (let i = 0; i < 2000; i++) n[gearOf(headOf('p' + i)).leg]++; window.legCheck = n.map(v => +(v / 2000).toFixed(2)) }
+/* #207 step 3: beard and brow tint per hair tone. window.hairCheck = one tint row per HAIR_TONES entry, each channel in 0..1 (and greying lighter than black-brown). */
+window.hairCheck = STUBBLE_BY_HAIR.length === HAIR_TONES.length && STUBBLE_BY_HAIR.every(r => r.length === 3 && r.every(v => v > 0 && v <= 1)) && STUBBLE_BY_HAIR[4][0] < STUBBLE_BY_HAIR[0][0];
+window.eyeCheck = EYE.pupilR > EYE.ring && EYE.ring > EYE.rim && EYE.rimEnd > EYE.rim && EYE.lidTo > EYE.lidFrom && EYE.coat > 0 && EYE.coatRough < EYE.whiteRough;   /* #207 round 3: eye shading bands are ordered (pupil > iris > rim), lid ramp rises, cornea coat is glossier than the sclera */
 renderer.setAnimationLoop(frame);
 /* For headless tests */
 window.T = { setMode, pose: v => { u = v; pose(v) }, render: () => { renderer.render(scene, cam); placeLabels() }, players: () => players, cam, ctl, setHand: L => { throwsL = L; build() }, stop: () => { playing = false }, tipErr: () => maxTipErr,

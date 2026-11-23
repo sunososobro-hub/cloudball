@@ -1,5 +1,5 @@
 /* The one place that decides production vs dev, by host name (no build step, no second HTML file).
- * Classic script, loaded in <head> of index.html before anything paints. Result: window.SITE.dev and
+ * Classic script, loaded in <head> of play.html before anything paints. Result: window.SITE.dev and
  * <html data-site="dev|production">. Everything that is a development tool carries class "dev-only" and
  * is hidden by a CSS rule on data-site="production"; render/game.js reads SITE.dev for the few texts it writes.
  * Dev = localhost, a file opened from disk, and every subdomain of the Pages project (dev branch, previews).
