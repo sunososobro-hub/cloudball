@@ -11,6 +11,9 @@ const game = simGame(seed, decisions, opts);   // same inputs + same commit = sa
 - `seed`: unsigned 32-bit integer.
 - `decisions`: `{ [decisionId]: choice }`, the resolved fan votes (`P0: 'stay'`, `I1: 'ibb'`...).
   A decision without an entry uses the coach's own pick and is marked `pending`.
+  Pitching change (`P`): a reliever the question is about comes out; a starter stays until his
+  pitch budget is spent (`SP_LIMIT_PITCHES`, shorter per run allowed and from `SP_LATE_INNING` on)
+  or he has allowed `SP_MAX_RUNS`. 0.4.2, 40,000 games: 5.23 innings and 86 pitches a start.
 - `opts`: `{ teams: [awayIndex, homeIndex], rosters, starters, pen }`. Rosters default to the
   factory settings in `league/`.
 

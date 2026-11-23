@@ -43,7 +43,7 @@ export const COPY = {
   buntLeadOut: (n, runner, base, forced) => `${n} 短打，${base === 3 ? '三' : '二'}壘${forced ? '封殺' : '觸殺'} ${runner}`,
   stealOk: n => `，${n} 盜壘成功！`,
   stealOut: n => `，${n} 盜壘失敗，被觸殺出局`,
-  walkoff: () => '，再見比賽！',
+  walkoff: desc => /[！。？]$/.test(desc) ? '再見比賽！' : '，再見比賽！',   /* no comma after a line that already ends its sentence */
   halfEnd: (inn, half, teams, sc) => `${halfLabel(inn, half)}結束，${teams[0].short} ${sc[0]}：${sc[1]} ${teams[1].short}`,
   tie: sc => `比賽結束，雙方 ${sc[0]}：${sc[1]} 戰平`,
   final: (team, sc) => `比賽結束！${team.name} ${Math.max(...sc)}：${Math.min(...sc)} 獲勝`,
