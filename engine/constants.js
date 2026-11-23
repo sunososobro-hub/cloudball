@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.2';
+export const ENGINE_VERSION = '0.4.3';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -154,8 +154,15 @@ export const STEAL_OK_RANGE = [0.5, 0.9];
 export const HOME_SLIDE_P = 0.5;
 
 /* ---- manager decisions ---- */
-export const SP_PULL_PITCHES = [75, 20];  /* [min, random span] */
-export const SP_PULL_RUNS = [4, 2];
+/* The starter's pitch budget as his coach sees it: SP_LIMIT_PITCHES while nobody has scored on him,
+ * SP_LIMIT_PER_RUN shorter for every run allowed, SP_LATE_CUT shorter from inning SP_LATE_INNING on. */
+export const SP_LIMIT_PITCHES = 97;
+export const SP_LIMIT_PER_RUN = 7;
+export const SP_LATE_INNING = 7;
+export const SP_LATE_CUT = 8;
+export const SP_ASK_BEFORE = [0, 12];     /* the change question comes up this many pitches before the budget: [min, random span] */
+export const SP_PULL_RUNS = [4, 2];       /* ...or once he has allowed this many runs: [min, random span] */
+export const SP_MAX_RUNS = 5;             /* from this many runs the coach's own pick is a change, whatever the pitch count */
 export const RP_PULL_PITCHES = [20, 14];
 export const RP_PULL_RUNS = 3;
 export const STAY_HOLD_BATTERS = 3;       /* after "stay", do not ask again for this many batters */
