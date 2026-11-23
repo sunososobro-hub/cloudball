@@ -1,6 +1,7 @@
 # Numeric scan of overlaps at the plate (#128 items 3-5): poses every P event (poseScene + staffGiveWay) at STEP s with the draw loop
 # stopped (renderer.setAnimationLoop(null): no SwiftShader frame, 31 seeds in ~50 s). Reports, per event and pair, the closest approach
 # under THRESH m of the root positions within 6 m of the plate: C catcher, U plate umpire, B batter, OD next batter walking up, R runners.
+# Loads play.html (the root index.html is the data site since #335).
 # THREE_DIR=.../three/ python3 plate_scan.py REPO 'seed,seed' [STEP=.1] [THRESH=.5]
 import sys,os,asyncio,mimetypes,json
 from playwright.async_api import async_playwright
@@ -41,7 +42,7 @@ async def main():
       return await r.abort()
     await pg.route('**/*',route)
     await pg.add_init_script("try{localStorage.setItem('zu_gl','1');localStorage.setItem('zu_tier','3')}catch(e){}")
-    await pg.goto('http://local/index.html'); await pg.wait_for_function("()=>!!window.__X",timeout=600000,polling=500)
+    await pg.goto('http://local/play.html'); await pg.wait_for_function("()=>!!window.__X",timeout=600000,polling=500)
     await pg.evaluate("()=>window.__X.stop()")
     r=json.loads(await pg.evaluate(SCAN,[seeds,STEP,TH_]))
     print('ms',r['ms'],'hits',len(r['hits']))
