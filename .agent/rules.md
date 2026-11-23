@@ -11,7 +11,7 @@
 
 ## Area lock
 6. One top-level folder = one agent at a time; claim it in the issue. `render/` has 3 lanes: props (`props/`, `pbr.js`),
-   players (`players.js`, `players_test.html`), core (the rest, incl. `HANDOFF.md`, edited by core only).
+   players (`players.js`, `players_test.html`), core (the rest, incl. `HANDOFF.md`, edited by core only). `ui/` has lanes by site tab (#344): `ui/site/<tab>.*` is one lane per tab, everything else in `ui/` (shared, agent page, root files) one agent at a time.
 7. Stay inside your folder. Need a change elsewhere? Open an issue for that folder's agent.
    Keep `<folder>/HANDOFF.md` (max 20 lines: done, next, known traps); update it before you stop.
 8. Root files (`index.html`, `README.md`, `LICENSE`, `CLAUDE.md`) count as the `ui/` area.
