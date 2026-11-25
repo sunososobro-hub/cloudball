@@ -2,28 +2,28 @@
 Procedures: `.agent/routines/common.md` + `worker.md` / `review.md`; prompt templates: `prompts.md`. Rules 9-24 keep their numbers (code cites them).
 ## Work: claim, PR, merge (W rules)
 W1. Throttle: line 1 of issue #275 is `level: N` (unreadable -> 2); line 2 `focus: <area,...>`. Only the owner edits them.
-    0 off: nobody picks, the reviewer only merges. 1 low: only P0/P1, only worker A. 2 normal: every worker, 1 item. 3 high: up to 3.
+    0 off: nobody picks, the reviewer only merges. 1 low: every worker, only P0/P1 (C incl. `model:opus`). 2 normal: every worker, 1 item. 3 high: up to 3.
 W2. Any worker takes any issue. `area:*` labels are tags, never locks; folders have no owner window.
-W3. Ready = open issue by the owner with `status:todo`, none of `needs-owner`, `needs-opus`, `status:frozen`,
-    `status:blocked`, no open PR saying `Closes/Refs #N`. Pick: lower P first (no P = P2), focus area first, lowest number.
-    `model:opus` items go to the Opus worker only; it takes them first, then anything else.
+W3. Ready = the owner's open issue, `status:todo`, none of `needs-owner` `needs-opus` `status:frozen` `status:blocked`,
+    no open PR `Closes/Refs #N`. Pick: lower P (none = P2), focus, lowest number. `model:opus` only to Opus worker C, first.
 W4. Claim = `bash scripts/claim_branch.sh fix/N <dev sha> N <session>`: exit 0 yours, 1 taken (next item), 3 blocked write.
     Then `status:todo` -> `status:doing`. `fix/N*` exists but no open PR: claim the next free `fix/N-rK` on its tip, go on.
 W5. PR: head `fix/N*` (or `feat/N`), base `dev`, body has `Closes #N` (or `Refs #N` for a part, with what is left),
     last line `cb-usage: window=<role> model=<m> minutes=N`. Swap `status:doing` -> `status:review` in the same run.
 W6. Overlapping files: just before the last check run, `git fetch origin dev && git merge --no-edit origin/dev`
     and resolve conflicts yourself, keeping both sides' intent. Never skip an issue because another PR touches its files.
-W7. Small pieces: one run is about 25 minutes and aims at <= 400 changed lines. Bigger -> a `Refs #N` part, rest commented.
+W7. Small pieces: ~25 min, <= 400 changed lines. Bigger -> a `Refs #N` part, rest commented; its PR title and commits
+    say `#N part K: ...`, never `fix`/`closes #N` (GitHub would close the issue). Reviewer reopens it if closed anyway.
 W8. Fix round (reviewer `CHANGES`, red `test`, conflict): the issue goes back to `status:todo` with a `requeue:` comment;
     claim `claim/N-<head sha7>` on the PR head, push the fix to the SAME PR branch, back to `status:review`.
 W9. The reviewer merges a dev PR only when all hold: (a) `test` check `success` on the head (checked once, never waited);
     (b) `mergeable_state` `clean` (dirty: merge dev in place, or requeue); (c) a PR touching `engine/`, `.agent/`, `.github/`
-    or `tests/replay/run.mjs` has a line `Opus review: PASS <full head sha>` (sha ends the line) by the owner account, written
-    by the reviewer after reading the whole diff against rules 9-24. Pre-season (`PRESEASON` in `merge-gate.yml`, owner
-    2026-11-21): (c) is suspended until opening day. (d) Head branch in this repo (no fork) and author is the owner
-    account: outside PRs are never merged, pushed to or closed by an agent; label `needs-owner` and leave them.
-    Hard stops: base not `dev`; issue `needs-owner` / `status:frozen`; an open `needs owner` / `blocking` comment.
-W10. After a merge: `Closes` -> reviewer closes the issue; `Refs` -> issue stays open in `status:todo` with what is left.
+    or `tests/replay/run.mjs` has a line `Opus review: PASS <full head sha>` (sha ends the line) by the owner account, after
+    the reviewer read the whole diff against rules 9-24. Pre-season (`PRESEASON`, owner 2026-11-21) lifts (c) for `engine/`
+    only, never for `.agent/`, `.github/`, `run.mjs`. (d) Head in this repo, author the owner: outside PRs are never merged,
+    pushed to or closed by an agent; label `needs-owner`, leave them. Hard stops: base not `dev`; issue `needs-owner` /
+    `status:frozen`; an open `needs owner` / `blocking` comment. An owner question in a PR -> its own `needs-owner` issue.
+W10. After a merge: `Closes` -> reviewer closes the issue; `Refs` -> issue open (reopen) in `status:todo` with what is left.
 W11. Never wait or poll for CI inside a session. Never touch `main`, release PRs, tags or scheduled tasks.
 W12. Hard stops for workers: `LICENSE`, `TRADEMARKS.md`, secrets or permissions; owner comments that conflict; taste or
      direction (names, personas, lines, look) -> `needs-owner` + one-line question with a recommendation, no PR.

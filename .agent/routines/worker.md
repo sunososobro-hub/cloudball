@@ -3,8 +3,8 @@
 Read after `common.md`. One worker kind for every area: render, ui, engine, league, commentary, assets, tests.
 
 ## Pick
-- Level and focus: `gh api repos/$R/issues/275 --jq .body | head -2` (rules W1). Level 0 -> end. Level 1 and not slot A -> end.
-  Level 1 (slot A): only `P0` / `P1` items are candidates.
+- Level and focus: `gh api repos/$R/issues/275 --jq .body | head -2` (rules W1). Level 0 -> end.
+  Level 1: every slot works, but only `P0` / `P1` items are candidates (slot C includes `model:opus` ones).
 - Candidates: `gh api -X GET search/issues -f q="repo:$R is:issue is:open author:sunososobro-hub label:status:todo -label:needs-owner -label:needs-opus -label:status:frozen -label:status:blocked" -f per_page=100`.
   Sonnet slots drop `model:opus` items; slot C takes `model:opus` first, then the rest. Order per rules W3 (P, focus, number).
 - Skip an item with an open PR whose body says `Closes/Refs #N`, unless its last comment is a `requeue:` (fix round, below).
@@ -31,6 +31,8 @@ Read after `common.md`. One worker kind for every area: render, ui, engine, leag
 
 ## Open the PR
 - `git push origin HEAD:refs/heads/$B`; PR base `dev`, head `$B`, title `fix #N: …`.
+  A part (`Refs #N`): PR title and every commit message say `#N part K: …`, never `fix #N` / `closes #N` / `resolves #N`
+  (GitHub closes the issue on merge); K = 1 + earlier merged parts of #N.
 - Body: 1-3 lines of what changed; `run.mjs` numbers; for picture changes the URL to open (`?prop=…`, `?q=max`);
   anything the owner must look at, in plain Traditional Chinese at the top; `Closes #N` or `Refs #N`;
   last line `cb-usage: window=<worker A|B|C> model=<sonnet|opus> minutes=<claim to PR>`.
