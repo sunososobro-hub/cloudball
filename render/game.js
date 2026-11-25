@@ -765,6 +765,12 @@ const batKOut=e=>!!(e.pa&&e.bat&&(e.r==='cstr'||e.r==='sstr')&&!(e.moves||[]).so
 const BAT_LOAD_LEAD=.9,BAT_LOAD_DUR=.6,BAT_SWING_LEAD=.22,BAT_SWING_DUR=.3,BAT_FT_DELAY=.06,BAT_FT_DUR=.3,BAT_ARM_LEN=.6,BAT_SHOULDER_X=.3,BAT_SHOULDER_Y=.57;
 const _bv=new THREE.Vector3(),_bq=new THREE.Quaternion(),_dn=new THREE.Vector3(0,-1,0),_up=new THREE.Vector3(0,1,0),sat01=t=>Math.max(0,Math.min(1,t)),ease=t=>t*t*(3-2*t);
 function aimArm(a,sx,tx,ty,tz){_bv.set(tx-sx,ty-BAT_SHOULDER_Y,tz);const d=_bv.length();_bq.setFromUnitVectors(_dn,_bv.normalize());a.quaternion.copy(_bq);a.scale.y=Math.max(ARM_S_MIN,Math.min(1.2,d/BAT_ARM_LEN))}
+/* #124 r3: aim an arm AND say where its elbow points. players.js solve() bends a skinned elbow toward the proxy's local -z (its twist), and
+   aimArm's shortest-arc turn leaves that twist to chance (the hammer's elbow went back and up). Build the proxy frame from the stick
+   (local -y = shoulder -> hand) and the pole (local -z = pole made square to the stick), slerped in by w. Block figures: only the twist changes. */
+const _pq=new THREE.Quaternion(),_pm=new THREE.Matrix4(),_px=new THREE.Vector3(),_py=new THREE.Vector3(),_pz=new THREE.Vector3();
+function aimArmPole(a,sx,tx,ty,tz,pole,w){aimArm(a,sx,tx,ty,tz);if(!(w>0))return;_py.set(sx-tx,BAT_SHOULDER_Y-ty,-tz).normalize();
+  _pz.set(-pole[0],-pole[1],-pole[2]);_pz.addScaledVector(_py,-_pz.dot(_py)).normalize();_px.crossVectors(_py,_pz);_pq.setFromRotationMatrix(_pm.makeBasis(_px,_py,_pz));a.quaternion.slerp(_pq,Math.min(1,w))}
 /* Skinned players: shortening the arm proxy = bending the elbow, so the hand really lands on the target; on block figures too short looks like a stub, so keep .85 */
 const ARM_S_MIN=window.PL?.3:.85;
 /* Sacrifice/drag bunt: during the delivery the batter squares around to the pitcher, bends his knees and holds the bat out over the plate,
@@ -1166,12 +1172,12 @@ function poseBattery(e,u){
     aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,gx*.8,gy-.15,MITT_Z+.2)}else armsDown(CR);
   const cl=isP?umpCall(e,u):UC_NONE,cu=(set?1:0)*(1-(cl.k?UC_K_STAND:CALL_STAND)*cl.w)*(1-up);
   crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.up.rotation.y=UC_K_TURN*cl.turn;UR.hg.rotation.x=-UMP_HEAD_UP*cu;UR.hg.rotation.y=-UC_K_TURN*cl.turn*UC_K_HEAD_KEEP;ump.noAnim=set&&up<1;
-  if(set&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up),R=umpArms(cl);aimArm(UR.a1,BAT_SHOULDER_X,h(R[0],0,BAT_SHOULDER_X),h(R[1],1),h(R[2],2));aimArm(UR.a0,-BAT_SHOULDER_X,h(R[3],0,-BAT_SHOULDER_X),h(R[4],1),h(R[5],2))}else armsDown(UR)}
+  if(set&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up),R=umpArms(cl);aimArmPole(UR.a1,BAT_SHOULDER_X,h(R[0],0,BAT_SHOULDER_X),h(R[1],1),h(R[2],2),UC_HAMMER_POLE,cl.w*(1-cl.k)*(1-up));aimArm(UR.a0,-BAT_SHOULDER_X,h(R[3],0,-BAT_SHOULDER_X),h(R[4],1),h(R[5],2))}else armsDown(UR)}
 /* #124 strike calls (owner 11/21 and 11/22: the arm straight up over the head read as a pupil raising his hand). Targets are hands in the
    umpire's upper-body frame (+z forward, +x = his RIGHT: arms[1] at +x is the calling arm; checked on a front studio shot, the old call raised it). All start UC_DELAY s after the
    ball is in the mitt (ARRIVE + CATCH_SNAP), never before; the mask stays on the plate (the head turns back against the torso turn).
    - called strike (not the third): the hammer. Upper arm out to the side at shoulder height, elbow ~90 deg, fist beside the head
-     (UC_HAMMER), one short sharp beat down and forward (UC_BEAT), held to UC_HOLD, back down.
+     (UC_HAMMER, elbow aimed out by UC_HAMMER_POLE), one short sharp beat down and forward (UC_BEAT), held to UC_HOLD, back down.
    - swinging strike (not the third): nothing, the swing tells it. Ball: nothing.
    - swinging third strike: a quick hammer (UC_QUICK_HOLD), no bow pull.
    - called third strike, the punch-out (拉弓): he rises fully, turns his chest UC_K_TURN to his right, the right fist punches out to the side
@@ -1179,6 +1185,9 @@ function poseBattery(e,u){
    Pure function of (event, time): umpCall gives weights, umpArms turns them into the two hand targets. */
 const UC_DELAY=.12,UC_UP=.22,UC_BEAT_AT=.3,UC_BEAT_DUR=.14,UC_HOLD=1.2,UC_QUICK_HOLD=.6,UC_DOWN=.4,UC_K_UP=.3,UC_K_PULL_AT=.45,UC_K_PULL=.3,UC_K_HOLD=1.9,UC_K_DOWN=.5;
 const UC_K_TURN=.75,UC_K_HEAD_KEEP=.85,UC_K_STAND=.95,UC_REST_R=[.25,.1,.45],UC_REST_L=[-.25,.1,.45],UC_HAMMER=[.56,.86,.1],UC_BEAT=[0,-.1,.12];
+/* Hammer elbow pole (round 3): out to his right and a little down, so the skinned upper arm lies flat at shoulder height (elbow .56 m,
+   shoulder .57) and the forearm stands up beside the head; without it the elbow went .13 m back and the arm rose (render/tools/elbow_probe.mjs) */
+const UC_HAMMER_POLE=[1,-.15,0];
 const UC_PUNCH=[.86,.6,.3],UC_PULL=[.36,.08,-.32],UC_BOW=[-.3,.52,.55],UC_NONE={w:0,beat:0,k:0,turn:0,pull:0};
 const ucK3=e=>e.pa&&e.c0&&e.c0[1]===2,ucEnd=e=>e.r==='cstr'?(ucK3(e)?UC_K_HOLD+UC_K_DOWN:UC_HOLD+UC_DOWN):e.r==='sstr'&&ucK3(e)?UC_QUICK_HOLD+UC_DOWN:0;
 function umpCall(e,u){const t=u-(ARRIVE+CATCH_SNAP+UC_DELAY);if(t<=0||!(e.r==='cstr'||e.r==='sstr'))return UC_NONE;
