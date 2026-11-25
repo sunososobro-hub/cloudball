@@ -13,7 +13,7 @@ import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
 import { FIELDER_KEYS, HOME, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
-import { resolveGround, resolveFly, resolveHit, resolveSteal } from '../rules/fielding.js';
+import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
@@ -76,6 +76,7 @@ export function simGame(seed, decisions, opts) {
     const [off, bi] = e.bat, bat = RR[off].bat[bi], out = [], add = (type, time, data) => out.push({ type, time, data });
     const who = { batter: bat.name, team: off, lineup: bi };
     if (e.r === 'ibb') add('intentional_walk', e.t + e.showAt, { ...who, pitcher: x.pitcher });
+    else if (e.r === 'po') add('pickoff', e.t + K.PO_THROW_AT, { ...who, pitcher: x.pitcher, runner: e.s0.b[0], base: 1, count: e.c0 });
     else if (e.r === 'bk') add('balk', e.t + e.showAt, { ...who, pitcher: x.pitcher, count: e.c0 });
     else {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
@@ -83,10 +84,10 @@ export function simGame(seed, decisions, opts) {
       if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder });
       else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], count: e.c1 });
     }
-    if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
+    if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal || e.plan.po ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
     let n = e.s0.outs;
     for (const o of e.outs) add('out', e.t + o.at, { ...o, at: undefined, ballAt: o.ballAt == null ? undefined : round3(e.t + o.ballAt), touchAt: o.touchAt == null ? undefined : round3(e.t + o.touchAt),
-      fielderAt: o.fielderAt == null ? undefined : round3(e.t + o.fielderAt), runnerAt: o.runnerAt == null ? undefined : round3(e.t + o.runnerAt), team: off, outs: ++n, steal: e.sbGo ? true : undefined });
+      fielderAt: o.fielderAt == null ? undefined : round3(e.t + o.fielderAt), runnerAt: o.runnerAt == null ? undefined : round3(e.t + o.runnerAt), team: off, outs: ++n, steal: e.sbGo ? true : undefined, pickoff: e.po ? true : undefined });
     const gone = new Set(e.outs.map(o => o.runner)), inningOver = e.s1.outs >= K.OUTS_PER_HALF;
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
@@ -178,6 +179,9 @@ export function simGame(seed, decisions, opts) {
         if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
           /* balk (#38): the pitcher stops in his motion, the umpire calls it, no pitch counts, every runner moves up one base */
           e.r = 'bk'; st.pc[def]--; e.pc = st.pc[def];
+        } else if (!going && st.b[0] && !st.b[1] && R() < K.PO_P) {
+          /* pickoff (#38): the pitcher throws over to first before the pitch and the runner is tagged diving back; no pitch counts */
+          e.r = 'po'; st.pc[def]--; e.pc = st.pc[def];
         } else if (bunt) { e.swing = true; e.r = 'inplay'; }
         else {
           const sw = inZ ? K.SWING_ZONE_BY_COUNT[balls][strikes] : K.SWING_CHASE_BY_COUNT[balls][strikes] / bat.eye;
@@ -315,6 +319,10 @@ export function simGame(seed, decisions, opts) {
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);
           rbi = res === 'E' || play.dp ? 0 : runs;
+        } else if (e.r === 'po') {
+          const runner = B[0], p = resolvePickoff(ctxOf(null));
+          plan = p.plan; outs = p.outs; st.b = [null, null, B[2]]; e.po = true; e.big = K.BIG.NOTABLE;
+          desc = COPY.pickoff(runner);
         } else if (e.r === 'bk') {
           const nb = [null, B[0], B[1]];
           if (B[2]) { moves.push([3, HOME, B[2]]); runs++; }
@@ -384,6 +392,9 @@ export function simGame(seed, decisions, opts) {
         } else if (sbGo) {
           showAt = moves[0][3].arriveT + K.OUT_CALL_LAG;
           d = Math.max(d, plan.arrive + K.POST_PLAY_HOLD, showAt + K.POST_PLAY_HOLD);
+        } else if (e.po) {
+          showAt = lastOut + K.OUT_CALL_LAG;
+          d = Math.max(K.PITCH_DUR.po, showAt + K.POST_PLAY_HOLD);
         } else if (e.bk) {
           showAt = K.BK_CALL_AT;
           d = Math.max(K.PITCH_DUR.bk, ...moves.map(m => m[3].arriveT + K.POST_PLAY_HOLD));
