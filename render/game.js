@@ -116,6 +116,7 @@ const skyU={horizon:TSL.uniform(new THREE.Vector3(...SKY_HORIZON)),zenith:TSL.un
   const m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,depthWrite:false,fog:false});m.colorNode=c;scene.add(new THREE.Mesh(new THREE.SphereGeometry(520,32,16),m))}
 
 /* field texture */
+const GROUND_FADE_NEAR=25,GROUND_FADE_FAR=70,GROUND_FADE_MAX=.85,GROUND_CHECK_M=9,GROUND_CHECK_K=.035;/* #132 item 3 */
 const CHALK_SCUFFS=420,FIELD_WEAR_R=30,BOX_SCUFFS=160,BASE_DUST=60,DIRT_RGB='122,88,58';
 function fieldTex(){
   const X0=-130,Z0=-150,W=260,H=190,S=3072/W,c=document.createElement('canvas');c.width=3072;c.height=Math.round(H*S);
@@ -159,10 +160,15 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,190),(()=>{const {textur
   const gC=mix(texture(tex('grass_c',1),gUV),texture(tex('grass_c',1),gUV2),.35),dC=mix(texture(tex('dirt_c',1),dUV),texture(tex('dirt_c',1),dUV2),.35);
   const gK=dot(gC.rgb,LUM).div(GR_MEAN),dK=dot(dC.rgb,LUM).div(DR_MEAN);
   const big=fn(vec3(w.mul(.045),0),3,2,.5).mul(.12);
-  const k=tc(mix(dK.add(big),mix(gK.add(big),float(1),turfU.even),isGrass),.45,1.7);
+  /* #132 item 3: the fine albedo and normal detail fades with distance from the eye (GROUND_FADE_NEAR..FAR m), so the 8 deg look-down
+     from centre field is not carpet; the mowing check (diagonal squares, GROUND_CHECK_K) is seen from any side and survives that shot. */
+  const eyeD=positionWorld.sub(TSL.cameraPosition).length(),fade=smoothstep(GROUND_FADE_NEAR,GROUND_FADE_FAR,eyeD).mul(GROUND_FADE_MAX);
+  const cu=w.x.add(w.y).div(GROUND_CHECK_M),cv=w.x.sub(w.y).div(GROUND_CHECK_M),chk=TSL.sin(cu.mul(Math.PI)).mul(TSL.sin(cv.mul(Math.PI))).sign().mul(GROUND_CHECK_K);
+  const kRaw=mix(dK.add(big),mix(gK.add(big),float(1),turfU.even),isGrass);
+  const k=tc(mix(kRaw,float(1).add(big),fade).add(chk.mul(isGrass)),.45,1.7);
   m.colorNode=base.rgb.mul(k).mul(mix(dC.rgb.div(vec3(.20,.14,.08)).mul(.25).add(.75),vec3(1),isGrass)).mul(mix(turfU.dirt,turfU.grass,isGrass));
   const nG=texture(tex('grass_n'),gUV),nD=texture(tex('dirt_n'),dUV);
-  m.normalNode=normalMap(mix(nD,nG,isGrass),vec2(mix(float(1.2),float(.8),isGrass)));
+  m.normalNode=normalMap(mix(nD,nG,isGrass),vec2(mix(float(1.2),float(.8),isGrass)).mul(float(1).sub(fade)));
   const oG=texture(tex('grass_orm'),gUV),oD=texture(tex('dirt_orm'),dUV);const orm=mix(oD,oG,isGrass);
   m.roughnessNode=tc(orm.g.mul(.3).add(.75),.82,1);/* Grass and dirt must be very matte: too glossy and backlight turns them into a white sheet */m.aoNode=mix(float(1),orm.r,.6);return m})());ground.name='old:field';ground.rotation.x=-Math.PI/2;ground.position.z=-55;ground.receiveShadow=true;scene.add(ground);
 /* #150: code-generated surface detail (no download). genTex(size, w, h, fn) fills a canvas pixel by pixel: fn(u, v) -> [r, g, b] in 0..1.
