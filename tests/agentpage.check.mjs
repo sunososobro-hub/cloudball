@@ -85,6 +85,12 @@ const buttons = dom => dom.maker.all(e => e.tag === 'button').map(b => b.textCon
   const row = { kind: 'bat', player: { name: '老球員', num: 7, pos: 'SS', bats: 'R', age: 22, ht: 180, wt: 80 }, ratings: { con: 60, pow: 60, eye: 60, spd: 60, arm: 60, ovr: 60, pot: 70 } };
   const c = await run({ key, mine: row });
   if (shown(c.dom) || c.dom.mine.hidden) bad('returning browser with a player: show the player, not the maker');
+  /* #384: a created player's potential is hidden: no 潛力 row in the card, no pot in the compare rows */
+  if (c.dom.mine.textContent.includes('潛力') || c.dom.mine.textContent.includes('70')) bad('#384: the created player card must not show 潛力 or the pot value');
+  const { compareKeys } = await import(pathToFileURL(path.join(ROOT, 'ui/compare.js')).href);
+  const hid = { kind: 'bat', hidePot: true }, pub = { kind: 'bat' };
+  if (compareKeys(hid, pub).some(([k]) => k === 'pot') || compareKeys(pub, hid).some(([k]) => k === 'pot')) bad('#384: compare rows of a created player must not include pot');
+  if (!compareKeys(pub, pub).some(([k]) => k === 'pot')) bad('compare rows of factory players still show pot (guide page)');
 }
 /* 5. the page itself: no register section left in the markup */
 const html = readFileSync(path.join(ROOT, 'agent.html'), 'utf8');
