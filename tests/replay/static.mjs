@@ -42,6 +42,15 @@ for (const f of ['play.html', 'render/players_test.html']) {
   const map = at(/<script\s+type=["']importmap["']/), first = Math.min(at(/<link[^>]*rel=["'](?:modulepreload|preload)["']/), at(/<script\s+type=["']module["']/));
   if (first < Infinity && !(map < first)) problems.push(`${f}: the import map must come before every modulepreload, preload and module script`);
 }
+/* #366 (from #364): play.html adds its modulepreloads from an inline script that runs after the import map; a static
+ * <link rel="modulepreload"> is fetched by Firefox's preload scanner before the map exists, and the map is then dropped */
+{
+  const src = readFileSync(path.join(ROOT, 'play.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, m => ' '.repeat(m.length)), at = re => { const m = src.search(re); return m < 0 ? Infinity : m; };
+  if (at(/<link[^>]*rel=["']modulepreload["']/) < Infinity) problems.push('play.html: a static <link rel="modulepreload"> is not allowed (add it to the injector script list, #364)');
+  const inj = at(/<script(?![^>]*\b(?:src|type)=)[^>]*>[^<]*modulepreload/), map = at(/<script\s+type=["']importmap["']/);
+  if (inj === Infinity) problems.push('play.html: the modulepreload injector script is missing (#364)');
+  else if (!(map < inj)) problems.push('play.html: the modulepreload injector script must come after the import map (#364)');
+}
 const wf = path.join(ROOT, '.github/workflows');
 if (existsSync(wf)) for (const f of readdirSync(wf)) if (!['ci.yml', 'merge-gate.yml'].includes(f)) problems.push(`.github/workflows/${f} is not allowed (only ci.yml and merge-gate.yml)`);
 const rules = readFileSync(path.join(ROOT, '.agent/rules.md'), 'utf8').split('\n').length - 1;
