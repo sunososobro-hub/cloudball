@@ -191,8 +191,8 @@ export function buildOnDeck(side,P,name){const {R,H,EDGE,LIFT}=DECK,g=new THREE.
   g.userData.recolor=Q=>{if(!Q)return;paint.color.set(Q.trim).lerp(new THREE.Color(0xffffff),.12)};
   g.userData.recolor(P);return g}
 
-/* slot descriptors (#237): neither circle existed before, nothing to hide. ?prop=homeOnDeck / ?prop=roadOnDeck in the viewer. */
+/* slot descriptors (#237): old = the cheap circles of render/ondeck_lite.js (#392, named old:ondeck), hidden while max shows these. ?prop=homeOnDeck / ?prop=roadOnDeck in the viewer. */
 export const PROPS=[
-  {name:'homeOnDeck',build:c=>buildOnDeck(-1,c.park(),'homeOnDeck'),old:()=>[]},
-  {name:'roadOnDeck',build:c=>buildOnDeck(1,c.park(),'roadOnDeck'),old:()=>[]},
+  {name:'homeOnDeck',build:c=>buildOnDeck(-1,c.park(),'homeOnDeck'),old:c=>c.old('ondeck')},
+  {name:'roadOnDeck',build:c=>buildOnDeck(1,c.park(),'roadOnDeck'),old:c=>c.old('ondeck')},
 ];

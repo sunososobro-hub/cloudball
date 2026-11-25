@@ -681,7 +681,7 @@ function drawParkLogo(id){const g=parkLogoC.getContext('2d');g.clearRect(0,0,PAR
   if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,PARK_LOGO_PX,PARK_LOGO_PX);parkLogoTex.needsUpdate=true}
 function applyPark(){const T=TEAMS.find(t=>t.id===PARK_Q)||TEAMS[game&&game.teams?game.teams[1]:1]||{};if(parkCur&&parkCur.id===T.id)return;
   const P=PARKS[T.id]||PARK_DEFAULT,c=new THREE.Color(P.trim);parkCur={id:T.id,home:T.short||'',trimCss:'#'+c.getHexString()};
-  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);applyUpper(P);applyLinks(P);applyTurf(P);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);drawParkLogo(T.id);sbKey=''}
+  const S=SKIES[P.sky]||SKIES.night;applySky(S);applyBackdrop(P,S);applyUpper(P);applyLinks(P);applyTurf(P);drawAds(P.pad);adTex.needsUpdate=true;yellowPaint.color.copy(c);yellowPaint.emissive.copy(c);for(const m of deckRings||[])m.color.copy(c);drawParkLogo(T.id);sbKey=''}
 parkHook=applyPark;applyPark();
 
 /* ---------- figures ---------- */
@@ -1154,6 +1154,11 @@ const dugout=t=>[(t===0?1:-1)*INTRO_X,INTRO_Z];
 /* #313: the cheap dugouts every tier draws (4 unlit-cheap boxes each, no textures); props/index.js hides them while max shows the polished ones (named old:dugout) */
 import(new URL('dugout_lite.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{for(const t of [0,1]){const [dx,dz]=dugout(t),D=M.liteDugout(dx,dz),g=new THREE.Group();g.name='old:dugout';g.position.set(dx,0,dz);g.rotation.y=D.rotY;
   for(const p of D.parts){const m=new THREE.Mesh(new THREE.BoxGeometry(p.w,p.h,p.d),new THREE.MeshLambertMaterial({color:p.color}));m.name='old:dugout';m.position.set(p.x,p.y,p.z);g.add(m)}scene.add(g)}}).catch(err=>console.warn('lite dugouts off',err));
+/* #392: the cheap on-deck circles every tier draws (a mat disc and a trim-colour ring each, 4 meshes, no textures); props/index.js hides them while max shows the polished ones (named old:ondeck). applyPark recolours the rings. */
+var deckRings=[];
+import(new URL('ondeck_lite.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{const trim=(PARKS[parkCur&&parkCur.id]||PARK_DEFAULT).trim;for(const side of [-1,1])for(const p of M.liteOnDeck(side)){
+  const ring=p.kind==='ring',m=new THREE.Mesh(ring?new THREE.RingGeometry(p.r0,p.r1,32).rotateX(-Math.PI/2):new THREE.CylinderGeometry(p.r0,p.r1,p.h,24),new THREE.MeshLambertMaterial({color:ring?trim:p.color}));
+  m.name='old:ondeck';m.position.set(p.x,p.y,p.z);m.receiveShadow=true;if(ring)deckRings.push(m.material);scene.add(m)}}).catch(err=>console.warn('lite on-deck circles off',err));
 function crouch(f,R,c,fwd,splay,lean,shrink){const fw=fwd*c,sp=splay*c,len=LEG_LEN*(1-shrink*c);f.g.position.y=-(LEG_LEN-len*Math.cos(sp)*Math.cos(fw))*(f.k||1);R.l0.scale.y=R.l1.scale.y=1-shrink*c;R.l0.rotation.set(-fw,0,-sp);R.l1.rotation.set(-fw,0,sp);R.up.rotation.set(lean*c,0,0)}
 function aimWorld(R,arm,sx,wx,wy,wz){R.up.updateWorldMatrix(true,false);_tv.set(wx,wy,wz);R.up.worldToLocal(_tv);aimArm(arm,sx,_tv.x,_tv.y,_tv.z)}
 function armsDown(R){R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1}

@@ -28,7 +28,7 @@ export const SLOTS=[
   ['bullpens',()=>import('./bullpens.js')],    /* never existed */
   ['wells',()=>import('./wells.js')],          /* camera wells: never existed */
   ['flags',()=>import('./flags.js')],          /* never existed */
-  ['ondeck',()=>import('./ondeck.js')],        /* on-deck circles: never existed */
+  ['ondeck',()=>import('./ondeck.js')],        /* on-deck circles: old:ondeck = the cheap circles of render/ondeck_lite.js (#392) */
   ['batterseye',()=>import('./batterseye.js')],/* batter's eye: not built yet (CF fans stand there; owner said leave the fans) */
 ];
 
