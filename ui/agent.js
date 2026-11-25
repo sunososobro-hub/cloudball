@@ -76,6 +76,7 @@ function buildSortBar() {
 
 /* ---- your player ---- */
 function showMine(row) {
+  const pid = row.id ?? (row.player && row.player.id); try { if (pid != null) localStorage.setItem('cloudball.myPlayerId', String(pid)); } catch (e) { /* storage blocked: the data site cannot find him */ }  /* #399: the data site's 我的球員 looks him up by this id */
   const s = $('mine'); s.replaceChildren(el('h2', null, '你的球員'));
   const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, el('p', 'left', '每個人只能有一位。之後經紀人要怎麼幫他，等開放再說。'));
   s.hidden = false; $('maker').hidden = true; showPreview(specOfRow(row), `${row.player.name} #${row.player.num}`);
