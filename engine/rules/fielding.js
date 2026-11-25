@@ -29,7 +29,7 @@ function chase(ctx) {
   const target = hit ? [p.lx * roll, p.lz * roll] : [p.lx, p.lz];
   const D = dist(target, start);
   const ballDownAt = hit ? p.hang + K.HIT_ROLL_TIME : p.hang;
-  const fielderAt = D / K.FIELD_VAVG + K.FIELD_REACT;
+  const fielderAt = D / (ctx.vavg ? ctx.vavg(p.fielder) : K.FIELD_VAVG) + K.FIELD_REACT;   /* vavg: his chase speed (range, `def`) */
   const catchT = Math.max(ballDownAt, fielderAt) + (ctx.fumble || 0);   /* fumble: seconds lost securing the ball */
   return {
     fielder: p.fielder, start, target, stand: [target[0] - (hit ? 0 : K.CATCH_STAND_OFF), target[1]], D,
