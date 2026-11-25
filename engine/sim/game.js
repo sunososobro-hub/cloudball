@@ -46,7 +46,10 @@ export function simGame(seed, decisions, opts) {
   const pitIdx = d => allRosters[TI[d]].pit.indexOf(RR[d].pit[st.pi[d]]);   /* index in the team roster, which is what viewers look up */
   const spdOf = (team, name) => (RR[team].bat.find(b => b.name === name) || { spd: 1 }).spd;
   const stealTryP = (team, name) => clamp(K.STEAL_TRY_BASE + (spdOf(team, name) - 1) * K.STEAL_TRY_PER_SPD, ...K.STEAL_TRY_RANGE);
-  const stealOkP = (team, name) => clamp(K.STEAL_OK_BASE + (spdOf(team, name) - 1) * K.STEAL_OK_PER_SPD, ...K.STEAL_OK_RANGE);
+  const stealOkP = (team, name, base) => base === 3 ? clamp(K.STEAL3_OK_BASE + (spdOf(team, name) - 1) * K.STEAL_OK_PER_SPD, ...K.STEAL3_OK_RANGE)
+    : clamp(K.STEAL_OK_BASE + (spdOf(team, name) - 1) * K.STEAL_OK_PER_SPD, ...K.STEAL_OK_RANGE);
+  /* the base a runner may steal now: second (first occupied, second open) or third (#38: second alone) */
+  const stealBase = () => st.outs >= K.OUTS_PER_HALF - 1 ? 0 : st.b[0] && !st.b[1] ? 2 : st.b[1] && !st.b[0] && !st.b[2] ? 3 : 0;
   const armOf = def => key => (key === 'P' ? RR[def].pit[st.pi[def]] : RR[def].bat.find(b => b.pos === key) || {}).arm || 1;
   const addRun = n => { const o = st.half; st.sc[o] += n; st.ls[o][st.inn - 1] = (st.ls[o][st.inn - 1] || 0) + n; };
 
@@ -73,6 +76,7 @@ export function simGame(seed, decisions, opts) {
     const [off, bi] = e.bat, bat = RR[off].bat[bi], out = [], add = (type, time, data) => out.push({ type, time, data });
     const who = { batter: bat.name, team: off, lineup: bi };
     if (e.r === 'ibb') add('intentional_walk', e.t + e.showAt, { ...who, pitcher: x.pitcher });
+    else if (e.r === 'bk') add('balk', e.t + e.showAt, { ...who, pitcher: x.pitcher, count: e.c0 });
     else {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
       if (e.swing) add('swing', e.t + K.ARRIVE, { ...who });
@@ -87,7 +91,7 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.r === 'inplay' ? 'batted' : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? 'batted' : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
     if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0 });
@@ -112,10 +116,14 @@ export function simGame(seed, decisions, opts) {
     while (st.outs < K.OUTS_PER_HALF && !over) {
       if (ev.length > K.MAX_FRAMES) throw new Error(`game ${seed} did not terminate`);
       /* ---- pitching change ---- */
-      const tired = () => st.pi[def] === 0 ? (st.pc[def] > span(R, K.SP_PULL_PITCHES) || st.ra[def] >= span(R, K.SP_PULL_RUNS)) : (st.pc[def] > span(R, K.RP_PULL_PITCHES) || st.ra[def] >= K.RP_PULL_RUNS);
+      /* The question comes up a little before the coach himself would act. His own pick: a reliever who is asked
+       * about comes out; a starter stays until his pitch budget (shorter with every run allowed, and late) is spent. */
+      const spBudget = K.SP_LIMIT_PITCHES - st.ra[def] * K.SP_LIMIT_PER_RUN - (st.inn >= K.SP_LATE_INNING ? K.SP_LATE_CUT : 0);
+      const tired = () => st.pi[def] === 0 ? (st.pc[def] > spBudget - span(R, K.SP_ASK_BEFORE) || st.ra[def] >= span(R, K.SP_PULL_RUNS)) : (st.pc[def] > span(R, K.RP_PULL_PITCHES) || st.ra[def] >= K.RP_PULL_RUNS);
       if (st.pi[def] < RR[def].pit.length - 1 && st.hold[def] <= 0 && tired()) {
         const cur = RR[def].pit[st.pi[def]], nx = RR[def].pit[st.pi[def] + 1];
-        const pick = vote(def, 'P', COPY.askChange(cur, st.pc[def]), [['change', COPY.optChange(nx)], ['stay', COPY.optStay(cur)]], 'change');
+        const coach = st.pi[def] > 0 || st.pc[def] >= spBudget || st.ra[def] >= K.SP_MAX_RUNS ? 'change' : 'stay';
+        const pick = vote(def, 'P', COPY.askChange(cur, st.pc[def]), [['change', COPY.optChange(nx)], ['stay', COPY.optStay(cur)]], coach);
         if (pick === 'stay') { st.hold[def] = K.STAY_HOLD_BATTERS; continue; }
         const s0 = snap(); st.pi[def]++; st.pc[def] = 0; st.ra[def] = 0;
         emit('substitution', t, { team: def, role: 'pitcher', out: cur.name, in: nx.name });
@@ -129,9 +137,10 @@ export function simGame(seed, decisions, opts) {
       const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def) });
       const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; };
 
-      /* ---- offence: steal second? The runner breaks on the next real pitch. ---- */
-      if (st.b[0] && !st.b[1] && st.outs < K.OUTS_PER_HALF - 1 && !st.sbAsked && R() < K.STEAL_CONSIDER_P) {
-        st.sbAsked = true; if (R() < stealTryP(off, st.b[0])) st.steal = true;
+      /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
+      const sbB = stealBase();
+      if (sbB && !st.sbAsked && R() < (sbB === 3 ? K.STEAL3_CONSIDER_P : K.STEAL_CONSIDER_P)) {
+        st.sbAsked = true; if (R() < stealTryP(off, st.b[sbB - 2])) st.steal = sbB;
         continue;
       }
       st.sbAsked = false;
@@ -157,7 +166,7 @@ export function simGame(seed, decisions, opts) {
       let balls = 0, strikes = 0, paDone = false;
       while (!paDone) {
         const s0 = snap(), c0 = [balls, strikes]; st.pc[def]++;
-        const going = st.steal && st.b[0] && !st.b[1] && st.outs < K.OUTS_PER_HALF - 1; st.steal = false;
+        const going = st.steal && st.steal === stealBase() ? st.steal : 0; st.steal = false;
         const inZ = bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX);
         const zx = inZ ? (R() - K.HALF) * 2 * K.ZONE_HALF_WIDTH : (R() < K.HALF ? -1 : 1) * (K.MISS_X_MIN + R() * K.MISS_X_SPAN);
         const zy = inZ ? K.ZONE_Y_MIN + R() * K.ZONE_Y_SPAN : (R() < K.HALF ? K.MISS_LOW_Y - R() * K.MISS_LOW_SPAN : K.MISS_HIGH_Y + R() * K.MISS_HIGH_SPAN);
@@ -166,7 +175,10 @@ export function simGame(seed, decisions, opts) {
         const e = { t, k: 'P', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0, inZ, zx, zy, line, pline, pt: PT[0], kmh, s0, swing: false };
 
         /* ---- what happens to the pitch ---- */
-        if (bunt) { e.swing = true; e.r = 'inplay'; }
+        if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
+          /* balk (#38): the pitcher stops in his motion, the umpire calls it, no pitch counts, every runner moves up one base */
+          e.r = 'bk'; st.pc[def]--; e.pc = st.pc[def];
+        } else if (bunt) { e.swing = true; e.r = 'inplay'; }
         else {
           const sw = inZ ? K.SWING_ZONE_BY_COUNT[balls][strikes] : K.SWING_CHASE_BY_COUNT[balls][strikes] / bat.eye;
           if (R() < Math.min(K.SWING_MAX, sw)) {
@@ -303,13 +315,31 @@ export function simGame(seed, decisions, opts) {
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);
           rbi = res === 'E' || play.dp ? 0 : runs;
+        } else if (e.r === 'bk') {
+          const nb = [null, B[0], B[1]];
+          if (B[2]) { moves.push([3, HOME, B[2]]); runs++; }
+          if (B[1]) moves.push([2, 3, B[1]]);
+          if (B[0]) moves.push([1, 2, B[0]]);
+          st.b = nb; e.bk = true; e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
+          desc = COPY.balk(runs);
         } else {
           desc = COPY.call(e.r);
           if (going && e.r !== 'foul') {
-            const runner = st.b[0], s = resolveSteal(ctxOf(null), !(R() < stealOkP(off, runner)));
-            plan = s.plan; outs = s.outs; moves = [[1, 2, runner, s.tl]]; sbGo = true; e.sbGo = true; e.big = s.ok ? K.BIG.NOTABLE : K.BIG.NONE;
-            st.b = s.ok ? [null, runner, st.b[2]] : [null, null, st.b[2]];
-            desc += s.ok ? COPY.stealOk(runner) : COPY.stealOut(runner);
+            const runner = st.b[going - 2], s = resolveSteal(ctxOf(null), !(R() < stealOkP(off, runner, going)), going);
+            plan = s.plan; outs = s.outs; moves = [[going - 1, going, runner, s.tl]]; sbGo = true; e.sbGo = true; e.big = s.ok ? K.BIG.NOTABLE : K.BIG.NONE;
+            st.b = going === 3 ? [null, null, s.ok ? runner : null] : s.ok ? [null, runner, st.b[2]] : [null, null, st.b[2]];
+            desc += s.ok ? COPY.stealOk(runner, going) : COPY.stealOut(runner, going);
+          } else if (!going && (e.r === 'ball' || e.r === 'sstr' || e.r === 'cstr') && (B[0] || B[1] || B[2]) && R() < (!inZ && zy <= K.MISS_LOW_Y ? K.WP_P : K.PB_P)) {
+            /* ---- the pitch gets past the catcher (#38); every runner moves up one base. A low pitch out of the zone
+             * (ball in the dirt) is a wild pitch; any other pitch he should have caught is a passed ball.
+             * e.wp marks both (the ball got by), e.pb the passed ball. ---- */
+            const pb = inZ || zy > K.MISS_LOW_Y;
+            const nb = [null, B[0], B[1]];
+            if (B[2]) { moves.push([3, HOME, B[2]]); runs++; }
+            if (B[1]) moves.push([2, 3, B[1]]);
+            if (B[0]) moves.push([1, 2, B[0]]);
+            st.b = nb; e.wp = true; if (pb) e.pb = true; e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
+            desc += pb ? COPY.passedBall(runs) : COPY.wildPitch(runs);
           }
         }
 
@@ -331,7 +361,7 @@ export function simGame(seed, decisions, opts) {
         }
         if (paDone) { balls = 0; strikes = 0; }
         Object.assign(e, { c1: [balls, strikes], moves, play, plan, outs, runs, desc, pa: paDone });
-        if (st.half === 1 && st.inn >= K.REGULATION_INNINGS && st.sc[1] > st.sc[0]) { over = true; e.walkoff = true; e.desc += COPY.walkoff(); e.big = K.BIG.HUGE; }
+        if (st.half === 1 && st.inn >= K.REGULATION_INNINGS && st.sc[1] > st.sc[0]) { over = true; e.walkoff = true; e.desc += COPY.walkoff(e.desc); e.big = K.BIG.HUGE; }
         e.s1 = snap();
 
         /* ---- when each runner starts and arrives ---- */
@@ -340,7 +370,7 @@ export function simGame(seed, decisions, opts) {
           if (m[3]) continue;
           const [from, to, who] = m, stays = to < HOME && e.s1.b[to - 1] === who, outHere = outs.some(o => o.runner === who && o.base === to);
           const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? look() < K.HOME_SLIDE_P : stays || outHere));
-          m[3] = runnerTimeline(from, to, { kind: inplay ? 'inplay' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
+          m[3] = runnerTimeline(from, to, { kind: inplay ? 'inplay' : e.wp ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
         }
 
         /* ---- broadcast timing: the result is shown when it has really happened ---- */
@@ -354,6 +384,12 @@ export function simGame(seed, decisions, opts) {
         } else if (sbGo) {
           showAt = moves[0][3].arriveT + K.OUT_CALL_LAG;
           d = Math.max(d, plan.arrive + K.POST_PLAY_HOLD, showAt + K.POST_PLAY_HOLD);
+        } else if (e.bk) {
+          showAt = K.BK_CALL_AT;
+          d = Math.max(K.PITCH_DUR.bk, ...moves.map(m => m[3].arriveT + K.POST_PLAY_HOLD));
+        } else if (e.wp) {
+          showAt = Math.max(...moves.map(m => m[3].arriveT)) + K.OUT_CALL_LAG;
+          d = Math.max(d, showAt + K.POST_PLAY_HOLD);
         } else {
           if (e.r === 'hbp' || (paDone && e.r === 'ball')) d = K.WALK_FRAME_DUR;
           if (outs.length) showAt = lastOut + K.OUT_CALL_LAG;

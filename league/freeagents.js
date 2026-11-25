@@ -7,8 +7,10 @@
  *   makePlayer(seed, choice) { player, ratings }: the player in the roster format of league/players.js, and
  *                            ratingsOf(player) on the factory scale (league/ratings.js).
  *
- * A choice: { kind: 'bat', pos, bats, build, look, points: {con, pow, eye, spd, arm}, nameDraw }
- *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw }.
+ * A choice: { kind: 'bat', pos, bats, build, look, points: {con, pow, eye, spd, arm}, nameDraw, train }
+ *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw, train }.
+ * train (#369, optional): the daily training split, whole percents over the same ability keys, sum 100
+ * (league/training.js); left out = even. It is stored on the player as `train`.
  * The points are spent in full (sum = the budget of the kind), each between FLOOR and CAP. Potential, age, height
  * and shirt number are not chosen: they are drawn from the seed (potential is the luck people talk about).
  * Nothing here touches ROSTERS: a created player reaches a game only through a roster given to the engine (rule 10). */
@@ -16,6 +18,7 @@ import { ROSTERS } from './players.js';
 import { STAFF, UMPIRES } from './staff.js';
 import { SURNAMES, GIVEN } from './namepool.js';
 import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
+import { validateSplit, evenSplit } from './training.js';
 
 /* Free agents are young: given names of the youngest pool. */
 export const NAME_DECADE = 1990;
@@ -50,8 +53,24 @@ export const CREATE = {
 /* drawn, not chosen */
 export const AGE = [20, 24];
 export const NUM = [1, 99];
-export const POT = [40, 95];          /* potential on the display scale */
-export const POT_SKEW = 2.5;          /* u^POT_SKEW: most draws near the low end, a few high */
+/* Potential (#374): a target for the OVERALL on the display scale (league/training.js), drawn once at creation, locked
+ * and hidden from fans (owner 2026-11-25). Two parts: with chance POT_GOD_SHARE a "god roll" drawn evenly from POT_GOD,
+ * else the body POT_BODY[0] + span * u^POT_SKEW (more draws low, a tail toward the top of the body). potDraw() gives the
+ * value, potShareAtLeast() its exact share, so tests/training.check.mjs checks the shape against the 一軍 of
+ * league/site/players.json (median >= the 一軍 median, about a fifth above the 一軍 p75, a rare tail of stars). */
+export const POT_BODY = [52, 89];
+export const POT_SKEW = 1.75;
+export const POT_GOD = [90, 99];
+export const POT_GOD_SHARE = 0.03;
+export const potDraw = (u, v) => Math.round(v < POT_GOD_SHARE ? POT_GOD[0] - 0.5 + (POT_GOD[1] - POT_GOD[0] + 1) * u
+  : POT_BODY[0] + (POT_BODY[1] - POT_BODY[0]) * u ** POT_SKEW);
+/* exact share of draws with potential >= t (whole display number) */
+export function potShareAtLeast(t) {
+  const [g0, g1] = POT_GOD, [b0, b1] = POT_BODY;
+  const god = Math.min(1, Math.max(0, (g1 + 0.5 - Math.max(t - 0.5, g0 - 0.5)) / (g1 - g0 + 1)));
+  const x = Math.min(1, Math.max(0, (t - 0.5 - b0) / (b1 - b0)));
+  return POT_GOD_SHARE * god + (1 - POT_GOD_SHARE) * (1 - x ** (1 / POT_SKEW));
+}
 const HT_STEP = 100;                  /* heights in whole centimetres */
 
 /* mulberry32, the same small seeded PRNG as league/tools/names.mjs */
@@ -77,7 +96,7 @@ export function validateCreate(c) {
   const out = [], C = CREATE;
   if (!c || typeof c !== 'object') return ['no choice given'];
   if (!C.kinds.includes(c.kind)) return [`kind must be one of ${C.kinds.join(', ')}`];
-  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'look', 'points', 'nameDraw'];
+  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'look', 'points', 'nameDraw', 'train'];
   for (const k of Object.keys(c)) if (!allowed.includes(k)) out.push(`unknown field ${k}`);
   if (bat && !C.positions.includes(c.pos)) out.push(`position must be one of ${C.positions.join(', ')}`);
   if (!bat && !C.roles.includes(c.role)) out.push(`role must be one of ${C.roles.join(', ')}`);
@@ -87,6 +106,7 @@ export function validateCreate(c) {
   if (!sameKeys(c.look, lk)) out.push(`look must hold exactly ${lk.join(', ')}`);
   else for (const k of lk) if (!inRange(c.look[k], C.look[k])) out.push(`look.${k} must be a whole number from ${C.look[k][0]} to ${C.look[k][1]}`);
   if (c.nameDraw !== undefined && !inRange(c.nameDraw, [0, C.maxNameDraw])) out.push(`nameDraw must be a whole number from 0 to ${C.maxNameDraw}`);
+  if (c.train !== undefined) out.push(...validateSplit(C.keys[c.kind], c.train));
   const keys = C.keys[c.kind], budget = C.budget[c.kind], cap = C.cap[c.kind];
   if (!sameKeys(c.points, keys)) out.push(`points must hold exactly ${keys.join(', ')}`);
   else {
@@ -113,7 +133,7 @@ export function makePlayer(seed, c) {
   const r = rng(seed), pit = c.kind === 'pit', B = CREATE.builds[c.build];
   const age = between(r, AGE), num = between(r, NUM);
   const ht = between(r, B.ht.map(h => Math.round(h * HT_STEP))) / HT_STEP;
-  const pot = Math.round(POT[0] + (POT[1] - POT[0]) * r() ** POT_SKEW);
+  const pot = potDraw(r(), r());
   const raw = (k, d) => ratingsOf.raw(pit, k, d);
   const p = { id: `fa-${seed.toString(36)}`, name: drawName(seed, c.nameDraw || 0), num };
   if (pit) Object.assign(p, { role: c.role, stuff: raw('stuff', c.points.stuff), ctrl: raw('ctrl', c.points.ctrl), age, pot: raw('pot', pot), throws: c.throws, arm: r3(raw('arm', c.points.arm)) });
@@ -121,6 +141,6 @@ export function makePlayer(seed, c) {
     const con = raw('con', c.points.con);
     Object.assign(p, { pos: c.pos, con, pow: raw('pow', c.points.pow), eye: raw('eye', c.points.eye), age, pot: raw('pot', pot), arm: r3(raw('arm', c.points.arm)), avg: AVG_FIT(con), spd: r3(raw('spd', c.points.spd)), hand: c.bats });
   }
-  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look } });
+  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(CREATE.keys[c.kind].map(k => [k, (c.train || evenSplit(CREATE.keys[c.kind]))[k]])) });
   return { player: p, ratings: ratingsOf(p) };
 }

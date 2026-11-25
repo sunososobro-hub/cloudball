@@ -11,6 +11,9 @@ const game = simGame(seed, decisions, opts);   // same inputs + same commit = sa
 - `seed`: unsigned 32-bit integer.
 - `decisions`: `{ [decisionId]: choice }`, the resolved fan votes (`P0: 'stay'`, `I1: 'ibb'`...).
   A decision without an entry uses the coach's own pick and is marked `pending`.
+  Pitching change (`P`): a reliever the question is about comes out; a starter stays until his
+  pitch budget is spent (`SP_LIMIT_PITCHES`, shorter per run allowed and from `SP_LATE_INNING` on)
+  or he has allowed `SP_MAX_RUNS`. 0.4.2, 40,000 games: 5.23 innings and 86 pitches a start.
 - `opts`: `{ teams: [awayIndex, homeIndex], rosters, starters, pen }`. Rosters default to the
   factory settings in `league/`.
 
@@ -98,9 +101,13 @@ byte. Outcome draws and cosmetic draws (pitch type, speed, who slides at home) u
 seeded RNGs, so looks can change without changing results. The engine never reads the clock
 or `Math.random`.
 
-Known limit: geometry uses `Math.sin`/`Math.cos`, whose last bit is not guaranteed to be equal
-across JavaScript engines. Node and Chromium (both V8) agree; official games are computed once
-under Node and recorded with their seed and engine commit in `cloudball-league`.
+Across JavaScript engines (#7): the engine computes with `+ - * /` and `Math.sqrt` only, which are
+exactly rounded everywhere, so V8, JavaScriptCore and SpiderMonkey get the same bits. Sine and
+cosine come from `sinCosDeg` in `rules/field.js`, not from `Math.sin`/`Math.cos`, whose last bit
+differs between engines; `run.mjs` fails when `engine/` calls such a function (`Math.sin`,
+`Math.pow`, `**`, ...) and pins the bits of `sinCosDeg` (`TRIG_PRINT`). The checks run under Node
+only: nobody has compared a stream in Safari or Firefox yet. Official games are still computed
+once under Node and recorded with their seed and engine commit in `cloudball-league`.
 
 ## Tuning
 

@@ -1,4 +1,4 @@
-/* Fan agent page (agent.html, #179): register in one tap, draw a name, choose, spend the points, create one player, see the
+/* Fan agent page (agent.html, #179): sign up silently on load (#350), draw a name, choose, spend the points, create one player, see the
  * free-agent list. No free text anywhere: every choice is a button, a chip or a slider, and the server judges it again.
  * The account is a random 32-byte key kept in localStorage; the server stores only its SHA-256 (functions/lib/agents.js).
  * Every call that is not answered ok (no binding, production, offline, a static server) reads as 「還沒開放」. */
@@ -13,7 +13,6 @@ const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘�
 const ROLE = { SP: '先發投手', RP: '後援投手' };
 const HAND = { L: '左', R: '右' };
 const BUILD = { normal: '標準', slim: '精瘦', power: '力量型', heavy: '壯碩' };
-const LOOK = { head: '臉型', skin: '膚色', hair: '髮型' };
 const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球' };
 const PIT_RATINGS = { stuff: '球威', ctrl: '控球', arm: '臂力' };
 const KIND = { bat: '打者', pit: '投手' };
@@ -49,11 +48,10 @@ function playerRow(row) {
   who.append(el('b', null, p.name), el('span', 'no num', `#${p.num}`), el('span', null, meta), el('span', null, `${p.age} 歲`));
   r.appendChild(ratingRow('綜合', R.ovr, 'ovr'));
   for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) r.appendChild(ratingRow(label, R[k]));
-  r.appendChild(ratingRow('潛力', R.pot, 'pot'));
   const see = el('button', 'see', '看他'); see.type = 'button'; see.setAttribute('aria-label', `看 ${p.name} 的樣子`); who.appendChild(see);
   li.onclick = () => { for (const o of document.querySelectorAll('li.p[aria-current]')) o.removeAttribute('aria-current'); li.setAttribute('aria-current', 'true'); showPreview(specOfRow(row), `${p.name} #${p.num}`); };
   li.append(who, r);
-  attachCompare(li, { id: `fa:${p.id ?? p.name}`, name: p.name, num: p.num, meta, kind: row.kind, R });
+  attachCompare(li, { id: `fa:${p.id ?? p.name}`, name: p.name, num: p.num, meta, kind: row.kind, R: { ...R, pot: undefined }, hidePot: true });/* #384: potential is hidden for created players */
   return li;
 }
 
@@ -70,7 +68,7 @@ async function loadList(reset) {
 }
 function buildSortBar() {
   const bar = $('sortBar'); bar.replaceChildren();
-  for (const [sort, label] of [['ovr', '綜合最高'], ['con', '打擊'], ['pow', '長打'], ['eye', '選球'], ['spd', '速度'], ['arm', '臂力'], ['stuff', '球威'], ['ctrl', '控球'], ['pot', '潛力'], ['new', '最新']]) {
+  for (const [sort, label] of [['ovr', '綜合最高'], ['con', '打擊'], ['pow', '長打'], ['eye', '選球'], ['spd', '速度'], ['arm', '臂力'], ['stuff', '球威'], ['ctrl', '控球'], ['new', '最新']]) {
     const b = el('button', null, label); b.type = 'button'; b.setAttribute('aria-pressed', String(list.sort === sort));
     b.onclick = () => { list.sort = sort; buildSortBar(); loadList(true); }; bar.appendChild(b);
   }
@@ -79,8 +77,8 @@ function buildSortBar() {
 /* ---- your player ---- */
 function showMine(row) {
   const s = $('mine'); s.replaceChildren(el('h2', null, '你的球員'));
-  const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, el('p', 'left', '每個人只能有一位。潛力是抽的，看運氣；之後經紀人要怎麼幫他，等開放再說。'));
-  s.hidden = false; $('maker').hidden = true; $('account').hidden = true; showPreview(specOfRow(row), `${row.player.name} #${row.player.num}`);
+  const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, el('p', 'left', '每個人只能有一位。之後經紀人要怎麼幫他，等開放再說。'));
+  s.hidden = false; $('maker').hidden = true; showPreview(specOfRow(row), `${row.player.name} #${row.player.num}`);
   if (list.page) loadList(true);
 }
 
@@ -134,10 +132,7 @@ function buildMaker(key, state) {
       chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; })),
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
       chipGroup('體型', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), state.build, edit(v => { state.build = v; })));
-    for (const [k, label] of Object.entries(LOOK)) {
-      const [lo, hi] = CREATE.look[k], opts = []; for (let v = lo; v <= hi; v++) opts.push([v, v + 1]);
-      fields.appendChild(chipGroup(`外觀：${label}`, opts, state.look[k], edit(v => { state.look[k] = Number(v); }), 'nums'));
-    }
+    /* 外觀 chips (head, skin, hair) are hidden until #151 lands a real look mapping: they draw nothing yet. `state.look` keeps its defaults (0) so the posted choice is unchanged. */
     const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = CREATE.budget[state.kind];
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));
     for (const k of CREATE.keys[state.kind]) {
@@ -160,21 +155,17 @@ function buildMaker(key, state) {
     if (r.body && r.body.why === 'already') { const m = await api('/api/player', { key }); if (m.body && m.body.player) showMine(m.body.player); }
     else if (r.body && r.body.why === 'name') drawName(draw.n + 1); else refresh();
   };
-  form.append(nameField, kindRow, fields, make, msg); s.appendChild(form); s.hidden = false; refresh(); drawName(0);
+  form.append(nameField, kindRow, fields, make, msg, el('p', 'left', KEY_WARN)); s.appendChild(form); s.hidden = false; refresh(); drawName(0);
 }
 
-/* ---- account ---- */
-function showRegister(key0) {
-  const s = $('account'); s.replaceChildren(el('h2', null, '先成為經紀人'));
-  const go = el('button', 'btn', '一鍵開始'); go.type = 'button';
-  s.append(el('p', 'left', '不用密碼、不用信箱。這個瀏覽器會留一把隨機的鑰匙，伺服器只記它的雜湊。換瀏覽器或清掉資料就找不回來。'), go); s.hidden = false;
-  go.onclick = async () => {
-    go.disabled = true; const key = key0 || newKey();
-    if (!store.set(key)) { say('這個瀏覽器不讓我們存資料（無痕視窗？），暫時不能建立帳號。', true); return; }
-    const r = await api('/api/agent', { method: 'POST', key });
-    if (r.body && r.body.ok) { s.hidden = true; say(''); buildMaker(key, defaults('bat')); return; }
-    go.disabled = false; say(isClosed(r) ? '還沒開放。' : (WHY[r.body.why] || '註冊失敗，等一下再試。'), true);
-  };
+/* ---- account (#350): no button, no heading. A browser without a key makes one and signs up by itself, then shows the maker. ---- */
+const KEY_WARN = '不用密碼、不用信箱。這個瀏覽器會留一把隨機的鑰匙，伺服器只記它的雜湊。換瀏覽器或清掉資料就找不回來。';
+async function register(key0) {
+  const key = key0 || newKey();
+  if (!store.set(key)) { say('這個瀏覽器不讓我們存資料（無痕視窗？），暫時不能建立帳號。', true); return; }
+  const r = await api('/api/agent', { method: 'POST', key });
+  if (r.body && r.body.ok) { say(''); buildMaker(key, defaults('bat')); return; }
+  say(isClosed(r) ? '還沒開放。' : (WHY[r.body.why] || '註冊失敗，等一下再試。'), true);
 }
 
 async function start() {
@@ -182,10 +173,10 @@ async function start() {
   if (isClosed(first)) { say('還沒開放。'); return; }
   $('market').hidden = false; buildSortBar(); say('');
   const key = store.get();
-  if (!key) { showRegister(null); return; }
+  if (!key) { await register(null); return; }
   const me = await api('/api/player', { key });
   if (me.body && me.body.ok) { if (me.body.player) showMine(me.body.player); else buildMaker(key, defaults('bat')); }
-  else if (me.body && me.body.why === 'unknown') showRegister(key);
+  else if (me.body && me.body.why === 'unknown') await register(key);
   else say(isClosed(me) ? '還沒開放。' : '讀不到你的球員，等一下再試。', !isClosed(me));
 }
 $('faMore').onclick = () => loadList(false);

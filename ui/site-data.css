@@ -1,0 +1,32 @@
+/* Text-first data site (index.html, #335). Builds on ui/guide.css (night palette). Phone first; tables scroll sideways. */
+h1 small{font-size:.5em;letter-spacing:.1em;color:var(--gold);font-weight:600}
+#tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;border-bottom:1px solid var(--line);scrollbar-width:none}
+#tabs a{flex:none;display:flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--ink);font-weight:600}
+#tabs a[aria-selected="true"]{border-color:var(--gold);background:rgba(242,194,48,.16);color:var(--gold)}
+main{padding-top:14px}
+.empty{margin:14px 0;padding:14px;border:1px dashed var(--line);border-radius:10px;color:var(--muted)}
+.tblscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.dt{width:100%;border-collapse:collapse;font-size:14px}
+.dt th,.dt td{padding:6px 10px;text-align:left;white-space:nowrap}
+.dt thead th{color:var(--muted);font-weight:600;font-size:13px;border-bottom:1px solid var(--line)}
+.dt tbody tr{border-top:1px solid rgba(255,255,255,.07)}
+.dt td.num{text-align:right}.dt td.ov{font-size:20px;font-weight:700;color:var(--gold)}
+.dt a{color:var(--gold)}
+.play{margin:6px 0 10px}.play a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:10px;background:var(--gold);color:#14110a;font-weight:700;text-decoration:none}
+/* Roster cards (#353): filter row + grid, shared by 球團, 二軍, 自由市場. 2 across on a phone, 4 across from 900 px. No photo: the tile is a flat team colour, darkened so white text reads on every team. */
+.flt{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}
+.flt a{flex:none;display:flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--ink);font-weight:600}
+.flt a[aria-current="true"]{border-color:var(--gold);background:rgba(242,194,48,.16);color:var(--gold)}
+.grp h3{display:flex;align-items:baseline;gap:8px;margin:14px 0 8px;font-size:14px;letter-spacing:.2em;color:var(--muted);font-weight:600}.grp h3 small{font-size:12px;letter-spacing:0}
+.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start;margin:0 0 8px}
+@media (min-width:900px){.pgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}}
+.pc{min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.03)}
+.pc.open{border-color:var(--gold)}
+.pt{display:block;color:var(--ink);text-decoration:none}
+.tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:96px;padding:10px;background:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)),var(--tc,#5b6479);color:#fff}
+.tile .ov{font-size:44px;line-height:1;font-weight:800}.tile small{font-size:12px;opacity:.85;letter-spacing:.2em}
+.tile .no{position:absolute;top:6px;left:8px;font-size:12px;opacity:.8}
+.pt .info{display:flex;flex-direction:column;gap:2px;padding:8px 10px 10px}.pt .nm{font-size:16px;line-height:1.3}.pt .meta{color:var(--muted);font-size:13px}
+.ab{margin:0;padding:0 10px 10px;display:grid;gap:6px;font-size:13px}
+.ab>div{display:grid;grid-template-columns:3.5em 2em 1fr;align-items:center;gap:6px}.ab dt{color:var(--muted)}.ab dd{margin:0;text-align:right;font-weight:700}
+.ab .bar{display:block;height:6px;border-radius:3px;background:rgba(255,255,255,.1)}.ab .bar i{display:block;height:100%;border-radius:3px;background:var(--gold)}

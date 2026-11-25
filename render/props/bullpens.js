@@ -16,8 +16,19 @@
  *     park's pad colour), a water cooler and cups, a bucket of balls, a rosin bag behind each rubber, the bullpen phone on the stand rail.
  * Frame: world, home plate at the origin, pitcher toward -z, +x = first base. Local frame of one pen: +x = out along its foul line,
  * +z = away from fair ground (toward the stand); the -x pen mirrors z (zs) instead of using a negative scale.
+ * Round 2 (board: clay one even orange from afar and lighter than the infield dirt; no screen or rail toward the field):
+ *   - surface: darker, browner clay (DRY/CLAY/WET re-picked under the field map's painted dirt #9c6b42 times its watering .8, since the
+ *     pbr.js dirt albedo darkens it again only in the pores), broken by large watered/dry patches 2-5 m across (MOTTLE) so it is no longer
+ *     one flat tone from the stands; a damp darker band just inside the turf edge (EDGE_DAMP, the hose reaches the edge first); fine
+ *     broom-drag streaks along the strip on the flat dirt between the lanes (DRAG), never on the packed mounds.
+ *   - shape and small parts: a protective screen across the home-plate end of each pen (SCREEN), between the pitchers' backs and the
+ *     plate: galvanised posts and rails, a padded kick panel in the park's pad colour (the part that reads from the broadcast camera),
+ *     dark knotted net above it as an alpha-tested cutout (opaque pipeline: it writes the MRT like any solid, no #267 trap; at a
+ *     distance the mipmapped cords fall under the cutoff and the net thins out, the frame stays). The bench now sits inside it.
+ *   - trap: the screen stands in foul ground at SCREEN.S; a fielder chasing a foul pop there walks through it (poses do not know props).
+ *     Rare (pops 56 m out and 8+ m foul) and the old pen had the same issue with the bench; a rail along the fair side was left out for that reason.
  * Everything is seeded (fixed hash): same park every load. Drawn on `max` only, like every prop.
- * Still gives it away after round 1: see the #215 board. */
+ * Still gives it away after round 2: see the #215 board. */
 import * as THREE from 'three/webgpu';
 import {mat,box,cyl} from '../pbr.js';
 
@@ -29,7 +40,10 @@ export const BP={
   SIDE_FALL:.9,BACK_FALL:1.2,/* metres the mound takes to reach the strip level at its sides and back */
   BASE_H:.016,LIP:.01,EDGE_JIT:.28,SINK:-.035,/* strip level, lip height, outline wander, how far the outside dips under the turf */
   CELL:.1,/* height field cell (m) */HOLE:[.045,.06],/* push-off hole and landing pit depth */
-  CLAY:0x7a4c32,DRY:0xa07e5c,WET:0x5e3e2a,/* vertex colours: packed mound clay, dry strip dirt, watered/worn */
+  CLAY:0x6a4230,DRY:0x87603f,WET:0x4c3222,/* vertex colours: packed mound clay, dry strip dirt, watered/worn (round 2: darker, browner; were 7a4c32, a07e5c, 5e3e2a) */
+  MOTTLE:[.22,.32,.14],/* round 2: large tone patches: noise scale (1/m), wet share, dry lift */EDGE_DAMP:[.55,.35],/* damp band inside the turf edge: width (m), wet share */
+  DRAG:[.045,2.8,.55],/* broom-drag streaks on the flat dirt: tone amplitude, streaks per metre across, wobble (m) */
+  SCREEN:{S:56.4,H:2.6,PAD:.9,BAYS:4,NET_PX:256,CELLS:7},/* protective screen across the plate end: m from home, height, padded kick panel height, bays, net texture px and meshes per texture */
   BENCH:[57.8,62.2],/* bench along the stand front, m from home */
 };
 
@@ -64,7 +78,10 @@ function stripGeo(tileM){const W=BP.S1-BP.S0,D=BP.D1-BP.D0,nx=Math.round(W/BP.CE
     /* cleat marks and fine lumps: small dark dents scattered over the clay */
     const ck=hash(Math.floor(s*9),Math.floor(d*9),7);if(ck<.06*(.3+clay))y-=.006;
     y+=.004*(vn(s*6,d*6,5)-.5);p.setY(i,y);
-    c.copy(dr).lerp(cl,clay*.9).lerp(we,worn*.55+.15*vn(s*.7,d*.7,6));c.multiplyScalar(.9+.2*vn(s*2.3,d*2.3,8)-(ck<.06*(.3+clay)?.15:0));C.set([c.r,c.g,c.b],i*3);
+    /* round 2: watered and dry patches, a damp band inside the turf edge, broom streaks on the flat dirt (none on the packed clay) */
+    const [mk,mw,md]=BP.MOTTLE,mt=vn(s*mk,d*mk,11)*.65+vn(s*mk*2.3,d*mk*2.3,12)*.35,wetP=smooth(.5,.75,mt)*mw+smooth(-.05,BP.EDGE_DAMP[0],-(e-BP.EDGE_DAMP[0]))*BP.EDGE_DAMP[1]*(1-clay),
+      dryP=smooth(.45,.2,mt)*md,[da,df,dw]=BP.DRAG,drag=da*(Math.sin((d+dw*(vn(s*.35,d,13)-.5))*df*2*Math.PI)*.6+(vn(s*.6,d*14,14)-.5)*.8)*(1-sat(clay*1.4))*(1-worn);
+    c.copy(dr).lerp(cl,clay*.9).lerp(we,Math.min(.85,worn*.55+.12*vn(s*.7,d*.7,6)+wetP));c.multiplyScalar((.92+.16*vn(s*2.3,d*2.3,8)-(ck<.06*(.3+clay)?.15:0))*(1+dryP+drag));C.set([c.r,c.g,c.b],i*3);
     uv.setXY(i,s/tileM,d/tileM)}
   g.setAttribute('color',new THREE.BufferAttribute(C,3));g.computeVertexNormals();return g}
 /* the strip's height at (s, d), for parts that sit on it */
@@ -73,6 +90,14 @@ const groundAt=(s,d)=>{let y=BP.BASE_H;for(let k=0;k<2;k++)y+=lane(s-BP.RUBBER_S
 /* home plate: 17 in across, the point toward the catcher (+x in the pen frame), 2 cm proud */
 function plateGeo(){const a=.2159,b=.2159,sh=new THREE.Shape();sh.moveTo(-b,-a);sh.lineTo(0,-a);sh.lineTo(.2159,0);sh.lineTo(0,a);sh.lineTo(-b,a);sh.closePath();
   const g=new THREE.ExtrudeGeometry(sh,{depth:.02,bevelEnabled:true,bevelThickness:.004,bevelSize:.004,bevelSegments:1});g.rotateX(-Math.PI/2);return g}
+
+/* round 2: knotted net for the screen: CELLS meshes per tile, dark cords with knots; R = alpha (cord coverage), shared by both pens */
+let NET=null;
+function screenNet(N){if(NET)return NET;const c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d'),k=N/BP.SCREEN.CELLS;
+  x.fillStyle='#000';x.fillRect(0,0,N,N);x.strokeStyle='#fff';x.fillStyle='#fff';x.lineWidth=Math.max(2,k*.09);
+  for(let i=0;i<=BP.SCREEN.CELLS;i++){const p=i*k;x.beginPath();x.moveTo(p,0);x.lineTo(p,N);x.stroke();x.beginPath();x.moveTo(0,p);x.lineTo(N,p);x.stroke()}
+  for(let i=0;i<=BP.SCREEN.CELLS;i++)for(let j=0;j<=BP.SCREEN.CELLS;j++){x.beginPath();x.arc(i*k,j*k,k*.09,0,7);x.fill()}/* knots */
+  NET=new THREE.CanvasTexture(c);NET.wrapS=NET.wrapT=THREE.RepeatWrapping;NET.anisotropy=4;return NET}
 
 /* side: +1 = road pen (+x, first base), -1 = home pen (-x, third base); P: the home park {pad, trim} */
 export function buildBullpen(side,P,name){const zs=side>0?1:-1,g=new THREE.Group();g.name='prop:'+name;g.rotation.y=side>0?Math.PI/4:3*Math.PI/4;
@@ -101,8 +126,17 @@ export function buildBullpen(side,P,name){const zs=side>0?1:-1,g=new THREE.Group
   for(let i=0;i<9;i++){const a=i*2.4,r=i?.09:0;add(new THREE.SphereGeometry(.037,10,8),ball,b1+.5+Math.cos(a)*r,.33+(i%3)*.03,bz-.05+Math.sin(a)*r)}
   /* bullpen phone: a painted steel box on the stand rail, by the bench, with the handset hung on its side */
   add(box(.24,.32,.12,.5),steel,b1+1.3,.75,BP.STAND_D-.06);add(box(.05,.2,.06,.5),mat('gloss',{color:0x1a1a1c,rough:.5}),b1+1.45,.75,BP.STAND_D-.12);
-  /* the frame and phone in the home park's pad colour, darkened like old paint; called again on a park change */
-  g.userData.recolor=Q=>{if(!Q)return;steel.color.set(Q.pad).multiplyScalar(.7)};
+  /* round 2: protective screen across the home-plate end, from the fair edge of the strip to the stand front */
+  const SC=BP.SCREEN,pad=mat('vinylPad',{color:0x2c3340}).clone(),d0=BP.D0+.1,d1=BP.STAND_D-.05,sw=d1-d0,sm=(d0+d1)/2,ss=SC.S;
+  for(let i=0;i<=SC.BAYS;i++){const d=d0+i*sw/SC.BAYS;add(cyl(.045,.045,SC.H,10),galv,ss,SC.H/2,d);add(cyl(.07,.07,.05,10),galv,ss,.025,d)}/* posts and base flanges */
+  for(const y of [SC.PAD,SC.H-.03]){const r=add(cyl(.03,.03,sw,8),galv,ss,y,sm);r.rotation.x=Math.PI/2}/* mid and top rail */
+  add(box(.08,SC.PAD-.04,sw,.5),pad,ss-.06,SC.PAD/2,sm);/* padded kick panel, on the home side of the posts */
+  add(box(.1,.04,sw,.5),galv,ss-.06,SC.PAD,sm);/* cap on the pad */
+  const nt=screenNet(SC.NET_PX),nH=SC.H-SC.PAD-.06,net=new THREE.MeshStandardMaterial({color:0x1c1f22,roughness:.7,metalness:.05,map:nt,alphaMap:nt,alphaTest:.45,side:THREE.DoubleSide});
+  nt.repeat.set(sw/(SC.CELLS*.11),nH/(SC.CELLS*.11));/* 11 cm knotted mesh, as on a batting-cage net */
+  const nm=add(new THREE.PlaneGeometry(sw,nH),net,ss+.02,SC.PAD+.03+nH/2,sm,Math.PI/2,false);nm.castShadow=false;
+  /* the frame, phone and kick panel in the home park's pad colour (the frame darkened like old paint); called again on a park change */
+  g.userData.recolor=Q=>{if(!Q)return;steel.color.set(Q.pad).multiplyScalar(.7);pad.color.set(Q.pad).multiplyScalar(.85)};
   g.userData.recolor(P);return g}
 
 /* slot descriptors (#237): neither pen existed before, nothing to hide. ?prop=homeBullpen / ?prop=roadBullpen in the viewer. */

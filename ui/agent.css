@@ -38,6 +38,6 @@ main h2{margin:0 0 10px;font-size:20px}
 .roster li.p[aria-current="true"]{outline:1px solid var(--gold)}
 /* wide screens (#197): the page may use up to 1600 px, but the forms stay one readable column; the free-agent list takes three columns */
 @media(min-width:1000px){
-  #status,#stage,#account,#maker,#mine{width:min(100%,980px);margin-inline:auto}
+  #status,#stage,#maker,#mine{width:min(100%,980px);margin-inline:auto}
 }
 @media(min-width:1400px){#faList{grid-template-columns:repeat(3,1fr)}}

@@ -13,6 +13,10 @@ Hand-run tools for league data. Nothing here runs at game time.
   star reads 90 or more and first on his team, each hole under 45, the league mean 60 to 65). `node league/tools/abilities.mjs` prints the
   draw, `--write` rewrites only the ability, `avg` and `body` fields. Deterministic (`ABILITY_SEED`, then the
   first balanced seed after it). The demonstration game keeps `../preseason/rosters-opening.js`.
+- `site.mjs` (#336): exports `../site/teams.json`, `players.json`, `games.json` from the league modules and the recorded games (`RECORDED_GAMES`). `node league/tools/site.mjs` prints, `--write` writes. Export only, deterministic; rerun it whenever `players.js`, `ratings.js`, `teams.js` or a recording changes.
+- `train_sim.mjs` (#369): 1000 seeded created players train day by day with `../training.js`, hands-off and active
+  (a full-tier mini-game bonus every day); prints days to reach the 一軍 median and bottom quartile of `../site/players.json`,
+  plus what-if rows without the potential stop. `node league/tools/train_sim.mjs`. Deterministic (`SIM_SEED`).
 - `blocklist.txt`: full names of real athletes, one per line; `#` lines are section headers.
   No league person may carry one of these names. `tests/names.check.mjs` enforces it.
 

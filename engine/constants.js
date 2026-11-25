@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.1';
+export const ENGINE_VERSION = '0.4.7';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -25,7 +25,7 @@ export const BREAK_DUR = 34;
 export const CHANGE_DUR = 14;
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
-export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10 };
+export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10 };
 export const PITCH_DUR_DEFAULT = 10;
 export const PA_END_HOLD = 3;             /* extra pause after a plate appearance ends */
 export const WALK_FRAME_DUR = 12;
@@ -144,18 +144,43 @@ export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
 export const GB_ADVANCE_P = 0.5;
-export const STEAL_CONSIDER_P = 0.48;
+export const STEAL_CONSIDER_P = 0.4;       /* 0.48 before #38 part 4: steals of third now take their share of SB/game */
 export const STEAL_TRY_BASE = 0.45;
 export const STEAL_TRY_PER_SPD = 1.2;
 export const STEAL_TRY_RANGE = [0.1, 0.85];
 export const STEAL_OK_BASE = 0.75;
 export const STEAL_OK_PER_SPD = 0.6;
 export const STEAL_OK_RANGE = [0.5, 0.9];
+/* Steal of third (#38): runner on second alone, fewer than two outs. Same try chance by speed as a steal of second;
+ * fast runners try more often, so STEAL3_OK_BASE sits below MLB 2024's 82.2% on steals of third (FanGraphs 2025-04-23).
+ * Both tuned so SB3/game and CS3/game match tests/replay/run.mjs REFERENCE (about 80% safe over 3000 games). */
+export const STEAL3_CONSIDER_P = 0.2;
+export const STEAL3_OK_BASE = 0.76;
+export const STEAL3_OK_RANGE = [0.5, 0.9];
 export const HOME_SLIDE_P = 0.5;
+/* Wild pitch (#38): a low pitch out of the zone (ball or chased swinging strike, not ending the plate appearance)
+ * with a runner on and no steal on gets past the catcher with this chance; every runner moves up one base.
+ * Passed ball: any other ball, called or swinging strike (not ending the PA) with a runner on gets by him with PB_P.
+ * Both tuned so WP/game and PB/game match tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
+export const WP_P = 0.025;
+export const PB_P = 0.002;
+/* Balk: before a pitch with a runner on (no steal on) the pitcher balks with BK_P; no pitch counts, every runner moves
+ * up one base. The plate umpire calls it BK_CALL_AT s into the frame (the pitcher stops at the top of his leg lift);
+ * runners trot from there. Tuned so BK/game matches tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
+export const BK_P = 0.0006;
+export const BK_CALL_AT = 0.9;
+export const WP_BREAK = 0.35;             /* runners break this long after the ball reaches the plate (it gets past the mitt): WP and PB */
 
 /* ---- manager decisions ---- */
-export const SP_PULL_PITCHES = [75, 20];  /* [min, random span] */
-export const SP_PULL_RUNS = [4, 2];
+/* The starter's pitch budget as his coach sees it: SP_LIMIT_PITCHES while nobody has scored on him,
+ * SP_LIMIT_PER_RUN shorter for every run allowed, SP_LATE_CUT shorter from inning SP_LATE_INNING on. */
+export const SP_LIMIT_PITCHES = 97;
+export const SP_LIMIT_PER_RUN = 7;
+export const SP_LATE_INNING = 7;
+export const SP_LATE_CUT = 8;
+export const SP_ASK_BEFORE = [0, 12];     /* the change question comes up this many pitches before the budget: [min, random span] */
+export const SP_PULL_RUNS = [4, 2];       /* ...or once he has allowed this many runs: [min, random span] */
+export const SP_MAX_RUNS = 5;             /* from this many runs the coach's own pick is a change, whatever the pitch count */
 export const RP_PULL_PITCHES = [20, 14];
 export const RP_PULL_RUNS = 3;
 export const STAY_HOLD_BATTERS = 3;       /* after "stay", do not ask again for this many batters */

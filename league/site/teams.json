@@ -1,0 +1,125 @@
+{
+  "season": "0",
+  "teams": [
+    {
+      "id": "pheasants",
+      "name": "台北房貸帝雉",
+      "city": "台北",
+      "logo": "assets/logos/pheasants_512.webp",
+      "record": {
+        "w": 1,
+        "l": 0
+      },
+      "roster": [
+        "pheasants-b1",
+        "pheasants-b2",
+        "pheasants-b3",
+        "pheasants-b4",
+        "pheasants-b5",
+        "pheasants-b6",
+        "pheasants-b7",
+        "pheasants-b8",
+        "pheasants-b9",
+        "pheasants-p1",
+        "pheasants-p2",
+        "pheasants-p3",
+        "pheasants-p4",
+        "pheasants-p5",
+        "pheasants-p6",
+        "pheasants-p7",
+        "pheasants-p8",
+        "pheasants-p9"
+      ]
+    },
+    {
+      "id": "owls",
+      "name": "新竹爆肝貓頭鷹",
+      "city": "新竹",
+      "logo": "assets/logos/owls_512.webp",
+      "record": {
+        "w": 0,
+        "l": 1
+      },
+      "roster": [
+        "owls-b1",
+        "owls-b2",
+        "owls-b3",
+        "owls-b4",
+        "owls-b5",
+        "owls-b6",
+        "owls-b7",
+        "owls-b8",
+        "owls-b9",
+        "owls-p1",
+        "owls-p2",
+        "owls-p3",
+        "owls-p4",
+        "owls-p5",
+        "owls-p6",
+        "owls-p7",
+        "owls-p8",
+        "owls-p9"
+      ]
+    },
+    {
+      "id": "macaques",
+      "name": "高雄煞氣獼猴",
+      "city": "高雄",
+      "logo": "assets/logos/macaques_512.webp",
+      "record": {
+        "w": 0,
+        "l": 0
+      },
+      "roster": [
+        "macaques-b1",
+        "macaques-b2",
+        "macaques-b3",
+        "macaques-b4",
+        "macaques-b5",
+        "macaques-b6",
+        "macaques-b7",
+        "macaques-b8",
+        "macaques-b9",
+        "macaques-p1",
+        "macaques-p2",
+        "macaques-p3",
+        "macaques-p4",
+        "macaques-p5",
+        "macaques-p6",
+        "macaques-p7",
+        "macaques-p8",
+        "macaques-p9"
+      ]
+    },
+    {
+      "id": "muntjacs",
+      "name": "台東宿醉山羌",
+      "city": "台東",
+      "logo": "assets/logos/muntjacs_512.webp",
+      "record": {
+        "w": 0,
+        "l": 0
+      },
+      "roster": [
+        "muntjacs-b1",
+        "muntjacs-b2",
+        "muntjacs-b3",
+        "muntjacs-b4",
+        "muntjacs-b5",
+        "muntjacs-b6",
+        "muntjacs-b7",
+        "muntjacs-b8",
+        "muntjacs-b9",
+        "muntjacs-p1",
+        "muntjacs-p2",
+        "muntjacs-p3",
+        "muntjacs-p4",
+        "muntjacs-p5",
+        "muntjacs-p6",
+        "muntjacs-p7",
+        "muntjacs-p8",
+        "muntjacs-p9"
+      ]
+    }
+  ]
+}

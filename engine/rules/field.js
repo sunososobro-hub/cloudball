@@ -12,8 +12,22 @@ export const OUTFIELD_KEYS = ['LF', 'CF', 'RF'];
 /* [angle from the centre-field line in degrees, distance from home] */
 export const FIELD_SPOTS = { P: [0, 18.4], C: [180, 1.3], '1B': [38, 30], '2B': [15, 42], SS: [-15, 42], '3B': [-38, 30], LF: [-28, 84], CF: [0, 95], RF: [28, 84] };
 
-const DEG = Math.PI / 180;
-export const spotXZ = (angleDeg, d) => [Math.sin(angleDeg * DEG) * d, -Math.cos(angleDeg * DEG) * d];
+/* Sine and cosine of an angle in degrees, from + - * / only (#7). Those are exactly rounded in every
+ * JavaScript engine; Math.sin and Math.cos are not: their last bit may differ between V8, JavaScriptCore
+ * and SpiderMonkey, and one bit in a landing spot can decide which fielder is nearest. The angle is
+ * folded to within half a quarter turn of an axis (exact), then the Taylor series is summed in a fixed
+ * order; with TRIG_TERMS terms what is left of the series is far below the last bit. Never returns -0. */
+const QUARTER = 90, TURN = 4 * QUARTER, DEG = Math.PI / (2 * QUARTER), TRIG_TERMS = 10;
+export function sinCosDeg(angleDeg) {
+  if (!Number.isFinite(angleDeg)) return [NaN, NaN];
+  const a = Math.abs(angleDeg) % TURN, q = Math.round(a / QUARTER), t = (a - q * QUARTER) * DEG, z = t * t;
+  let s = 1, c = 1;
+  for (let k = TRIG_TERMS; k >= 1; k--) { s = 1 - z / (2 * k * (2 * k + 1)) * s; c = 1 - z / ((2 * k - 1) * 2 * k) * c; }
+  s *= t;
+  const [sin, cos] = [[s, c], [c, -s], [-s, -c], [-c, s]][q % 4];
+  return [(angleDeg < 0 ? -sin : sin) + 0, cos + 0];
+}
+export const spotXZ = (angleDeg, d) => { const [sin, cos] = sinCosDeg(angleDeg); return [sin * d, 0 - cos * d]; };
 export const FIELD_HOME = Object.fromEntries(FIELDER_KEYS.map(k => [k, spotXZ(...FIELD_SPOTS[k])]));
 
 export const dist = (a, b) => Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]));
@@ -51,8 +65,8 @@ export function leadAt(u) {
 /* When a base runner starts and arrives (seconds into the pitch frame).
  * kind: 'inplay' | 'steal' | 'walk'. tagUpAt: earliest legal start on a caught fly (or null). */
 export function runnerTimeline(from, to, { kind, tagUpAt = null, slide = false }) {
-  const startRun = kind === 'inplay' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : K.ARRIVE + K.WALK_DELAY;
-  const spd = kind === 'walk' ? K.WALK_SPEED : K.RUN_SPEED;
+  const startRun = kind === 'inplay' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : kind === 'wp' ? K.ARRIVE + K.WP_BREAK : kind === 'bk' ? K.BK_CALL_AT + K.WALK_DELAY : K.ARRIVE + K.WALK_DELAY;
+  const spd = kind === 'walk' ? K.WALK_SPEED : K.RUN_SPEED;   /* 'wp' (wild pitch) runs at full speed */
   const st0 = from > 0 && tagUpAt != null ? tagUpAt : startRun;
   const lead = from > 0 ? leadAt(st0) : 0;
   const total = (to - from) * BASE_PATH;
