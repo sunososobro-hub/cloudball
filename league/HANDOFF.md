@@ -4,6 +4,7 @@
 - #50 names, #52 staff, #47 recorder, #113 slots, #137/#102 banter + audio, #71 fan slots, #54 wave 1 bios (28).
 - #169 halves (PRs #172, #173): frozen rosters of seed 704, `tools/abilities.mjs`, `ratings.js`. #178: `freeagents.js` (drawName, CREATE budget, validateCreate, makePlayer), `namepool.js`, `ratingsOf.raw`. #369: `training.js` + `tools/train_sim.mjs` (first-guess constants), `train` split on created players.
 - #378 part 1: pitcher roles SP/MR/RP/CL (`CREATE.roles`), `ROLE_SPLIT` default training by role; engine bullpen = every non-SP.
+  Part 2: optional pitch list (`pitches`, 1..3, fastball always) with a display rating per pitch, `PITCH_SHARE` % each in the split (off the overall); train_sim 1/3/5 pitches.
 - #169 written (PR #188): seed 201, rating knees (stars 95..98, nobody 1 or 100), CREATE bat 305/70, pit 183/66.
 - #54 wave 2 (PR #194): the other 44 lines; bios.check needs all 72 players. #37: `tests/replay/README.md`. #336: `tools/site.mjs` -> `site/*.json`. #276: commentary checks take seed 704 from `opening.json`, never re-simulate it.
 
