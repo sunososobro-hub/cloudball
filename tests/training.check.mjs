@@ -9,6 +9,10 @@
  *   - the potential draw misses the 一軍 of league/site/players.json: median under the 一軍 median, share above the
  *     一軍 p75 off a fifth (POT_FIFTH_TOL), star-line tail (>= RATING_TOP) outside 2 to 5 %, or potShareAtLeast()
  *     disagrees with makePlayer's draws,
+ *   - a pitch list (#378 part 2) off the rules is accepted (pitch not in the engine's PITCH_TYPES, repeat, no fastball,
+ *     more than CREATE.starterPitches, on a batter), a legal one refused, the created pitcher does not carry each pitch at
+ *     his stuff points with a split holding every pitch (default: PITCH_SHARE each, the rest in his role's ratio), a pitch
+ *     does not grow with its share, a pitch moves the overall, or train_sim's 5-pitch pitchers reach the 一軍 sooner than 1-pitch ones,
  *   - the same seed does not give the same days (determinism), or a bonus makes a player slower,
  *   - the sim targets are not the nearest-rank median and bottom quartile of the 一軍 in league/site/players.json,
  *   - league/training.js uses Math.random or Date.
@@ -19,8 +23,9 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { CREATE, validateCreate, makePlayer, potShareAtLeast } from '../league/freeagents.js';
 import { RATING_TOP } from '../league/ratings.js';
-import { validateSplit, evenSplit, defaultSplit, ROLE_SPLIT, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
-import { targets, daysTo, choiceOf } from '../league/tools/train_sim.mjs';
+import { PITCH_TYPES } from '../engine/constants.js';
+import { validateSplit, evenSplit, defaultSplit, ROLE_SPLIT, PITCH_SHARE, trainKeys, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
+import { targets, daysTo, choiceOf, withPitches, pitchRun } from '../league/tools/train_sim.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DAYS = 400, EPS = 1e-9;
@@ -51,6 +56,39 @@ for (const role of CREATE.roles) {
 }
 for (const [role, sp] of Object.entries(ROLE_SPLIT)) if (!CREATE.roles.includes(role) || validateSplit(kp, sp).length) bad(`ROLE_SPLIT.${role}: not a creatable role or not a legal split`);
 for (const role of ['RP', 'CL']) if (!(ROLE_SPLIT.SP.stuff < ROLE_SPLIT[role].stuff)) bad(`SP default leans on stuff as much as ${role}`);
+
+/* pitch lists (#378 part 2) */
+{
+  const FB = PITCH_TYPES[0][0], all = PITCH_TYPES.map(t => t[0]);
+  if (JSON.stringify(CREATE.pitches) !== JSON.stringify(all)) bad(`CREATE.pitches ${CREATE.pitches} is not the engine's PITCH_TYPES`);
+  for (const list of [[FB], [FB, all[1]], [all[2], FB, all[4]]]) {
+    const c = { ...PIT, role: 'RP', pitches: list }, w = validateCreate(c);
+    if (w.length) { bad(`legal pitch list ${list} refused: ${w.join('; ')}`); continue; }
+    const p = makePlayer(9, c).player, want = defaultSplit('pit', 'RP', Object.keys(p.pitches));
+    if (Object.keys(p.pitches).length !== list.length || Object.values(p.pitches).some(v => v !== PIT.points.stuff)) bad(`pitches ${JSON.stringify(p.pitches)} not each at stuff ${PIT.points.stuff}`);
+    if (JSON.stringify(p.train) !== JSON.stringify(want) || validateSplit(trainKeys('pit', list), p.train).length) bad(`pitch-list split ${JSON.stringify(p.train)} is not the legal default ${JSON.stringify(want)}`);
+    if (list.some(n => p.train[n] !== PITCH_SHARE)) bad(`default split does not give each pitch ${PITCH_SHARE} %`);
+    const rest = kp.map(k => p.train[k]);
+    if (!(rest[0] >= rest[1] && rest[1] >= rest[2])) bad(`ability part ${rest} of RP default left his role's order (stuff >= ctrl >= arm)`);
+    const own = Object.fromEntries([...kp.map(k => [k, 0]), ...list.map((n, i) => [n, i ? 0 : 100])]);
+    if (validateCreate({ ...c, train: own }).length || !validateCreate({ ...c, train: { stuff: 100, ctrl: 0, arm: 0 } }).length) bad('split rules ignore the pitch list');
+  }
+  for (const [what, c] of [['unknown pitch', { ...PIT, pitches: [FB, '魔球'] }], ['repeat', { ...PIT, pitches: [FB, FB] }], ['no fastball', { ...PIT, pitches: [all[1]] }],
+    ['empty', { ...PIT, pitches: [] }], ['too many', { ...PIT, pitches: all.slice(0, CREATE.starterPitches + 1) }], ['not a list', { ...PIT, pitches: FB }], ['batter', { ...BAT, pitches: [FB] }]])
+    if (!validateCreate(c).length) bad(`pitch list ${what}: accepted`);
+  if (makePlayer(9, PIT).player.pitches) bad('a pitcher created without a list got pitches');
+  /* a pitch grows with its share and never moves the overall */
+  const s = { pit: true, age0: 20, day: 0, pot: 99, split: { stuff: 0, ctrl: 0, arm: 0, [FB]: 100 }, abil: { stuff: 60, ctrl: 60, arm: 60, [FB]: 60 } }, o0 = overallOf(s);
+  for (let d = 0; d < 30; d++) trainDay(s, rng(d), 0);
+  if (!(s.abil[FB] > 60) || s.abil.stuff !== 60 || overallOf(s) !== o0) bad(`100 % on ${FB}: pitch ${s.abil[FB]}, stuff ${s.abil.stuff}, overall ${o0} -> ${overallOf(s)}`);
+  /* more pitches, slower to the 一軍 (train_sim) */
+  const sr2 = rng(5); let slower = 0, faster = 0;
+  for (let i = 1; i < 80; i += 2) {
+    const made = makePlayer(2000 + i, choiceOf(i, sr2)), a = pitchRun(withPitches(made, 1), 0, i, 62).days, b = pitchRun(withPitches(made, 5), 0, i, 62).days;
+    if (b > a) slower++; if (b < a) faster++;
+  }
+  if (faster || !slower) bad(`5 pitches vs 1: ${faster} pitchers faster, ${slower} slower to the 一軍`);
+}
 
 /* daily cap, potential caps the overall, no drop, 0 % does not grow, age */
 const last = AGE_CURVE[AGE_CURVE.length - 1];

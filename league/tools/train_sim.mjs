@@ -9,13 +9,16 @@
  * over all players (a player who never reaches it counts as "never", sorted last), the p25 / median / p75 days, and the
  * same among the players who reach it. Two what-if rows drop the potential cap (NO_STOP) to show how much it decides.
  * It also prints the potential draw against the 一軍: share at or above the median, above the p75, and at or above
- * RATING_TOP (the star line of league/ratings.js, the rare tail), exact from the constants and as drawn. */
+ * RATING_TOP (the star line of league/ratings.js, the rare tail), exact from the constants and as drawn.
+ * Pitch lists (#378 part 2): the pitchers again, each with 1, 3 and 5 pitches (CREATE.pitches in order, the default
+ * split of his role with that list; 5 is more than a created pitcher starts with, as if he learned two), hands-off and
+ * active: days to the 一軍 median and the mean pitch rating gained after one season. */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { CREATE, makePlayer, potShareAtLeast } from '../freeagents.js';
 import { RATING_TOP } from '../ratings.js';
-import { trainDay, overallOf, ACTIVE_BONUS, DAYS_PER_SEASON, SPLIT_TOTAL } from '../training.js';
+import { trainDay, overallOf, defaultSplit, ACTIVE_BONUS, DAYS_PER_SEASON, SPLIT_TOTAL } from '../training.js';
 
 export const PLAYERS = 1000, SIM_SEED = 369, SEASONS = 3, HORIZON = SEASONS * DAYS_PER_SEASON, EVEN_EVERY = 10;
 const LOOK = { head: 0, skin: 0, hair: 0 };
@@ -49,7 +52,7 @@ export function choiceOf(i, r) {
 export const NO_STOP = 99;
 export function daysTo(made, bonus, seed, goals, free = false) {
   const { player: p, ratings } = made, pit = !!p.role;
-  const s = { pit, age0: p.age, day: 0, pot: free ? NO_STOP : ratings.pot, split: p.train, abil: Object.fromEntries(Object.keys(p.train).map(k => [k, ratings[k]])) };
+  const s = { pit, age0: p.age, day: 0, pot: free ? NO_STOP : ratings.pot, split: p.train, abil: Object.fromEntries(Object.keys(p.train).map(k => [k, k in ratings ? ratings[k] : p.pitches[k]])) };
   const r = rng(seed), out = goals.map(() => Infinity);
   let ovr = overallOf(s);
   for (;;) {
@@ -59,22 +62,39 @@ export function daysTo(made, bonus, seed, goals, free = false) {
   }
 }
 
+/* a created pitcher given the first n pitches of CREATE.pitches (each at his stuff rating) and his role's default split */
+export const PITCH_COUNTS = [1, 3, 5];
+export function withPitches(made, n) {
+  const names = CREATE.pitches.slice(0, n), p = made.player;
+  return { ...made, player: { ...p, pitches: Object.fromEntries(names.map(k => [k, made.ratings.stuff])), train: defaultSplit('pit', p.role, names) } };
+}
+/* days to goal and mean pitch points gained in the first season */
+export function pitchRun(made, bonus, seed, goal) {
+  const [days] = daysTo(made, bonus, seed, [goal]);
+  const { player: p, ratings } = made, names = Object.keys(p.pitches);
+  const s = { pit: true, age0: p.age, day: 0, pot: ratings.pot, split: p.train, abil: Object.fromEntries(Object.keys(p.train).map(k => [k, k in ratings ? ratings[k] : p.pitches[k]])) }, r = rng(seed);
+  while (s.day < DAYS_PER_SEASON) trainDay(s, r, bonus);
+  return { days, gain: names.reduce((t, k) => t + s.abil[k] - p.pitches[k], 0) / names.length };
+}
+
 export function simulate() {
   const players = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../site/players.json'), 'utf8'));
   const t = targets(players), goals = [t.median, t.bottom], r = rng(SIM_SEED), res = { hands: [[], []], active: [[], []], 'hands, no pot stop': [[], []], 'active, no pot stop': [[], []] };
-  const start = [], pots = [];
+  const start = [], pots = [], byPitches = Object.fromEntries(PITCH_COUNTS.flatMap(n => [[`${n} hands`, []], [`${n} active`, []]]));
   for (let i = 0; i < PLAYERS; i++) {
     const made = makePlayer((SIM_SEED * 100003 + i) >>> 0, choiceOf(i, r));
     start.push(made.ratings.ovr); pots.push(made.ratings.pot);
     for (const [mode, bonus, free] of [['hands', 0, false], ['active', ACTIVE_BONUS, false], ['hands, no pot stop', 0, true], ['active, no pot stop', ACTIVE_BONUS, true]])
       daysTo(made, bonus, i + 1, goals, free).forEach((d, j) => res[mode][j].push(d));
+    if (made.player.role) for (const n of PITCH_COUNTS) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]])
+      byPitches[`${n} ${mode}`].push(pitchRun(withPitches(made, n), bonus, i + 1, t.median));
   }
-  return { t, res, start: start.sort((a, b) => a - b), pots: pots.sort((a, b) => a - b) };
+  return { t, res, byPitches, start: start.sort((a, b) => a - b), pots: pots.sort((a, b) => a - b) };
 }
 
 const fmt = d => (d === Infinity ? 'never' : String(d));
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { t, res, start, pots } = simulate();
+  const { t, res, byPitches, start, pots } = simulate();
   console.log(`train_sim (#369): ${PLAYERS} created players (seed ${SIM_SEED}), horizon ${HORIZON} days (${SEASONS} seasons of ${DAYS_PER_SEASON}), active bonus ${ACTIVE_BONUS}/day`);
   console.log(`一軍 (${t.n} players in league/site/players.json): median overall ${t.median}, bottom quartile ${t.bottom}`);
   console.log(`一軍 p75 ${t.p75}; created at day 0: overall p25/median/p75 ${[0.25, 0.5, 0.75].map(q => rank(start, q)).join('/')}, potential (hidden) ${[0.25, 0.5, 0.75].map(q => rank(pots, q)).join('/')}`);
@@ -85,5 +105,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const d = [...res[mode][j]].sort((a, b) => a - b), ok = d.filter(x => x !== Infinity), got = ok.length;
     const of = got ? `; of those reaching it p25/median/p75 ${[0.25, 0.5, 0.75].map(q => rank(ok, q)).join('/')}` : '';
     console.log(`  ${name.padEnd(18)} ${mode.replace('hands', 'hands-off').padEnd(23)}: reached ${String(got).padStart(4)}/${PLAYERS} (${(100 * got / PLAYERS).toFixed(1)} %), all players p25/median/p75 ${[0.25, 0.5, 0.75].map(q => fmt(rank(d, q))).join('/')}${of}`);
+  }
+  console.log(`pitchers by pitch count (#378 part 2: ${PITCH_COUNTS.join('/')} pitches, default split of the role), to the 一軍 median ${t.median}:`);
+  for (const [k, list] of Object.entries(byPitches)) {
+    const d = list.map(x => x.days).sort((a, b) => a - b), got = d.filter(x => x !== Infinity).length, gain = list.reduce((s, x) => s + x.gain, 0) / list.length;
+    console.log(`  ${k.replace('hands', 'hands-off').padEnd(12)}: reached ${String(got).padStart(3)}/${list.length}, days p25/median/p75 ${[0.25, 0.5, 0.75].map(q => fmt(rank(d, q))).join('/')}; season-1 gain per pitch ${gain.toFixed(1)}`);
   }
 }

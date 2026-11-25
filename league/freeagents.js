@@ -8,7 +8,11 @@
  *                            ratingsOf(player) on the factory scale (league/ratings.js).
  *
  * A choice: { kind: 'bat', pos, bats, build, look, points: {con, pow, eye, spd, arm}, nameDraw, train }
- *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw, train }.
+ *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw, train, pitches }.
+ * pitches (#378 part 2, optional): the pitcher's starter list, names from CREATE.pitches (the engine's PITCH_TYPES),
+ * 1 to CREATE.starterPitches of them, no repeats, always with the fastball CREATE.pitches[0]. Each starts at his stuff
+ * points and is stored on the player as `pitches: { name: display rating }`; the training split then holds each pitch
+ * too (league/training.js). Display and training only for now: the engine still mixes PITCH_TYPES for every pitcher.
  * role (#378): SP 先發, MR 中繼, RP 後援, CL 終結. The engine starts an SP and puts every other role in the bullpen.
  * train (#369, optional): the daily training split, whole percents over the same ability keys, sum 100
  * (league/training.js); left out = defaultSplit (by pitcher role, even for batters). It is stored on the player as `train`.
@@ -19,7 +23,8 @@ import { ROSTERS } from './players.js';
 import { STAFF, UMPIRES } from './staff.js';
 import { SURNAMES, GIVEN } from './namepool.js';
 import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
-import { validateSplit, defaultSplit } from './training.js';
+import { validateSplit, defaultSplit, trainKeys } from './training.js';
+import { PITCH_TYPES } from '../engine/constants.js';
 
 /* Free agents are young: given names of the youngest pool. */
 export const NAME_DECADE = 1990;
@@ -34,6 +39,9 @@ export const CREATE = {
   kinds: ['bat', 'pit'],
   positions: ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'],
   roles: ['SP', 'MR', 'RP', 'CL'],
+  /* the engine's pitches; the first (直球) is in every list. starterPitches: the most a created pitcher starts with */
+  pitches: PITCH_TYPES.map(t => t[0]),
+  starterPitches: 3,
   hands: ['L', 'R'],
   /* build -> body blend weights (render) and height range in metres */
   builds: {
@@ -97,7 +105,7 @@ export function validateCreate(c) {
   const out = [], C = CREATE;
   if (!c || typeof c !== 'object') return ['no choice given'];
   if (!C.kinds.includes(c.kind)) return [`kind must be one of ${C.kinds.join(', ')}`];
-  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'look', 'points', 'nameDraw', 'train'];
+  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'look', 'points', 'nameDraw', 'train', ...(bat ? [] : ['pitches'])];
   for (const k of Object.keys(c)) if (!allowed.includes(k)) out.push(`unknown field ${k}`);
   if (bat && !C.positions.includes(c.pos)) out.push(`position must be one of ${C.positions.join(', ')}`);
   if (!bat && !C.roles.includes(c.role)) out.push(`role must be one of ${C.roles.join(', ')}`);
@@ -107,7 +115,16 @@ export function validateCreate(c) {
   if (!sameKeys(c.look, lk)) out.push(`look must hold exactly ${lk.join(', ')}`);
   else for (const k of lk) if (!inRange(c.look[k], C.look[k])) out.push(`look.${k} must be a whole number from ${C.look[k][0]} to ${C.look[k][1]}`);
   if (c.nameDraw !== undefined && !inRange(c.nameDraw, [0, C.maxNameDraw])) out.push(`nameDraw must be a whole number from 0 to ${C.maxNameDraw}`);
-  if (c.train !== undefined) out.push(...validateSplit(C.keys[c.kind], c.train));
+  if (!bat && c.pitches !== undefined) {
+    const ok = Array.isArray(c.pitches) && c.pitches.length >= 1 && c.pitches.length <= C.starterPitches;
+    if (!ok) out.push(`pitches must be a list of 1 to ${C.starterPitches} pitches`);
+    else {
+      for (const n of c.pitches) if (!C.pitches.includes(n)) out.push(`pitch ${n} must be one of ${C.pitches.join(', ')}`);
+      if (new Set(c.pitches).size !== c.pitches.length) out.push('pitches must not repeat');
+      if (!c.pitches.includes(C.pitches[0])) out.push(`pitches must include ${C.pitches[0]}`);
+    }
+  }
+  if (c.train !== undefined) out.push(...validateSplit(trainKeys(c.kind, Array.isArray(c.pitches) ? c.pitches : null), c.train));
   const keys = C.keys[c.kind], budget = C.budget[c.kind], cap = C.cap[c.kind];
   if (!sameKeys(c.points, keys)) out.push(`points must hold exactly ${keys.join(', ')}`);
   else {
@@ -142,6 +159,8 @@ export function makePlayer(seed, c) {
     const con = raw('con', c.points.con);
     Object.assign(p, { pos: c.pos, con, pow: raw('pow', c.points.pow), eye: raw('eye', c.points.eye), age, pot: raw('pot', pot), arm: r3(raw('arm', c.points.arm)), avg: AVG_FIT(con), spd: r3(raw('spd', c.points.spd)), hand: c.bats });
   }
-  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(CREATE.keys[c.kind].map(k => [k, (c.train || defaultSplit(c.kind, c.role))[k]])) });
+  if (pit && c.pitches) p.pitches = Object.fromEntries(CREATE.pitches.filter(n => c.pitches.includes(n)).map(n => [n, c.points.stuff]));
+  const tk = trainKeys(c.kind, pit && c.pitches ? Object.keys(p.pitches) : null), split = c.train || defaultSplit(c.kind, c.role, pit && c.pitches ? Object.keys(p.pitches) : null);
+  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(tk.map(k => [k, split[k]])) });
   return { player: p, ratings: ratingsOf(p) };
 }

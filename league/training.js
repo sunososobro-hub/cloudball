@@ -4,8 +4,10 @@
  *
  *   validateSplit(keys, split)   list of plain reasons; empty = fine. A split: { <ability key>: whole percent }, sum 100.
  *   evenSplit(keys)              an even split over those keys.
- *   defaultSplit(kind, role)     the split used when a fan leaves the sliders alone: by pitcher role (ROLE_SPLIT,
- *                                #378), even for batters and for a role without an entry.
+ *   defaultSplit(kind, role, pitches)  the split used when a fan leaves the sliders alone: by pitcher role (ROLE_SPLIT,
+ *                                #378), even for batters and for a role without an entry. With a pitch list (#378 part 2)
+ *                                each pitch takes PITCH_SHARE percent and the abilities share the rest in the same ratio.
+ *   trainKeys(kind, pitches)     the keys a split must hold: the abilities, plus each pitch of a pitcher's list.
  *   ageFactor(age)               growth multiplier of that age (AGE_CURVE, straight lines between its points).
  *   trainDay(state, r, bonus)    one day: state { pit, age0, day, pot, split, abil: { key: display value } } grows
  *                                in place; r is the seeded RNG; bonus is the plain number a training mini-game
@@ -20,6 +22,9 @@
  *   it; a day that would lift the overall past the potential gains nothing. Each ability takes its split share of the
  *   gain (the split decides which abilities grow) up to ABIL_MAX, the top of the display scale; the share it cannot use
  *   is lost (the fan chose the split). Nothing ever drops.
+ *   Pitches (#378 part 2): a pitcher's own pitches are split keys too, each a display rating that grows like an ability
+ *   but does not count in the overall (league/ratings.js knows stuff, ctrl, arm only), so every percent on a pitch is a
+ *   percent the overall does not get: more pitches, slower to the 一軍 (train_sim prints it for 1, 3 and 5 pitches).
  *   Age: one season is one year (DAYS_PER_SEASON days of training), so age = age at creation + whole seasons passed. */
 import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
 
@@ -55,9 +60,26 @@ export const ROLE_SPLIT = {
   RP: { stuff: 50, ctrl: 35, arm: 15 },
   CL: { stuff: 60, ctrl: 30, arm: 10 },
 };
+/* default percent of the daily training on each pitch of the list (#378 part 2). First guess, not tuned: 8 keeps a
+ * five-pitch pitcher at 60 % on his abilities. */
+export const PITCH_SHARE = 8;
+export const trainKeys = (kind, pitches) => [...KEYS[kind], ...(kind === 'pit' && pitches ? pitches : [])];
+/* whole percents in the ratio of w summing to total, largest remainder (ties: key order) */
+function scaleTo(w, total) {
+  const keys = Object.keys(w), sum = keys.reduce((t, k) => t + w[k], 0) || 1, out = {};
+  const exact = keys.map(k => w[k] * total / sum);
+  keys.forEach((k, i) => { out[k] = Math.floor(exact[i]); });
+  let left = total - keys.reduce((t, k) => t + out[k], 0);
+  for (const i of keys.map((k, i) => i).sort((a, b) => (exact[b] - Math.floor(exact[b])) - (exact[a] - Math.floor(exact[a])) || a - b)) { if (left <= 0) break; out[keys[i]]++; left--; }
+  return out;
+}
 export const evenSplit = keys => Object.fromEntries(keys.map((k, i) => [k, Math.floor(SPLIT_TOTAL / keys.length) + (i < SPLIT_TOTAL % keys.length ? 1 : 0)]));
 
-export const defaultSplit = (kind, role) => (kind === 'pit' && ROLE_SPLIT[role] ? { ...ROLE_SPLIT[role] } : evenSplit(KEYS[kind]));
+export function defaultSplit(kind, role, pitches) {
+  const base = kind === 'pit' && ROLE_SPLIT[role] ? { ...ROLE_SPLIT[role] } : evenSplit(KEYS[kind]);
+  if (kind !== 'pit' || !pitches || !pitches.length) return base;
+  return { ...scaleTo(base, SPLIT_TOTAL - PITCH_SHARE * pitches.length), ...Object.fromEntries(pitches.map(n => [n, PITCH_SHARE])) };
+}
 
 export function ageFactor(age) {
   const c = AGE_CURVE;
@@ -87,7 +109,7 @@ export function trainDay(s, r, bonus = 0) {
 
 export function overallOf(s) {
   const p = s.pit ? { role: 'SP' } : {};
-  for (const k of Object.keys(s.abil)) p[k] = ratingsOf.raw(s.pit, k, Math.round(s.abil[k]));
+  for (const k of KEYS[s.pit ? 'pit' : 'bat']) p[k] = ratingsOf.raw(s.pit, k, Math.round(s.abil[k]));
   p.pot = ratingsOf.raw(s.pit, 'pot', s.pot);
   return ratingsOf(p).ovr;
 }
