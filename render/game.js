@@ -1289,13 +1289,14 @@ function catcherThrow(e,u,S,sp){const C=fielders.C,catchAt=ARRIVE+CATCH_SNAP,xfe
 const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 /* #38 wild pitch (engine: e.wp, runners' runner_advance how 'wild_pitch'): the ball hits the dirt in front of the plate, skips under the mitt
    and rolls toward the backstop (left or right by the pitch's side); the catcher gets up, runs it down, picks it up and walks back to his spot.
+   Passed ball (e.pb too, how 'passed_ball'): a catchable pitch glances off the mitt instead of the dirt, then rolls the same way.
    Runners are drawn from e.moves like every other advance. Pure function of (event, time). */
 const WP_DIRT_Z=-.3,WP_SKIP=.25,WP_ROLL=1.7,WP_REST_X=4,WP_REST_Z=NET_Z-2.5,WP_C_REACT=.35,WP_C_SPEED=6.5,WP_PICK=.5,WP_BACK_V=4;
 function wpPlan(e){const sx=e.zx<0?-1:1,rest=[sx*WP_REST_X,.04,WP_REST_Z],c0=[0,MITT_Z+.6],D=Math.hypot(rest[0]-c0[0],rest[2]-c0[1]),
   reach=ARRIVE+WP_C_REACT+runTime(Math.max(0,D-.6),WP_C_SPEED),back=reach+WP_PICK;return{rest,c0,D,reach,back,end:back+D/WP_BACK_V}}
-function wpBall(e,u,plate){const W=wpPlan(e),dirt=[plate[0]*.8,.03,WP_DIRT_Z+.6];
+function wpBall(e,u,plate){const W=wpPlan(e),dirt=e.pb?[plate[0],plate[1],MITT_Z]:[plate[0]*.8,.03,WP_DIRT_Z+.6];/* PB: off the mitt where it was set */
   if(u<ARRIVE)return null;if(u<ARRIVE+WP_SKIP)return arc(plate,dirt,0,(u-ARRIVE)/WP_SKIP);
-  if(u<ARRIVE+WP_SKIP+WP_ROLL){const k=(u-ARRIVE-WP_SKIP)/WP_ROLL;return arc(dirt,W.rest,.5*(1-k),1-(1-k)*(1-k))}
+  if(u<ARRIVE+WP_SKIP+WP_ROLL){const k=(u-ARRIVE-WP_SKIP)/WP_ROLL;return arc(dirt,W.rest,(e.pb?.3:.5)*(1-k),1-(1-k)*(1-k))}
   if(u<W.reach)return W.rest;const q=fielders.C.handWorld(1);return[q.x,q.y,q.z]}
 function wpCatcher(e,u){const C=fielders.C,W=wpPlan(e),t=u-ARRIVE-WP_C_REACT;if(t<=0)return;
   const [rx,,rz]=W.rest,[hx,hz]=W.c0,dx=(rx-hx)/W.D,dz=(rz-hz)/W.D;let d;
@@ -1434,7 +1435,7 @@ function poseScene(e,u,dt,ei){
   /* sound cues */
   const cue=(name,at,fn)=>{const key=e.t+name;if(u>=at&&u<at+.6&&!cues.has(key)){cues.add(key);fn()}};
   if(contact)cue('crack',ARRIVE,()=>crack(bunt?BUNT_CRACK:e.r==='inplay'?1:.5));
-  else if(e.r!=='hbp'&&!e.wp)cue('pop',ARRIVE+.05,pop);
+  else if(e.r!=='hbp'&&(!e.wp||e.pb))cue('pop',ARRIVE+.05,pop);/* a passed ball still hits the mitt */
   if(e.big)cue('roar',e.showAt,()=>roar(e.big));
   return s;
 }
@@ -1786,7 +1787,8 @@ const STUDIO_ACTS=[
   ['跑壘','tagup','高飛犧牲打・回壘再衝本壘',e=>pl(e,p=>p.res==='out'&&p.type==='FB'&&e.runs>0)],
   ['跑壘','tag3','高飛接殺・二壘跑者回壘衝三壘',e=>pl(e,p=>p.res==='out')&&e.plan.tagPlay&&e.plan.CV.base===3],
   ['跑壘','sf23','高飛犧牲打・二壘跑者跟進三壘',e=>pl(e,p=>p.res==='out'&&p.type==='FB')&&(e.moves||[]).some(m=>m[0]===3&&m[1]===4)&&(e.moves||[]).some(m=>m[0]===2&&m[1]===3),STUDIO_SEEDS_RARE],
-  ['跑壘','wp','暴投・跑者推進（捕手追球）',e=>e.k==='P'&&e.wp],
+  ['跑壘','wp','暴投・跑者推進（捕手追球）',e=>e.k==='P'&&e.wp&&!e.pb],
+  ['跑壘','pb','捕逸・球彈出手套（捕手追球）',e=>e.k==='P'&&e.pb,STUDIO_SEEDS_RARE],
   ['上壘','bb','四壞保送',e=>e.k==='P'&&/保送/.test(e.desc||'')&&e.r!=='ibb'],
   ['上壘','hbp','觸身球',e=>e.k==='P'&&e.r==='hbp'],
   ['上壘','ibb','故意四壞',e=>e.k==='P'&&e.r==='ibb'],
