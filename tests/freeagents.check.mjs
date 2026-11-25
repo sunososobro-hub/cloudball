@@ -8,6 +8,8 @@
  *   - over NAME_DRAWS draws a name is a real athlete's, a league person's (players, staff, booth), or uses a given
  *     name common only for births after 2011,
  *   - a created batter and a created starter, put on a copy of a roster, do not play one legal game in the engine,
+ *   - a pitcher role other than SP (MR, RP, CL, #378) is refused, or the engine does not treat MR and CL as bullpen
+ *     arms exactly like RP (a roster whose relievers are relabelled MR / CL plays the same game byte for byte),
  *   - league/freeagents.js uses Math.random or Date, or touches ROSTERS.
  * static.mjs runs this file.
  * Usage: node tests/freeagents.check.mjs */
@@ -47,7 +49,7 @@ const off = {
   'potential chosen': { ...BAT, points: { ...BAT.points, pot: 99 } },
   'free-text name': { ...BAT, name: '王建民' },
   'bad position': { ...BAT, pos: 'P' },
-  'bad role': { ...PIT, role: 'CL' },
+  'bad role': { ...PIT, role: 'P' },
   'switch hitter': { ...BAT, bats: 'S' },
   'bad build': { ...BAT, build: 'giant' },
   'look out of range': { ...BAT, look: { ...look, hair: 10 } },
@@ -55,6 +57,8 @@ const off = {
   'bad nameDraw': { ...BAT, nameDraw: -1 },
   'no choice': null,
 };
+for (const role of CREATE.roles) { const w = validateCreate({ ...PIT, role }); if (w.length) bad(`role ${role} refused: ${w.join('; ')}`); }
+if (!['SP', 'MR', 'RP', 'CL'].every(x => CREATE.roles.includes(x))) bad(`CREATE.roles ${CREATE.roles.join(', ')} misses one of SP, MR, RP, CL`);
 for (const [what, c] of Object.entries(off)) if (!validateCreate(c).length) bad(`${what}: accepted`);
 try { makePlayer(1, off['over budget']); bad('makePlayer accepted an invalid choice'); } catch { /* expected */ }
 
@@ -98,6 +102,15 @@ try {
   if (!g.stream.some(e => JSON.stringify(e).includes(fb.name))) bad(`created batter ${fb.name} never appears in the game`);
   if (!g.stream.some(e => JSON.stringify(e).includes(fp.name))) bad(`created starter ${fp.name} never appears in the game`);
 } catch (e) { bad(`engine threw with created players: ${e.message}`); }
+
+/* MR and CL pitch out of the bullpen exactly like RP: relabel every reliever, the games stay the same */
+const relabel = JSON.parse(JSON.stringify(ROSTERS));
+for (const t of relabel) { let n = 0; for (const p of t.pit) if (p.role === 'RP') p.role = n++ % 2 ? 'CL' : 'MR'; }
+for (const seed of [3, 378, 704]) {
+  const a = simGame(seed, {}, { rosters: ROSTERS }), b = simGame(seed, {}, { rosters: relabel });
+  if (JSON.stringify(a.stream) !== JSON.stringify(b.stream)) { bad(`seed ${seed}: relievers labelled MR / CL do not pitch like RP`); break; }
+  if (!a.stream.some(e => e.type === 'substitution' && e.role === 'pitcher')) bad(`seed ${seed}: no pitching change, the bullpen check proves nothing`);
+}
 
 const src = readFileSync(path.join(ROOT, 'league/freeagents.js'), 'utf8');
 if (/Math\.random|\bDate\b/.test(src)) bad('league/freeagents.js uses Math.random or Date');

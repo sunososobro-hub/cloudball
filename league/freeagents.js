@@ -9,8 +9,9 @@
  *
  * A choice: { kind: 'bat', pos, bats, build, look, points: {con, pow, eye, spd, arm}, nameDraw, train }
  *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw, train }.
+ * role (#378): SP 先發, MR 中繼, RP 後援, CL 終結. The engine starts an SP and puts every other role in the bullpen.
  * train (#369, optional): the daily training split, whole percents over the same ability keys, sum 100
- * (league/training.js); left out = even. It is stored on the player as `train`.
+ * (league/training.js); left out = defaultSplit (by pitcher role, even for batters). It is stored on the player as `train`.
  * The points are spent in full (sum = the budget of the kind), each between FLOOR and CAP. Potential, age, height
  * and shirt number are not chosen: they are drawn from the seed (potential is the luck people talk about).
  * Nothing here touches ROSTERS: a created player reaches a game only through a roster given to the engine (rule 10). */
@@ -18,7 +19,7 @@ import { ROSTERS } from './players.js';
 import { STAFF, UMPIRES } from './staff.js';
 import { SURNAMES, GIVEN } from './namepool.js';
 import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
-import { validateSplit, evenSplit } from './training.js';
+import { validateSplit, defaultSplit } from './training.js';
 
 /* Free agents are young: given names of the youngest pool. */
 export const NAME_DECADE = 1990;
@@ -32,7 +33,7 @@ const NAME_SALT = 0x9e3779b1;
 export const CREATE = {
   kinds: ['bat', 'pit'],
   positions: ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'],
-  roles: ['SP', 'RP'],
+  roles: ['SP', 'MR', 'RP', 'CL'],
   hands: ['L', 'R'],
   /* build -> body blend weights (render) and height range in metres */
   builds: {
@@ -141,6 +142,6 @@ export function makePlayer(seed, c) {
     const con = raw('con', c.points.con);
     Object.assign(p, { pos: c.pos, con, pow: raw('pow', c.points.pow), eye: raw('eye', c.points.eye), age, pot: raw('pot', pot), arm: r3(raw('arm', c.points.arm)), avg: AVG_FIT(con), spd: r3(raw('spd', c.points.spd)), hand: c.bats });
   }
-  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(CREATE.keys[c.kind].map(k => [k, (c.train || evenSplit(CREATE.keys[c.kind]))[k]])) });
+  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(CREATE.keys[c.kind].map(k => [k, (c.train || defaultSplit(c.kind, c.role))[k]])) });
   return { player: p, ratings: ratingsOf(p) };
 }

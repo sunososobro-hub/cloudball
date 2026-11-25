@@ -10,7 +10,7 @@ import { specOfChoice, specOfRow } from './preview-spec.js';
 
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊' };
-const ROLE = { SP: '先發投手', RP: '後援投手' };
+const ROLE = { SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
 const HAND = { L: '左', R: '右' };
 const BUILD = { normal: '標準', slim: '精瘦', power: '力量型', heavy: '壯碩' };
 const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球' };
