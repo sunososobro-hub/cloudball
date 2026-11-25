@@ -1414,40 +1414,7 @@ const inningLabel=s=>`${s.inn} 局${s.half?'下':'上'}`;
 let hudKey='',feedKey='';
 function setDots(el,n){el.querySelectorAll('i').forEach((d,i)=>d.classList.toggle('on',i<n))}
 const dotRows=document.querySelectorAll('.sit .dots');
-/* the scorebug sits above the player bar (#47) while that is shown; bottom is in the bug's own zoomed pixels */
-function bugPlace(){const bar=document.querySelector('.bar'),bug=$('bug');if(!bar||!bug)return;const pl=$('player'),z=parseFloat(getComputedStyle(bug).zoom)||1;
-  const bh=pl&&!pl.hidden?Math.round((pl.offsetHeight+parseFloat(getComputedStyle(pl).bottom)+8)/z):20;if(!L.bug)bug.style.bottom=bh+'px';const top=bh+bug.offsetHeight+8;if(!L.feed)$('feed').style.bottom=top+'px';$('vote').style.bottom=top+'px'}
-addEventListener('resize',bugPlace);
-/* ---------- Layout editor: every UI element can be dragged and scaled; saved in this browser ---------- */
-const LAYOUT_KEY='zu_layout',EDIT_ELS=[['bug','A1','比分面板'],['feed','A2','戰況列'],['who','A3','左上狀態'],['gear','A4','設定鈕'],['tag','A5','版本標'],['report','A6','回報鈕']];
-let L={},editing=false,selId='bug',ed=null;
-try{const v=JSON.parse(localStorage.getItem(LAYOUT_KEY)||'{}');for(const k in v){const o=v[k];if(EDIT_ELS.some(x=>x[0]===k)&&o&&isFinite(o.x)&&isFinite(o.y)&&isFinite(o.s))L[k]={x:o.x,y:o.y,s:clamp(o.s,.5,2)}}}catch(e){}
-const layoutSave=()=>{try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(L))}catch(e){}};
-function applyEl(id){const el=$(id),o=L[id];
-  if(!o){el.style.left=el.style.top=el.style.right=el.style.bottom=el.style.transform=el.style.transformOrigin='';return}
-  el.style.left=o.x+'px';el.style.top=o.y+'px';el.style.right='auto';el.style.bottom='auto';el.style.transformOrigin='top left';el.style.transform=o.s===1?'':`scale(${o.s})`}
-function applyLayout(){for(const [id] of EDIT_ELS)applyEl(id);bugPlace()}
-function pinEl(id){if(!L[id]){const r=$(id).getBoundingClientRect();L[id]={x:Math.round(r.left),y:Math.round(r.top),s:1}}}
-const lbls=document.createElement('div');lbls.id='lbls';document.body.appendChild(lbls);
-function drawLabels(){if(!editing){lbls.innerHTML='';return}
-  lbls.innerHTML=EDIT_ELS.map(([id,c,n])=>{const r=$(id).getBoundingClientRect(),s=id===selId?' sel':'';return `<div class="bx${s}" style="left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px"></div><div class="lb${s}" style="left:${r.left}px;top:${Math.max(0,r.top-22)}px">${c} ${n}</div>`}).join('');
-  const o=EDIT_ELS.find(x=>x[0]===selId);$('edTxt').textContent=`${o[1]} ${o[2]}・縮放 ${Math.round((L[selId]?L[selId].s:1)*100)}%`}
-setInterval(drawLabels,150);
-function scaleSel(d,id){id=id||selId;pinEl(id);L[id].s=Math.round(clamp(L[id].s+d,.5,2)*100)/100;applyEl(id);bugPlace();layoutSave();drawLabels()}
-function setEditing(on){editing=on;document.body.classList.toggle('edit',on);$('edbar').hidden=!on;if(on){$('bar').classList.add('collapsed');$('gear').textContent='⚙ 設定'}drawLabels()}
-for(const [id] of EDIT_ELS){const el=$(id);
-  el.addEventListener('pointerdown',e=>{if(!editing)return;e.preventDefault();e.stopImmediatePropagation();selId=id;pinEl(id);applyEl(id);const r=el.getBoundingClientRect();ed={id,dx:e.clientX-r.left,dy:e.clientY-r.top,w:r.width,h:r.height};try{el.setPointerCapture(e.pointerId)}catch(err){}drawLabels()},true);
-  el.addEventListener('pointermove',e=>{if(!ed||ed.id!==id)return;L[id].x=Math.round(clamp(e.clientX-ed.dx,0,Math.max(0,innerWidth-ed.w)));L[id].y=Math.round(clamp(e.clientY-ed.dy,0,Math.max(0,innerHeight-ed.h)));applyEl(id);bugPlace();drawLabels()});
-  const end=()=>{if(ed&&ed.id===id){ed=null;layoutSave()}};el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
-  el.addEventListener('wheel',e=>{if(!editing)return;e.preventDefault();scaleSel(e.deltaY<0?.1:-.1,id)},{passive:false});
-  el.addEventListener('click',e=>{if(editing){e.preventDefault();e.stopImmediatePropagation()}},true)}
-let histOn=false;try{histOn=localStorage.getItem('zu_hist')==='1'}catch(e){}
-const histApply=()=>{document.body.classList.toggle('hist',histOn);$('hist').setAttribute('aria-pressed',histOn)};histApply();
-$('hist').onclick=()=>{histOn=!histOn;histApply();try{localStorage.setItem('zu_hist',histOn?'1':'0')}catch(e){}};
-$('editUI').onclick=()=>setEditing(true);$('edDone').onclick=()=>setEditing(false);
-$('edMinus').onclick=()=>scaleSel(-.1);$('edPlus').onclick=()=>scaleSel(.1);
-$('edOne').onclick=()=>{delete L[selId];applyEl(selId);bugPlace();layoutSave();drawLabels()};
-$('edAll').onclick=()=>{L={};applyLayout();layoutSave();drawLabels()};
+const {bugPlace,applyLayout,editing:isEditing}=window.UILAYOUT({$,clamp,note});/* #4: ui/layout.js */
 
 let bugKey='';
 function hudBug(e,u,s,c){const P=e.k==='P'&&e.r!=='ibb',np=P?(u>=ARRIVE?e.pc:e.pc-1):'',sh=P&&u>=RELEASE+.05&&u<ARRIVE+4,k=[s.sc,s.inn,s.half,s.outs,s.b.map(Boolean),c,P?e.t:'',np,sh,e.k==='END'].join('|');if(k===bugKey)return;bugKey=k;
@@ -1578,16 +1545,8 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   if(tw>0||tightPrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
   else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
-$('gear').onclick=()=>{if(editing)return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
+$('gear').onclick=()=>{if(isEditing())return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
-/* Phone landscape: fullscreen + orientation lock (works on Android Chrome; iPhone Safari cannot lock orientation, so tell the user to rotate) */
-async function goLandscape(){const d=document,inFs=d.fullscreenElement||d.webkitFullscreenElement;
-  if(inFs){try{screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock()}catch(e){}(d.exitFullscreen||d.webkitExitFullscreen).call(d);$('land').textContent='⛶ 橫向';return}
-  let ok=false;try{const el=d.documentElement;await (el.requestFullscreen||el.webkitRequestFullscreen).call(el);await screen.orientation.lock('landscape');ok=true;$('land').textContent='⤢ 離開'}catch(e){}
-  if(!ok)note('這台不能自動轉：關掉螢幕旋轉鎖定，把手機轉橫就好')}
-$('land').onclick=goLandscape;
-{const mq=matchMedia('(pointer:coarse) and (orientation:portrait)');let told=false;try{told=localStorage.getItem('zu_landHint')==='1'}catch(e){}
- if(mq.matches&&!told)setTimeout(()=>{note('手機轉橫看，畫面比較大（右上「⛶ 橫向」）');try{localStorage.setItem('zu_landHint','1')}catch(e){}},2500)}
 addEventListener('orientationchange',()=>setTimeout(()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);bugPlace()},300));
 /* Collapse the studio panel: keep only play and the timeline so it covers less of the view (stored in zu_stFold) */
 {let fold=false;try{fold=localStorage.getItem('zu_stFold')==='1'}catch(e){}const setFold=v=>{fold=v;$('studio').classList.toggle('fold',v);$('stFold').textContent=v?'▴':'▾';try{localStorage.setItem('zu_stFold',v?'1':'0')}catch(e){}};setFold(fold);$('stFold').onclick=()=>setFold(!fold)}
