@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.3';
+export const ENGINE_VERSION = '0.4.4';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -152,6 +152,11 @@ export const STEAL_OK_BASE = 0.75;
 export const STEAL_OK_PER_SPD = 0.6;
 export const STEAL_OK_RANGE = [0.5, 0.9];
 export const HOME_SLIDE_P = 0.5;
+/* Wild pitch (#38): a low pitch out of the zone (ball or chased swinging strike, not ending the plate appearance)
+ * with a runner on and no steal on gets past the catcher with this chance; every runner moves up one base.
+ * Tuned so WP/game matches tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
+export const WP_P = 0.025;
+export const WP_BREAK = 0.35;             /* runners break this long after the ball reaches the plate (it skips past the mitt) */
 
 /* ---- manager decisions ---- */
 /* The starter's pitch budget as his coach sees it: SP_LIMIT_PITCHES while nobody has scored on him,
