@@ -7,6 +7,7 @@
   `run.mjs` checks IP/start and the quick hook; walk-off line without the comma.
 - #7 (0.4.3): `sinCosDeg` (`+ - * /` only) replaces `Math.sin`/`Math.cos`. `run.mjs` bans `Math.sin`, `Math.pow`, `**` in `engine/`, pins `TRIG_PRINT`.
 - #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`).
+- #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 
 ## Next
 1. #23 catcher holds the ball on steals: needs a primary lead from `render/` first (see the issue).
