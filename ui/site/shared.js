@@ -22,6 +22,20 @@ export function combine({ teams, players, games } = {}) {
 /* season "0" is the pre-season: on screen it reads 熱身賽 (#343); the data key stays "0". Later seasons read 第 N 季. */
 export const seasonLabel = d => (d.season === '' || d.season == null ? '' : String(d.season) === '0' ? '熱身賽' : `第 ${esc(d.season)} 季`);
 
+/* Created players (#399): rows of /api/freeagents ({ id, kind, player, ratings }) become free agents (tier 3, no team) in `data.players`, next to the published
+ * ones. A published id is never replaced; a bad row is skipped. Potential stays hidden for created players (#384). Display only (rule 10). */
+export function mergeCreated(d, rows) {
+  const players = { ...d.players };
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const p = r && r.player, R = r && r.ratings, id = r && (r.id ?? (p && p.id));
+    if (!p || !R || typeof p !== 'object' || id == null || id === '' || players[id]) continue;
+    const pit = r.kind === 'pit', keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
+    players[id] = { name: p.name, num: p.num, age: p.age, role: pit ? 'P' : 'B', pos: pit ? (p.role === 'SP' ? 'SP' : 'RP') : p.pos, hand: pit ? p.throws : p.hand,
+      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3 };
+  }
+  return { ...d, players };
+}
+
 export const empty = msg => `<p class="empty">${esc(msg)}</p>`;
 export const teamOf = (d, id) => d.teams.find(t => t.id === id);
 export const teamName = (d, id) => (teamOf(d, id) || {}).name || (id == null ? '—' : String(id));

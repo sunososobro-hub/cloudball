@@ -4,7 +4,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { DATA_FILES, TABS, FILTERS, combine, render, myPlayerView, replayLink, safeUrl, seasonLabel } from '../ui/site-data.js';
+import { DATA_FILES, TABS, FILTERS, combine, mergeCreated, render, myPlayerView, replayLink, safeUrl, seasonLabel } from '../ui/site-data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const problems = [], bad = m => problems.push(m);
@@ -38,6 +38,14 @@ if (g.indexOf('2026-11-22') > g.indexOf('2026-11-21') || !g.includes('href="play
 if (!/還沒有自己的球員/.test(myPlayerView(full, '')) || !/找不到/.test(myPlayerView(full, 'zzz')) || !myPlayerView(full, 'a2').includes('二軍')) bad('my player tab: empty state, unknown id, tier shown');
 for (const [what, html] of [['no player', myPlayerView(full, '')], ['unknown id', myPlayerView(full, 'zzz')], ['player', myPlayerView(full, 'a1')]])
   if (!html.includes('<a href="agent.html">')) bad(`my player tab (${what}) must link to agent.html (#341)`);
+/* created players (#399): API rows merge into the published data as tier-3 free agents; the owner's id resolves in 我的球員 */
+{ const rows = [{ id: 'fa-1', kind: 'bat', player: { id: 'fa-1', name: '新打者', num: 9, pos: 'SS', hand: 'R', age: 21 }, ratings: { ovr: 55, con: 60, pow: 50, eye: 50, spd: 50, arm: 50, pot: 77 } },
+    { id: 'fa-2', kind: 'pit', player: { id: 'fa-2', name: '新投手', num: 11, role: 'CL', throws: 'L', age: 22 }, ratings: { ovr: 48, stuff: 60, ctrl: 50, arm: 50, pot: 70 } }, { id: 'a3', kind: 'bat', player: { name: '蓋掉', pos: 'C' }, ratings: { ovr: 1 } }, null, { id: 'x' }];
+  const d = mergeCreated(full, rows), fa = render('fa', d), mine = myPlayerView(d, 'fa-1');
+  if (!fa.includes('新打者') || !fa.includes('新投手') || !fa.includes('陳自由') || fa.includes('蓋掉')) bad('#399: free agents tab lists created players next to the published ones, never replacing a published id');
+  if (!mine.includes('新打者') || mine.includes('找不到') || mine.includes('77') || !mine.includes('自由市場')) bad('#399: 我的球員 finds the created player by id, tier 3, no pot');
+  if (Object.keys(d.players).length !== 5 || Object.keys(full.players).length !== 3) bad('#399: merge adds the 2 good rows only and does not change its input');
+  if (render('fa', mergeCreated(missing, rows)).includes('目前沒有人') || !/目前沒有人/.test(render('fa', mergeCreated(missing, null)))) bad('#399: no API rows = the old empty state; rows alone fill an empty site'); }
 const ag = readFileSync(path.join(ROOT, 'ui/agent.js'), 'utf8');
 if (/Object\.entries\(LOOK\)|外觀：/.test(ag)) bad('agent.js: the look chips (head, skin, hair) stay hidden until #151 (#341)');
 if (seasonLabel(full) !== '熱身賽' || seasonLabel(plain) !== '' || seasonLabel(combine({ teams: { season: '1', teams: [] } })) !== '第 1 季') bad('season label comes from teams.json season only: 0 reads 熱身賽 (#343), later seasons 第 N 季');
