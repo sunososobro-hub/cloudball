@@ -25,6 +25,11 @@ branch=$1
 base=$2
 issue=$3
 session=${4:-${CLAUDE_SESSION_ID:-local}}
+# Only work and claim branches may be created this way (never dev, main or release branches).
+if ! [[ "$branch" =~ ^(fix|feat)/[0-9]+(-r[0-9]+)?$|^claim/[0-9]+-[0-9a-f]{7}$ ]]; then
+  echo "refused branch name: ${branch}" >&2
+  exit 2
+fi
 nonce=$(od -An -N8 -tx8 /dev/urandom | tr -d ' \n')
 
 tree=$(git rev-parse "${base}^{tree}")

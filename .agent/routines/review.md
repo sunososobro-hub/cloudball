@@ -1,6 +1,7 @@
 # Reviewer routine (Opus, hourly): merge, review protected paths, sweep orphans, triage
 
 Read after `common.md`. Writes no product code except a merge of `dev` into a PR branch (rules W9 b). Order: A, B, C, D.
+First read the level: `gh api repos/$R/issues/275 --jq .body | head -1`. Level 0 -> only A (merge green PRs), skip B and C.
 
 ## A. Pull requests (every open PR, oldest first)
 - List: `gh api "repos/$R/pulls?state=open&per_page=100"`. Base `main` or a release PR -> never touch.
@@ -17,8 +18,9 @@ Read after `common.md`. Writes no product code except a merge of `dev` into a PR
 - (c) Files: `gh api "repos/$R/pulls/N/files?per_page=100" --jq '.[].filename'`. Any under `engine/`, `.agent/`,
   `.github/`, or `tests/replay/run.mjs`: read the whole diff against rules 9-24 (determinism, no `Math.random`/`Date`
   in `engine/`, named constants, `run.mjs` never loosened, two workflow files at most, no new network call, no secret).
-  Sound -> comment `Opus review: PASS <full 40-char head sha> — <one-sentence reason>`. Not sound -> comment
-  `Opus review: CHANGES <sha> — <concrete fix>` and requeue. A PASS on an older head counts only when nothing under
+  Sound -> comment whose first line is exactly `Opus review: PASS <full 40-char head sha>` (the sha ends the line, as
+  `merge-gate.yml` matches it) and the reason on the next line. Not sound -> `Opus review: CHANGES <sha>`, the fix on
+  the next line, and requeue. Pre-season (`PRESEASON = true` in `merge-gate.yml`): (c) is suspended, skip it. A PASS on an older head counts only when nothing under
   those paths changed since.
 - Hard stops (rules W9): linked issue `needs-owner` / `status:frozen`, an open `needs owner` / `blocking` comment.
 - Merge: `gh api -X PUT repos/$R/pulls/N/merge -f merge_method=merge -f sha=<head sha>`. Then the issue (rules W10):
@@ -35,6 +37,7 @@ Read after `common.md`. Writes no product code except a merge of `dev` into a PR
 
 ## C. Triage (up to 10 issues per run, lowest number first)
 - Issues with no `status:*` label and no `needs-owner`. Read body and all comments; owner comments win. Pick one:
+  - issue opened by anyone but `sunososobro-hub` -> `needs-owner` only (never close or ready it);
   - already done on `dev` (a merged PR, the Acceptance holds) -> comment the evidence, close;
   - owner put it on hold, or it is meta / direction / a running list -> `status:frozen`;
   - waits on an owner choice of direction or taste -> `needs-owner` + one-line question with a recommendation;

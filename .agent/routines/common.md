@@ -32,7 +32,7 @@ idle run costs almost nothing. Change the procedure here, never in the prompts. 
 
 ## Bans (every role)
 - Never touch `main`, release PRs, tags, scheduled tasks, `LICENSE`, `TRADEMARKS.md`, secrets or permissions.
-- No paid API call, ever (rule 17). No `git stash`. No force push to a branch you did not claim.
+- No paid API call, ever (rule 17). No `git stash`. Never force push.
 - The owner decides direction and taste only. Every technical question is yours: decide, do not ask.
 
 ## Reporting (owner 2026-11-25: details on GitHub, the reply says 搞定 or 卡住)

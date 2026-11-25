@@ -4,6 +4,7 @@ Read after `common.md`. One worker kind for every area: render, ui, engine, leag
 
 ## Pick
 - Level and focus: `gh api repos/$R/issues/275 --jq .body | head -2` (rules W1). Level 0 -> end. Level 1 and not slot A -> end.
+  Level 1 (slot A): only `P0` / `P1` items are candidates.
 - Candidates: `gh api -X GET search/issues -f q="repo:$R is:issue is:open author:sunososobro-hub label:status:todo -label:needs-owner -label:needs-opus -label:status:frozen -label:status:blocked" -f per_page=100`.
   Sonnet slots drop `model:opus` items; slot C takes `model:opus` first, then the rest. Order per rules W3 (P, focus, number).
 - Skip an item with an open PR whose body says `Closes/Refs #N`, unless its last comment is a `requeue:` (fix round, below).
@@ -11,7 +12,8 @@ Read after `common.md`. One worker kind for every area: render, ui, engine, leag
 
 ## Claim
 - Clone / fetch and set the identity (common.md). `git fetch origin dev && D=$(git rev-parse origin/dev)`.
-- `B=fix/N` (exists from a closed PR -> `fix/N-r2` .. `-r5`). `bash scripts/claim_branch.sh $B $D N <session>`;
+- `B=fix/N`. If a `fix/N*` branch exists with no open PR (closed PR or orphan), `B` = the next free `fix/N-rK` (K 2..5)
+  and the base is that old branch's tip, not `$D` (go on from its work). `bash scripts/claim_branch.sh $B <base> N <session>`;
   exit 1 -> next item; exit 3 -> `卡住`. Then remove `status:todo`, add `status:doing`, comment `doing (<slot>)`.
 - Fix round on an open PR: `git fetch origin pull/<PR>/head`, claim `claim/N-<head sha7>` on that head, check out
   the PR branch (not the claim branch), fix what the newest `requeue:` / `Opus review: CHANGES` names, push to the PR branch.
