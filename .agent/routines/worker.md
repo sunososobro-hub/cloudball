@@ -28,6 +28,8 @@ Read after `common.md`. One worker kind for every area: render, ui, engine, leag
 4. Just before the last check run: `git fetch origin dev && git merge --no-edit origin/dev`, resolve conflicts keeping
    both sides (rules W6). Then the three checks (common.md); all must pass.
 5. Hard stops (rules W12) -> `needs-owner` + one-line question with your recommendation, `status:blocked`, no PR.
+   Cannot proceed without data, a real device or an owner action: no PR, release the claim to `status:blocked` (never back to
+   `status:todo`), one comment `blocked: <what is missing, who provides it>`. Only the owner or product window unblocks.
 
 ## Open the PR
 - `git push origin HEAD:refs/heads/$B`; PR base `dev`, head `$B`, title `fix #N: …`.
