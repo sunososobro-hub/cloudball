@@ -3,6 +3,7 @@
  * (the outer ring is outside the zone), the computer swings. The result stays on this page (local only). */
 import { createPractice, PRACTICE_PITCHES, HIT_Q, MODE, PT, STAMINA, inZ } from './practice.js';
 import { describeOutcome, describeResult } from './text.js';
+import { startGame } from './gamescreen.js';
 
 const $ = id => document.getElementById(id);
 let sess = null, side = null, mode = 'one', ptk = 'fb';
@@ -57,6 +58,7 @@ function start(s) {
 }
 
 $('bat').onclick = () => start('bat'); $('pitch').onclick = () => start('pitch');
+$('game').onclick = startGame;
 $('go').onclick = () => play(2, 2);
 $('again').onclick = () => start(side);
 $('back').onclick = () => { $('stage').hidden = true; $('menu').hidden = false; };

@@ -25,3 +25,17 @@ export function describeResult(r) {
   const unit = r.side === 'bat' ? '安打' : '成功';
   return `${what}練習結束：${r.pitches} 球 ${r.hits} ${unit}，${TIER_TEXT[r.tier] || r.tier}`;
 }
+
+/* part 3c-2: text for the 3-inning game screen (state S of game.js); pure, no DOM. */
+const TEAM_NAME = ['你的隊', '電腦隊'];
+export const canSteal = S => !!((S.bases[1] && !S.bases[2]) || (S.bases[0] && !S.bases[1]));
+export const describeHalf = S => `第 ${(S.half >> 1) + 1} 局${S.half % 2 ? '下' : '上'}（${S.half % 2 ? '你守備' : '你打擊'}）`;
+export const describeBases = bases => `壘上：${['一', '二', '三'].map((n, i) => `${n}壘${bases[i] ? '●' : '○'}`).join(' ')}`;
+export const describeCount = S => `${S.balls} 壞 ${S.strikes} 好 ${S.outs} 出局`;
+export const describeScore = S => `${TEAM_NAME[0]} ${S.score[0]} : ${S.score[1]} ${TEAM_NAME[1]}`;
+/** Line score, one row per team: "你的隊  0 2 1 | 3". */
+export const describeLine = S => S.line.map((l, i) => `${TEAM_NAME[i]}　${l.join(' ')}　＝ ${S.score[i]}`).join('\n');
+export function describeGameResult(res) {
+  const who = res.winner === -1 ? '平手' : res.winner === 0 ? '你贏了！' : '電腦隊贏了';
+  return `比賽結束：${res.score[0]} 比 ${res.score[1]}，${who}`;
+}
