@@ -41,6 +41,7 @@ export const COPY = {
   sacBunt: n => `${n} 短打犧牲成功，跑者推進`,
   buntHit: n => `${n} 短打造成內野安打！`,
   buntLeadOut: (n, runner, base, forced) => `${n} 短打，${base === 3 ? '三' : '二'}壘${forced ? '封殺' : '觸殺'} ${runner}`,
+  wildPitch: runs => `，暴投！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   stealOk: n => `，${n} 盜壘成功！`,
   stealOut: n => `，${n} 盜壘失敗，被觸殺出局`,
   walkoff: desc => /[！。？]$/.test(desc) ? '再見比賽！' : '，再見比賽！',   /* no comma after a line that already ends its sentence */

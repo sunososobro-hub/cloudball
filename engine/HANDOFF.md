@@ -10,7 +10,8 @@
 
 ## Next
 1. #23 catcher holds the ball on steals: needs a primary lead from `render/` first (see the issue).
-2. #38 wild pitch first (needs a render animation): the last 0.25 runs/game.
+2. #38 rest: passed ball, balk, steal of third, advancing on a throw/error, outs on the bases, pickoffs.
+   Wild pitch done (0.4.4, `WP_P`): runs/game 8.55 -> 8.72 on 20,000 games (ref 8.89).
 3. Staffs have 4 relievers: 5.3 changes/game against about 6.6 in MLB; relief outings are long.
 4. Called third strikes are about 19% of strikeouts; real baseball is nearer a quarter.
 
