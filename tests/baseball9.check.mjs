@@ -42,6 +42,22 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
   for (const k of ['HR', 'caught', 'ground']) if (!kinds[k]) bad('300 balls never gave ' + k + ': ' + JSON.stringify(kinds));
   const bunt = B.batBall(0.5, { bunt: true, rnd: seeded(3) }); if (bunt.kind === 'HR' || bunt.L.v > 8.5) bad('a bunt must stay in the infield');
   if (B.fenceR(0) !== 108 || B.POS_N.length !== 9 || B.FSPD.length !== 9 || B.FNAME.length !== 9) bad('field constants'); }
+/* part 3b: runners and throws (play.js): a ball with runners ends in a legal state: outs 0..2 added, runs and bases add up, same seed = same play */
+{ const P = await import('../ui/baseball9/play.js'), man = n => ({ spd: 1 + n % 3, name: 'r' + n, kind: 'cat' }), seen = {}, rows = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 1], [0, 0, 1], [0, 1, 0]];
+  for (let s = 1; s <= 600; s++) { const bs = rows[s % rows.length].map((x, i) => x ? man(i) : null), n0 = bs.filter(Boolean).length, outs0 = s % 3, q = [0.2, 0.6, 0.8, 1.0, 1.2][s % 5];
+    const run = () => P.playBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, bunt: s % 17 === 0, batter: man(9), bases: bs, outs: outs0, rnd: seeded(s * 29) }), r = run();
+    if (JSON.stringify(r) !== JSON.stringify(run())) bad('playBall is not deterministic');
+    const nbN = r.nb.filter(Boolean).length; seen[r.kind] = (seen[r.kind] || 0) + 1;
+    if (![0, 1, 2].includes(r.outs) || r.runs < 0 || r.nb.length !== 3) bad('playBall shape ' + JSON.stringify([r.outs, r.runs, r.nb.length]));
+    if (r.outs + r.runs + nbN > n0 + 1 && !(outs0 + r.outs >= 3)) bad(`runners appear from nowhere: ${n0}+1 -> outs ${r.outs} runs ${r.runs} on ${nbN} (seed ${s})`);
+    if (outs0 + r.outs < 3 && r.outs + r.runs + nbN !== n0 + 1 && r.kind !== 'HR') bad(`runner lost: ${n0}+1 -> outs ${r.outs} runs ${r.runs} on ${nbN} (seed ${s}, ${r.kind})`);
+    if (r.kind === 'HR' && (r.runs !== n0 + 1 || nbN)) bad('home run must score everyone');
+    if (!(r.sc.dur > 0) || !r.sc.txt || r.sc.runners.some(u => u.pts.some(p => !Number.isFinite(p.t + p.x + p.z)))) bad('playBall script ' + s);
+    if (outs0 === 2 && r.outs === 2) bad('a double play with two outs'); }
+  for (const k of ['HR', '1B', 'fly', 'ground']) if (!seen[k]) bad('600 plays never gave ' + k + ': ' + JSON.stringify(seen));
+  const dp = Array.from({ length: 3000 }, (_, s) => P.playBall([.3, .45, .6][s % 3], { batter: { spd: 1, name: 'b', kind: 'cat' }, bases: [{ spd: 1, name: 'a', kind: 'cat' }, null, null], outs: 0, rnd: seeded(s * 7 + 1) })).filter(r => r.sc.txt === '雙殺！');
+  if (!dp.length || dp.some(r => r.outs !== 2)) bad('slow runner on first, 3000 grounders: expected double plays of two outs, got ' + dp.length);
+  if (P.clampTo(3, 3) !== 2 || P.clampTo(4, 4) !== 4 || P.BASES.length !== 5) bad('play constants'); }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');
