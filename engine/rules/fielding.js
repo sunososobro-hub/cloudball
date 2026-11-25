@@ -160,3 +160,14 @@ export function resolveSteal(ctx, wantOut, base = 2) {
   plan.actions.push({ t: tl.arriveT, a: 'tag', f: key, base });
   return { ok: false, plan, tl, outs: [tagOut({ runner, from: base - 1, base, fielder: key, ballAt: arrive, fielderAt: coverAt, runnerAt: tl.arriveT })] };
 }
+
+/* Pickoff at first (#38): the pitcher throws to the first baseman holding the runner on; the runner dives back and is tagged.
+ * Only successful pickoffs are drawn, so the tag must beat him (tagOut checks it). Times are seconds into the frame. */
+export function resolvePickoff(ctx) {
+  const runner = ctx.bases[0], from = FIELD_HOME.P, key = '1B', spot = fielderStart(key, ctx.bases, ctx.outs);
+  const TD = dist(from, spot), TT = Math.max(K.THROW_MIN, TD / K.PO_THROW_V), t0 = K.PO_THROW_AT, arrive = t0 + TT;
+  const runnerAt = t0 + K.PO_REACT + runTime(K.PO_LEAD, K.RUN_SPEED);
+  const plan = { po: true, CV: { key, spot, base: 1, at: 0 }, from, TD, v: K.PO_THROW_V, TT, t0, arrive, runnerAt, lead: K.PO_LEAD,
+    actions: [{ t: t0, a: 'throw', f: 'P', to: key }, { t: arrive, a: 'receive', f: key, base: 1 }, { t: runnerAt, a: 'tag', f: key, base: 1 }] };
+  return { plan, outs: [tagOut({ runner, from: 1, base: 1, fielder: key, ballAt: arrive, fielderAt: 0, runnerAt })] };
+}

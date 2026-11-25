@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.7';
+export const ENGINE_VERSION = '0.4.8';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -25,7 +25,7 @@ export const BREAK_DUR = 34;
 export const CHANGE_DUR = 14;
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
-export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10 };
+export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10, po: 10 };
 export const PITCH_DUR_DEFAULT = 10;
 export const PA_END_HOLD = 3;             /* extra pause after a plate appearance ends */
 export const WALK_FRAME_DUR = 12;
@@ -169,6 +169,17 @@ export const PB_P = 0.002;
  * runners trot from there. Tuned so BK/game matches tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
 export const BK_P = 0.0006;
 export const BK_CALL_AT = 0.9;
+/* Pickoff (#38): before a pitch with a runner on first, second open and no steal on, the pitcher picks him off with PO_P
+ * (only the throws that get him: attempts that do not are not modelled). No pitch counts. The runner has his lead
+ * (PO_LEAD m, taken by PO_LEAD_AT s), the pitcher steps off and throws to the first baseman holding him on at PO_THROW_AT
+ * at PO_THROW_V; the runner reacts PO_REACT later and dives back; the tag beats his hand. Tuned so PO/game matches
+ * tests/replay/run.mjs REFERENCE (FanGraphs 2023, see there). */
+export const PO_P = 0.0022;
+export const PO_LEAD = 3.4;
+export const PO_LEAD_AT = 1.0;
+export const PO_THROW_AT = 1.3;
+export const PO_THROW_V = 30;
+export const PO_REACT = 0.3;
 export const WP_BREAK = 0.35;             /* runners break this long after the ball reaches the plate (it gets past the mitt): WP and PB */
 
 /* ---- manager decisions ---- */
