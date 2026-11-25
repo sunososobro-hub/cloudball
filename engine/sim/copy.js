@@ -42,6 +42,7 @@ export const COPY = {
   buntHit: n => `${n} 短打造成內野安打！`,
   buntLeadOut: (n, runner, base, forced) => `${n} 短打，${base === 3 ? '三' : '二'}壘${forced ? '封殺' : '觸殺'} ${runner}`,
   wildPitch: runs => `，暴投！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
+  balk: runs => `投手犯規！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   passedBall: runs => `，捕逸！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   stealOk: n => `，${n} 盜壘成功！`,
   stealOut: n => `，${n} 盜壘失敗，被觸殺出局`,

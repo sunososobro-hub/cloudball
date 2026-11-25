@@ -65,7 +65,7 @@ export function leadAt(u) {
 /* When a base runner starts and arrives (seconds into the pitch frame).
  * kind: 'inplay' | 'steal' | 'walk'. tagUpAt: earliest legal start on a caught fly (or null). */
 export function runnerTimeline(from, to, { kind, tagUpAt = null, slide = false }) {
-  const startRun = kind === 'inplay' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : kind === 'wp' ? K.ARRIVE + K.WP_BREAK : K.ARRIVE + K.WALK_DELAY;
+  const startRun = kind === 'inplay' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : kind === 'wp' ? K.ARRIVE + K.WP_BREAK : kind === 'bk' ? K.BK_CALL_AT + K.WALK_DELAY : K.ARRIVE + K.WALK_DELAY;
   const spd = kind === 'walk' ? K.WALK_SPEED : K.RUN_SPEED;   /* 'wp' (wild pitch) runs at full speed */
   const st0 = from > 0 && tagUpAt != null ? tagUpAt : startRun;
   const lead = from > 0 ? leadAt(st0) : 0;
