@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const problems = [], seen = new Set(), queue = ['index.html', 'play.html', 'render/players_test.html', 'guide.html', 'agent.html'];
+const problems = [], seen = new Set(), queue = ['index.html', 'play.html', 'render/players_test.html', 'guide.html', 'agent.html', 'baseball9.html'];
 const isLocal = ref => ref && !/^(https?:|data:|blob:|#|three($|\/))/.test(ref);
 const refsOf = (file, src) => {
   const out = [], dir = path.dirname(file), push = (ref, base = dir) => { if (isLocal(ref)) out.push(path.normalize(path.join(base, ref.split(/[?#]/)[0]))); };
