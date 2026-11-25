@@ -1604,7 +1604,15 @@ const halfTag=e=>e.k==='PRE'?'賽前':e.k==='END'?'終':`${e.s0.half?'▼':'▲'
 function plBuild(){plFor=game;plStarts=[0];const marks=[];let k='';
   for(const e of game.ev){if(e.k!=='P')continue;plStarts.push(e.t);const h=e.s0.inn+'|'+e.s0.half;if(h!==k){k=h;marks.push(e)}}
   $('plMarks').innerHTML=marks.map(e=>`<i class="${e.s0.half?'bot':'top'}" style="left:${(cpView(e.t)/cpDur()*100).toFixed(3)}%"${e.s0.half?'':` data-inn="${e.s0.inn}"`}></i>`).join('');
+  plCurve();
   plTrack.setAttribute('aria-valuemax',Math.round(cpDur()));$('plTime').style.minWidth=`${2*fmtClock(cpDur()).length+3}ch`/* the track must not change width as the clock grows */}
+/* excitement curve + scoring dots (#121, render/barcurve.js): computed once per build from the recorded stream, display only (pointer-events none) */
+let plDots=[];
+function plCurve(){const g=game;plDots=[];$('plCurve').innerHTML='';$('plDots').innerHTML='';
+  BARCURVE.then(B=>{if(!B||plFor!==g||game!==g||!window.COMMENTARY)return;let c;try{c=B.barCurve(g,window.COMMENTARY.tensionTrack)}catch(err){console.warn('bar curve off',err);return}
+    const W=1000,H=100,vd=cpDur(),x=t=>cpView(t)/vd;plDots=c.dots;
+    $('plCurve').innerHTML=`<path d="M0,${H} L${c.pts.map(p=>`${(x(p.t)*W).toFixed(1)},${(H-p.v*H).toFixed(1)}`).join(' L')} L${W},${H} Z"/>`;
+    $('plDots').innerHTML=c.dots.map(d=>`<i${d.hr?' class="hr"':''} style="left:${(x(d.t)*100).toFixed(3)}%"></i>`).join('')})}
 function plNear(T){const a=plStarts;let lo=0,hi=a.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(a[m]<=T)lo=m;else hi=m-1}return lo<a.length-1&&a[lo+1]-T<T-a[lo]?lo+1:lo}
 const plSnap=T=>plStarts[plNear(clamp(T,0,game.dur))];
 /* floorEv (highlights, #118): land exactly on T, not on a play start, and say only lines bound to event floorEv or later */
@@ -1615,7 +1623,7 @@ function seekTo(T,floorEv){const from=replayT,t=floorEv==null?plSnap(T):clamp(T,
 function plSetPaused(v){paused=v;if(v)VOICE.stop();plLast=''}
 function plReset(){paused=scrubbing=false;seekFloor=0;seekGame=null;plFor=null;plLast='';hlStop()}
 const plAt=x=>{const r=plTrack.getBoundingClientRect();return cpGame(clamp((x-r.left)/Math.max(1,r.width),0,1)*cpDur())};
-function plShowTip(t){const e=game.ev[findIdx(t)];plTip.textContent=`${halfTag(e)}・${fmtClock(cpView(t))}`;plTip.style.left=(cpView(t)/cpDur()*100)+'%';plTip.hidden=false}
+function plShowTip(t){const e=game.ev[findIdx(t)],d=plDots.find(d=>d.t===t);plTip.textContent=d?d.label:`${halfTag(e)}・${fmtClock(cpView(t))}`;plTip.style.left=(cpView(t)/cpDur()*100)+'%';plTip.hidden=false}
 plPlay.onclick=()=>{if(mode!=='opening'||hl&&(hl.done||!hl.segs))return;if(replayT>=game.dur){seekTo(0);plSetPaused(false)}else plSetPaused(!paused)};
 plTrack.addEventListener('pointerdown',ev=>{if(mode!=='opening'||ev.button>0)return;ev.preventDefault();plTrack.setPointerCapture(ev.pointerId);scrubbing=true;plEl.classList.add('drag');VOICE.stop();dispatchEvent(new CustomEvent('cloudball:seek',{detail:{from:replayT,to:null,drag:true}}));
   replayT=plSnap(plAt(ev.clientX));plShowTip(replayT)});
@@ -1643,6 +1651,7 @@ const PITCH_STILL=Math.max(PK_END,BALL_BACK_AT+BALL_BACK_DUR,ARRIVE+CATCH_SNAP+U
   ARRIVE+window.ENGINE.LEAD_BACK_AT+window.ENGINE.LEAD_BACK_DUR,ARRIVE+CATCH_SNAP+MITT_HOLD+MITT_BACK);
 const CP_RUNNER_SETTLE=.6+SLIDE_HOLD+SLIDE_UP,CP_PEEL_STEP=.05,CP_PEEL_MAX=30;/* after a runner arrives (vanish / get up from a slide); peel search step and cap */
 const cpHere=document.currentScript&&document.currentScript.src;
+const BARCURVE=import(new URL('barcurve.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).catch(err=>{console.warn('bar curve off',err);return null});
 const COMPACT=import(new URL('compact.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).catch(err=>{console.warn('compact showing off',err);return null});
 function peelLen(team,tl){for(let t=0;t<CP_PEEL_MAX;t+=CP_PEEL_STEP)if(!peelAt(team,tl,t))return t;return CP_PEEL_MAX}
 const jogEnd=(from,t0)=>t0+Math.max(...FIELDER_KEYS.map(k=>jogRank(k)*JOG_GAP+Math.hypot(fielders[k].home[0]-from[0],fielders[k].home[1]-from[1])/JOG_SPEED));
