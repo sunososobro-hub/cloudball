@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>九宮格棒球練習・雲端職棒</title>
+<link rel="stylesheet" href="ui/baseball9/screen.css">
+</head>
+<body>
+<main>
+  <p><a href="guide.html">← 球隊與球員介紹</a></p>
+  <h1>九宮格棒球練習</h1>
+  <p class="lead">各 10 球，成績只留在這個頁面，不會改任何球員的能力或聯盟紀錄。</p>
+  <section id="menu">
+    <button class="big" id="bat" type="button">打擊練習：猜投手投哪一格</button>
+    <button class="big" id="pitch" type="button">投球練習：選球種、瞄一格</button>
+  </section>
+  <section id="stage" hidden>
+    <h2 id="title"></h2>
+    <div class="bar"><span id="count"></span><span id="score"></span><span id="stam"></span></div>
+    <div id="opts"></div>
+    <div id="grid" class="grid"></div>
+    <button class="big" id="go" type="button" hidden>出手</button>
+    <p id="line" role="status"></p>
+    <ul id="log"></ul>
+    <div id="end" hidden role="status"></div>
+    <div class="row"><button id="again" type="button">再練一次</button><button id="back" type="button">換一邊</button></div>
+  </section>
+</main>
+<script type="module" src="ui/baseball9/screen.js"></script>
+</body>
+</html>
