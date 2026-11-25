@@ -17,6 +17,7 @@
  * tray, no doors in the cladding (it hangs over the drop behind the back wall: a door needs a landing), not seen on a real GPU.
  * Stand-local frame: +z = up the rows (away from the field), x along the stand, y up. Roof frame R = the old slab's frame (tilt ROOF_TILT). */
 import * as THREE from 'three/webgpu';
+import {roofOn} from './roof_rule.js';
 import {mat,box,cyl} from '../pbr.js';
 
 /* copied from game.js (stand(): FRONT_H, ROW_RISE, ROW_D, BACK_WALL; old roof: y top+8, depth rows*.9+6, z centre rows*.45-2, tilt -.08) */
@@ -157,6 +158,6 @@ export function buildRoofs(o){const slabs=o.old.filter(m=>m.name==='old:roof');i
   const g=new THREE.Group();g.name='prop:roofs';
   for(const sl of slabs){const S=sl.parent&&sl.parent.userData.stand;if(S&&S.roof)g.add(buildOne(S,M))}
   if(!g.children.length)throw new Error('no roofed stand found');
-  g.userData.recolor=P=>{if(P)M.trim.color.set(P.trim)};g.userData.recolor(o.colors);return g}
+  g.userData.recolor=P=>{if(P)M.trim.color.set(P.trim);const on=roofOn(P);for(const c of g.children)c.visible=on};g.userData.recolor(o.colors);return g}
 
 export const PROPS=[{name:'roof',build:c=>buildRoofs({old:c.old('roof'),colors:c.park()}),old:c=>c.old('roof')}];
