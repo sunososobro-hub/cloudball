@@ -2,7 +2,7 @@
 
 
 /* Everything about the game itself (rules, outcomes, timings of plays) comes from engine/. This file only draws it. */
-const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,
+const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,BK_CALL_AT,
   runDist,runTime,leadAt,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
 const $=id=>document.getElementById(id);
 /* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park,par
@@ -1289,6 +1289,11 @@ function catcherThrow(e,u,S,sp){const C=fielders.C,catchAt=ARRIVE+CATCH_SNAP,xfe
       aimWorld(CR,CR.a0,-BAT_SHOULDER_X,e.zx,py,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,e.zx*.8,py-.15,MITT_Z+.2);
       CR.a0.quaternion.slerp(q0,bl);CR.a1.quaternion.slerp(q1,bl);CR.a0.scale.y=lerp(CR.a0.scale.y,s0,bl);CR.a1.scale.y=lerp(CR.a1.scale.y,s1,bl)}}
   return r}
+/* #38 balk (engine: e.bk, r 'bk', runners' runner_advance how 'balk'): no pitch. The pitcher starts his delivery, stops at BK_STOP s
+   (into the leg lift), holds it until the call at BK_CALL_AT, then winds the motion back to the set over BK_BACK s with the ball still in his hand.
+   Runners trot from e.moves like every other advance. Pure function of (event, time). */
+const BK_STOP=.45,BK_BACK=1.2;
+const bkU=u=>u<BK_STOP?u:u<BK_CALL_AT+.3?BK_STOP:Math.max(0,BK_STOP*(1-(u-BK_CALL_AT-.3)/BK_BACK));
 const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 /* #38 wild pitch (engine: e.wp, runners' runner_advance how 'wild_pitch'): the ball hits the dirt in front of the plate, skips under the mitt
    and rolls toward the backstop (left or right by the pitch's side); the catcher gets up, runs it down, picks it up and walks back to his spot.
@@ -1328,7 +1333,7 @@ function poseScene(e,u,dt,ei){
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
   if(e.k!=='P'){for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK')standRunner(i,0,s.b[i]);peelers();return s}
   /* pitch */
-  const pp=pitchPose(u),tip=pp.tip;
+  const pp=pitchPose(e.bk?bkU(u):u),tip=pp.tip;
   /* A pitcher who fields the ball or covers first starts from where his delivery stride left him at contact (not from the rubber, which
      was a ~1 m jump), and his limbs and trunk grow out of the follow-through into the run over P_RUN_BLEND s (P.mix, read by animate) */
   if(e.r==='inplay'&&(e.play.fielder==='P'||e.plan.CV.key==='P')&&u>=ARRIVE){const k=1-ease(sat01((u-ARRIVE-FIELD_REACT)/P_RUN_BLEND));
@@ -1341,7 +1346,7 @@ function poseScene(e,u,dt,ei){
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
   const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
-  if(u<RELEASE){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}
+  if(u<RELEASE||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
   else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
   else if(!contact&&e.wp){bp=wpBall(e,u,plate);wpCatcher(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
@@ -1438,7 +1443,7 @@ function poseScene(e,u,dt,ei){
   /* sound cues */
   const cue=(name,at,fn)=>{const key=e.t+name;if(u>=at&&u<at+.6&&!cues.has(key)){cues.add(key);fn()}};
   if(contact)cue('crack',ARRIVE,()=>crack(bunt?BUNT_CRACK:e.r==='inplay'?1:.5));
-  else if(e.r!=='hbp'&&(!e.wp||e.pb))cue('pop',ARRIVE+.05,pop);/* a passed ball still hits the mitt */
+  else if(e.r!=='hbp'&&!e.bk&&(!e.wp||e.pb))cue('pop',ARRIVE+.05,pop);/* a passed ball still hits the mitt */
   if(e.big)cue('roar',e.showAt,()=>roar(e.big));
   return s;
 }
@@ -1451,7 +1456,7 @@ const dotRows=document.querySelectorAll('.sit .dots');
 const {bugPlace,applyLayout,editing:isEditing}=window.UILAYOUT({$,clamp,note});/* #4: ui/layout.js */
 
 let bugKey='';
-function hudBug(e,u,s,c){const P=e.k==='P'&&e.r!=='ibb',np=P?(u>=ARRIVE?e.pc:e.pc-1):'',sh=P&&u>=RELEASE+.05&&u<ARRIVE+4,k=[s.sc,s.inn,s.half,s.outs,s.b.map(Boolean),c,P?e.t:'',np,sh,e.k==='END'].join('|');if(k===bugKey)return;bugKey=k;
+function hudBug(e,u,s,c){const P=e.k==='P'&&e.r!=='ibb'&&e.r!=='bk',np=P?(u>=ARRIVE?e.pc:e.pc-1):'',sh=P&&u>=RELEASE+.05&&u<ARRIVE+4,k=[s.sc,s.inn,s.half,s.outs,s.b.map(Boolean),c,P?e.t:'',np,sh,e.k==='END'].join('|');if(k===bugKey)return;bugKey=k;
   const dot=(n,t,cl)=>{let h='';for(let i=0;i<t;i++)h+=`<span style="color:${i<n?cl:'rgba(255,255,255,.28)'}">●</span>`;return h};
   let bp='',bb='';
   if(P){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]];
@@ -1478,7 +1483,7 @@ function hud(e,u,s){
   let m='';
   if(e.k==='P'){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]];m=`打者 <b>${B.num} ${B.name}</b>（${B.pos}）<br><small>${e.line}</small>投手 ${Pp.num} ${Pp.name}<small>本場用球數 ${e.pc}</small>`}
   {const pi=$('pinfo');let h='';
-    if(e.k==='P'&&e.r!=='ibb'){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]],sh=u>=RELEASE+.05&&u<ARRIVE+4,rt=x=>Math.round(x*70-12);
+    if(e.k==='P'&&e.r!=='ibb'&&e.r!=='bk'){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]],sh=u>=RELEASE+.05&&u<ARRIVE+4,rt=x=>Math.round(x*70-12);
       h=`<b>投</b> ${Pp.num} ${Pp.name} <small>${e.pline}・${e.pc} 球</small><br><small>球威 ${rt(Pp.stuff)}　控球 ${rt(Pp.ctrl)}</small><br>`+(sh?`<span class="spd">${e.kmh}</span> km/h <small>${e.pt}</small>`:'<small>&nbsp;</small>')+`<br><b>打</b> ${B.num} ${B.name} <small>${e.line}</small><br><small>擊球 ${rt(B.con)}　長打 ${rt(B.pow)}　選球 ${rt(B.eye)}</small>`}
     if(pi.dataset.k!==h){pi.dataset.k=h;pi.innerHTML=h;pi.hidden=!h}}
   if($('matchup').dataset.k!==m){$('matchup').dataset.k=m;$('matchup').innerHTML=m}
@@ -1555,7 +1560,7 @@ const HITCAM={x:0,y:8,z:11,fov:62,mid:[0,0,-26]};
    event timing. Weight and aim are a pure function of (event, time, batter pose), so a bar jump lands on the same framing. Off with
    the 望遠鏡 toggle (already tighter). Aim: TIGHT_AIM_Y m up the batter (scaled by his build), head in the upper part of the frame. */
 const TIGHT_FOV=2.4,TIGHT_OUT_AT=RELEASE-.6,TIGHT_OUT_DUR=.45,TIGHT_AIM_Y=1.45;
-const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
+const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||e.r==='bk'||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
   if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
@@ -1694,7 +1699,7 @@ function cpEvents(g){const ev=g.ev;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE));
-      if(e.wp)tail=Math.max(tail,wpPlan(e).end)}/* walk: runners trot on; #38 wild pitch: the catcher walks back */
+      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P')tail=Math.max(tail,u2End(ev,i));/* #42 slice 9: U2 jogs between his inside spot and his post */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
     return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch'}})}
@@ -1792,6 +1797,7 @@ const STUDIO_ACTS=[
   ['跑壘','sf23','高飛犧牲打・二壘跑者跟進三壘',e=>pl(e,p=>p.res==='out'&&p.type==='FB')&&(e.moves||[]).some(m=>m[0]===3&&m[1]===4)&&(e.moves||[]).some(m=>m[0]===2&&m[1]===3),STUDIO_SEEDS_RARE],
   ['跑壘','wp','暴投・跑者推進（捕手追球）',e=>e.k==='P'&&e.wp&&!e.pb],
   ['跑壘','pb','捕逸・球彈出手套（捕手追球）',e=>e.k==='P'&&e.pb,STUDIO_SEEDS_RARE],
+  ['跑壘','bk','投手犯規・投球動作中止，跑者推進',e=>e.k==='P'&&e.bk,STUDIO_SEEDS_RARE],
   ['上壘','bb','四壞保送',e=>e.k==='P'&&/保送/.test(e.desc||'')&&e.r!=='ibb'],
   ['上壘','hbp','觸身球',e=>e.k==='P'&&e.r==='hbp'],
   ['上壘','ibb','故意四壞',e=>e.k==='P'&&e.r==='ibb'],

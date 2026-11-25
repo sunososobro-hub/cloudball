@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.5';
+export const ENGINE_VERSION = '0.4.6';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -25,7 +25,7 @@ export const BREAK_DUR = 34;
 export const CHANGE_DUR = 14;
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
-export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10 };
+export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10 };
 export const PITCH_DUR_DEFAULT = 10;
 export const PA_END_HOLD = 3;             /* extra pause after a plate appearance ends */
 export const WALK_FRAME_DUR = 12;
@@ -158,6 +158,11 @@ export const HOME_SLIDE_P = 0.5;
  * Both tuned so WP/game and PB/game match tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
 export const WP_P = 0.025;
 export const PB_P = 0.002;
+/* Balk: before a pitch with a runner on (no steal on) the pitcher balks with BK_P; no pitch counts, every runner moves
+ * up one base. The plate umpire calls it BK_CALL_AT s into the frame (the pitcher stops at the top of his leg lift);
+ * runners trot from there. Tuned so BK/game matches tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
+export const BK_P = 0.0006;
+export const BK_CALL_AT = 0.9;
 export const WP_BREAK = 0.35;             /* runners break this long after the ball reaches the plate (it gets past the mitt): WP and PB */
 
 /* ---- manager decisions ---- */

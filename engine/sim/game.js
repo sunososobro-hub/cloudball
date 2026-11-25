@@ -73,6 +73,7 @@ export function simGame(seed, decisions, opts) {
     const [off, bi] = e.bat, bat = RR[off].bat[bi], out = [], add = (type, time, data) => out.push({ type, time, data });
     const who = { batter: bat.name, team: off, lineup: bi };
     if (e.r === 'ibb') add('intentional_walk', e.t + e.showAt, { ...who, pitcher: x.pitcher });
+    else if (e.r === 'bk') add('balk', e.t + e.showAt, { ...who, pitcher: x.pitcher, count: e.c0 });
     else {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
       if (e.swing) add('swing', e.t + K.ARRIVE, { ...who });
@@ -87,7 +88,7 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? 'batted' : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? 'batted' : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
     if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0 });
@@ -170,7 +171,10 @@ export function simGame(seed, decisions, opts) {
         const e = { t, k: 'P', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0, inZ, zx, zy, line, pline, pt: PT[0], kmh, s0, swing: false };
 
         /* ---- what happens to the pitch ---- */
-        if (bunt) { e.swing = true; e.r = 'inplay'; }
+        if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
+          /* balk (#38): the pitcher stops in his motion, the umpire calls it, no pitch counts, every runner moves up one base */
+          e.r = 'bk'; st.pc[def]--; e.pc = st.pc[def];
+        } else if (bunt) { e.swing = true; e.r = 'inplay'; }
         else {
           const sw = inZ ? K.SWING_ZONE_BY_COUNT[balls][strikes] : K.SWING_CHASE_BY_COUNT[balls][strikes] / bat.eye;
           if (R() < Math.min(K.SWING_MAX, sw)) {
@@ -307,6 +311,13 @@ export function simGame(seed, decisions, opts) {
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);
           rbi = res === 'E' || play.dp ? 0 : runs;
+        } else if (e.r === 'bk') {
+          const nb = [null, B[0], B[1]];
+          if (B[2]) { moves.push([3, HOME, B[2]]); runs++; }
+          if (B[1]) moves.push([2, 3, B[1]]);
+          if (B[0]) moves.push([1, 2, B[0]]);
+          st.b = nb; e.bk = true; e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
+          desc = COPY.balk(runs);
         } else {
           desc = COPY.call(e.r);
           if (going && e.r !== 'foul') {
@@ -355,7 +366,7 @@ export function simGame(seed, decisions, opts) {
           if (m[3]) continue;
           const [from, to, who] = m, stays = to < HOME && e.s1.b[to - 1] === who, outHere = outs.some(o => o.runner === who && o.base === to);
           const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? look() < K.HOME_SLIDE_P : stays || outHere));
-          m[3] = runnerTimeline(from, to, { kind: inplay ? 'inplay' : e.wp ? 'wp' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
+          m[3] = runnerTimeline(from, to, { kind: inplay ? 'inplay' : e.wp ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
         }
 
         /* ---- broadcast timing: the result is shown when it has really happened ---- */
@@ -369,6 +380,9 @@ export function simGame(seed, decisions, opts) {
         } else if (sbGo) {
           showAt = moves[0][3].arriveT + K.OUT_CALL_LAG;
           d = Math.max(d, plan.arrive + K.POST_PLAY_HOLD, showAt + K.POST_PLAY_HOLD);
+        } else if (e.bk) {
+          showAt = K.BK_CALL_AT;
+          d = Math.max(K.PITCH_DUR.bk, ...moves.map(m => m[3].arriveT + K.POST_PLAY_HOLD));
         } else if (e.wp) {
           showAt = Math.max(...moves.map(m => m[3].arriveT)) + K.OUT_CALL_LAG;
           d = Math.max(d, showAt + K.POST_PLAY_HOLD);

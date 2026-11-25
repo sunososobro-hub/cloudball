@@ -47,6 +47,7 @@ const IP_PER_START = 5.2, IP_PER_START_TOL = 0.15;
  * Wild pitches (#38): 0.34 wild pitches + passed balls per team game in 2025 (CBS Sports, 2025-07-02, "where'd all
  * the wild pitches go"), of which wild pitches are about 6 in 7 -> about 0.29 per team game, 0.58 per game;
  * passed balls the other 1 in 7 -> about 0.05 per team game, 0.10 per game.
+ * Balks: 181 in 2,430 games in 2025 (Baseball-Reference league pitching totals, 0.04 per team game) -> 0.074 per game.
  * Per-game numbers count both teams. The default sample has to stay within the tolerance, which is about
  * three standard errors of a 1000-game sample plus a little room for the model. Tighten, never loosen. */
 const RATE_SAMPLE_MIN = 1000;
@@ -54,7 +55,7 @@ const REFERENCE = [   /* [aggregate() key, label, reference, tolerance, decimals
   ['runsPerGame', 'runs/game', 8.89, 0.7, 2], ['kPct', 'K%', 0.222, 0.01, 1, true], ['bbPct', 'BB%', 0.084, 0.008, 1, true], ['hbpPct', 'HBP%', 0.0105, 0.003, 2, true],
   ['avg', 'AVG', 0.245, 0.008, 3], ['obp', 'OBP', 0.315, 0.009, 3], ['slg', 'SLG', 0.404, 0.014, 3], ['babip', 'BABIP', 0.29, 0.009, 3],
   ['hrPerGame', 'HR/game', 2.33, 0.25, 2], ['doublesPerGame', '2B/game', 3.19, 0.35, 2], ['triplesPerGame', '3B/game', 0.26, 0.12, 2],
-  ['gidpPerGame', 'GIDP/game', 1.29, 0.25, 2], ['ibbPerGame', 'IBB/game', 0.23, 0.12, 2], ['sbPerGame', 'SB/game', 1.36, 0.3, 2], ['csPerGame', 'CS/game', 0.41, 0.15, 2], ['wpPerGame', 'WP/game', 0.58, 0.12, 2], ['pbPerGame', 'PB/game', 0.10, 0.05, 2],
+  ['gidpPerGame', 'GIDP/game', 1.29, 0.25, 2], ['ibbPerGame', 'IBB/game', 0.23, 0.12, 2], ['sbPerGame', 'SB/game', 1.36, 0.3, 2], ['csPerGame', 'CS/game', 0.41, 0.15, 2], ['wpPerGame', 'WP/game', 0.58, 0.12, 2], ['pbPerGame', 'PB/game', 0.10, 0.05, 2], ['bkPerGame', 'BK/game', 0.074, 0.03, 3],
   ['pitchesPerPa', 'pitches/PA', 3.88, 0.12, 2], ['zonePct', 'zone', 0.507, 0.015, 1, true], ['swingPct', 'swing', 0.478, 0.015, 1, true],
   ['zoneSwingPct', 'zone swing', 0.668, 0.015, 1, true], ['chasePct', 'chase', 0.282, 0.015, 1, true], ['whiffPct', 'whiff', 0.253, 0.015, 1, true],
 ];
@@ -338,7 +339,7 @@ console.log(`engine ${ENGINE_VERSION}: ${GAMES} games (seeds ${FIRST_SEED}..${FI
 console.log(`stream digest ${digest.digest('hex').slice(0, 16)}`);
 console.log(`runs/game ${A.runsPerGame.toFixed(2)}   K% ${pct(A.kPct)}   BB% ${pct(A.bbPct)}   AVG ${f3(A.avg)}   OBP ${f3(A.obp)}   SLG ${f3(A.slg)}   BABIP ${f3(A.babip)}`);
 console.log(`HR/game ${A.hrPerGame.toFixed(2)}   2B/game ${A.doublesPerGame.toFixed(2)}   3B/game ${A.triplesPerGame.toFixed(2)}   GIDP/game ${A.gidpPerGame.toFixed(2)}   HBP% ${pct(A.hbpPct)}   PA/game ${A.paPerGame.toFixed(1)}   pitches/game ${A.pitchesPerGame.toFixed(0)}   innings/game ${A.inningsPerGame.toFixed(2)}`);
-console.log(`SF/game ${A.sfPerGame.toFixed(2)}   SH/game ${A.shPerGame.toFixed(2)}   IBB/game ${A.ibbPerGame.toFixed(2)}   SB/game ${A.sbPerGame.toFixed(2)}   CS/game ${A.csPerGame.toFixed(2)}   SB% ${pct(A.sbPct)}   WP/game ${A.wpPerGame.toFixed(2)}   PB/game ${A.pbPerGame.toFixed(2)}   ROE/game ${A.roePerGame.toFixed(2)}   H/game ${A.hitsPerGame.toFixed(2)}`);
+console.log(`SF/game ${A.sfPerGame.toFixed(2)}   SH/game ${A.shPerGame.toFixed(2)}   IBB/game ${A.ibbPerGame.toFixed(2)}   SB/game ${A.sbPerGame.toFixed(2)}   CS/game ${A.csPerGame.toFixed(2)}   SB% ${pct(A.sbPct)}   WP/game ${A.wpPerGame.toFixed(2)}   PB/game ${A.pbPerGame.toFixed(2)}   BK/game ${A.bkPerGame.toFixed(3)}   ROE/game ${A.roePerGame.toFixed(2)}   H/game ${A.hitsPerGame.toFixed(2)}`);
 console.log(`pitches/PA ${A.pitchesPerPa.toFixed(2)}   zone ${pct(A.zonePct)}   swing ${pct(A.swingPct)}   zone swing ${pct(A.zoneSwingPct)}   chase ${pct(A.chasePct)}   whiff ${pct(A.whiffPct)}   zone contact ${pct(A.zoneContactPct)}   chase contact ${pct(A.chaseContactPct)}`);
 const ipPerStart = hook.outs / 3 / (hook.starts || 1);
 console.log(`IP/start ${ipPerStart.toFixed(2)}   pitches/start ${(hook.pitches / (hook.starts || 1)).toFixed(1)}   pitching changes/game ${(hook.changes / (boxes.length || 1)).toFixed(2)}   coach's own pick when asked about a change: change ${pct(hook.coachChange / (hook.asked || 1))}`);
