@@ -20,12 +20,18 @@ First read the level: `gh api repos/$R/issues/275 --jq .body | head -1`. Level 0
   in `engine/`, named constants, `run.mjs` never loosened, two workflow files at most, no new network call, no secret).
   Sound -> comment whose first line is exactly `Opus review: PASS <full 40-char head sha>` (the sha ends the line, as
   `merge-gate.yml` matches it) and the reason on the next line. Not sound -> `Opus review: CHANGES <sha>`, the fix on
-  the next line, and requeue. Pre-season (`PRESEASON = true` in `merge-gate.yml`): (c) is suspended, skip it. A PASS on an older head counts only when nothing under
+  the next line, and requeue. Pre-season (`PRESEASON = true` in `merge-gate.yml`): (c) is suspended for `engine/` only. A PR
+  touching `.agent/`, `.github/` or `tests/replay/run.mjs` always needs the PASS, whatever `PRESEASON` says (the
+  `merge-gate` status may show green; this routine is the gate). A PASS on an older head counts only when nothing under
   those paths changed since.
 - Hard stops (rules W9): linked issue `needs-owner` / `status:frozen`, an open `needs owner` / `blocking` comment.
 - Merge: `gh api -X PUT repos/$R/pulls/N/merge -f merge_method=merge -f sha=<head sha>`. Then the issue (rules W10):
   `Closes` -> remove `status:review`, comment `merged into dev, PR #N`, close. `Refs` -> back to `status:todo`, comment
-  what is left. Copy any 「沒驗到」 / owner-look list from the PR top into that comment.
+  what is left; then `gh api repos/$R/issues/<N> --jq .state`: `closed` (a `fix/closes #N` in a title or commit) ->
+  `gh api -X PATCH repos/$R/issues/<N> -f state=open` and comment `reopened: part PR #N only`. Copy any 「沒驗到」 / owner-look list from the PR top into that comment.
+- Owner question: a PR body that starts with `請 so 哥看` or `owner:` -> once per PR (search open `needs-owner` issues
+  for `PR #N` first) open an issue `[owner] <question in plain Traditional Chinese>`, body `From PR #N.` + the question
+  and a recommendation, label `needs-owner`; comment `owner question: #<issue>` on the PR. The PR still merges when ready.
 - Requeue: issue `status:review` -> `status:todo`, comment `requeue: <red test | conflict | CHANGES> PR #N`. After the
   third requeue of the same PR add `model:opus`.
 
@@ -46,3 +52,5 @@ First read the level: `gh api repos/$R/issues/275 --jq .body | head -1`. Level 0
 
 ## D. Report
 - One line on GitHub only where you acted (PR or issue comments above). Chat: `搞定` or `卡住：<reason>`.
+- Owner queue first: `O=$(gh api -X GET search/issues -f q="repo:$R is:issue is:open label:needs-owner" -f per_page=1 --jq .total_count)`.
+  O > 0 -> the chat line is exactly `卡住：O 張等你決定` (with the number), whatever else happened.
