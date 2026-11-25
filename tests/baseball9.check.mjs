@@ -58,6 +58,18 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
   const dp = Array.from({ length: 3000 }, (_, s) => P.playBall([.3, .45, .6][s % 3], { batter: { spd: 1, name: 'b', kind: 'cat' }, bases: [{ spd: 1, name: 'a', kind: 'cat' }, null, null], outs: 0, rnd: seeded(s * 7 + 1) })).filter(r => r.sc.txt === '雙殺！');
   if (!dp.length || dp.some(r => r.outs !== 2)) bad('slow runner on first, 3000 grounders: expected double plays of two outs, got ' + dp.length);
   if (P.clampTo(3, 3) !== 2 || P.clampTo(4, 4) !== 4 || P.BASES.length !== 5) bad('play constants'); }
+/* part 3c: the 3-inning game (game.js): every game ends, scores add up, same seed = same game, innings and the half-run cap hold */
+{ const Gm = await import('../ui/baseball9/game.js'), ends = {}; let draws = 0;
+  for (let s = 1; s <= 60; s++) { const run = () => { const g = Gm.createGame({ rnd: seeded(s * 31) }), r = seeded(s * 5); let n = 0;
+      while (!g.S.over && n++ < 2000) g.pitch(g.userBats() ? { mode: ['one', 'row', 'col', 'box', 'take'][n % 5], r: 1 + n % 3, c: 1 + (n >> 1) % 3, steal: n % 7 === 0, app: ['pull', 'mid', 'push', 'bunt'][(n >> 3) % 4] } : { pt: ['fb', 'heat', 'curve', 'change'][n % 4], r: Math.floor(r() * 5), c: Math.floor(r() * 5), hold: n % 5 === 0, shift: ['N', 'L', 'R', 'BUNT', 'IN', 'DEEP'][n % 6] });
+      return { g, n }; }, { g, n } = run();
+    if (!g.S.over) bad('game ' + s + ' did not end in 2000 pitches');
+    if (JSON.stringify(g.result()) !== JSON.stringify(run().g.result())) bad('game is not deterministic');
+    const res = g.result(); ends[res.winner] = (ends[res.winner] || 0) + 1; if (res.winner === -1) draws++;
+    res.line.forEach((l, i) => { if (l.reduce((a, b) => a + b, 0) !== res.score[i]) bad('line score does not add up'); if (l.some(v => v > Gm.HALF_RUNS)) bad('half-inning run cap broken'); });
+    if (g.S.half < 2 * Gm.INNINGS - 2 || g.S.half > 2 * (Gm.INNINGS + Gm.EXTRA_INNINGS)) bad('game length ' + g.S.half);
+    if (res.winner >= 0 && res.score[res.winner] <= res.score[1 - res.winner]) bad('wrong winner'); if (res.winner === -1 && res.score[0] !== res.score[1]) bad('draw with unequal score'); }
+  if (!ends[0] || !ends[1]) bad('60 games never gave both winners: ' + JSON.stringify(ends)); }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');
