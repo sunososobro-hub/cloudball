@@ -7,8 +7,10 @@
  *   makePlayer(seed, choice) { player, ratings }: the player in the roster format of league/players.js, and
  *                            ratingsOf(player) on the factory scale (league/ratings.js).
  *
- * A choice: { kind: 'bat', pos, bats, build, look, points: {con, pow, eye, spd, arm}, nameDraw }
- *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw }.
+ * A choice: { kind: 'bat', pos, bats, build, look, points: {con, pow, eye, spd, arm}, nameDraw, train }
+ *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw, train }.
+ * train (#369, optional): the daily training split, whole percents over the same ability keys, sum 100
+ * (league/training.js); left out = even. It is stored on the player as `train`.
  * The points are spent in full (sum = the budget of the kind), each between FLOOR and CAP. Potential, age, height
  * and shirt number are not chosen: they are drawn from the seed (potential is the luck people talk about).
  * Nothing here touches ROSTERS: a created player reaches a game only through a roster given to the engine (rule 10). */
@@ -16,6 +18,7 @@ import { ROSTERS } from './players.js';
 import { STAFF, UMPIRES } from './staff.js';
 import { SURNAMES, GIVEN } from './namepool.js';
 import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
+import { validateSplit, evenSplit } from './training.js';
 
 /* Free agents are young: given names of the youngest pool. */
 export const NAME_DECADE = 1990;
@@ -77,7 +80,7 @@ export function validateCreate(c) {
   const out = [], C = CREATE;
   if (!c || typeof c !== 'object') return ['no choice given'];
   if (!C.kinds.includes(c.kind)) return [`kind must be one of ${C.kinds.join(', ')}`];
-  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'look', 'points', 'nameDraw'];
+  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'look', 'points', 'nameDraw', 'train'];
   for (const k of Object.keys(c)) if (!allowed.includes(k)) out.push(`unknown field ${k}`);
   if (bat && !C.positions.includes(c.pos)) out.push(`position must be one of ${C.positions.join(', ')}`);
   if (!bat && !C.roles.includes(c.role)) out.push(`role must be one of ${C.roles.join(', ')}`);
@@ -87,6 +90,7 @@ export function validateCreate(c) {
   if (!sameKeys(c.look, lk)) out.push(`look must hold exactly ${lk.join(', ')}`);
   else for (const k of lk) if (!inRange(c.look[k], C.look[k])) out.push(`look.${k} must be a whole number from ${C.look[k][0]} to ${C.look[k][1]}`);
   if (c.nameDraw !== undefined && !inRange(c.nameDraw, [0, C.maxNameDraw])) out.push(`nameDraw must be a whole number from 0 to ${C.maxNameDraw}`);
+  if (c.train !== undefined) out.push(...validateSplit(C.keys[c.kind], c.train));
   const keys = C.keys[c.kind], budget = C.budget[c.kind], cap = C.cap[c.kind];
   if (!sameKeys(c.points, keys)) out.push(`points must hold exactly ${keys.join(', ')}`);
   else {
@@ -121,6 +125,6 @@ export function makePlayer(seed, c) {
     const con = raw('con', c.points.con);
     Object.assign(p, { pos: c.pos, con, pow: raw('pow', c.points.pow), eye: raw('eye', c.points.eye), age, pot: raw('pot', pot), arm: r3(raw('arm', c.points.arm)), avg: AVG_FIT(con), spd: r3(raw('spd', c.points.spd)), hand: c.bats });
   }
-  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look } });
+  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(CREATE.keys[c.kind].map(k => [k, (c.train || evenSplit(CREATE.keys[c.kind]))[k]])) });
   return { player: p, ratings: ratingsOf(p) };
 }
