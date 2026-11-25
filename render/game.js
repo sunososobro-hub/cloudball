@@ -1151,6 +1151,9 @@ const CROUCH_FWD=.7,CROUCH_SPLAY=.45,CROUCH_LEAN=.4,CROUCH_SHRINK=.5,UMP_FWD=.35
 const JOG_SPEED=6.5,JOG_GAP=.3,BRK_OFF_AT=1,BRK_ON_AT=17.5,_tv=new THREE.Vector3();
 const jogRank=k=>JOG_ORDER.indexOf(k),JOG_ORDER=FIELDER_KEYS.slice().sort((a,b)=>Math.hypot(...fielders[b].home)-Math.hypot(...fielders[a].home));
 const dugout=t=>[(t===0?1:-1)*INTRO_X,INTRO_Z];
+/* #313: the cheap dugouts every tier draws (4 unlit-cheap boxes each, no textures); props/index.js hides them while max shows the polished ones (named old:dugout) */
+import(new URL('dugout_lite.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{for(const t of [0,1]){const [dx,dz]=dugout(t),D=M.liteDugout(dx,dz),g=new THREE.Group();g.name='old:dugout';g.position.set(dx,0,dz);g.rotation.y=D.rotY;
+  for(const p of D.parts){const m=new THREE.Mesh(new THREE.BoxGeometry(p.w,p.h,p.d),new THREE.MeshLambertMaterial({color:p.color}));m.name='old:dugout';m.position.set(p.x,p.y,p.z);g.add(m)}scene.add(g)}}).catch(err=>console.warn('lite dugouts off',err));
 function crouch(f,R,c,fwd,splay,lean,shrink){const fw=fwd*c,sp=splay*c,len=LEG_LEN*(1-shrink*c);f.g.position.y=-(LEG_LEN-len*Math.cos(sp)*Math.cos(fw))*(f.k||1);R.l0.scale.y=R.l1.scale.y=1-shrink*c;R.l0.rotation.set(-fw,0,-sp);R.l1.rotation.set(-fw,0,sp);R.up.rotation.set(lean*c,0,0)}
 function aimWorld(R,arm,sx,wx,wy,wz){R.up.updateWorldMatrix(true,false);_tv.set(wx,wy,wz);R.up.worldToLocal(_tv);aimArm(arm,sx,_tv.x,_tv.y,_tv.z)}
 function armsDown(R){R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1}
