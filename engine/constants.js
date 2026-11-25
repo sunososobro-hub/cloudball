@@ -215,6 +215,17 @@ export const BUNT_HIT_FUMBLE = 1.5;        /* seconds lost picking up a bunt tha
 /* ---- fielding and throwing ---- */
 export const FIELD_VAVG = 6.4;            /* average chase speed used to decide what is reachable */
 export const FIELD_REACT = 0.25;
+/* Fielder range (#378): a batter's optional `def` (centred on 1.0 like arm; missing = 1) scales his chase speed,
+ * clamped to the same 0.85..1.15 band as ARM_MIN + ARM_SPAN. The factory rosters carry no `def`, so their games stay
+ * byte for byte the same. */
+export const DEF_MIN = 0.85;
+export const DEF_MAX = 1.15;
+/* ... and the defence behind the pitcher turns hits into outs: a hit or error chance is divided by
+ * 1 + (mean def of the fielders who play that ball - 1) x weight (grounders: the infield, line drives and fly balls:
+ * the outfield, pop-ups: all seven). First guess, owner to tune: at the clamp ends a whole team moves hits by about
+ * +-5%, near the MLB spread of team defence (about +-0.015 BABIP). Errors follow the glove fully. */
+export const DEF_HIT_WEIGHT = 0.33;
+export const DEF_ERR_WEIGHT = 1;
 export const GB_REACH_BONUS = 0.5;        /* a grounder may be picked up this far past the chase range */
 export const AIR_REACH_SAFETY = 0.999;    /* a catchable air ball is strictly inside the fielder's range */
 export const CATCH_STAND_OFF = 0.4;       /* fielder sets up this far beside the ball */

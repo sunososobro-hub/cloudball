@@ -11,13 +11,15 @@
  * really do, and rules/outs.js is the only way an out gets recorded. */
 import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
-import { FIELDER_KEYS, HOME, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
+import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
 import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
 
+const GLOVE_KEYS = FIELDER_KEYS.filter(k => k !== 'P' && k !== 'C');            /* the seven who chase batted balls */
+const INFIELD_KEYS = GLOVE_KEYS.filter(k => !OUTFIELD_KEYS.includes(k));
 const span = (rng, [min, width]) => min + rng() * width;
 const round3 = x => Math.round(x * K.STREAM_TIME_PRECISION) / K.STREAM_TIME_PRECISION;
 
@@ -51,6 +53,15 @@ export function simGame(seed, decisions, opts) {
   /* the base a runner may steal now: second (first occupied, second open) or third (#38: second alone) */
   const stealBase = () => st.outs >= K.OUTS_PER_HALF - 1 ? 0 : st.b[0] && !st.b[1] ? 2 : st.b[1] && !st.b[0] && !st.b[2] ? 3 : 0;
   const armOf = def => key => (key === 'P' ? RR[def].pit[st.pi[def]] : RR[def].bat.find(b => b.pos === key) || {}).arm || 1;
+  /* chase speed of a fielder (rules/fielding.js chase): the pitcher has no `def` (1); a missing `def` is 1, so FIELD_VAVG * 1
+   * keeps old games exact. An out lands within the reach of the slower of him and the average pace (reach below):
+   * a quicker fielder gets to the same ball sooner (time for the throw), a slower one is never asked for a catch
+   * he cannot make (rules/outs.js flyCatch). */
+  const defOf = (def, key) => key === 'P' ? 1 : clamp((RR[def].bat.find(b => b.pos === key) || {}).def || 1, K.DEF_MIN, K.DEF_MAX);
+  const rangeOf = def => key => K.FIELD_VAVG * defOf(def, key);
+  /* hit / error chance factor of a defence for a ball type (constants.js DEF_HIT_WEIGHT): 1 exactly when nobody has `def` */
+  const defGroup = (def, type) => { const ks = type === 'GB' ? INFIELD_KEYS : type === 'PU' ? GLOVE_KEYS : OUTFIELD_KEYS; return ks.reduce((t, k) => t + defOf(def, k), 0) / ks.length; };
+  const defFactor = (def, type, w) => 1 / (1 + (defGroup(def, type) - 1) * w);
   const addRun = n => { const o = st.half; st.sc[o] += n; st.ls[o][st.inn - 1] = (st.ls[o][st.inn - 1] || 0) + n; };
 
   /* A decision the fans (or anyone outside the engine) may make. Without an entry in
@@ -135,7 +146,7 @@ export function simGame(seed, decisions, opts) {
       const tire = Math.max(0, st.pc[def] - K.TIRE_AFTER_PITCHES);
       const pit = { name: pit0.name, stuff: pit0.stuff * (1 - tire * K.TIRE_STUFF_PER_PITCH), ctrl: pit0.ctrl * (1 - tire * K.TIRE_CTRL_PER_PITCH) };
       const line = COPY.batLine(bs), pline = COPY.pitLine(ps);
-      const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def) });
+      const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def), vavg: rangeOf(def) });
       const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; };
 
       /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
@@ -219,11 +230,12 @@ export function simGame(seed, decisions, opts) {
             const tr = R(); type = tr < K.GB_SHARE ? 'GB' : tr < K.LD_SHARE_END ? 'LD' : (R() < K.POPUP_OF_AIR ? 'PU' : 'FB');
             spray = clamp((R() - K.HALF) * K.SPRAY_MAIN_DEG + (R() - K.HALF) * K.SPRAY_NOISE_DEG, -K.SPRAY_MAX_DEG, K.SPRAY_MAX_DEG);
             const hrP = K.HR_P * bat.pow * bat.pow / pit.stuff;
-            if (type === 'GB') { if (R() < K.GB_HIT_P * bat.con / pit.stuff) res = R() < K.GB_DOUBLE_P ? '2B' : '1B'; }
-            else if (type === 'LD') { if (R() < K.LD_HIT_P * bat.con / pit.stuff) { const q = R(); res = q < K.LD_SINGLE_END ? '1B' : q < K.LD_DOUBLE_END ? '2B' : '3B'; } }
-            else if (type === 'FB') { if (R() < hrP) res = 'HR'; else if (R() < K.FB_HIT_P) { const q = R(); res = q < K.FB_SINGLE_END ? '1B' : q < K.FB_DOUBLE_END ? '2B' : '3B'; } }
-            else if (R() < K.PU_HIT_P) res = '1B';
-            if (res === 'out' && R() < K.ERROR_P) res = 'E';
+            const dh = defFactor(def, type, K.DEF_HIT_WEIGHT);
+            if (type === 'GB') { if (R() < K.GB_HIT_P * bat.con / pit.stuff * dh) res = R() < K.GB_DOUBLE_P ? '2B' : '1B'; }
+            else if (type === 'LD') { if (R() < K.LD_HIT_P * bat.con / pit.stuff * dh) { const q = R(); res = q < K.LD_SINGLE_END ? '1B' : q < K.LD_DOUBLE_END ? '2B' : '3B'; } }
+            else if (type === 'FB') { if (R() < hrP) res = 'HR'; else if (R() < K.FB_HIT_P * dh) { const q = R(); res = q < K.FB_SINGLE_END ? '1B' : q < K.FB_DOUBLE_END ? '2B' : '3B'; } }
+            else if (R() < K.PU_HIT_P * dh) res = '1B';
+            if (res === 'out' && R() < K.ERROR_P * defFactor(def, type, K.DEF_ERR_WEIGHT)) res = 'E';
             const fielded = res === 'out' || res === 'E';
             if (type === 'GB') { d = span(R, fielded ? K.GB_OUT_DIST : K.GB_HIT_DIST); hang = d / (res === 'out' ? K.GB_OUT_SPEED : K.GB_HIT_SPEED); peak = K.GB_PEAK; }
             else if (type === 'LD') { d = res === 'out' ? (R() < K.LD_SHALLOW_P ? span(R, K.LD_SHALLOW_DIST) : span(R, K.LD_DEEP_DIST)) : span(R, K.LD_HIT_DIST); hang = d / K.LD_SPEED; peak = span(R, K.LD_PEAK); }
@@ -239,7 +251,8 @@ export function simGame(seed, decisions, opts) {
            * A ball caught in the air gets no slack at all (the fielder is under it when it comes down). */
           let lx = land[0], lz = land[1];
           if (res === 'out' || res === 'E') {
-            const [fx, fz] = fielderStart(fielder, B, st.outs), reach = type === 'GB' ? Math.max(0, K.FIELD_VAVG * (hang - K.FIELD_REACT)) + K.GB_REACH_BONUS : Math.max(0, K.FIELD_VAVG * (hang - K.FIELD_REACT)) * K.AIR_REACH_SAFETY;
+            const [fx, fz] = fielderStart(fielder, B, st.outs), v = Math.min(K.FIELD_VAVG, rangeOf(def)(fielder));
+            const reach = type === 'GB' ? Math.max(0, v * (hang - K.FIELD_REACT)) + K.GB_REACH_BONUS : Math.max(0, v * (hang - K.FIELD_REACT)) * K.AIR_REACH_SAFETY;
             if (nearest > reach) { const k = reach / nearest; lx = fx + (lx - fx) * k; lz = fz + (lz - fz) * k; }
           }
           play = { type, res, lx, lz, hang, peak, fielder, spray, dist: d, bunt };
