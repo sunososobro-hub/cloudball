@@ -40,7 +40,7 @@ export function guessSet(mode, r, c) {
 }
 
 /** One pitch against one swing (the prototype's `resolve`, strikes 0 balls 0 in practice). `batter` = {type:TYPES[k], con}. */
-export function resolve(p, sw, ptk, { batter, tired, hold = false, strikes = 0, rnd = Math.random }) {
+export function resolve(p, sw, ptk, { batter, tired, hold = false, strikes = 0, app = null, rnd = Math.random }) {
   const { rand } = rander(rnd), pt = PT[ptk];
   let r = p.r, c = p.c, missed = false;
   if (inZ(r, c)) {
@@ -59,7 +59,8 @@ export function resolve(p, sw, ptk, { batter, tired, hold = false, strikes = 0, 
   const covered = zoneOk && sw.set.some(([R, C]) => R === r - 1 && C === c - 1);
   const adj = sw.set.some(([R, C]) => Math.max(Math.abs(R + 1 - r), Math.abs(C + 1 - c)) === 1);
   if (covered) {
-    out.q = BASE_Q[sw.mode] + batter.type.h[sIdx(r, c)] * .3 + batter.con + rand(-.25, .25) + pt.q + (sw.mode === 'one' && pt.oneQ ? pt.oneQ : 0) + (tired ? .12 : 0);
+    out.q = BASE_Q[sw.mode] + batter.type.h[sIdx(r, c)] * .3 + batter.con + rand(-.25, .25) + pt.q + (sw.mode === 'one' && pt.oneQ ? pt.oneQ : 0) + (tired ? .12 : 0)
+      + (app === 'pull' ? (c === 1 ? .1 : c === 3 ? -.08 : 0) : app === 'push' ? (c === 3 ? .1 : c === 1 ? -.08 : 0) : 0);   // part 3c: the batter's approach (the prototype's curApp)
     out.kind = 'contact'; return out;
   }
   if (zoneOk) {
