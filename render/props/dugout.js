@@ -109,8 +109,8 @@ function roadGear(add,shell){const {L,D,F,OPEN,WALL_T,FRONT_H,BENCH_D}=DUG,{COOL
   const hg=new THREE.SphereGeometry(.13,16,10,0,Math.PI*2,0,Math.PI*.55);add(hg,shell,L/2-2.2,F+DUG.BENCH_H+.03,D-.12-BENCH_D/2)}
 
 /* slot descriptors (#237): dugout(1) in game.js is where the home side leaves the field, dugout(0) the road side (first base):
-   same shell mirrored, plus the visitors' gear. Neither existed before: nothing to hide. */
+   same shell mirrored, plus the visitors' gear. The cheap dugouts of the other tiers (render/dugout_lite.js, game.js, meshes named old:dugout, #313) are what max hides. */
 export const PROPS=[
-  {name:'homeDugout',build:c=>{const [x,z]=c.dugout(1);return buildDugout({x,z,colors:c.park()})},old:()=>[]},
-  {name:'roadDugout',build:c=>{const [x,z]=c.dugout(0);return buildDugout({x,z,colors:c.park(),name:'roadDugout',road:true})},old:()=>[]},
+  {name:'homeDugout',build:c=>{const [x,z]=c.dugout(1);return buildDugout({x,z,colors:c.park()})},old:c=>c.old('dugout')},
+  {name:'roadDugout',build:c=>{const [x,z]=c.dugout(0);return buildDugout({x,z,colors:c.park(),name:'roadDugout',road:true})},old:c=>c.old('dugout')},
 ];
