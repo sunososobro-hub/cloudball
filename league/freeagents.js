@@ -53,8 +53,24 @@ export const CREATE = {
 /* drawn, not chosen */
 export const AGE = [20, 24];
 export const NUM = [1, 99];
-export const POT = [40, 95];          /* potential on the display scale */
-export const POT_SKEW = 2.5;          /* u^POT_SKEW: most draws near the low end, a few high */
+/* Potential (#374): a target for the OVERALL on the display scale (league/training.js), drawn once at creation, locked
+ * and hidden from fans (owner 2026-11-25). Two parts: with chance POT_GOD_SHARE a "god roll" drawn evenly from POT_GOD,
+ * else the body POT_BODY[0] + span * u^POT_SKEW (more draws low, a tail toward the top of the body). potDraw() gives the
+ * value, potShareAtLeast() its exact share, so tests/training.check.mjs checks the shape against the 一軍 of
+ * league/site/players.json (median >= the 一軍 median, about a fifth above the 一軍 p75, a rare tail of stars). */
+export const POT_BODY = [52, 89];
+export const POT_SKEW = 1.75;
+export const POT_GOD = [90, 99];
+export const POT_GOD_SHARE = 0.03;
+export const potDraw = (u, v) => Math.round(v < POT_GOD_SHARE ? POT_GOD[0] - 0.5 + (POT_GOD[1] - POT_GOD[0] + 1) * u
+  : POT_BODY[0] + (POT_BODY[1] - POT_BODY[0]) * u ** POT_SKEW);
+/* exact share of draws with potential >= t (whole display number) */
+export function potShareAtLeast(t) {
+  const [g0, g1] = POT_GOD, [b0, b1] = POT_BODY;
+  const god = Math.min(1, Math.max(0, (g1 + 0.5 - Math.max(t - 0.5, g0 - 0.5)) / (g1 - g0 + 1)));
+  const x = Math.min(1, Math.max(0, (t - 0.5 - b0) / (b1 - b0)));
+  return POT_GOD_SHARE * god + (1 - POT_GOD_SHARE) * (1 - x ** (1 / POT_SKEW));
+}
 const HT_STEP = 100;                  /* heights in whole centimetres */
 
 /* mulberry32, the same small seeded PRNG as league/tools/names.mjs */
@@ -117,7 +133,7 @@ export function makePlayer(seed, c) {
   const r = rng(seed), pit = c.kind === 'pit', B = CREATE.builds[c.build];
   const age = between(r, AGE), num = between(r, NUM);
   const ht = between(r, B.ht.map(h => Math.round(h * HT_STEP))) / HT_STEP;
-  const pot = Math.round(POT[0] + (POT[1] - POT[0]) * r() ** POT_SKEW);
+  const pot = potDraw(r(), r());
   const raw = (k, d) => ratingsOf.raw(pit, k, d);
   const p = { id: `fa-${seed.toString(36)}`, name: drawName(seed, c.nameDraw || 0), num };
   if (pit) Object.assign(p, { role: c.role, stuff: raw('stuff', c.points.stuff), ctrl: raw('ctrl', c.points.ctrl), age, pot: raw('pot', pot), throws: c.throws, arm: r3(raw('arm', c.points.arm)) });

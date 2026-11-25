@@ -1,4 +1,4 @@
-/* How long a created player takes to reach the 一軍 (#369). Hand-run, deterministic, prints only.
+/* How long a created player takes to reach the 一軍 (#369; potential caps the overall since #374). Hand-run, deterministic, prints only.
  *
  *   node league/tools/train_sim.mjs
  *
@@ -7,12 +7,14 @@
  * active (ACTIVE_BONUS every day). Targets come from league/site/players.json (tier 1 = 一軍), nearest-rank:
  * the median overall and the bottom quartile. For each target it prints how many reach it within HORIZON days and,
  * over all players (a player who never reaches it counts as "never", sorted last), the p25 / median / p75 days, and the
- * same among the players who reach it. Two what-if rows drop the potential stop (NO_STOP) to show how much it decides. */
+ * same among the players who reach it. Two what-if rows drop the potential cap (NO_STOP) to show how much it decides.
+ * It also prints the potential draw against the 一軍: share at or above the median, above the p75, and at or above
+ * RATING_TOP (the star line of league/ratings.js, the rare tail), exact from the constants and as drawn. */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { CREATE, makePlayer } from '../freeagents.js';
-import { ratingsOf } from '../ratings.js';
+import { CREATE, makePlayer, potShareAtLeast } from '../freeagents.js';
+import { RATING_TOP } from '../ratings.js';
 import { trainDay, overallOf, ACTIVE_BONUS, DAYS_PER_SEASON, SPLIT_TOTAL } from '../training.js';
 
 export const PLAYERS = 1000, SIM_SEED = 369, SEASONS = 3, HORIZON = SEASONS * DAYS_PER_SEASON, EVEN_EVERY = 10;
@@ -24,7 +26,7 @@ const rank = (sorted, q) => sorted[Math.max(0, Math.ceil(q * sorted.length) - 1)
 
 export function targets(players) {
   const o = Object.values(players).filter(p => p.tier === 1).map(p => p.overall).sort((a, b) => a - b);
-  return { median: rank(o, 0.5), bottom: rank(o, 0.25), n: o.length };
+  return { median: rank(o, 0.5), bottom: rank(o, 0.25), p75: rank(o, 0.75), n: o.length };
 }
 
 /* integer parts that sum to total, each in [lo, hi], spread at random */
@@ -75,7 +77,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const { t, res, start, pots } = simulate();
   console.log(`train_sim (#369): ${PLAYERS} created players (seed ${SIM_SEED}), horizon ${HORIZON} days (${SEASONS} seasons of ${DAYS_PER_SEASON}), active bonus ${ACTIVE_BONUS}/day`);
   console.log(`一軍 (${t.n} players in league/site/players.json): median overall ${t.median}, bottom quartile ${t.bottom}`);
-  console.log(`created at day 0: overall p25/median/p75 ${[0.25, 0.5, 0.75].map(q => rank(start, q)).join('/')}, potential ${[0.25, 0.5, 0.75].map(q => rank(pots, q)).join('/')}`);
+  console.log(`一軍 p75 ${t.p75}; created at day 0: overall p25/median/p75 ${[0.25, 0.5, 0.75].map(q => rank(start, q)).join('/')}, potential (hidden) ${[0.25, 0.5, 0.75].map(q => rank(pots, q)).join('/')}`);
+  const pct = x => `${(100 * x).toFixed(1)} %`, drawn = th => pots.filter(x => x >= th).length / pots.length;
+  for (const [name, th] of [[`potential >= 一軍 median ${t.median}`, t.median], [`potential > 一軍 p75 ${t.p75}`, t.p75 + 1], [`potential >= star line ${RATING_TOP}`, RATING_TOP]])
+    console.log(`  ${name.padEnd(30)}: exact ${pct(potShareAtLeast(th))}, drawn ${pct(drawn(th))}`);
   for (const [j, name] of [[0, `median ${t.median}`], [1, `bottom quartile ${t.bottom}`]]) for (const mode of Object.keys(res)) {
     const d = [...res[mode][j]].sort((a, b) => a - b), ok = d.filter(x => x !== Infinity), got = ok.length;
     const of = got ? `; of those reaching it p25/median/p75 ${[0.25, 0.5, 0.75].map(q => rank(ok, q)).join('/')}` : '';
