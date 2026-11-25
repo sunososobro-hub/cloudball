@@ -5,13 +5,11 @@
 - #35 (0.4.1): tag spot at second beside the lane from first; `run.mjs` checks `TAG_LANE_CLEAR`.
 - #59 + #65 (0.4.2): the coach keeps a starter to a pitch budget (`SP_LIMIT_*`), 5.02 -> 5.23 IP/start;
   `run.mjs` checks IP/start and the quick hook; walk-off line without the comma.
-- #7 (0.4.3): `sinCosDeg` (`+ - * /` only) replaces `Math.sin`/`Math.cos`; streams are the same but for
-  the version. `run.mjs` bans `Math.sin`, `Math.pow`, `**` in `engine/`, pins `TRIG_PRINT`.
+- #7 (0.4.3): `sinCosDeg` (`+ - * /` only) replaces `Math.sin`/`Math.cos`. `run.mjs` bans `Math.sin`, `Math.pow`, `**` in `engine/`, pins `TRIG_PRINT`.
 
 ## Next
 1. #23 catcher holds the ball on steals: needs a primary lead from `render/` first (see the issue).
-2. #38 rest: passed ball, balk, steal of third, advancing on a throw/error, outs on the bases, pickoffs.
-   Wild pitch done (0.4.4, `WP_P`): runs/game 8.55 -> 8.72 on 20,000 games (ref 8.89).
+2. #38 rest (wild pitch done, 0.4.4 `WP_P`, runs 8.55 -> 8.72/20k games): passed ball, balk, steal of 3rd, outs on the bases.
 3. Staffs have 4 relievers: 5.3 changes/game against about 6.6 in MLB; relief outings are long.
 4. Called third strikes are about 19% of strikeouts; real baseball is nearer a quarter.
 
