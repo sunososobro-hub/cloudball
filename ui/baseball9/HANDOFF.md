@@ -4,9 +4,10 @@
 - Constants: `PRACTICE_PITCHES` 10, `FULL_AT` 4 (tier full/half), `HIT_Q` .72. Guard `tests/baseball9.check.mjs` (in `tests/replay/static.mjs`).
 - #332 part 2: `baseball9.html` + `ui/baseball9/screen.js` / `screen.css` / `text.js`: plain DOM (3x3 bat grid, 5x5 pitch grid, 44px cells, 390px phone ok), no three.js. Result kept in `window.baseball9Result`, nothing sent anywhere. Check extended in `tests/baseball9.check.mjs`.
 - #332 part 3a: `ball.js` = batted-ball launch, flight (drag, bounce, fence, HR) and fielding, pure + seedable; `batBall(q,{app,pt,bunt,pow,F,rnd})` -> HR / caught / ground / gap. Check in `tests/baseball9.check.mjs`.
+- #332 part 3b: `play.js` = `playBall(q,{batter,bases,outs,def,rnd,...})`: one batted ball with runners (fielding, throws, double plays, tag-ups, runner advance, runs), ported from the prototype's `play`/`hitPlay`, pure + seedable (the prototype's two `Math.random` calls now use `rnd`). Check in `tests/baseball9.check.mjs`.
 ## Next
 - Link the page from the player/agent pages once the owner says where (not linked yet; only `guide.html` links back).
-- Part 3b: runners, throws, double plays, tag-ups (`play`/`hitPlay` of the prototype) on top of `ball.js`; part 3c: 3 innings, AI teams, screen. Source from `ui/ref/baseball_9grid/`.
+- Part 3c: 3 innings (outs, score, half-inning change), AI teams, screen, on top of `play.js`. Source from `ui/ref/baseball_9grid/`.
 ## Traps
 - Local only: no backend, no ability change; a created player's result may only feed #369's training bonus number.
 - In bat practice a "hit" is contact with q >= HIT_Q (or a bunt); the ball physics decide base hits only in part 3.
