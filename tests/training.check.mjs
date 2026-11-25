@@ -1,6 +1,8 @@
 /* Training model of created players (league/training.js, #369) and its simulation (league/tools/train_sim.mjs). Fails when
  *   - a legal split is refused, or a split off the rules (sum, keys, whole numbers, range) is accepted,
- *   - a created player does not carry his split (or the even one when none was chosen),
+ *   - a created player does not carry his split (or the default one when none was chosen: even for a batter, ROLE_SPLIT
+ *     by pitcher role, #378), a ROLE_SPLIT entry is not a legal split, or the starter and the short relievers share a
+ *     default (SP must lean less on stuff than RP and CL),
  *   - a day gains more than DAILY_CAP, the overall passes the potential, an ability passes ABIL_MAX or drops,
  *     an ability with 0 % grows, or a player at an age of AGE_CURVE's last point grows,
  *   - growth does not slow inside POT_SLOW_BAND below the potential, or a player below it with room stops (#374),
@@ -17,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { CREATE, validateCreate, makePlayer, potShareAtLeast } from '../league/freeagents.js';
 import { RATING_TOP } from '../league/ratings.js';
-import { validateSplit, evenSplit, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
+import { validateSplit, evenSplit, defaultSplit, ROLE_SPLIT, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
 import { targets, daysTo, choiceOf } from '../league/tools/train_sim.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -36,11 +38,19 @@ for (const [what, keys, s] of [['sum 99', kp, { stuff: 50, ctrl: 49, arm: 0 }], 
 /* the split goes through creation and is stored */
 const look = { head: 0, skin: 0, hair: 0 };
 const BAT = { kind: 'bat', pos: 'SS', bats: 'L', build: 'slim', look, points: { con: 70, pow: 40, eye: 65, spd: 70, arm: 60 } };
+const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points: { stuff: 66, ctrl: 62, arm: 55 } };
 const split = { con: 0, pow: 60, eye: 40, spd: 0, arm: 0 };
 if (validateCreate({ ...BAT, train: split }).length) bad('choice with a legal split refused');
 if (!validateCreate({ ...BAT, train: { con: 100 } }).length) bad('choice with a bad split accepted');
 if (JSON.stringify(makePlayer(9, { ...BAT, train: split }).player.train) !== JSON.stringify(split)) bad('created player does not carry his split');
 if (JSON.stringify(makePlayer(9, BAT).player.train) !== JSON.stringify(evenSplit(kb)) || validateSplit(kb, evenSplit(kb)).length) bad('created player without a split does not carry the even one');
+for (const role of CREATE.roles) {
+  const want = defaultSplit('pit', role), got = makePlayer(9, { ...PIT, role }).player.train;
+  if (JSON.stringify(got) !== JSON.stringify(want)) bad(`created ${role} without a split carries ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  if (validateSplit(kp, want).length) bad(`default split of ${role} is not legal: ${validateSplit(kp, want).join('; ')}`);
+}
+for (const [role, sp] of Object.entries(ROLE_SPLIT)) if (!CREATE.roles.includes(role) || validateSplit(kp, sp).length) bad(`ROLE_SPLIT.${role}: not a creatable role or not a legal split`);
+for (const role of ['RP', 'CL']) if (!(ROLE_SPLIT.SP.stuff < ROLE_SPLIT[role].stuff)) bad(`SP default leans on stuff as much as ${role}`);
 
 /* daily cap, potential caps the overall, no drop, 0 % does not grow, age */
 const last = AGE_CURVE[AGE_CURVE.length - 1];

@@ -14,7 +14,7 @@ import {ratingRow,barColor,RATING_MAX} from './bars.js';
 import {attachCompare} from './compare.js';
 
 const POS={C:'捕手','1B':'一壘手','2B':'二壘手','3B':'三壘手',SS:'游擊手',LF:'左外野',CF:'中外野',RF:'右外野',DH:'指定打擊'};
-const ROLE={SP:'先發投手',RP:'後援投手'};
+const ROLE={SP:'先發投手',MR:'中繼投手',RP:'後援投手',CL:'終結投手'};
 const SIDE={L:'左',R:'右',S:'左右開弓'};
 const BAT_RATINGS=[['con','打擊'],['pow','長打'],['eye','選球'],['spd','速度'],['arm','傳球']];
 const PIT_RATINGS=[['stuff','球威'],['ctrl','控球'],['arm','臂力']];

@@ -39,7 +39,7 @@ export function choiceOf(i, r) {
   const kind = i % 2 ? 'pit' : 'bat', keys = CREATE.keys[kind];
   const points = spread(r, keys, CREATE.budget[kind], CREATE.floor, CREATE.cap[kind]);
   const c = kind === 'bat' ? { kind, pos: CREATE.positions[i % CREATE.positions.length], bats: 'R', build: 'normal', look: LOOK, points }
-    : { kind, role: CREATE.roles[i % 2], throws: 'R', build: 'normal', look: LOOK, points };
+    : { kind, role: CREATE.roles[(i >> 1) % CREATE.roles.length], throws: 'R', build: 'normal', look: LOOK, points };
   if (i % EVEN_EVERY) c.train = spread(r, keys, SPLIT_TOTAL, 0, SPLIT_TOTAL);
   return c;
 }

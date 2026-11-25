@@ -28,7 +28,7 @@ export function simGame(seed, decisions, opts) {
   const TI = opts.teams || [0, 1], TT = TI.map(i => TEAMS[i]);
   const RR = TI.map((ti, k) => {
     const r = allRosters[ti], sp = opts.starters ? opts.starters[k] : seed % K.ROTATION_SIZE;
-    const rp = r.pit.filter(p => p.role === 'RP'), o = opts.pen ? opts.pen[k] % rp.length : 0;
+    const rp = r.pit.filter(p => p.role !== 'SP'), o = opts.pen ? opts.pen[k] % rp.length : 0;
     return { bat: r.bat, pit: [r.pit[sp], ...rp.slice(o), ...rp.slice(0, o)] };
   });
   const R = mulberry32(seed);                          /* decides outcomes */

@@ -3,7 +3,9 @@
  * season-1 ticket can run server-side, and the model league/tools/train_sim.mjs measures. Data format: CC0.
  *
  *   validateSplit(keys, split)   list of plain reasons; empty = fine. A split: { <ability key>: whole percent }, sum 100.
- *   evenSplit(keys)              the split used when a fan leaves the sliders alone.
+ *   evenSplit(keys)              an even split over those keys.
+ *   defaultSplit(kind, role)     the split used when a fan leaves the sliders alone: by pitcher role (ROLE_SPLIT,
+ *                                #378), even for batters and for a role without an entry.
  *   ageFactor(age)               growth multiplier of that age (AGE_CURVE, straight lines between its points).
  *   trainDay(state, r, bonus)    one day: state { pit, age0, day, pot, split, abil: { key: display value } } grows
  *                                in place; r is the seeded RNG; bonus is the plain number a training mini-game
@@ -45,7 +47,17 @@ export function validateSplit(keys, split) {
   if (!out.length && sum !== SPLIT_TOTAL) out.push(`split adds up to ${sum}, it must be ${SPLIT_TOTAL}`);
   return out;
 }
+/* default emphasis by pitcher role (#378). First guess, not tuned: there is no stamina ability yet, so a starter
+ * leans on control (fewer pitches per out, deeper starts) and short relievers on stuff; MR stays even. Each sums to
+ * SPLIT_TOTAL over KEYS.pit. */
+export const ROLE_SPLIT = {
+  SP: { stuff: 30, ctrl: 45, arm: 25 },
+  RP: { stuff: 50, ctrl: 35, arm: 15 },
+  CL: { stuff: 60, ctrl: 30, arm: 10 },
+};
 export const evenSplit = keys => Object.fromEntries(keys.map((k, i) => [k, Math.floor(SPLIT_TOTAL / keys.length) + (i < SPLIT_TOTAL % keys.length ? 1 : 0)]));
+
+export const defaultSplit = (kind, role) => (kind === 'pit' && ROLE_SPLIT[role] ? { ...ROLE_SPLIT[role] } : evenSplit(KEYS[kind]));
 
 export function ageFactor(age) {
   const c = AGE_CURVE;
