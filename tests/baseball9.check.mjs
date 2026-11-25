@@ -70,6 +70,23 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
     if (g.S.half < 2 * Gm.INNINGS - 2 || g.S.half > 2 * (Gm.INNINGS + Gm.EXTRA_INNINGS)) bad('game length ' + g.S.half);
     if (res.winner >= 0 && res.score[res.winner] <= res.score[1 - res.winner]) bad('wrong winner'); if (res.winner === -1 && res.score[0] !== res.score[1]) bad('draw with unequal score'); }
   if (!ends[0] || !ends[1]) bad('60 games never gave both winners: ' + JSON.stringify(ends)); }
+/* part 3c-2: the game screen. Text helpers on real game states, then gamescreen.js itself runs against a tiny fake DOM and clicks a whole game through. */
+{ const T = await import('../ui/baseball9/text.js'), Gm = await import('../ui/baseball9/game.js'), g = Gm.createGame({ rnd: seeded(5) });
+  if (!/第 1 局上/.test(T.describeHalf(g.S)) || !/你打擊/.test(T.describeHalf(g.S))) bad('describeHalf top');
+  if (T.describeBases([1, null, 1]) !== '壘上：一壘● 二壘○ 三壘●' || T.canSteal({ bases: [null, null, 1] }) || !T.canSteal({ bases: [1, null, null] }) || T.canSteal({ bases: [1, 1, 1] })) bad('bases text / canSteal');
+  if (!/你的隊 0 : 0 電腦隊/.test(T.describeScore(g.S)) || !/0 壞 0 好 0 出局/.test(T.describeCount(g.S))) bad('score / count text');
+  const mk = () => { const e = { children: [], style: { setProperty() {} }, _t: '', hidden: false, checked: false, dataset: {}, setAttribute() {}, append(...k) { this.children.push(...k); }, prepend(k) { this.children.unshift(k); },
+      set textContent(v) { this._t = v; if (v === '') this.children = []; }, get textContent() { return this._t; } }; return e; };
+  const els = {}, ids = [...readFileSync(new URL('../baseball9.html', import.meta.url), 'utf8').matchAll(/id="([a-zA-Z]+)"/g)].map(m => m[1]); for (const i of ids) els[i] = mk();
+  globalThis.document = { getElementById: i => els[i] || bad('gamescreen reads missing #' + i) || mk(), createElement: () => mk() }; globalThis.window = globalThis;
+  const { startGame } = await import('../ui/baseball9/gamescreen.js'); startGame();
+  if (els.menu.hidden !== true || els.gstage.hidden !== false) bad('startGame does not open the game stage');
+  let n = 0; while (!globalThis.baseball9GameResult && n++ < 3000) { const cells = els.ggrid.children.filter(b => !b.disabled);
+    if (cells.length) cells[n % cells.length].onclick(); else els.ggo.onclick(); }
+  const res = globalThis.baseball9GameResult;
+  if (!res) bad('the game screen never finished a game in 3000 clicks'); else { if (!/比賽結束/.test(els.gend.textContent) || els.gend.hidden) bad('no end line'); if (!/^比賽結束/.test(els.ghalf.textContent)) bad('half title at the end');
+    if (els.ggrid.children.some(b => !b.disabled)) bad('cells still enabled after the game'); if (els.glog.children.length < 20) bad('log too short: ' + els.glog.children.length); }
+  startGame(); if (globalThis.baseball9GameResult !== null || els.gend.hidden !== true) bad('again does not reset the game'); }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');

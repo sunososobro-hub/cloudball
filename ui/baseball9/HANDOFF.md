@@ -6,9 +6,10 @@
 - #332 part 3a: `ball.js` = batted-ball launch, flight (drag, bounce, fence, HR) and fielding, pure + seedable; `batBall(q,{app,pt,bunt,pow,F,rnd})` -> HR / caught / ground / gap. Check in `tests/baseball9.check.mjs`.
 - #332 part 3b: `play.js` = `playBall(q,{batter,bases,outs,def,rnd,...})`: one batted ball with runners (fielding, throws, double plays, tag-ups, runner advance, runs), ported from the prototype's `play`/`hitPlay`, pure + seedable (the prototype's two `Math.random` calls now use `rnd`). Check in `tests/baseball9.check.mjs`.
 - #332 part 3c-1: `game.js` = `createGame({rnd})`, 3 innings (+2 tie-break), score, half-run cap, AI approach / shift / pitch / swing, steals, walks, strikeouts, on top of `practice.resolve` (new `app` option) and `playBall`. `game.pitch(choice)` = one pitch. Check in `tests/baseball9.check.mjs`.
+- #332 part 3c-2: `gamescreen.js` + `#gstage` in `baseball9.html`: the 3-inning game screen (approach / shift / mode / pitch type, 3x3 or 5x5 grid, steal / hold, count, bases, line score, log, result in `window.baseball9GameResult`). Check drives the real screen on a fake DOM through whole games.
 ## Next
 - Link the page from the player/agent pages once the owner says where (not linked yet; only `guide.html` links back).
-- Part 3c-2: the screen for the game (`screen.js`: pick a guess / pitch each turn, count, bases, line score, result), no three.js; not done. Source from `ui/ref/baseball_9grid/`.
+- No field picture / ball animation for the game yet (text + grids only); `batBall` / `playBall` scripts (`sc.runners`, `fl.pts`) are ready if the owner wants one.
 ## Traps
 - Local only: no backend, no ability change; a created player's result may only feed #369's training bonus number.
 - In bat practice a "hit" is contact with q >= HIT_Q (or a bunt); the ball physics decide base hits only in part 3.
