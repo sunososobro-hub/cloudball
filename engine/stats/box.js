@@ -5,7 +5,7 @@ const HITS = { single: 1, infield_single: 1, bunt_single: 1, double: 2, triple: 
 const NOT_AT_BAT = new Set(['walk', 'intentional_walk', 'hit_by_pitch', 'sac_bunt', 'sac_fly']);
 const blank = () => ({ pa: 0, ab: 0, h: 0, d: 0, t: 0, hr: 0, tb: 0, bb: 0, ibb: 0, hbp: 0, k: 0, sf: 0, sh: 0, rbi: 0, gidp: 0, roe: 0 });
 /* Team-only counts: steals, and what happened to every pitch the team's batters saw. */
-const blankTeam = () => ({ ...blank(), sb: 0, cs: 0, wp: 0, pb: 0, bk: 0, seen: 0, zone: 0, zoneSwing: 0, chaseSwing: 0, zoneWhiff: 0, chaseWhiff: 0, first: 0, firstSwing: 0, inPlay: 0 });
+const blankTeam = () => ({ ...blank(), sb: 0, cs: 0, sb3: 0, cs3: 0, wp: 0, pb: 0, bk: 0, seen: 0, zone: 0, zoneSwing: 0, chaseSwing: 0, zoneWhiff: 0, chaseWhiff: 0, first: 0, firstSwing: 0, inPlay: 0 });
 
 /* One game's box score: runs by team and inning, outs, and batting lines per team and player. */
 export function boxFromStream(stream) {
@@ -17,9 +17,9 @@ export function boxFromStream(stream) {
     else if (x.type === 'swing') { const T = box.team[x.team]; T[inZone ? 'zoneSwing' : 'chaseSwing']++; if (first) T.firstSwing++; }
     else if (x.type === 'contact') box.team[x.team].inPlay++;
     else if (x.type === 'call') { if (x.call === 'swinging_strike') box.team[x.team][inZone ? 'zoneWhiff' : 'chaseWhiff']++; }
-    else if (x.type === 'runner_advance') { if (x.how === 'steal') box.team[x.team].sb++; if ((x.how === 'wild_pitch' || x.how === 'passed_ball' || x.how === 'balk') && x.f !== wpFrame) { wpFrame = x.f; box.team[x.team][x.how === 'wild_pitch' ? 'wp' : x.how === 'balk' ? 'bk' : 'pb']++; } }
+    else if (x.type === 'runner_advance') { if (x.how === 'steal') { box.team[x.team].sb++; if (x.to === 3) box.team[x.team].sb3++; } if ((x.how === 'wild_pitch' || x.how === 'passed_ball' || x.how === 'balk') && x.f !== wpFrame) { wpFrame = x.f; box.team[x.team][x.how === 'wild_pitch' ? 'wp' : x.how === 'balk' ? 'bk' : 'pb']++; } }
     else if (x.type === 'run_scored') { box.score[x.team]++; box.line[x.team][inning - 1] = (box.line[x.team][inning - 1] || 0) + 1; }
-    else if (x.type === 'out') { box.outs[x.team]++; if (x.steal) box.team[x.team].cs++; }
+    else if (x.type === 'out') { box.outs[x.team]++; if (x.steal) { box.team[x.team].cs++; if (x.base === 3) box.team[x.team].cs3++; } }
     else if (x.type === 'pa_end') {
       const T = box.team[x.team], P = box.players[x.team][x.batter] || (box.players[x.team][x.batter] = blank());
       for (const s of [T, P]) {
@@ -56,7 +56,7 @@ export function aggregate(boxes) {
     hrPerGame: per(T.hr), doublesPerGame: per(T.d), triplesPerGame: per(T.t), gidpPerGame: per(T.gidp),
     babip: rate(T.h - T.hr, T.ab - T.k - T.hr + T.sf),
     hitsPerGame: per(T.h), ibbPerGame: per(T.ibb), sfPerGame: per(T.sf), shPerGame: per(T.sh), roePerGame: per(T.roe),
-    sbPerGame: per(T.sb), wpPerGame: per(T.wp), pbPerGame: per(T.pb), bkPerGame: per(T.bk), csPerGame: per(T.cs), sbPct: rate(T.sb, T.sb + T.cs),
+    sbPerGame: per(T.sb), wpPerGame: per(T.wp), pbPerGame: per(T.pb), bkPerGame: per(T.bk), csPerGame: per(T.cs), sbPct: rate(T.sb, T.sb + T.cs), sb3PerGame: per(T.sb3), cs3PerGame: per(T.cs3),
     pitchesPerPa: rate(pitches, T.pa), zonePct: rate(T.zone, T.seen),
     swingPct: rate(T.zoneSwing + T.chaseSwing, T.seen), zoneSwingPct: rate(T.zoneSwing, T.zone), chasePct: rate(T.chaseSwing, T.seen - T.zone),
     firstPitchSwingPct: rate(T.firstSwing, T.first), inPlayPct: rate(T.inPlay, T.seen),

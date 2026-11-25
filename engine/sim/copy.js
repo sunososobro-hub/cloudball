@@ -44,8 +44,8 @@ export const COPY = {
   wildPitch: runs => `，暴投！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   balk: runs => `投手犯規！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   passedBall: runs => `，捕逸！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
-  stealOk: n => `，${n} 盜壘成功！`,
-  stealOut: n => `，${n} 盜壘失敗，被觸殺出局`,
+  stealOk: (n, base) => `，${n} ${base === 3 ? '盜三壘' : '盜壘'}成功！`,
+  stealOut: (n, base) => `，${n} ${base === 3 ? '盜三壘' : '盜壘'}失敗，被觸殺出局`,
   walkoff: desc => /[！。？]$/.test(desc) ? '再見比賽！' : '，再見比賽！',   /* no comma after a line that already ends its sentence */
   halfEnd: (inn, half, teams, sc) => `${halfLabel(inn, half)}結束，${teams[0].short} ${sc[0]}：${sc[1]} ${teams[1].short}`,
   tie: sc => `比賽結束，雙方 ${sc[0]}：${sc[1]} 戰平`,

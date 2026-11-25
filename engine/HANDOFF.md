@@ -9,7 +9,7 @@
 
 ## Next
 1. #23 catcher holds the ball on steals: needs a primary lead from `render/` first (see the issue).
-2. #38 rest (0.4.4 wild pitch `WP_P`, 0.4.5 passed ball `PB_P`, 0.4.6 balk `BK_P`, frame `r: 'bk'`, no pitch event): steal of 3rd, outs on the bases.
+2. #38 rest (0.4.4 wild pitch `WP_P`, 0.4.5 passed ball `PB_P`, 0.4.6 balk `BK_P`, frame `r: 'bk'`, no pitch event; 0.4.7 steal of 3rd `STEAL3_*`, `st.steal` = the base): advancing on a throw or error, outs on the bases, pickoffs.
 3. Staffs have 4 relievers: 5.3 changes/game against about 6.6 in MLB; relief outings are long.
 4. Called third strikes are about 19% of strikeouts; real baseball is nearer a quarter.
 

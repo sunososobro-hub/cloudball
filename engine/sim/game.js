@@ -46,7 +46,10 @@ export function simGame(seed, decisions, opts) {
   const pitIdx = d => allRosters[TI[d]].pit.indexOf(RR[d].pit[st.pi[d]]);   /* index in the team roster, which is what viewers look up */
   const spdOf = (team, name) => (RR[team].bat.find(b => b.name === name) || { spd: 1 }).spd;
   const stealTryP = (team, name) => clamp(K.STEAL_TRY_BASE + (spdOf(team, name) - 1) * K.STEAL_TRY_PER_SPD, ...K.STEAL_TRY_RANGE);
-  const stealOkP = (team, name) => clamp(K.STEAL_OK_BASE + (spdOf(team, name) - 1) * K.STEAL_OK_PER_SPD, ...K.STEAL_OK_RANGE);
+  const stealOkP = (team, name, base) => base === 3 ? clamp(K.STEAL3_OK_BASE + (spdOf(team, name) - 1) * K.STEAL_OK_PER_SPD, ...K.STEAL3_OK_RANGE)
+    : clamp(K.STEAL_OK_BASE + (spdOf(team, name) - 1) * K.STEAL_OK_PER_SPD, ...K.STEAL_OK_RANGE);
+  /* the base a runner may steal now: second (first occupied, second open) or third (#38: second alone) */
+  const stealBase = () => st.outs >= K.OUTS_PER_HALF - 1 ? 0 : st.b[0] && !st.b[1] ? 2 : st.b[1] && !st.b[0] && !st.b[2] ? 3 : 0;
   const armOf = def => key => (key === 'P' ? RR[def].pit[st.pi[def]] : RR[def].bat.find(b => b.pos === key) || {}).arm || 1;
   const addRun = n => { const o = st.half; st.sc[o] += n; st.ls[o][st.inn - 1] = (st.ls[o][st.inn - 1] || 0) + n; };
 
@@ -134,9 +137,10 @@ export function simGame(seed, decisions, opts) {
       const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def) });
       const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; };
 
-      /* ---- offence: steal second? The runner breaks on the next real pitch. ---- */
-      if (st.b[0] && !st.b[1] && st.outs < K.OUTS_PER_HALF - 1 && !st.sbAsked && R() < K.STEAL_CONSIDER_P) {
-        st.sbAsked = true; if (R() < stealTryP(off, st.b[0])) st.steal = true;
+      /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
+      const sbB = stealBase();
+      if (sbB && !st.sbAsked && R() < (sbB === 3 ? K.STEAL3_CONSIDER_P : K.STEAL_CONSIDER_P)) {
+        st.sbAsked = true; if (R() < stealTryP(off, st.b[sbB - 2])) st.steal = sbB;
         continue;
       }
       st.sbAsked = false;
@@ -162,7 +166,7 @@ export function simGame(seed, decisions, opts) {
       let balls = 0, strikes = 0, paDone = false;
       while (!paDone) {
         const s0 = snap(), c0 = [balls, strikes]; st.pc[def]++;
-        const going = st.steal && st.b[0] && !st.b[1] && st.outs < K.OUTS_PER_HALF - 1; st.steal = false;
+        const going = st.steal && st.steal === stealBase() ? st.steal : 0; st.steal = false;
         const inZ = bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX);
         const zx = inZ ? (R() - K.HALF) * 2 * K.ZONE_HALF_WIDTH : (R() < K.HALF ? -1 : 1) * (K.MISS_X_MIN + R() * K.MISS_X_SPAN);
         const zy = inZ ? K.ZONE_Y_MIN + R() * K.ZONE_Y_SPAN : (R() < K.HALF ? K.MISS_LOW_Y - R() * K.MISS_LOW_SPAN : K.MISS_HIGH_Y + R() * K.MISS_HIGH_SPAN);
@@ -321,10 +325,10 @@ export function simGame(seed, decisions, opts) {
         } else {
           desc = COPY.call(e.r);
           if (going && e.r !== 'foul') {
-            const runner = st.b[0], s = resolveSteal(ctxOf(null), !(R() < stealOkP(off, runner)));
-            plan = s.plan; outs = s.outs; moves = [[1, 2, runner, s.tl]]; sbGo = true; e.sbGo = true; e.big = s.ok ? K.BIG.NOTABLE : K.BIG.NONE;
-            st.b = s.ok ? [null, runner, st.b[2]] : [null, null, st.b[2]];
-            desc += s.ok ? COPY.stealOk(runner) : COPY.stealOut(runner);
+            const runner = st.b[going - 2], s = resolveSteal(ctxOf(null), !(R() < stealOkP(off, runner, going)), going);
+            plan = s.plan; outs = s.outs; moves = [[going - 1, going, runner, s.tl]]; sbGo = true; e.sbGo = true; e.big = s.ok ? K.BIG.NOTABLE : K.BIG.NONE;
+            st.b = going === 3 ? [null, null, s.ok ? runner : null] : s.ok ? [null, runner, st.b[2]] : [null, null, st.b[2]];
+            desc += s.ok ? COPY.stealOk(runner, going) : COPY.stealOut(runner, going);
           } else if (!going && (e.r === 'ball' || e.r === 'sstr' || e.r === 'cstr') && (B[0] || B[1] || B[2]) && R() < (!inZ && zy <= K.MISS_LOW_Y ? K.WP_P : K.PB_P)) {
             /* ---- the pitch gets past the catcher (#38); every runner moves up one base. A low pitch out of the zone
              * (ball in the dirt) is a wild pitch; any other pitch he should have caught is a passed ball.

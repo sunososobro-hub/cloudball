@@ -1357,7 +1357,7 @@ function poseScene(e,u,dt,ei){
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
-  /* steal: the engine planned the catcher's throw and who covers second (e.plan); draw it */
+  /* steal: the engine planned the catcher's throw and who covers the bag (e.plan: SS at second, 3B at third, #38); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
     c.g.position.set(lerp(lerp(c.pos[0],sp[0],kc),c.pos[0],bk),0,lerp(lerp(c.pos[1],sp[1],kc),c.pos[1],bk));
     const tagA=S.actions.find(a=>a.a==='tag'),tagT=tagA?tagA.t:S.arrive+TAG_LATE_SWEEP;/* out: the engine's tag time; safe: a late swipe */
@@ -1794,6 +1794,7 @@ const STUDIO_ACTS=[
   ['跑壘','HR','跑壘・全壘打繞壘',e=>pl(e,p=>p.res==='HR')],
   ['跑壘','sb','盜壘',e=>e.k==='P'&&e.sbGo],
   ['跑壘','sbout','盜壘・觸殺出局',e=>e.k==='P'&&e.sbGo&&e.plan&&e.plan.actions.some(a=>a.a==='tag')],
+  ['跑壘','sb3','盜三壘（三壘手補位、捕手傳三壘）',e=>e.k==='P'&&e.sbGo&&e.plan&&e.plan.CV.base===3,STUDIO_SEEDS_RARE],
   ['傳球','tagfc','短打・野選觸殺',e=>pl(e,p=>p.bunt)&&e.plan.actions.some(a=>a.a==='tag'),STUDIO_SEEDS_RARE],
   ['跑壘','slide','滑壘・二壘/三壘安打',e=>pl(e,p=>p.res==='2B'||p.res==='3B')],
   ['跑壘','dpslide','滑壘・雙殺被封殺',e=>pl(e,p=>p.dp)],

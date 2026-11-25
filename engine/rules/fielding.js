@@ -145,17 +145,18 @@ export function resolveHit(ctx) {
 /* Steal of second on a pitch that is not put in play. wantOut: the simulation's draw says the
  * catcher throws him out. It only stands if the throw can really be there first.
  * Times are seconds into the pitch frame. */
-export function resolveSteal(ctx, wantOut) {
-  const tl = runnerTimeline(1, 2, { kind: 'steal', slide: true }), runner = ctx.bases[0];
-  const key = 'SS', spot = SECOND_TAG, from = FIELD_HOME.C;
+export function resolveSteal(ctx, wantOut, base = 2) {
+  /* base 2: steal of second, SS covers beside the lane from first; base 3 (#38): steal of third, 3B covers inside the diamond */
+  const tl = runnerTimeline(base - 1, base, { kind: 'steal', slide: true }), runner = ctx.bases[base - 2];
+  const key = base === 3 ? '3B' : 'SS', spot = base === 3 ? THIRD_TAG : SECOND_TAG, from = FIELD_HOME.C;
   const coverAt = K.RELEASE + coverArrival(fielderStart(key, ctx.bases, ctx.outs), spot, K.FIELD_REACT, K.COVER_SPEED);
   const TD = dist(from, spot), th = throwPlan(ctx.arm('C'), 'C', TD, null);
   const catchAt = K.ARRIVE + K.CATCH_SNAP, soonest = Math.max(catchAt + K.CATCHER_POP + th.flight, coverAt);
   const out = wantOut && soonest < tl.arriveT - K.TAG_EARLY;
   const arrive = Math.max(soonest, out ? tl.arriveT - K.TAG_EARLY : tl.arriveT + K.TAG_LATE);
-  const plan = { steal: true, CV: { key, spot, base: 2, at: coverAt }, from, TD, v: th.v, TT: th.flight, t0: arrive - th.flight, arrive, runnerAt: tl.arriveT,
-    actions: [{ t: arrive - th.flight, a: 'throw', f: 'C', to: key }, { t: coverAt, a: 'cover', f: key, base: 2 }, { t: arrive, a: 'receive', f: key, base: 2 }] };
+  const plan = { steal: true, CV: { key, spot, base, at: coverAt }, from, TD, v: th.v, TT: th.flight, t0: arrive - th.flight, arrive, runnerAt: tl.arriveT,
+    actions: [{ t: arrive - th.flight, a: 'throw', f: 'C', to: key }, { t: coverAt, a: 'cover', f: key, base }, { t: arrive, a: 'receive', f: key, base }] };
   if (!out) return { ok: true, plan, outs: [], tl };
-  plan.actions.push({ t: tl.arriveT, a: 'tag', f: key, base: 2 });
-  return { ok: false, plan, tl, outs: [tagOut({ runner, from: 1, base: 2, fielder: key, ballAt: arrive, fielderAt: coverAt, runnerAt: tl.arriveT })] };
+  plan.actions.push({ t: tl.arriveT, a: 'tag', f: key, base });
+  return { ok: false, plan, tl, outs: [tagOut({ runner, from: base - 1, base, fielder: key, ballAt: arrive, fielderAt: coverAt, runnerAt: tl.arriveT })] };
 }

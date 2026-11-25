@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.6';
+export const ENGINE_VERSION = '0.4.7';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -144,13 +144,19 @@ export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
 export const GB_ADVANCE_P = 0.5;
-export const STEAL_CONSIDER_P = 0.48;
+export const STEAL_CONSIDER_P = 0.4;       /* 0.48 before #38 part 4: steals of third now take their share of SB/game */
 export const STEAL_TRY_BASE = 0.45;
 export const STEAL_TRY_PER_SPD = 1.2;
 export const STEAL_TRY_RANGE = [0.1, 0.85];
 export const STEAL_OK_BASE = 0.75;
 export const STEAL_OK_PER_SPD = 0.6;
 export const STEAL_OK_RANGE = [0.5, 0.9];
+/* Steal of third (#38): runner on second alone, fewer than two outs. Same try chance by speed as a steal of second;
+ * fast runners try more often, so STEAL3_OK_BASE sits below MLB 2024's 82.2% on steals of third (FanGraphs 2025-04-23).
+ * Both tuned so SB3/game and CS3/game match tests/replay/run.mjs REFERENCE (about 80% safe over 3000 games). */
+export const STEAL3_CONSIDER_P = 0.2;
+export const STEAL3_OK_BASE = 0.76;
+export const STEAL3_OK_RANGE = [0.5, 0.9];
 export const HOME_SLIDE_P = 0.5;
 /* Wild pitch (#38): a low pitch out of the zone (ball or chased swinging strike, not ending the plate appearance)
  * with a runner on and no steal on gets past the catcher with this chance; every runner moves up one base.
