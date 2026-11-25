@@ -48,11 +48,10 @@ function playerRow(row) {
   who.append(el('b', null, p.name), el('span', 'no num', `#${p.num}`), el('span', null, meta), el('span', null, `${p.age} 歲`));
   r.appendChild(ratingRow('綜合', R.ovr, 'ovr'));
   for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) r.appendChild(ratingRow(label, R[k]));
-  r.appendChild(ratingRow('潛力', R.pot, 'pot'));
   const see = el('button', 'see', '看他'); see.type = 'button'; see.setAttribute('aria-label', `看 ${p.name} 的樣子`); who.appendChild(see);
   li.onclick = () => { for (const o of document.querySelectorAll('li.p[aria-current]')) o.removeAttribute('aria-current'); li.setAttribute('aria-current', 'true'); showPreview(specOfRow(row), `${p.name} #${p.num}`); };
   li.append(who, r);
-  attachCompare(li, { id: `fa:${p.id ?? p.name}`, name: p.name, num: p.num, meta, kind: row.kind, R });
+  attachCompare(li, { id: `fa:${p.id ?? p.name}`, name: p.name, num: p.num, meta, kind: row.kind, R: { ...R, pot: undefined }, hidePot: true });/* #384: potential is hidden for created players */
   return li;
 }
 
@@ -69,7 +68,7 @@ async function loadList(reset) {
 }
 function buildSortBar() {
   const bar = $('sortBar'); bar.replaceChildren();
-  for (const [sort, label] of [['ovr', '綜合最高'], ['con', '打擊'], ['pow', '長打'], ['eye', '選球'], ['spd', '速度'], ['arm', '臂力'], ['stuff', '球威'], ['ctrl', '控球'], ['pot', '潛力'], ['new', '最新']]) {
+  for (const [sort, label] of [['ovr', '綜合最高'], ['con', '打擊'], ['pow', '長打'], ['eye', '選球'], ['spd', '速度'], ['arm', '臂力'], ['stuff', '球威'], ['ctrl', '控球'], ['new', '最新']]) {
     const b = el('button', null, label); b.type = 'button'; b.setAttribute('aria-pressed', String(list.sort === sort));
     b.onclick = () => { list.sort = sort; buildSortBar(); loadList(true); }; bar.appendChild(b);
   }
@@ -78,7 +77,7 @@ function buildSortBar() {
 /* ---- your player ---- */
 function showMine(row) {
   const s = $('mine'); s.replaceChildren(el('h2', null, '你的球員'));
-  const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, el('p', 'left', '每個人只能有一位。潛力是抽的，看運氣；之後經紀人要怎麼幫他，等開放再說。'));
+  const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, el('p', 'left', '每個人只能有一位。之後經紀人要怎麼幫他，等開放再說。'));
   s.hidden = false; $('maker').hidden = true; showPreview(specOfRow(row), `${row.player.name} #${row.player.num}`);
   if (list.page) loadList(true);
 }

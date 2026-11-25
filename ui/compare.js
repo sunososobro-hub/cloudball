@@ -13,7 +13,7 @@ const keysOf = e => e.kind === 'pit' ? PIT : BAT;
 /* the rows to draw for two entries: overall on top, shared abilities, potential last */
 export const compareKeys = (a, b) => {
   const mid = a.kind === b.kind ? keysOf(a) : [['arm', '臂力']];
-  return [['ovr', '綜合'], ...mid, ['pot', '潛力']];
+  return [['ovr', '綜合'], ...mid, ...(a.hidePot || b.hidePot ? [] : [['pot', '潛力']])];   /* #384: a created player's potential is never shown */
 };
 
 function side(e, cls) {
@@ -51,7 +51,7 @@ function render() {
   const heads = el('div', 'cmp-heads'); heads.append(side(a, 'l'), b ? side(b, 'r') : el('div', 'cmp-who r hint', '再選一位，按他卡片上的「比較」。'));
   body.appendChild(heads);
   if (!b) return;
-  if (a.kind !== b.kind) body.appendChild(el('p', 'cmp-note', '打者和投手只比共同的三項。'));
+  if (a.kind !== b.kind) body.appendChild(el('p', 'cmp-note', a.hidePot || b.hidePot ? '打者和投手只比共同的兩項。' : '打者和投手只比共同的三項。'));
   const rows = el('div', 'cmp-rows');
   for (const [k, label] of compareKeys(a, b)) rows.appendChild(row(label, a.R[k], b.R[k], k === 'ovr'));
   body.appendChild(rows);
