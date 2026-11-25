@@ -8,12 +8,16 @@
  *   trainDay(state, r, bonus)    one day: state { pit, age0, day, pot, split, abil: { key: display value } } grows
  *                                in place; r is the seeded RNG; bonus is the plain number a training mini-game
  *                                gave that day (0 = hands-off). Returns the display points gained that day.
+ *   roomFactor(ovr, pot)         share of the day's gain left this close to the potential (1 far away, 0 at it).
  *   overallOf(state)             the overall a state reads as (league/ratings.js, whole display numbers).
  *
  * The model, in display points (the 1 to 100 scale of league/ratings.js):
  *   gain of the day = min(DAILY_CAP, BASE_GAIN * ageFactor(age) * jitter + bonus), jitter uniform in 1 +- JITTER;
- *   each ability takes its split share of that gain; an ability stops at the player's potential (POT_STOPS_AT),
- *   and the share it cannot use is lost (the fan chose the split); an ability already above potential never drops.
+ *   potential caps the OVERALL, not each ability (#374): the gain is multiplied by roomFactor, which falls in a straight
+ *   line over the last POT_SLOW_BAND overall points below the potential, so growth slows near the ceiling and stops at
+ *   it; a day that would lift the overall past the potential gains nothing. Each ability takes its split share of the
+ *   gain (the split decides which abilities grow) up to ABIL_MAX, the top of the display scale; the share it cannot use
+ *   is lost (the fan chose the split). Nothing ever drops.
  *   Age: one season is one year (DAYS_PER_SEASON days of training), so age = age at creation + whole seasons passed. */
 import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
 
@@ -25,7 +29,8 @@ export const JITTER = 0.5;              /* a day gives between 50 % and 150 % of
 export const DAILY_CAP = 1.5;           /* the most a player can gain in one day, mini-game bonus included */
 export const ACTIVE_BONUS = 0.5;        /* train_sim's active fan: a full-tier mini-game (#332) every day, as a plain number */
 export const DAYS_PER_SEASON = 180;     /* training days in one season (= one year of age) */
-export const POT_STOPS_AT = 1;          /* an ability stops at POT_STOPS_AT x potential (display) */
+export const POT_SLOW_BAND = 5;         /* overall points below the potential where growth slows down to zero */
+export const ABIL_MAX = 99;             /* an ability stops at the top of the display scale (league/ratings.js knee rounds to 99) */
 /* [age, multiplier]: young players grow fastest, nobody grows from 34 */
 export const AGE_CURVE = [[20, 1], [23, 1], [27, 0.6], [30, 0.3], [34, 0]];
 export const KEYS = { bat: Object.keys(BAT_WEIGHTS), pit: Object.keys(PIT_WEIGHTS) };
@@ -50,15 +55,21 @@ export function ageFactor(age) {
 }
 export const ageOn = s => s.age0 + Math.floor(s.day / DAYS_PER_SEASON);
 
+export const roomFactor = (ovr, pot) => Math.min(1, Math.max(0, (pot - ovr) / POT_SLOW_BAND));
+
 export function trainDay(s, r, bonus = 0) {
-  const g = Math.min(DAILY_CAP, BASE_GAIN * ageFactor(ageOn(s)) * (1 - JITTER + 2 * JITTER * r()) + bonus);
-  let used = 0;
-  const top = s.pot * POT_STOPS_AT;
-  for (const [k, pct] of Object.entries(s.split)) {
-    const v = s.abil[k], add = Math.max(0, Math.min(g * pct / SPLIT_TOTAL, top - v));
-    s.abil[k] = v + add; used += add;
-  }
+  const jitter = r(), age = ageOn(s), room = roomFactor(overallOf(s), s.pot);
   s.day++;
+  if (room <= 0) return 0;
+  const g = Math.min(DAILY_CAP, BASE_GAIN * ageFactor(age) * (1 - JITTER + 2 * JITTER * jitter) + bonus) * room;
+  const next = {};
+  let used = 0;
+  for (const [k, pct] of Object.entries(s.split)) {
+    const v = s.abil[k], add = Math.max(0, Math.min(g * pct / SPLIT_TOTAL, ABIL_MAX - v));
+    next[k] = v + add; used += add;
+  }
+  if (overallOf({ ...s, abil: { ...s.abil, ...next } }) > s.pot) return 0;
+  Object.assign(s.abil, next);
   return used;
 }
 
