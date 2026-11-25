@@ -40,6 +40,7 @@ if (!existsSync(target)) bad(`the replay target ${link} does not exist`);
 else {
   const page = readFileSync(target, 'utf8');
   if (!/<div id="warmBar"[^>]*role="progressbar"[^>]*>[\s\S]*?球場準備中/.test(page)) bad(`${link} lost the 球場準備中 loading bar (#warmBar)`);
+  if (!/body:has\(#warmBar:not\(\[hidden\]\)\) #bug\{visibility:hidden\}/.test(page)) bad(`${link}: the score bug is no longer hidden while the loading bar shows (#292 item 3)`);
   if (!/#warmBar\{[^}]*opacity:0/.test(page) || !/animation:wbIn/.test(page)) bad(`${link}: the loading bar is no longer shown by its own CSS`);
 }
 if (problems.length) { console.error('frontlogos.check FAILED\n - ' + problems.join('\n - ')); process.exit(1); }
