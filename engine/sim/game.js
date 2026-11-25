@@ -87,7 +87,7 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? 'batted' : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? 'batted' : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
     if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0 });
@@ -314,14 +314,17 @@ export function simGame(seed, decisions, opts) {
             plan = s.plan; outs = s.outs; moves = [[1, 2, runner, s.tl]]; sbGo = true; e.sbGo = true; e.big = s.ok ? K.BIG.NOTABLE : K.BIG.NONE;
             st.b = s.ok ? [null, runner, st.b[2]] : [null, null, st.b[2]];
             desc += s.ok ? COPY.stealOk(runner) : COPY.stealOut(runner);
-          } else if (!going && (e.r === 'ball' || e.r === 'sstr') && !inZ && zy <= K.MISS_LOW_Y && (B[0] || B[1] || B[2]) && R() < K.WP_P) {
-            /* ---- wild pitch (#38): the ball in the dirt gets past the catcher; every runner moves up one base ---- */
+          } else if (!going && (e.r === 'ball' || e.r === 'sstr' || e.r === 'cstr') && (B[0] || B[1] || B[2]) && R() < (!inZ && zy <= K.MISS_LOW_Y ? K.WP_P : K.PB_P)) {
+            /* ---- the pitch gets past the catcher (#38); every runner moves up one base. A low pitch out of the zone
+             * (ball in the dirt) is a wild pitch; any other pitch he should have caught is a passed ball.
+             * e.wp marks both (the ball got by), e.pb the passed ball. ---- */
+            const pb = inZ || zy > K.MISS_LOW_Y;
             const nb = [null, B[0], B[1]];
             if (B[2]) { moves.push([3, HOME, B[2]]); runs++; }
             if (B[1]) moves.push([2, 3, B[1]]);
             if (B[0]) moves.push([1, 2, B[0]]);
-            st.b = nb; e.wp = true; e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
-            desc += COPY.wildPitch(runs);
+            st.b = nb; e.wp = true; if (pb) e.pb = true; e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
+            desc += pb ? COPY.passedBall(runs) : COPY.wildPitch(runs);
           }
         }
 
