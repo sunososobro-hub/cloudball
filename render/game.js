@@ -346,7 +346,10 @@ function updateCrowd(now,ex,batTeam,live){
 const TOWER_I=.16*Math.PI,BEAM_K=BEAM_DEFAULT,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TOWER_AIM=[0,-24],TOWER_AIM_K=.1;/* Keep only a hint of light beam, so the camera passing through it does not white out */
 const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(...LAMP_RGB),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
-const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
+/* #255: both lamp sprites fade out near the camera (render/lampfade.js; uniforms start at the same numbers until it loads) */
+const lampNear=TSL.uniform(45),lampFar=TSL.uniform(140),lampFadeN=()=>TSL.smoothstep(lampNear,lampFar,TSL.length(TSL.positionView));
+import(new URL('lampfade.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{lampNear.value=M.LAMP_FADE_NEAR;lampFar.value=M.LAMP_FADE_FAR}).catch(err=>console.warn('lamp fade defaults',err));
+const glowMat=(()=>{const m=new THREE.SpriteNodeMaterial({blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false});m.colorNode=TSL.texture(new THREE.CanvasTexture(glowC)).mul(lampFadeN());m.toneMapped=false;return m})();
 /* #208 item 2, light you can see: on max the beams are stronger (BEAM_MAX_K) and carry slow drifting dust (3D noise scrolled by time: decoration,
    like the bugs), each lamp gets a wide aureole in the haze (haloMat) and dust motes drift through every beam (motes). Below max: the old faint beam and a fainter aureole. */
 const BEAM_MAX_K=2.4,BEAM_DUST=.9,BEAM_DUST_SCALE=.09,BEAM_DUST_DRIFT=.35,HALO_SCALE=95,HALO_LOW=.35,MOTE_PER=140,MOTE_CORE=.45,MOTE_FALL=.18;
@@ -356,7 +359,7 @@ const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,
   m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(skyU.beam).mul(beamK).mul(dust).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
 const haloK=TSL.uniform(0).onFrameUpdate(()=>skyCur.halo*(gfxMax?1:HALO_LOW));
 const haloMat=(()=>{const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});const t=new THREE.CanvasTexture(glowC);
-  m.colorNode=TSL.texture(t).mul(haloK);m.toneMapped=false;return m})();
+  m.colorNode=TSL.texture(t).mul(haloK).mul(lampFadeN());m.toneMapped=false;return m})();
 const towerSpots=[];
 for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.name='old:towers';m.position.set(x,23,z);scene.add(m);
   const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.name='old:towers:lamp';l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
@@ -854,15 +857,32 @@ let swingClip=null,swingClipP=null;const _sw0=new THREE.Vector3(),_sw1=new THREE
 const swTime=u=>Math.max(SW_START,Math.min(SW_END,SW_CONTACT+(u-ARRIVE)));
 function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
   return Math.min(ease(sat01((u-a)/SW_IN)),1-ease(sat01((u-o[0])/(o[1]-o[0]))))}
+/* #303: a bunt plays bunt_124_08.json instead (square 52-64, hold 64-80, time warp and weight in render/bunt_clip.js). The clip has its
+   own crouch, so the knee-bend drop of the ground frame (buntDrop) is taken back by the clip weight; the bat follows the hands as on the swing,
+   and buntContact() then reads the clip's bat, so the pitch still ends on the sweet spot. */
+let buntClip=null,buntClipP=null,BCL=null;
+import(new URL('bunt_clip.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{BCL=M}).catch(err=>console.warn('bunt clip off',err));
 function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
-  if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
-  const w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return;
+  const bu=e.r==='inplay'&&e.play&&e.play.bunt;let w;
+  if(bu){if(BCL&&!buntClipP&&window.PL&&PL.loadClip)buntClipP=PL.loadClip(BCL.BUNT_CLIP_URL).then(c=>{buntClip=c}).catch(x=>console.warn('mocap',x));
+    w=buntClip&&BCL&&batter.g.visible?BCL.buntClipW(true,u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0;
+    batter.setMocap(buntClip,w>0?BCL.buntClipTime(u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0,w,false,BCL?BCL.BUNT_CLIP_T0:0,0);if(w<=0)return;
+    batter.g.position.y+=buntDrop*w}
+  else{if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
+    w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return}
   batter.handWorld(1,_sw0);batter.handWorld(0,_sw1);/* bottom hand (arms[1]) holds the handle, top hand (arms[0]) gives the axis */
   const up=batPivot.parent;up.updateMatrixWorld(true);_sw1.sub(_sw0);const L=_sw1.length();
   up.worldToLocal(_sw0);batPivot.position.lerp(_sw0,w);
   if(L>SW_HAND_GAP_MIN){_swm.copy(up.matrixWorld).invert();_sw1.transformDirection(_swm);_bv.set(0,1,0).applyQuaternion(batPivot.quaternion).lerp(_sw1,w).normalize();batPivot.quaternion.setFromUnitVectors(_up,_bv)}}
 /* World position of the bat's sweet spot (call after batterWalk has placed the batter): a bunted pitch ends here and the bunted ball starts here */
 function buntContact(){batter.g.updateMatrixWorld(true);_ugs.set(0,BUNT_SWEET,0);bat.localToWorld(_ugs);buntPt[0]=_ugs.x;buntPt[1]=_ugs.y;buntPt[2]=_ugs.z;return buntPt}
+/* Where the bunted ball leaves the bat: the live sweet spot up to contact; after ARRIVE the spot at ARRIVE, so the ball does not follow the bat
+   as the clip hands back to the run (pose at ARRIVE once per event and clip state, then the pose at u again) */
+let buntAt=null;
+function buntHit(e,u){if(u<=ARRIVE)return buntContact().slice();
+  if(buntAt&&buntAt.e===e&&buntAt.c===buntClip&&buntAt.m===BCL)return buntAt.p;
+  poseBatter(e,ARRIVE);batterWalk(e,ARRIVE);batterMocap(e,ARRIVE);const p=buntContact().slice();
+  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);buntAt={e,c:buntClip,m:BCL,p};return p}
 const BAT_HAND_GAP=.09,BUNT_CRACK=.3,HIT0=[0,1,.3];/* HIT0: where a swung-at ball leaves the bat */
 /* Six runner bodies: up to four movers or base runners of this play plus scorers of earlier plays still jogging off to their dugout (#43) */
 const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
@@ -1044,6 +1064,14 @@ const ball=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,14,10),new THREE.MeshB
 const ballSh=new THREE.Mesh(GEO.shadow,shadowMat);ballSh.rotation.x=-Math.PI/2;ballSh.scale.setScalar(.35);scene.add(ballSh);
 function pathPos(from,to,dist){let d=dist;for(let b=from;b<to;b++){const [x1,z1]=BASES[b],[x2,z2]=BASES[b+1],L=27.43;if(d<=L){const t=d/L;return[lerp(x1,x2,t),lerp(z1,z2,t),false]}d-=L}const [x,z]=BASES[to];return[x,z,true]}
 function face(f,x,z){f.g.rotation.y=Math.atan2(x,z)}
+/* #268 lead: a runner off the bag (engine leadAt: on the bag in the set, out over the delivery, back after the pitch) shuffles sideways
+   facing the pitcher, feet apart, knees bent (render/lead.js, loaded below; until it is in he stands as before). st0 = his break
+   (Infinity = he stays): from there the stance and the turn fade into the run over LEAD_TURN while animate() swings the legs.
+   Pure in (event, time): the step phase comes from the lead metres, not from a clock. Position stays the caller's (rule 12). */
+function leadPose(r,u,ld,st0){const M=leadM;if(!M||!r)return;const b=M.breakW(u,st0),w=M.leadW(ld)*b;if(w<=0)return;
+  const x=r.g.position.x,z=r.g.position.z,P=fielders.P.home,cw=M.LEAD_CROUCH*w,sp=M.leadSplay(ld,w);
+  r.g.rotation.y=M.yawMix(r.g.rotation.y,M.leadYaw(x,z,P[0],P[1]),w);crouch(r,r.rig,cw,CROUCH_FWD,sp/cw,CROUCH_LEAN,CROUCH_SHRINK);
+  if(b>=1){r.noAnim=true;r.px=x;r.pz=z}}
 function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.px,z-f.pz)/Math.max(dt,1e-3);f.px=x;f.pz=z;
   const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;if(!f.armsHeld){f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8}
   /* f.mix: limb angles of the motion this run grows out of (the pitcher's follow-through), faded out by f.mix.k */
@@ -1424,7 +1452,7 @@ function poseScene(e,u,dt,ei){
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
   poseOnDeck(e,u,ei);poseStaff(e,u,ei);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
-  const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm)};
+  const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);leadPose(runners[ri-1],uu,ld,Infinity)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
@@ -1441,7 +1469,7 @@ function poseScene(e,u,dt,ei){
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
-  const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
+  const hit0=bunt?buntHit(e,u):HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
   else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
@@ -1481,6 +1509,8 @@ function poseScene(e,u,dt,ei){
     const r=runners[ri-1];if(!r)continue;const [b0x,b0z]=BASES[to-1],[b1x,b1z]=BASES[to];
     if(!done){const [nx,nz]=pathPos(from,to,prog+1);face(r,nx-x,nz-z)}else if(slide)face(r,b1x-b0x,b1z-b0z);
     if(wk>0&&wk<LEAD_PRIMARY){const [nx,nz]=BASES[to+1];face(r,nx-b1x,nz-b1z)}else if(wk>0)face(r,-x,-z);/* walks out, then faces the plate as standRunner does */
+    if(wk>0)leadPose(r,u,wk,Infinity);/* #23: shuffles out to the primary lead, so the next pitch frame starts in the same stance */
+    else if(from>0)leadPose(r,u,lead,st0);/* #268: shuffle stance until the break, turned into the run over LEAD_TURN */
     if(from===0&&bunt&&buntDrop>0){const rk=1-ease(sat01((u-st0)/BUNT_RISE));if(rk>0){r.rig.l0.scale.y=r.rig.l1.scale.y=1-buntDrop/((r.k||1)*LEG_LEN)*rk;r.g.position.y=-buntDrop*rk}}/* Bunter comes up out of his crouch as he breaks for first */
     if(slide&&u>=ts){const k=ease(sat01((u-ts)/(ST*.35)))*(1-ease(sat01((u-arriveT-SLIDE_HOLD)/SLIDE_UP)));if(k>0)slidePose(r,k)}
   }
@@ -1664,7 +1694,11 @@ const TIGHT_FOV=2.4,TIGHT_OUT_AT=RELEASE-.6,TIGHT_OUT_DUR=.45,TIGHT_AIM_Y=1.45;
 const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||e.r==='bk'||e.po||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
 /* #209 item 1 (render/platecam.js): the play at the plate, auto seat only. A high home camera behind the net on a narrow lens while a runner is tagged
    or tags up at home; weight = pure function of (event, time), camera only. Loaded by dynamic import: until it is in, the weight is 0. */
+let leadM=null;import(new URL('lead.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{leadM=M}).catch(err=>console.warn('runner lead stance off',err));/* #268 */
 let platecamM=null;import(new URL('platecam.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{platecamM=M}).catch(err=>console.warn('plate camera off',err));
+/* #211: tight key-shadow frustum on the batter while the tight shot is on, max only (render/keyfit.js, pure). Light direction is unchanged. */
+let keyfitM=null,keyTight=false;import(new URL('keyfit.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{keyfitM=M}).catch(err=>console.warn('key fit off',err));
+function fitKey(on){if(!keyfitM)return;on=on&&gfxMax;if(!on&&!keyTight)return;const f=keyfitM.keyFit(on?batter.g.position:null),c=key.shadow.camera;keyTight=on;key.target.position.set(...f.target);key.position.set(...f.position);Object.assign(c,{left:-f.half,right:f.half,top:f.half,bottom:-f.half});c.updateProjectionMatrix();key.target.updateMatrixWorld()}
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
   if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
@@ -1688,7 +1722,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
   const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
   if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
-  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0}
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax)}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(isEditing())return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
@@ -1893,6 +1927,7 @@ const STUDIO_ACTS=[
   ['跑壘','2B','跑壘・二壘安打',e=>pl(e,p=>p.res==='2B')],
   ['跑壘','3B','跑壘・三壘安打',e=>pl(e,p=>p.res==='3B')],
   ['跑壘','homeplay','本壘攻防・捕手觸殺',e=>pl(e,p=>true)&&e.plan&&e.plan.CV&&e.plan.CV.base===4&&e.plan.tagPlay,STUDIO_SEEDS_RARE],
+  ['跑壘','outhome','一壘安打・二壘跑者衝本壘遭捕手觸殺（#38）',e=>pl(e,p=>!!p.outHome),STUDIO_SEEDS_RARE],
   ['跑壘','score','跑壘・跑者回本壘得分',e=>e.k==='P'&&e.play&&e.play.res!=='HR'&&e.runs>0],
   ['跑壘','HR','跑壘・全壘打繞壘',e=>pl(e,p=>p.res==='HR')],
   ['跑壘','sb','盜壘',e=>e.k==='P'&&e.sbGo],

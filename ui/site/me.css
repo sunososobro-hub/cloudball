@@ -1,3 +1,7 @@
 /* 我的球員 tab only (#344): the shared part is ui/site-data.css */
 .me dl{display:grid;grid-template-columns:5em 1fr;gap:8px 12px;margin:0}.me dt{color:var(--muted)}.me dd{margin:0}
 .agent-entry{margin:12px 0}.agent-entry a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--gold);color:var(--gold);font-weight:700;text-decoration:none}
+/* 訓練 screen (#429) */
+.train-row{display:grid;grid-template-columns:4em 1fr 3.2em;align-items:center;gap:10px;min-height:44px}.train-row input{width:100%;min-height:44px}.train-row .num{text-align:right}
+.train .big{display:block;width:100%;min-height:52px;margin:10px 0;border:1px solid var(--gold);border-radius:10px;background:none;color:inherit;font:inherit;font-weight:700;cursor:pointer}
+.train-note,.train-result{color:var(--muted)}
