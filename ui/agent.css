@@ -43,3 +43,6 @@ main h2{margin:0 0 10px;font-size:20px}
   #status,#stage,#maker,#mine{width:min(100%,980px);margin-inline:auto}
 }
 @media(min-width:1400px){#faList{grid-template-columns:repeat(3,1fr)}}
+
+.stage-btns{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
+.stage-btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:#0c0f16cc;color:inherit;font:inherit;font-size:14px;cursor:pointer}
