@@ -18,3 +18,15 @@ export function grade(hex, mood) {
   return (o[0] << 16) | (o[1] << 8) | o[2];
 }
 export const moodOf = name => MOODS[name] || MOOD_NEUTRAL;
+
+/* #209 item 4, contact-shadow softness per sky: `r` scales the patch under each figure (wider), `a` scales the patch and fan opacity (softer).
+ * Hard lamp night = 1 / 1; overcast-like daylight and dusk get broad, faint shadows. Pure; applied in game.js updateContactShadows. */
+export const SOFT_NEUTRAL = { r: 1, a: 1 };
+export const SOFT = {
+  night: { r: 1, a: 1 },
+  dusk: { r: 1.3, a: .85 },
+  afternoon: { r: 1.6, a: .7 },
+  morning: { r: 1.45, a: .75 },
+};
+export const SOFT_R_MAX = 2, SOFT_A_MIN = .5;
+export const softOf = name => SOFT[name] || SOFT_NEUTRAL;
