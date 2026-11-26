@@ -711,12 +711,23 @@ export function headOf(id) {
   const gear = pick(q, GEAR_SHARES.wrist) + GEAR_SHARES.wrist.length * (pick((q * 6151) % 1, GEAR_SHARES.elbow) + GEAR_SHARES.elbow.length * (pick((q * 4093) % 1, GEAR_SHARES.eye) + GEAR_SHARES.eye.length * (pick((q * 2909) % 1, GEAR_SHARES.glove) + GEAR_SHARES.glove.length * (pick((q * 1327) % 1, GEAR_SHARES.hair) + GEAR_SHARES.hair.length * pick((q * 877) % 1, GEAR_SHARES.leg)))));
   return (h >>> 0) % HEAD_SHAPES.length + HEAD_SHAPES.length * (map + SKIN_KEYS.length * (look + FACE_LOOKS * gear));
 }
-/* #191: head index of a roster row. A created player (his row has `look`) keeps the face the fan picked in the create page: look.head
-   replaces only the shape digit of headOf(id), so map, facial hair and gear stay his hashed ones. Factory players have no `look`: unchanged. */
+/* #191 / #441: head index of a roster row. A created player (his row has `look`) keeps the face the fan picked in the create page:
+   look.head replaces the shape digit of headOf(id), look.skin the skin-map digit (light / dark / old, wraps over SKIN_KEYS) and
+   look.hair the hair-colour digit (index into HAIR_TONES, wraps). Facial hair and gear (gloves, wristbands, elbow guard, eye black,
+   legs) stay his hashed ones: the owner wants no gear chips. A field missing or not a whole number >= 0 keeps the hashed digit.
+   Factory players have no `look`: unchanged, byte for byte. */
+const lookDigit = n => Number.isInteger(n) && n >= 0 ? n : -1;
 export function headOfPlayer(p) {
-  const h = headOf(p && p.id), n = p && p.look && p.look.head;
-  if (!Number.isInteger(n) || n < 0) return h;
-  return h - h % HEAD_SHAPES.length + n % HEAD_SHAPES.length;
+  const h = headOf(p && p.id), L = p && p.look; if (!L) return h;
+  const HS = HEAD_SHAPES.length, SK = SKIN_KEYS.length, HT = HAIR_TONES.length, GH = GEAR_SHARES.hair.length;
+  const shape = h % HS, map = Math.floor(h / HS) % SK, upper = Math.floor(h / (HS * SK));   /* upper = facial look + gear digits */
+  const hd = lookDigit(L.head), sk = lookDigit(L.skin), hr = lookDigit(L.hair);
+  let gear = Math.floor(upper / FACE_LOOKS); const faceLook = upper % FACE_LOOKS;
+  if (hr >= 0) {   /* hair digit sits at weight W*E*Y*G in `gear` (gearOf); swap it, keep the rest */
+    const w = GEAR_SHARES.wrist.length * GEAR_SHARES.elbow.length * GEAR_SHARES.eye.length * GEAR_SHARES.glove.length, cur = Math.floor(gear / w) % GH;
+    gear += (hr % HT - cur) * w;
+  }
+  return (hd >= 0 ? hd % HS : shape) + HS * ((sk >= 0 ? sk % SK : map) + SK * (faceLook + FACE_LOOKS * gear));
 }
 /* Look digit of a head index: facial hair + FACE_HAIR.length x brow weight */
 const faceLookOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length)) % FACE_LOOKS;

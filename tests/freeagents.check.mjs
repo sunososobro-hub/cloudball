@@ -25,7 +25,7 @@ import { simGame } from '../engine/index.js';
 import { ROSTERS } from '../league/players.js';
 import { STAFF, UMPIRES } from '../league/staff.js';
 import { SURNAMES, GIVEN } from '../league/namepool.js';
-import { CREATE, BLOCKED, NAME_DECADE, drawName, validateCreate, makePlayer, pointKeys, budgetOf, positionFit, FIT_TEXT } from '../league/freeagents.js';
+import { CREATE, BLOCKED, NAME_DECADE, drawName, validateCreate, makePlayer, pointKeys, budgetOf, positionFit, FIT_TEXT, presetBody, presetHt } from '../league/freeagents.js';
 import { ratingsOf, defRaw, defRating, RATING_MID, RATING_MIN, RATING_MAX } from '../league/ratings.js';
 import { DEF_MIN, DEF_MAX } from '../engine/constants.js';
 
@@ -64,10 +64,36 @@ const off = {
   'bad nameDraw': { ...BAT, nameDraw: -1 },
   'no choice': null,
 };
+/* #442: body sliders + height instead of a build; one or the other */
+const { build: _b, ...NOB } = BAT, SL = { ...NOB, body: { slim: 30, power: 40, heavy: 30 }, ht: 1.85 };
+if (validateCreate(SL).length) bad(`valid body choice refused: ${validateCreate(SL).join('; ')}`);
+for (const b of Object.keys(CREATE.builds)) { const w = validateCreate({ ...NOB, body: presetBody(b), ht: presetHt(b) }); if (w.length) bad(`preset ${b} as sliders refused: ${w.join('; ')}`); }
+Object.assign(off, {
+  'build and body': { ...SL, build: 'slim' },
+  'body without ht': { ...NOB, body: SL.body },
+  'ht without body': { ...NOB, ht: 1.8 },
+  'mix over 100': { ...SL, body: { slim: 50, power: 40, heavy: 20 } },
+  'negative weight': { ...SL, body: { slim: -1, power: 0, heavy: 0 } },
+  'fractional percent': { ...SL, body: { slim: 10.5, power: 0, heavy: 0 } },
+  'unknown body key': { ...SL, body: { slim: 0, power: 0, heavy: 0, fat: 1 } },
+  'too short': { ...SL, ht: 1.71 }, 'too tall': { ...SL, ht: 1.93 }, 'ht not whole cm': { ...SL, ht: 1.855 }, 'ht text': { ...SL, ht: '1.85' },
+});
 for (const role of CREATE.roles) { const w = validateCreate({ ...PIT, role }); if (w.length) bad(`role ${role} refused: ${w.join('; ')}`); }
 if (!['SP', 'MR', 'RP', 'CL'].every(x => CREATE.roles.includes(x))) bad(`CREATE.roles ${CREATE.roles.join(', ')} misses one of SP, MR, RP, CL`);
 for (const [what, c] of Object.entries(off)) if (!validateCreate(c).length) bad(`${what}: accepted`);
 try { makePlayer(1, off['over budget']); bad('makePlayer accepted an invalid choice'); } catch { /* expected */ }
+
+/* the chosen body and height are stored as asked; two mixes give different render body data; nothing else about the player moves */
+{
+  const a = makePlayer(42, SL).player, b = makePlayer(42, { ...SL, body: { slim: 0, power: 0, heavy: 80 }, ht: 1.72 }).player;
+  if (a.ht !== 1.85 || JSON.stringify(a.body) !== JSON.stringify({ slim: 0.3, power: 0.4, heavy: 0.3 })) bad(`body choice stored as ${JSON.stringify([a.body, a.ht])}`);
+  if (JSON.stringify(a.body) === JSON.stringify(b.body) || a.ht === b.ht) bad('two different mixes give the same body data');
+  const { body: _x, ht: _y, ...ra } = a, { body: _z, ht: _w, ...rb } = b;
+  if (JSON.stringify(ra) !== JSON.stringify(rb)) bad('body or height changed something else about the player (potential, age, number, points)');
+  if (JSON.stringify(makePlayer(42, SL).ratings) !== JSON.stringify(makePlayer(42, { ...SL, body: { slim: 0, power: 0, heavy: 80 } }).ratings)) bad('the body changed the ratings');
+  const old = makePlayer(42, BAT).player, again = makePlayer(42, { ...BAT }).player;
+  if (JSON.stringify(old) !== JSON.stringify(again) || !(old.ht >= CREATE.builds.slim.ht[0] && old.ht <= CREATE.builds.slim.ht[1])) bad('a build choice no longer draws as before');
+}
 
 /* points read back, overall range, determinism */
 let s = 178; const r = () => (s = (Math.imul(s, 1103515245) + 12345) >>> 0) / 4294967296;
