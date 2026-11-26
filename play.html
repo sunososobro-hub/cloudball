@@ -7,6 +7,7 @@
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <title>雲端職棒</title>
 <script src="ui/site.js"></script>
+<script src="ui/landhint.js"></script>
 <script src="ui/layout.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
@@ -134,6 +135,9 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
 #who{top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:auto;max-width:56vw;padding:6px 10px}#matchup{display:none}#pinfo{top:calc(max(12px,env(safe-area-inset-top)) + 214px);max-width:64vw}#feed{bottom:208px;max-width:calc(100vw - 24px);font-size:13px}#vr:disabled{display:none}#feed li:nth-child(n+3){display:none}#tag{display:none}button{font-size:14px;padding:0 10px}}
 #land{position:fixed;top:max(12px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 196px);z-index:6;display:none}
 @media(pointer:coarse){#land{display:inline-block}}
+#landLine{margin:2px 0 0;font-size:14px;opacity:.85;display:flex;gap:8px;align-items:center;justify-content:center}#landLine[hidden],#landChip[hidden]{display:none}
+#landLine button,#landChip button{min-height:32px;padding:2px 10px;font-size:14px;border-radius:10px}
+#landChip{position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:6;display:flex;gap:6px;align-items:center;padding:4px 8px;font-size:13px;background:rgba(0,0,0,.65);color:#fff;border-radius:12px;white-space:nowrap}
 /* 手機橫放：高度很矮，介面縮小讓球場多露一點 */
 @media(orientation:landscape) and (max-height:520px){#bug{zoom:.72}#tag,#pinfo,#matchup{display:none}#feed{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-width:38vw;font-size:12px}#feed li:nth-child(n+3){display:none}
  #who{padding:4px 8px;font-size:12px}button{min-height:36px;font-size:13px;padding:0 9px}.bar{top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-height:calc(100vh - 56px)}#vote{max-width:46vw}}
@@ -214,6 +218,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
   <div class="srow x"><button id="stSpd">1×</button><button id="stLoop" aria-pressed="true">循環</button><button id="stStep">+0.05s</button><button id="stExit">離開片場</button></div>
 </div>
 <div id="edbar" class="panel" hidden><span id="edTxt"></span><button id="edMinus">－</button><button id="edPlus">＋</button><button id="edOne">這個復原</button><button id="edAll">全部復原</button><button id="edDone">完成</button></div>
+<div id="landChip" hidden><span></span><button id="landChipGo">橫向</button><button id="landX" aria-label="關閉提示">✕</button></div>
 <div class="over" id="intro">
   <div class="card">
     <div id="mas" hidden></div>
@@ -230,6 +235,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
       <button id="enterHl" disabled>看精華</button>
       <button id="enterMute" disabled>靜音進場</button>
     </div>
+    <p id="landLine" hidden><span></span><button id="landGo">橫向</button></p>
     <small>季前熱身賽，成績不列入正史</small>
     <small><a class="guide" href="guide.html">球隊與球員介紹</a>・<a class="guide" href="index.html">資料首頁</a></small>
   </div>
