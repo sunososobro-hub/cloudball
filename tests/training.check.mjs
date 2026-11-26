@@ -197,7 +197,7 @@ for (let i = 0; i < 60; i++) {
 }
 
 /* targets from the site data */
-const players = JSON.parse(readFileSync(path.join(ROOT, 'league/site/players.json'), 'utf8'));
+const players = (await import('../league/tools/site.mjs')).factoryPlayers();   /* factory 一軍, not the day-1 snapshot (#565) */
 const o = Object.values(players).filter(p => p.tier === 1).map(p => p.overall).sort((x, y) => x - y), t = targets(players);
 if (t.median !== o[Math.ceil(o.length / 2) - 1] || t.bottom !== o[Math.ceil(o.length / 4) - 1]) bad(`sim targets ${t.median}/${t.bottom} are not the nearest-rank median and bottom quartile of the 一軍`);
 
