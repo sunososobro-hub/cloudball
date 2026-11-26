@@ -57,10 +57,12 @@ const IP_PER_START = 5.2, IP_PER_START_TOL = 0.15;
  *   to first only; the real count includes the few throws to second. No 2024/2025 count found.
  * Balks: 181 in 2,430 games in 2025 (Baseball-Reference league pitching totals, 0.04 per team game) -> 0.074 per game.
  * Per-game numbers count both teams. The default sample has to stay within the tolerance, which is about
- * three standard errors of a 1000-game sample plus a little room for the model. Tighten, never loosen. */
+ * three standard errors of a 1000-game sample plus a little room for the model. Tighten, never loosen.
+ * runs/game (#38, engine 0.4.14): 25,000 games on seeds 10001.. and 200001.. average 8.69, sd 4.28 per game, so a
+ * 1000-game sample has a standard error of 0.135; 0.5 = three of them plus 0.09 (was 0.7 before #38 closed the gap). */
 const RATE_SAMPLE_MIN = 1000;
 const REFERENCE = [   /* [aggregate() key, label, reference, tolerance, decimals, shown as a percentage] */
-  ['runsPerGame', 'runs/game', 8.89, 0.7, 2], ['kPct', 'K%', 0.222, 0.01, 1, true], ['bbPct', 'BB%', 0.084, 0.008, 1, true], ['hbpPct', 'HBP%', 0.0105, 0.003, 2, true],
+  ['runsPerGame', 'runs/game', 8.89, 0.5, 2], ['kPct', 'K%', 0.222, 0.01, 1, true], ['bbPct', 'BB%', 0.084, 0.008, 1, true], ['hbpPct', 'HBP%', 0.0105, 0.003, 2, true],
   ['avg', 'AVG', 0.245, 0.008, 3], ['obp', 'OBP', 0.315, 0.009, 3], ['slg', 'SLG', 0.404, 0.014, 3], ['babip', 'BABIP', 0.29, 0.009, 3],
   ['hrPerGame', 'HR/game', 2.33, 0.25, 2], ['doublesPerGame', '2B/game', 3.19, 0.35, 2], ['triplesPerGame', '3B/game', 0.26, 0.12, 2],
   ['gidpPerGame', 'GIDP/game', 1.29, 0.25, 2], ['ibbPerGame', 'IBB/game', 0.23, 0.12, 2], ['sbPerGame', 'SB/game', 1.36, 0.3, 2], ['csPerGame', 'CS/game', 0.41, 0.15, 2], ['wpPerGame', 'WP/game', 0.58, 0.12, 2], ['pbPerGame', 'PB/game', 0.10, 0.05, 2], ['bkPerGame', 'BK/game', 0.074, 0.03, 3], ['poPerGame', 'PO/game', 0.14, 0.05, 2], ['pickoffThrowsPerGame', 'PO throws/game', 3.94, 0.4, 2], ['sb3PerGame', 'SB3/game', 0.19, 0.06, 2], ['cs3PerGame', 'CS3/game', 0.04, 0.03, 2],
