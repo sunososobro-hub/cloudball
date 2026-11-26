@@ -1589,7 +1589,7 @@ sayBtn.onclick=()=>{sayOn=!sayOn;sayBtn.setAttribute('aria-pressed',sayOn);if(sa
 /* ---------- camera & controls ---------- */
 let seat=3,yawOff=0,pitchOff=0,zoomed=false;
 const look=(sx,sy,sz,tx,ty,tz)=>[Math.atan2(-(tx-sx),-(tz-sz)),Math.atan2(ty-sy,Math.hypot(tx-sx,tz-sz))];
-let shotNow=-1,autoSeat=-1,hitPrev=false,tightPrev=false;
+let shotNow=-1,autoSeat=-1,hitPrev=false,tightPrev=false,platePrev=false;
 /* Seat fovs are vertical. On a 19.5:9 phone 55 deg vertical is ~97 deg across, a fisheye that stretches the near stands while dragging the
    view around and makes the park feel like a model; cap the horizontal angle at HFOV_MAX (a 16:10 desktop stays as it was). */
 const HFOV_MAX=80,fitFov=f=>Math.min(f,2*Math.atan(Math.tan(HFOV_MAX*Math.PI/360)/camera.aspect)*180/Math.PI);
@@ -1602,6 +1602,9 @@ const HITCAM={x:0,y:8,z:11,fov:62,mid:[0,0,-26]};
    the 望遠鏡 toggle (already tighter). Aim: TIGHT_AIM_Y m up the batter (scaled by his build), head in the upper part of the frame. */
 const TIGHT_FOV=2.4,TIGHT_OUT_AT=RELEASE-.6,TIGHT_OUT_DUR=.45,TIGHT_AIM_Y=1.45;
 const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||e.r==='bk'||e.po||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
+/* #209 item 1 (render/platecam.js): the play at the plate, auto seat only. A high home camera behind the net on a narrow lens while a runner is tagged
+   or tags up at home; weight = pure function of (event, time), camera only. Loaded by dynamic import: until it is in, the weight is 0. */
+let platecamM=null;import(new URL('platecam.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{platecamM=M}).catch(err=>console.warn('plate camera off',err));
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
   if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
@@ -1620,10 +1623,12 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
     const d=Math.hypot(tx-s.x,tz-s.z);if(s.follow)bf=clamp(2*Math.atan(14/Math.max(d,8))*180/Math.PI,16,40);else if(trk)bf=HITCAM.fov}
   const tw=s.auto&&!trk&&!zoomed&&batter.g.visible?tightW(curEvent,curU):0;
   if(tw>0){const bp=batter.g.position;tx=lerp(tx,bp.x,tw);ty=lerp(ty,TIGHT_AIM_Y*(batter.k||1),tw);tz=lerp(tz,bp.z,tw)}
-  const [y,p]=look(cs.x,py,cs.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
-  const fov=fitFov(zoomed?bf*.4:tw>0?lerp(bf,TIGHT_FOV,tw):bf);
-  if(tw>0||tightPrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
-  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0}
+  const pw=s.auto&&!zoomed&&platecamM?platecamM.plateW(curEvent,curU,ARRIVE):0;
+  if(pw>0){rig.position.set(lerp(cs.x,0,pw),lerp(py,platecamM.PLATE_CAM_Y,pw),lerp(cs.z,platecamM.PLATE_CAM_Z,pw));const A=platecamM.PLATE_AIM;tx=lerp(tx,A[0],pw);ty=lerp(ty,A[1],pw);tz=lerp(tz,A[2],pw)}
+  const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
+  const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
+  if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(isEditing())return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
