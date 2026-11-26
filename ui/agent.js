@@ -6,7 +6,7 @@ import { CREATE, validateCreate, pointKeys, budgetOf, positionFit, presetBody, p
 import { makePreview } from './agent-preview.js';
 import { ratingRow } from './bars.js';
 import { attachCompare } from './compare.js';
-import { specOfChoice, specOfRow } from './preview-spec.js';
+import { specOfChoice, specOfRow, LOOK_CHIPS, LOOK_LEGEND } from './preview-spec.js';
 import { needsOf, slotLine, abilityTag, compareLine, RBI_NOTE, WORD } from '../league/needs.js';
 
 const KEY_NAME = 'cloudball.agentKey';
@@ -170,8 +170,9 @@ function buildMaker(key, state) {
       slotNeed,
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
       chipGroup('體型預設', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), null, v => { state.body = presetBody(v); state.ht = presetHt(v); buildFields(); refresh(); look(); }),
-      bodyFields());
-    /* 外觀 chips (head, skin, hair) are hidden until #151 lands a real look mapping: they draw nothing yet. `state.look` keeps its defaults (0) so the posted choice is unchanged. */
+      bodyFields(),
+      /* #441: 外觀 chips, only the look numbers the preview and the game draw (ui/preview-spec.js LOOK_CHIPS); look.skin stays 0 (draws nothing off max) */
+      ...Object.entries(LOOK_CHIPS).map(([k, labels]) => chipGroup(LOOK_LEGEND[k], labels.map((l, i) => [i, l]), state.look[k], edit(v => { state.look = { ...state.look, [k]: Number(v) }; }))));
     const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = budgetOf(state), keys = pointKeys(state);
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));
     for (const k of keys) {

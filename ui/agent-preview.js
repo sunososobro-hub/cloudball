@@ -41,8 +41,8 @@ export function makePreview(host) {
     const floor = new THREE.Mesh(new THREE.CircleGeometry(0.62, 40), new THREE.MeshBasicMaterial({ color: 0x0b0d12, transparent: true, opacity: 0.55 }));
     floor.rotation.x = -Math.PI / 2; floor.position.y = 0.002; pivot.add(floor);
 
-    let f = null, kind = null, bat = null, yaw = YAW0, dragging = false, last = 0, resumeAt = 0, visible = true, raf = 0, w = 0, h = 0, lastX = 0;
-    const R = PL.HEAD_SHAPES.length, headOf = n => ((n | 0) % R + R) % R;
+    let f = null, kind = null, hairIx = -1, bat = null, yaw = YAW0, dragging = false, last = 0, resumeAt = 0, visible = true, raf = 0, w = 0, h = 0, lastX = 0;
+    const R = PL.HEAD_SHAPES.length, headOf = n => ((n | 0) % R + R) % R, HT = PL.HAIR_TONES.length, hairOf = n => ((n | 0) % HT + HT) % HT;
 
     const fit = () => {   /* the whole body fits both ways: tall box on a phone, wide box on a desktop */
       const aspect = w / Math.max(h, 1), vf = FOV * Math.PI / 180, dh = FRAME_H / 2 / Math.tan(vf / 2), dw = FRAME_W / 2 / (Math.tan(vf / 2) * aspect);
@@ -52,11 +52,11 @@ export function makePreview(host) {
     const draw = () => { pivot.rotation.y = yaw; renderer.render(scene, camera); };
 
     const dress = s => {
-      if (!f || kind !== s.kind) {
+      if (!f || kind !== s.kind || hairIx !== hairOf(s.hair)) {   /* #441: the hair colour is a material of the figure, so a new pick builds it again (geometry is cached) */
         if (f) { pivot.remove(f.g); bat = null; }   /* body geometry is cached in players.js, so nothing to free */
-        kind = s.kind;
+        kind = s.kind; hairIx = hairOf(s.hair);
         const batter = s.kind === 'bat';
-        f = PL.makePlayer({ jersey: JERSEY, pants: PANTS, sock: JERSEY, skin: SKIN, head: 'cap', role: batter ? 'batter' : undefined, throws: 'R', glove: !batter, parent: pivot });
+        f = PL.makePlayer({ jersey: JERSEY, pants: PANTS, sock: JERSEY, skin: SKIN, hair: PL.HAIR_TONES[hairIx], head: 'cap', role: batter ? 'batter' : undefined, throws: 'R', glove: !batter, parent: pivot });
         if (f.glove) f.glove.traverse(m => { if (m.isMesh) m.material = new THREE.MeshStandardMaterial({ color: LEATHER, roughness: 0.6 }); });
         if (batter) {   /* bat held in the right hand, barrel up and a little forward: the one pose (was rotation.x -0.35, which laid the barrel flat behind the hip) */
           bat = PL.makeBat(BAT_COLOR); f.sockets.handR.add(bat); bat.rotation.x = BAT_GRIP_X; f.arms[1].rotation.x = BAT_ARM_X;
