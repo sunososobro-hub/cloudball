@@ -119,7 +119,7 @@ const pick = (r, items) => { const total = items.reduce((s, [, w]) => s + w, 0);
 const between = (r, [a, b]) => a + Math.floor(r() * (b - a + 1));
 const POOL = Object.entries(GIVEN[NAME_DECADE]).flatMap(([w, s]) => s.split(' ').map(g => [g, Number(w)]));
 /* names already in league data: factory players, coaches, umpires */
-const TAKEN = new Set([...ROSTERS.flatMap(t => [...t.bat, ...t.pit]), ...STAFF, ...UMPIRES].map(p => p.name));
+const TAKEN = new Set([...ROSTERS.flatMap(t => [...t.bat, ...(t.bench || []), ...t.pit]), ...STAFF, ...UMPIRES].map(p => p.name));
 const NOT_FREE = new Set([...BLOCKED, ...TAKEN]);
 
 export function drawName(seed, n) {

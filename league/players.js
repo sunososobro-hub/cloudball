@@ -5,6 +5,8 @@
  * bat: lineup order. con = contact, pow = power, eye = plate discipline, spd = speed,
  *      arm = throwing arm (all ratings centred on 1.0), hand = bats L/R, avg = display
  *      placeholder until real stats exist.
+ * bench: BENCH_SIZE spare batters (same fields as bat), drawn by league/tools/bench.mjs (#436); not in the lineup,
+ *      not on the ratings.js scale (that is `bat` only), the engine ignores them until substitutions use them.
  * pit: first five are starters (SP), the rest relievers (RP). stuff, ctrl centred on 1.0.
  * body/ht: appearance only (build blend weights, height in metres). */
 export const ROSTERS = [
@@ -19,6 +21,12 @@ export const ROSTERS = [
       {id: "pheasants-b7", name: "林家銘", num: 79, pos: "SS", con: 1.091, pow: 0.799, eye: 1.157, age: 23, pot: 0.962, arm: 0.931, avg: 0.312, spd: 1.088, hand: "R", body: {slim: 1, power: 0, heavy: 0}, ht: 1.85},
       {id: "pheasants-b8", name: "陳柏翰", num: 95, pos: "C", con: 1.009, pow: 0.936, eye: 0.971, age: 28, pot: 0.94, arm: 1.108, avg: 0.278, spd: 0.945, hand: "L", body: {slim: 0, power: 0, heavy: 0}, ht: 1.83},
       {id: "pheasants-b9", name: "王俊廷", num: 75, pos: "1B", con: 0.82, pow: 0.422, eye: 0.89, age: 24, pot: 0.976, arm: 0.999, avg: 0.2, spd: 0.981, hand: "R", body: {slim: 1, power: 0, heavy: 0}, ht: 1.9},
+    ],
+    bench: [
+      {id: "pheasants-x1", name: "林子翔", num: 25, pos: "C", con: 0.959, pow: 0.764, eye: 0.951, age: 32, pot: 0.94, arm: 1.028, avg: 0.257, spd: 0.961, hand: "R", body: {slim: 0.39, power: 0, heavy: 0}, ht: 1.73},
+      {id: "pheasants-x2", name: "陳家榮", num: 77, pos: "SS", con: 0.971, pow: 0.959, eye: 0.95, age: 24, pot: 0.914, arm: 1.009, avg: 0.262, spd: 0.947, hand: "L", body: {slim: 0, power: 0, heavy: 0}, ht: 1.89},
+      {id: "pheasants-x3", name: "許宗霖", num: 1, pos: "CF", con: 0.94, pow: 0.645, eye: 0.952, age: 27, pot: 0.922, arm: 0.969, avg: 0.25, spd: 1.306, hand: "R", body: {slim: 1, power: 0, heavy: 0}, ht: 1.78},
+      {id: "pheasants-x4", name: "李承翰", num: 30, pos: "1B", con: 1.163, pow: 1.104, eye: 0.968, age: 33, pot: 0.978, arm: 0.979, avg: 0.342, spd: 0.932, hand: "R", body: {slim: 0, power: 0.42, heavy: 0.71}, ht: 1.76},
     ],
     pit: [
       {id: "pheasants-p1", name: "許柏廷", num: 33, role: "SP", stuff: 0.986, ctrl: 0.995, age: 33, pot: 0.927, throws: "L", arm: 0.998, body: {slim: 0, power: 0, heavy: 0}, ht: 1.87},
@@ -44,6 +52,12 @@ export const ROSTERS = [
       {id: "owls-b8", name: "鄭冠勳", num: 44, pos: "CF", con: 1.019, pow: 0.946, eye: 0.934, age: 31, pot: 0.993, arm: 0.968, avg: 0.282, spd: 1.184, hand: "R", body: {slim: 1, power: 0, heavy: 0}, ht: 1.89},
       {id: "owls-b9", name: "潘振宇", num: 71, pos: "DH", con: 0.805, pow: 0.472, eye: 1.008, age: 30, pot: 1.027, arm: 0.998, avg: 0.194, spd: 0.919, hand: "R", body: {slim: 1, power: 0, heavy: 0}, ht: 1.87},
     ],
+    bench: [
+      {id: "owls-x1", name: "劉哲瑋", num: 92, pos: "C", con: 0.946, pow: 0.925, eye: 0.971, age: 33, pot: 1.002, arm: 1.057, avg: 0.252, spd: 0.933, hand: "R", body: {slim: 0, power: 0, heavy: 0}, ht: 1.86},
+      {id: "owls-x2", name: "許品豪", num: 27, pos: "SS", con: 0.958, pow: 0.866, eye: 0.952, age: 28, pot: 0.972, arm: 1.014, avg: 0.257, spd: 1.013, hand: "L", body: {slim: 0.4, power: 0, heavy: 0}, ht: 1.91},
+      {id: "owls-x3", name: "黃家宏", num: 37, pos: "CF", con: 0.956, pow: 0.711, eye: 0.909, age: 27, pot: 0.926, arm: 0.967, avg: 0.256, spd: 1.19, hand: "R", body: {slim: 1, power: 0, heavy: 0}, ht: 1.84},
+      {id: "owls-x4", name: "陳立偉", num: 67, pos: "1B", con: 1.075, pow: 1.168, eye: 0.954, age: 31, pot: 0.991, arm: 0.969, avg: 0.306, spd: 0.921, hand: "L", body: {slim: 0, power: 0.74, heavy: 1}, ht: 1.82},
+    ],
     pit: [
       {id: "owls-p1", name: "楊柏宇", num: 56, role: "SP", stuff: 1.072, ctrl: 1.1, age: 25, pot: 0.983, throws: "R", arm: 0.909, body: {slim: 0, power: 0.77, heavy: 0}, ht: 1.9},
       {id: "owls-p2", name: "林建勳", num: 90, role: "SP", stuff: 0.968, ctrl: 0.997, age: 22, pot: 0.914, throws: "R", arm: 0.915, body: {slim: 0, power: 0, heavy: 0}, ht: 1.82},
@@ -68,6 +82,12 @@ export const ROSTERS = [
       {id: "macaques-b8", name: "許冠宇", num: 46, pos: "C", con: 0.975, pow: 0.866, eye: 0.945, age: 28, pot: 0.926, arm: 1.034, avg: 0.264, spd: 1.036, hand: "R", body: {slim: 0.62, power: 0, heavy: 0}, ht: 1.85},
       {id: "macaques-b9", name: "林家豪", num: 49, pos: "RF", con: 0.828, pow: 0.41, eye: 0.921, age: 28, pot: 1.136, arm: 1.011, avg: 0.203, spd: 0.912, hand: "L", body: {slim: 1, power: 0, heavy: 0}, ht: 1.79},
     ],
+    bench: [
+      {id: "macaques-x1", name: "江宗霖", num: 76, pos: "C", con: 0.982, pow: 0.964, eye: 0.935, age: 29, pot: 0.964, arm: 1.079, avg: 0.267, spd: 0.95, hand: "L", body: {slim: 0, power: 0, heavy: 0}, ht: 1.79},
+      {id: "macaques-x2", name: "高彥均", num: 72, pos: "SS", con: 0.956, pow: 0.692, eye: 0.95, age: 25, pot: 0.991, arm: 1.014, avg: 0.256, spd: 1.016, hand: "L", body: {slim: 1, power: 0, heavy: 0}, ht: 1.89},
+      {id: "macaques-x3", name: "曾柏廷", num: 26, pos: "CF", con: 0.976, pow: 0.602, eye: 0.99, age: 25, pot: 0.922, arm: 0.998, avg: 0.265, spd: 1.319, hand: "R", body: {slim: 1, power: 0, heavy: 0}, ht: 1.85},
+      {id: "macaques-x4", name: "楊宇恆", num: 50, pos: "1B", con: 1.031, pow: 1.109, eye: 0.917, age: 34, pot: 0.89, arm: 0.976, avg: 0.287, spd: 0.954, hand: "R", body: {slim: 0, power: 0.44, heavy: 0.52}, ht: 1.88},
+    ],
     pit: [
       {id: "macaques-p1", name: "吳子豪", num: 2, role: "SP", stuff: 0.982, ctrl: 1.094, age: 26, pot: 0.99, throws: "R", arm: 0.902, body: {slim: 0, power: 0, heavy: 0}, ht: 1.88},
       {id: "macaques-p2", name: "鄭浩宇", num: 93, role: "SP", stuff: 1.041, ctrl: 1.1, age: 29, pot: 0.968, throws: "R", arm: 0.949, body: {slim: 0, power: 0.38, heavy: 0}, ht: 1.82},
@@ -91,6 +111,12 @@ export const ROSTERS = [
       {id: "muntjacs-b7", name: "蔡柏豪", num: 59, pos: "CF", con: 0.954, pow: 0.94, eye: 1.055, age: 34, pot: 1.005, arm: 1.126, avg: 0.255, spd: 0.982, hand: "L", body: {slim: 0, power: 0, heavy: 0}, ht: 1.76},
       {id: "muntjacs-b8", name: "蘇承佑", num: 27, pos: "C", con: 1.012, pow: 0.983, eye: 0.951, age: 31, pot: 1.007, arm: 0.996, avg: 0.279, spd: 0.897, hand: "R", body: {slim: 0, power: 0, heavy: 0.25}, ht: 1.86},
       {id: "muntjacs-b9", name: "張家瑋", num: 51, pos: "SS", con: 0.827, pow: 0.474, eye: 0.977, age: 32, pot: 0.925, arm: 0.996, avg: 0.203, spd: 0.921, hand: "R", body: {slim: 1, power: 0, heavy: 0}, ht: 1.74},
+    ],
+    bench: [
+      {id: "muntjacs-x1", name: "徐浩宇", num: 55, pos: "C", con: 0.992, pow: 0.837, eye: 0.944, age: 33, pot: 0.97, arm: 1.057, avg: 0.271, spd: 0.981, hand: "L", body: {slim: 0.22, power: 0, heavy: 0}, ht: 1.89},
+      {id: "muntjacs-x2", name: "張皓宇", num: 71, pos: "SS", con: 0.96, pow: 0.808, eye: 0.903, age: 24, pot: 0.93, arm: 1.005, avg: 0.258, spd: 1, hand: "L", body: {slim: 0.56, power: 0, heavy: 0}, ht: 1.73},
+      {id: "muntjacs-x3", name: "廖信宏", num: 54, pos: "CF", con: 0.999, pow: 0.823, eye: 0.925, age: 22, pot: 0.961, arm: 0.986, avg: 0.274, spd: 1.229, hand: "L", body: {slim: 1, power: 0, heavy: 0}, ht: 1.84},
+      {id: "muntjacs-x4", name: "葉宇恆", num: 5, pos: "1B", con: 1.122, pow: 1.383, eye: 0.936, age: 30, pot: 0.959, arm: 0.923, avg: 0.325, spd: 0.86, hand: "L", body: {slim: 0, power: 1, heavy: 1}, ht: 1.87},
     ],
     pit: [
       {id: "muntjacs-p1", name: "李冠均", num: 45, role: "SP", stuff: 0.969, ctrl: 0.994, age: 26, pot: 1.048, throws: "R", arm: 0.895, body: {slim: 0, power: 0, heavy: 0}, ht: 1.82},

@@ -7,6 +7,8 @@
 - #169 written (PR #188): seed 201, rating knees (stars 95..98, nobody 1 or 100), CREATE bat 305/70, pit 183/66.
 - #54 wave 2 (PR #194): the other 44 lines; bios.check needs all 72 players. #37: `tests/replay/README.md`. #336: `tools/site.mjs` -> `site/*.json`. #276: commentary checks take seed 704 from `opening.json`, never re-simulate it.
 
+- #436 part 1: `bench` list of 4 per team in `players.js` (`tools/bench.mjs`, ids `<team>-x1..x4`); `bat` stays the lineup, the engine ignores the bench (`tests/bench.check.mjs`).
+
 ## Next
 1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes. Order: issue #68.
 2. #336 follow-ups: fill 二軍/free agents (`buildSite({second, free})`) once placement exists; add each new recorded game to `RECORDED_GAMES`.
