@@ -447,6 +447,9 @@ const IS_GPU=!!(renderer.backend&&renderer.backend.isWebGPUBackend),IS_DEV=!!(wi
    neighbours send (was 4: four times that), MAX_GI_CAP = most bounce light one pixel takes (direct ~1.06 on the plate + .45 stays under bloom's 1.6). SSR: half resolution, rays up to MAX_SSR_DIST m. */
 const MAX_GI_SLICES=2,MAX_GI_STEPS=8,MAX_GI_RADIUS=4,MAX_GI_I=1,MAX_GI_CAP=.45,MAX_GI_AO=1,MAX_SSR_ROUGH=.35,MAX_SSR_F0=.04,MAX_SSR_RES=.5,MAX_SSR_DIST=25,MAX_SSR_THICK=.05,MAX_SSR_Q=.5;
 const MAX_SHADOW_MAP=4096,MAX_SHADOW_RADIUS=2.5,TIER_SHADOW_RADIUS=1,MAX_AO_RES=1,AO_RES=.5,MAX_IBL_I=.6,SKY_ENV_FAR=1000,SKY_ENV_MIN_R=400;
+/* #211 item 2: on max the key light's shadow box shrinks to the picture and follows it (render/keyfit.js, fetched only on max). KEY_AIM = where the
+   shot is aimed (set in placeCamera); the box keeps the light's direction, so only the texel size changes. Off max, or ?off=keyfit: the default box. */
+const KEY_AIM=new THREE.Vector3(0,0,-38),KEY_FULL=75,KEY_DEF_POS=[-45,85,35],KEY_DEF_TGT=[0,0,-38];let keyFit=null,keyFitAsked=false,keyHalf=KEY_FULL;
 let maxWish=false;try{if(IS_DEV){const q=new URLSearchParams(location.search).get('q');if(q!==null)localStorage.setItem('zu_max',q==='max'?'1':'0');maxWish=localStorage.getItem('zu_max')==='1'}}catch(e){}
 let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
 if(window.PL&&PL.SKIN)PL.SKIN.on=()=>gfxMax;/* #207: the real skin maps follow max (players.js polls it; nothing extra loads while max is off) */
@@ -1661,7 +1664,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   if(tw>0){const bp=batter.g.position;tx=lerp(tx,bp.x,tw);ty=lerp(ty,TIGHT_AIM_Y*(batter.k||1),tw);tz=lerp(tz,bp.z,tw)}
   const pw=s.auto&&!zoomed&&platecamM?platecamM.plateW(curEvent,curU,ARRIVE):0;
   if(pw>0){rig.position.set(lerp(cs.x,0,pw),lerp(py,platecamM.PLATE_CAM_Y,pw),lerp(cs.z,platecamM.PLATE_CAM_Z,pw));const A=platecamM.PLATE_AIM;tx=lerp(tx,A[0],pw);ty=lerp(ty,A[1],pw);tz=lerp(tz,A[2],pw)}
-  const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
+  KEY_AIM.set(tx,ty,tz);const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
   const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
   if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
   else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0}
@@ -1963,6 +1966,13 @@ function tierHudInit(){if(!IS_DEV||tierHud!==null)return;tierHud=false;let on=tr
 function tierHudText(){if(tierHud===null)tierHudInit();if(!tierHud)return;
   const t=gfxMax?'畫質 max':`畫質 ${gfxTier}/${TIER_MAX}${maxWish&&!gfxTier?'（最高沒開）':''}`;tierHud.textContent=t;
   tierHud.title=`${gfxMax?`max: ${PP?PP.fx||'-':'no post'} (t TRAA, g SSGI, r SSR; - = off)`:`0 = 最好、${TIER_MAX} = 最省`}・點一下收起來`}
+function updateKeyFit(){if(!gfxMax||OFF.has('keyfit')||!keyFit){
+    if(gfxMax&&!OFF.has('keyfit')&&!keyFitAsked){keyFitAsked=true;import(new URL('keyfit.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{keyFit=M}).catch(err=>console.warn('keyfit',err))}
+    if(keyHalf!==KEY_FULL){keyHalf=KEY_FULL;key.position.set(...KEY_DEF_POS);key.target.position.set(...KEY_DEF_TGT);const c=key.shadow.camera;c.left=c.bottom=-KEY_FULL;c.right=c.top=KEY_FULL;c.updateProjectionMatrix()}return}
+  const rp=camera.getWorldPosition(_keyP),f=keyFit.fitKey(rp.x,rp.y,rp.z,KEY_AIM.x,KEY_AIM.y,KEY_AIM.z,camera.fov,camera.aspect),sn=keyFit.snapKey(f.x,f.z,f.half,key.shadow.mapSize.x),[ox,oy,oz]=keyFit.KEYFIT.OFFSET;
+  key.target.position.set(sn.x,sn.y,sn.z);key.position.set(sn.x+ox,sn.y+oy,sn.z+oz);
+  if(f.half!==keyHalf){keyHalf=f.half;const c=key.shadow.camera;c.left=c.bottom=-f.half;c.right=c.top=f.half;c.updateProjectionMatrix()}}
+const _keyP=new THREE.Vector3();
 function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',`${gfxTier}@${Date.now()}`)}catch(e){}
   renderer.setPixelRatio(gfxMax?devicePixelRatio:Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
@@ -2105,7 +2115,7 @@ renderer.setAnimationLoop(()=>{
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);introScene(now);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
+  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);updateKeyFit();introScene(now);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
   if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyNow()}
