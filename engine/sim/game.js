@@ -290,10 +290,17 @@ export function simGame(seed, decisions, opts) {
               to = Math.min(HOME, to); while (to < HOME && nb[to - 1]) to++;
               moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i];
             }
-            moves.push([0, adv, name]); nb[adv - 1] = name; st.b = nb; plan = resolveHit(ctx).plan;
+            /* advancing on a throw (#38): the runner from second scores on an outfield single, second is open, the
+             * outfielder throws home behind him and the batter takes second on the throw */
+            const throwHome = res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
+            const bTo = throwHome ? 2 : adv;
+            moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb; plan = resolveHit(ctx, { throwHome }).plan;
+            if (throwHome) { play.onThrow = true; }
             if (res === 'E') { st.E[def]++; result = 'error'; desc = COPY.error(name, type === 'GB'); }
             else { bs.h++; st.H[off]++; ps.h++; if (res === '2B') bs.d++; if (res === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[res]; desc = COPY.hit(name, res); }
-            if (runs) desc += COPY.drivesIn(runs); e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
+            if (runs) desc += COPY.drivesIn(runs);
+            if (play.onThrow) desc += COPY.onThrow(name);
+            e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;
             const g = resolveGround(ctx, { tryDoublePlay, leadBase: tryLead });
