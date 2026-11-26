@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.12';
+export const ENGINE_VERSION = '0.4.13';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -155,6 +155,12 @@ export const SEND_FROM_2ND_ON_SINGLE_P = 0.12;
  * into a double with this chance; the throw to second decides: tagged out when the ball beats him, else a double.
  * First guess, not tuned (MLB: a few hundred batters a season are thrown out stretching, about 0.1 a game). */
 export const STRETCH_1B_P = 0.03;
+/* Advancing on an error (#38): on an outfield single the outfielder bobbles the ball with this chance, loses
+ * OF_BOBBLE_TIME seconds securing it, and the batter and every runner take one base more than the single gives them.
+ * Scored a single plus an error on that fielder. First guess, not tuned (MLB outfielders make roughly 0.1-0.15 errors
+ * a game between both teams; only some of those are bobbles on a single). */
+export const OF_BOBBLE_1B_P = 0.012;
+export const OF_BOBBLE_TIME = 1.6;
 export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */

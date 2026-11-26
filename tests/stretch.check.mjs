@@ -27,7 +27,7 @@ for (let s = 1; s <= GAMES; s++) {
     if (e.k !== 'P' || !e.play || e.play.res !== '1B') continue;
     const batter = e.moves.find(m => m[0] === 0);
     if (!e.play.outStretch) {
-      if (batter && batter[1] === 2 && !e.play.onThrow) {
+      if (batter && batter[1] === 2 && !e.play.onThrow && !e.play.errAdvance) {
         safe++;
         if (e.s1.b[1] !== batter[2] || !/二壘安打/.test(e.desc)) bad(`seed ${s} t ${e.t.toFixed(1)}: safe stretch not a double with the batter on second (${e.desc})`);
       }
