@@ -497,11 +497,12 @@ class SkinLighting extends THREE.PhysicalLightingModel {
 }
 class SkinMaterial extends THREE.MeshStandardNodeMaterial { setupLightingModel() { return new SkinLighting() } }
 /* Skin material for a tone (hex, sRGB) on map `key`, or null when the full skin is off or its UVs / maps did not load */
-function skinMat(hex, key = 'light') {
+function skinMat(hex, key = 'light', step = TONE_MID) {
   if (!SKIN.full || !PACK || !PACK.uv || !skinTexs[key]) return null;
-  const mk = key + ':' + hex; let m = skinMats.get(mk); if (m) return m;
+  const mk = key + ':' + hex + (step === TONE_MID ? '' : ':t' + step); let m = skinMats.get(mk); if (m) return m;
   const T = THREE.TSL, skinTex = skinTexs[key], ref = new THREE.Color().setHex(SKIN.maps[key].ref, THREE.SRGBColorSpace), c = new THREE.Color().setHex(hex, THREE.SRGBColorSpace);
   for (const ch of ['r', 'g', 'b']) c[ch] = Math.min(1 + SKIN.shiftMax, Math.max(1 - SKIN.shiftMax, 1 + SKIN.shift * (c[ch] / Math.max(ref[ch], .01) - 1)));   /* a small shift toward the tone, never a re-colour */
+  const tk = TONE_STEPS[step] ?? 1; c.r *= tk; c.g *= tk; c.b *= tk;   /* #541: his own tone step on top, a visible light-to-deep spread within one map */
   m = new SkinMaterial({ color: c, roughness: SKIN_ROUGH.base, metalness: 0 }); m.vertexColors = true;
   const a = T.attribute('skinAttr', 'vec2'), u = T.uv(), fade = T.float(1).sub(T.smoothstep(PORE_NEAR, PORE_FAR, T.positionView.z.negate()));
   m.colorNode = T.materialColor.mul(T.texture(skinTex, u).rgb);
@@ -638,6 +639,10 @@ function skinTick() {
 }
 function eachLive(fn) { for (const r of LIVE) { const f = r.deref(); if (!f) { LIVE.delete(r); continue } try { fn(f) } catch (e) { console.warn('skin switch', e) } } }
 /* Map key of a head index from headOf (shape + HEAD_SHAPES.length x map) */
+/* #541: a fixed tone step per head index (the index already carries his id hash, shape, map, face and gear), so one man keeps his tone in every game
+   and page. TONE_STEPS multiply the map colour after the small shift: lightest .. deepest, TONE_MID = no change. No Math.random. */
+export const TONE_STEPS = [1.22, 1.11, 1, .88, .76], TONE_MID = 2;
+export const toneStepOf = head => { let h = 2166136261 ^ ((head | 0) >>> 0); h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 16)) >>> 0) % TONE_STEPS.length };
 const skinKeyOf = head => SKIN_KEYS[Math.floor((head | 0) / HEAD_SHAPES.length) % SKIN_KEYS.length];
 const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
 /* Get (cached) the geometry for a build, plus head shape (for the cap) and back depth (for the number) */
@@ -1188,7 +1193,7 @@ function makeRealPlayer(opts, A) {
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
   const plainEye = [mesh.material[6], mesh.material[7]];   /* #207 round 3: eye materials follow SKIN.full like the skin */
-  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2])) || plainSkin, bp = (f.buildArgs[2] | 0), ew = eyeMat('white', bp) || plainEye[0], ei = eyeMat('iris', bp) || plainEye[1];
+  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2]), toneStepOf(f.buildArgs[2])) || plainSkin, bp = (f.buildArgs[2] | 0), ew = eyeMat('white', bp) || plainEye[0], ei = eyeMat('iris', bp) || plainEye[1];
     if (mesh.material[MAT.skin] !== m || mesh.material[6] !== ew || mesh.material[7] !== ei) { mesh.material[MAT.skin] = m; mesh.material[6] = ew; mesh.material[7] = ei; mesh.material = mesh.material.slice() } };
   f.rebuild = () => { f.buildKey = null; f.setBuild(...f.buildArgs) };
   LIVE.add(new WeakRef(f));
