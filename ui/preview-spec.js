@@ -24,13 +24,13 @@ const lookOf = L => ({ head: L && Number.isInteger(L.head) ? L.head : 0, hair: L
 export function specOfChoice(c) {
   const bat = c.kind === 'bat', B = CREATE.builds[c.build] || CREATE.builds.normal;
   const body = c.body ? Object.fromEntries(Object.entries(c.body).map(([k, v]) => [k, v / 100])) : B.body;   /* #442: sliders (percent) or a preset */
-  return { kind: c.kind, hand: bat ? c.bats : c.throws, body: snapBody(body), ht: c.body ? c.ht : mid(B.ht), ...lookOf(c.look), num: null };
+  return { kind: c.kind, hand: bat ? c.bats : c.throws, body: snapBody(body), ht: c.body ? c.ht : mid(B.ht), ...lookOf(c.look), id: null, num: null };
 }
 
 /* a row of /api/freeagents or /api/player: { kind, player, ratings } */
 export function specOfRow(row) {
   const p = row.player, bat = row.kind === 'bat';
-  return { kind: row.kind, hand: bat ? p.hand : p.throws, body: snapBody(p.body), ht: p.ht, ...lookOf(p.look), num: p.num ?? null };
+  return { kind: row.kind, hand: bat ? p.hand : p.throws, body: snapBody(p.body), ht: p.ht, ...lookOf(p.look), id: p.id ?? null, num: p.num ?? null };
 }
 
 /* #441 part 3: the preview opens from the FRONT with a close-up of the head (face, hair colour and head shape read there); 轉身 flips

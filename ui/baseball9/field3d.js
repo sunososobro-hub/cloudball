@@ -15,6 +15,9 @@ export const FENCE_SEGS = 24;
 export const FENCE_H = 3;
 export const COL = { sky: 0x0d1b2a, grass: 0x3d9c4a, grass2: 0x46a853, dirt: 0xc28a57, white: 0xf3f3ee, wall: 0x1f5f3d, top: 0xffc84a, mine: 0x4f9bff, foe: 0xff5b48, bat: 0xe9b949, run: 0x8fd3ff, out: 0xdc5050, skin: 0xe8c39e };
 export const BATTER_X = -1.3;                                         // the batter stands beside the plate
+export const FIELDER_PANTS = COL.white;
+/** #563 part 1: yaw that turns a render/ body (front = +z) from (x0, z0) toward (x1, z1). */
+export const faceYaw = (x0, z0, x1, z1) => Math.atan2(x1 - x0, z1 - z0);
 
 /** Cached tiny materials + mesh helper bound to one THREE. */
 function kit(THREE) {
@@ -55,7 +58,8 @@ export function buildPark(THREE, scene, K = kit(THREE)) {
   }
 }
 
-/** The 3D field. -> Promise<{play(out), skip(), setSpeed(n), dispose()} | null>. */
+/** The 3D field. -> Promise<{play(out), skip(), setSpeed(n), dispose()} | null>.
+ *  `opts.PL` = the render/players.js module (#563 part 1): bodies come from its `makePlayer` (the broadcast bodies); without it (tests, load failure) the low-poly figure stays. */
 export async function createField3D(canvas, THREE, opts = {}) {
   if (!canvas || !THREE || typeof THREE.WebGPURenderer !== 'function') return null;
   let renderer; try { renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: !!opts.forceWebGL }); await renderer.init(); } catch (e) { return null; }
@@ -64,10 +68,13 @@ export async function createField3D(canvas, THREE, opts = {}) {
   scene.background = new THREE.Color(COL.sky); cam.position.set(...CAM.pos); cam.lookAt(...CAM.look);
   scene.add(new THREE.HemisphereLight(0xd6e6ff, 0x2c4a2c, .9)); const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(-30, 70, -25); scene.add(sun);
   buildPark(THREE, scene, K);
-  const wx = x => -x;                                                   // core x -> world x (first base on the right)
-  POS_N.forEach((p, i) => { if (i === 1) return; const f = figure(THREE, K, COL.foe); f.position.set(wx(p[0]), 0, p[1]); scene.add(f); });   // index 1 = catcher, stands behind the plate below
-  const catcher = figure(THREE, K, COL.foe); catcher.position.set(0, 0, -1.6); scene.add(catcher);
-  const batter = figure(THREE, K, COL.bat); batter.position.set(wx(BATTER_X), 0, .2); scene.add(batter);
+  const wx = x => -x, PL = opts.PL && typeof opts.PL.makePlayer === 'function' ? opts.PL : null;   // core x -> world x (first base on the right)
+  const body = (color, o = {}) => { if (!PL) return figure(THREE, K, color);
+    try { const jm = K.mat(color); return PL.makePlayer({ jersey: jm, pants: K.mat(FIELDER_PANTS), sock: jm, glove: !!o.glove, head: o.head || 'cap', role: o.role, throws: 'R' }).g; } catch (e) { return figure(THREE, K, color); } };
+  const place = (g, x, z, tx, tz) => { g.position.set(x, 0, z); if (PL && g.rotation) g.rotation.y = faceYaw(x, z, tx, tz); scene.add(g); return g; };
+  POS_N.forEach((p, i) => { if (i === 1) return; place(body(COL.foe, { glove: true }), wx(p[0]), p[1], 0, 0); });   // index 1 = catcher, stands behind the plate below; fielders face the plate
+  const catcher = place(body(COL.foe, { glove: true, head: 'helmet' }), 0, -1.6, 0, POS_N[0][1]);
+  const batter = place(body(COL.bat, { head: 'helmet', role: 'batter' }), wx(BATTER_X), .2, 0, .2);
   const ball = K.mesh(new THREE.SphereGeometry(.4, 10, 8), K.mat(0xffffff, { emissive: 0x444444 })), shadow = K.mesh(new THREE.CircleGeometry(.5, 12), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 }));
   shadow.rotation.x = -Math.PI / 2; ball.visible = shadow.visible = false; scene.add(ball, shadow);
   const tpos = new Float32Array(TRAIL_N * 3), tgeo = new THREE.BufferGeometry(); tgeo.setAttribute('position', new THREE.BufferAttribute(tpos, 3));
@@ -85,14 +92,16 @@ export async function createField3D(canvas, THREE, opts = {}) {
     if (p) { ball.visible = shadow.visible = true; ball.position.set(wx(p.x), Math.max(p.y, .4), p.z); shadow.position.set(wx(p.x), .05, p.z); shadow.scale.setScalar(Math.max(.4, 1.4 - p.y / 40));
       if (trailN < TRAIL_N) trailN++; else tpos.copyWithin(0, 3); const o = (trailN - 1) * 3; tpos[o] = wx(p.x); tpos[o + 1] = Math.max(p.y, .4); tpos[o + 2] = p.z;
       tgeo.setDrawRange(0, trailN); tgeo.attributes.position.needsUpdate = true; } else ball.visible = shadow.visible = false;
-    for (const r of runners) { const q = runnerAt(r.R, t), end = t >= r.R.pts[r.R.pts.length - 1].t; r.fig.position.set(wx(q.x), 0, q.z); r.fig.visible = !(r.R.out && end); }
+    for (const r of runners) { const q = runnerAt(r.R, t), end = t >= r.R.pts[r.R.pts.length - 1].t, nx = wx(q.x);
+      if (PL && r.fig.rotation && Math.hypot(nx - r.px, q.z - r.pz) > .02) { r.fig.rotation.y = faceYaw(r.px, r.pz, nx, q.z); r.px = nx; r.pz = q.z; }   // runners face where they run
+      r.fig.position.set(nx, 0, q.z); r.fig.visible = !(r.R.out && end); }
     batter.visible = !(runners.some(r => r.R.bat) && t > S.pitch.t1);
     const b = S.beats.find(x => t >= x.t && t < x.t + BEAT_S); showBeat(b ? b.txt : '');
     draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; }
   }
   const api = {
     play(out) { api.skip(); S = buildBeats(out); trailN = 0;
-      for (const R of S.runners) { const fig = figure(THREE, K, R.bat ? COL.bat : COL.run); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig }); }
+      for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z }); }
       t0 = performance.now(); raf = requestAnimationFrame(frame); },
     skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); draw(); },
     setSpeed(n) { if (SPEEDS.includes(n)) { const now = performance.now(); if (S) t0 = now - (now - t0) * speed / n; speed = n; } },
@@ -103,9 +112,12 @@ export async function createField3D(canvas, THREE, opts = {}) {
 
 /** Picture for a canvas: the 3D field when three.js and a renderer are there, else the canvas 2D field (field.js), else null (no picture).
  *  `loadThree` -> the THREE module (default: the import map's `three/webgpu`). Never throws. A canvas that 3D tried to start is replaced by a fresh one for 2D. */
-export async function openField(canvas, loadThree = () => import('three/webgpu')) {
+let plP = null;
+/** The render/ player module with its MakeHuman bodies (#563 part 1); null when it cannot load (the field then keeps the low-poly figures). Loaded once. */
+export const loadPlayers = () => plP || (plP = import('../../render/players.js').then(async PL => { try { await PL.loadPlayerAssets('./assets/'); } catch (e) { /* code-generated bodies */ } return PL; }).catch(() => null));
+export async function openField(canvas, loadThree = () => import('three/webgpu'), loadPL = loadPlayers) {
   let f = null;
-  try { f = await createField3D(canvas, await loadThree()); } catch (e) { f = null; }
+  try { const T = await loadThree(); f = await createField3D(canvas, T, { PL: await loadPL() }); } catch (e) { f = null; }
   if (f) return f;
   if (canvas && canvas.cloneNode && canvas.replaceWith && canvas.getContext) { try { const c2 = canvas.cloneNode(false); canvas.replaceWith(c2); canvas = c2; } catch (e) { /* keep the old one */ } }
   return createField(canvas);
