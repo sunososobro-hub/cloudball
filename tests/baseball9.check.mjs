@@ -103,6 +103,13 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
       for (let t = 0; t <= A.dur; t += .1) { const q = F.ballAt(A, t); if (q && !Number.isFinite(q.x + q.y + q.z)) bad('non-finite ball position'); } } }
   for (const k of ['hit', 'hr', 'k', 'bb', 'steal', 'run']) if (!seen[k]) bad('30 games never showed a ' + k + ' beat');
   if (F.createField({}) !== null || F.createField({ getContext: () => null }) !== null) bad('createField must return null without a 2D context'); }
+/* #430 part 3: practice outcomes (no `res` wrapper) draw too: every kind gets a pitch leg and a beat, same outcome = same script */
+{ const F = await import('../ui/baseball9/field.js'), kinds = new Set();
+  for (const k of ['bat', 'pitch']) for (let s = 1; s <= 40; s++) { const pr = createPractice(k, { rnd: seeded(s * 31) }); let last = { done: false }, n = 0;
+    while (!last.done && n++ < 40) { last = k === 'bat' ? pr.swing({ mode: Object.keys(MODE)[n % 6], r: 1 + n % 3, c: 1 + n % 2 }) : pr.pitch({ pt: n % 2 ? 'fb' : 'change', r: n % 5, c: (n >> 1) % 5 });
+      const A = F.buildBeats(last.out), B = F.buildBeats(last.out); if (JSON.stringify(A) !== JSON.stringify(B)) bad('practice buildBeats is not deterministic');
+      if (!F.ballAt(A, 0) || !A.beats.length) bad('practice outcome ' + last.out.kind + ' has no beat'); kinds.add(last.out.kind); } }
+  if (kinds.size < 4) bad('practice picture covered only ' + [...kinds]); }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');

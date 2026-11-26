@@ -5,6 +5,7 @@
  * Units as ball.js: metres, seconds, home (0,0), +z toward centre field, +x toward first base. Runners (part 2) come from `out.play.runners` (play.js `sc.runners`). */
 import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
+import { HIT_Q } from './practice.js';
 
 export const PITCH_S = .55;                 // pitch flight, mound to plate
 export const MOUND = POS_N[0];              // [0, 18.4]
@@ -16,7 +17,7 @@ export const ARC_PX = .7;                   // pixels of lift per metre of ball 
 
 /** The script of one pitch: {dur, pitch:{t0,t1}, ball:[{t,x,y,z,air}] (already shifted after the pitch), beats:[{t,txt}], hr}. Pure. */
 export function buildBeats(out) {
-  const res = out && out.res || {}, play = out && out.play, beats = [], ball = [], runners = [];
+  const res = out && (out.res || (out.kind !== undefined ? out : null)) || {}, play = out && out.play, beats = [], ball = [], runners = [];
   let dur = PITCH_S + .3, hr = false;
   if (play && play.ball && play.ball.length) {
     for (const p of play.ball) ball.push({ t: PITCH_S + p.t, x: p.x, y: p.y, z: p.z, air: p.air !== false });
@@ -26,7 +27,7 @@ export function buildBeats(out) {
       const pts = r.pts.map(p => ({ t: PITCH_S + p.t, x: p.x, z: p.z })); runners.push({ bat: !!r.bat, out: !!r.out, pts });
       dur = Math.max(dur, pts[pts.length - 1].t + .3); }
   } else {
-    const k = res.kind, txt = k === 'whiff' ? '揮空' : k === 'called' ? '好球' : k === 'ball' ? '壞球' : k === 'foul' || k === 'foulBunt' ? '界外' : '';
+    const k = res.kind, txt = k === 'whiff' ? '揮空' : k === 'called' ? '好球' : k === 'ball' ? '壞球' : k === 'foul' || k === 'foulBunt' ? '界外' : k === 'popup' ? '內野高飛' : k === 'bunt' ? '觸擊' : k === 'contact' ? (res.q >= HIT_Q ? '擊中！' : '擊出') : '';
     if (txt) beats.push({ t: PITCH_S, txt });
     if (out && out.paEnd && !(play)) { const w = /保送/.test(out.txt || ''), kk = /三振/.test(out.txt || ''); if (w || kk) beats.push({ t: PITCH_S + .35, txt: w ? '保送' : '三振！' }); }
     if (out && out.steal) beats.push({ t: PITCH_S + .5, txt: out.steal.ok ? '盜壘成功' : '盜壘失敗' });

@@ -4,9 +4,10 @@
 import { createPractice, PRACTICE_PITCHES, HIT_Q, MODE, PT, STAMINA, inZ } from './practice.js';
 import { describeOutcome, describeResult } from './text.js';
 import { startGame } from './gamescreen.js';
+import { createField, SPEEDS } from './field.js';
 
 const $ = id => document.getElementById(id);
-let sess = null, side = null, mode = 'one', ptk = 'fb';
+let field = null, speedI = 0, sess = null, side = null, mode = 'one', ptk = 'fb';
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
@@ -47,10 +48,13 @@ function play(r, c) {
   catch (e) { $('line').textContent = String(e.message || e); return; }
   const li = el('li', '', describeOutcome(res.out, side, HIT_Q)); $('log').prepend(li);
   $('line').textContent = li.textContent; status();
+  if (field) field.play(res.out);      // picture only: reads the outcome, never changes it
   if (res.done) { $('end').textContent = describeResult(res.result); $('end').hidden = false; window.baseball9Result = res.result; drawGrid(); }
 }
 
 function start(s) {
+  if (!field) { field = createField($('pfield')); $('pfbar').hidden = !field; $('pfield').hidden = !field; }
+  if (field) field.skip();
   side = s; sess = createPractice(s); window.baseball9Result = null;
   $('menu').hidden = true; $('stage').hidden = false; $('end').hidden = true; $('log').textContent = ''; $('line').textContent = '';
   $('title').textContent = s === 'bat' ? '打擊練習：猜投手會投哪一格' : '投球練習：選球種，投進哪一格';
@@ -59,6 +63,8 @@ function start(s) {
 
 $('bat').onclick = () => start('bat'); $('pitch').onclick = () => start('pitch');
 $('game').onclick = startGame;
+$('pskip').onclick = () => { if (field) field.skip(); };
+$('pspeed').onclick = () => { speedI = (speedI + 1) % SPEEDS.length; if (field) field.setSpeed(SPEEDS[speedI]); $('pspeed').textContent = `速度 ${SPEEDS[speedI]}x`; };
 $('go').onclick = () => play(2, 2);
 $('again').onclick = () => start(side);
 $('back').onclick = () => { $('stage').hidden = true; $('menu').hidden = false; };
