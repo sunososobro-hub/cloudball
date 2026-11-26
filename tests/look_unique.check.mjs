@@ -21,6 +21,11 @@ for(const R of ROSTERS){const rows=[...(R.bat||[]),...(R.pit||[])].filter(p=>p&&
     if(JSON.stringify(look(p))!==JSON.stringify(l))bad.push(p.id+': look not stable');
     if(seen.has(k)){dup++;bad.push(`${R.id||R.name||'team'}: ${p.id} and ${seen.get(k)} share (head,skin,hair,tone) ${k}`)}else seen.set(k,p.id)}
   per.push(seen.size)}
+/* #541 part 2: build is already per player from data (body mix + ht in league/players.js, drawn by dress() in render/game.js); pin it: every player has both, and a team shows at least MIN_BUILDS distinct (body, ht) pairs */
+const MIN_BUILDS=12;
+for(const R of ROSTERS){const rows=[...(R.bat||[]),...(R.pit||[])].filter(p=>p&&p.id!=null),b=new Set();
+  for(const p of rows){if(!p.body||!p.ht)bad.push(p.id+': no body or ht');b.add(JSON.stringify(p.body)+'|'+p.ht)}
+  if(b.size<MIN_BUILDS)bad.push(`${R.id||R.name||'team'}: only ${b.size} distinct builds (need ${MIN_BUILDS})`)}
 if(steps.size!==TONE_STEPS.length)bad.push(`tone steps used ${steps.size} of ${TONE_STEPS.length}`);
 for(let i=0;i<50;i++)if(toneStepOf(i*7919)!==toneStepOf(i*7919))bad.push('toneStepOf not pure');
 if(bad.length){console.error('FAIL look_unique:\n - '+[...new Set(bad)].slice(0,15).join('\n - '));process.exit(1)}
