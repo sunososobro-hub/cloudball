@@ -12,7 +12,7 @@
 
 ## Next
 1. #23 catcher holds the ball on steals: needs a primary lead from `render/` first (see the issue).
-2. #38 rest (0.4.4 wild pitch `WP_P`, 0.4.5 passed ball `PB_P`, 0.4.6 balk `BK_P`, frame `r: 'bk'`, no pitch event; 0.4.7 steal of 3rd `STEAL3_*`, `st.steal` = the base; 0.4.8 pickoff at first `PO_*`, frame `r: 'po'`; 0.4.9 throw-over that misses `POF_*`, frame `r: 'pof'`, `e.po`+`e.pof`, max 2 per PA; 0.4.10 batter takes 2nd on the throw home `THROW_HOME_ON_SINGLE_P`, `plan.throwHome`, `tests/onthrow.check.mjs`): advancing on a throw or error, outs on the bases.
+2. #38 rest (0.4.4 wild pitch `WP_P`, 0.4.5 passed ball `PB_P`, 0.4.6 balk `BK_P`, frame `r: 'bk'`, no pitch event; 0.4.7 steal of 3rd `STEAL3_*`, `st.steal` = the base; 0.4.8 pickoff at first `PO_*`, frame `r: 'po'`; 0.4.9 throw-over that misses `POF_*`, frame `r: 'pof'`, `e.po`+`e.pof`, max 2 per PA; 0.4.10 batter takes 2nd on the throw home `THROW_HOME_ON_SINGLE_P`, `plan.throwHome`, `tests/onthrow.check.mjs`; 0.4.11 runner from 2nd sent home on a single `SEND_FROM_2ND_ON_SINGLE_P`, the throw decides, `play.outHome`, `tests/outhome.check.mjs`): advancing on an error, other outs on the bases (batter thrown out stretching).
 3. Staffs have 4 relievers: 5.3 changes/game against about 6.6 in MLB. 4. Called third strikes: 19% of K, real ~25%.
 
 ## Known traps
