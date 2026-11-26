@@ -4,7 +4,7 @@
  *   - the weight never depends on a later event (it reads the one event it is given)
  * static.mjs runs this file. Usage: node tests/platecam.check.mjs */
 import { simGame } from '../engine/index.js';
-import { plateW, PLATE_IN_BEFORE, PLATE_OUT_AFTER, PLATE_EASE } from '../render/platecam.js';
+import { plateW, plateAim, PLATE_AIM, PLATE_IN_BEFORE, PLATE_OUT_AFTER, PLATE_EASE, PLATE_FOLLOW_LAG, PLATE_FOLLOW_TIME } from '../render/platecam.js';
 
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 const CONTACT = .8;
@@ -19,6 +19,10 @@ for (let seed = 1; seed <= 60; seed++) {
     if (plateW(e, at, CONTACT) < .999) bad(`seed ${seed}: weight at the arrival is ${plateW(e, at, CONTACT)}`);
     if (plateW(e, at - PLATE_IN_BEFORE - .01, CONTACT) !== 0) bad(`seed ${seed}: weight before the lead-in`);
     if (plateW(e, at + PLATE_OUT_AFTER + .01, CONTACT) !== 0) bad(`seed ${seed}: weight after the tail`);
+    const A0 = plateAim(e, at - PLATE_IN_BEFORE, CONTACT), A1 = plateAim(e, at + PLATE_FOLLOW_LAG + PLATE_FOLLOW_TIME, CONTACT), sp = S.CV.spot;
+    if (A0.some((v, i) => v !== PLATE_AIM[i])) bad(`seed ${seed}: aim moved before the lag`);
+    if (Math.abs(A1[0] - sp[0]) > 1e-9 || Math.abs(A1[2] - sp[1]) > 1e-9) bad(`seed ${seed}: aim did not settle on the tag spot`);
+    for (let u = 0; u < at + 6; u += .25) { const a = plateAim(e, u, CONTACT), b = plateAim(e, u, CONTACT); if (a.some((v, i) => !Number.isFinite(v) || v !== b[i])) bad(`seed ${seed}: aim not finite / deterministic`); }
     for (let u = 0; u < at + 6; u += .05) { const w = plateW(e, u, CONTACT); if (!(w >= 0 && w <= 1)) bad(`seed ${seed}: weight ${w} out of range`); if (w !== plateW(e, u, CONTACT)) bad('not deterministic'); }
   }
 }

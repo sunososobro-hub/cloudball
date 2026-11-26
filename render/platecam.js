@@ -12,3 +12,13 @@ export function plateW(e, u, contact) {
   const t = u - contact;
   return ease(sat((t - (S.arrive - PLATE_IN_BEFORE)) / PLATE_EASE)) * (1 - ease(sat((t - (S.arrive + PLATE_OUT_AFTER - PLATE_EASE)) / PLATE_EASE)));
 }
+/* Operator follow (#209 item 1): the lens does not sit on a fixed point. It starts on PLATE_AIM and drifts, with a lag, onto the tag spot of the
+ * play (S.CV.spot = [x, z] on the ground), as a camera operator who finds the runner and the catcher late. Pure function of (event, time),
+ * so a jump lands on the same framing. PLATE_FOLLOW_LAG s after the lead-in starts the drift begins, it takes PLATE_FOLLOW_TIME s. */
+export const PLATE_FOLLOW_LAG = .5, PLATE_FOLLOW_TIME = 1;
+export function plateAim(e, u, contact) {
+  const S = e && e.plan, sp = S && S.CV && S.CV.spot;
+  if (!sp || typeof S.arrive !== 'number') return PLATE_AIM.slice();
+  const t = u - contact - (S.arrive - PLATE_IN_BEFORE) - PLATE_FOLLOW_LAG, w = ease(sat(t / PLATE_FOLLOW_TIME));
+  return [PLATE_AIM[0] + (sp[0] - PLATE_AIM[0]) * w, PLATE_AIM[1], PLATE_AIM[2] + (sp[1] - PLATE_AIM[2]) * w];
+}
