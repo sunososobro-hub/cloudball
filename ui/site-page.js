@@ -15,7 +15,7 @@ function draw() {
   $('view').innerHTML = render(tab, data, myId, ...parts().slice(1));
   $('season').innerHTML = seasonLabel(data);
   const root = $('train-root'); /* #me/train (#429) */
-  if (root && data.players[myId]) mountTrain(root, { doc: document, player: data.players[myId], id: myId, table: trainTable, ...store, go: url => { location.href = url; } });
+  if (root && data.players[myId]) mountTrain(root, { doc: document, player: data.players[myId], players: data.players, id: myId, table: trainTable, ...store, go: url => { location.href = url; } });
 }
 /* 換球員 / 解約 (#435): one POST with the browser's agent key; the player id is kept so the former agent can 取回 him on agent.html */
 const AGENT_KEY = 'cloudball.agentKey', RELEASED_KEY = 'cloudball.releasedIds';

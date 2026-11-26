@@ -70,6 +70,22 @@ for (const [p, id, kind] of [[bat, 'b1', 'bat'], [pit, 'p1', 'pit']]) {
 if (!run(bat, 'b1').text().includes('還沒有練習紀錄')) bad('no result yet must say so');
 if (!run(bat, 'b1', null, { id: 'b1', result: { side: 'bat', mode: 'practice', hits: 5, pitches: 10, tier: 'full' } }).text().includes(`加成 +${ACTIVE_BONUS}`)) bad('result bonus number not shown');
 if (run(bat, 'b1', null, { id: 'other', result: { side: 'bat', hits: 5, pitches: 10, tier: 'full' } }).text().includes('加成')) bad("another player's result must not show");
+/* #558: call-up state from league/callup.js decide: 二軍 / 等位置 #K / 一軍, shown on 我的球員 and the 訓練 screen */
+{ const cu = await import('../league/callup.js'), tr = await import('../ui/site/train.js');
+  const P = JSON.parse(readFileSync(new URL('../league/site/players.json', import.meta.url), 'utf8'));
+  const weak = cu.weakestAt(P, 'SS'), mk2 = (o, tier = 3) => ({ name: 'x', age: 20, role: 'B', pos: 'SS', overall: o, abilities: {}, team: null, tier });
+  const farmP = { ...P, me: mk2(weak - 1) }, waitP = { ...P, me: mk2(weak) }, upP = { ...P, me: mk2(weak, 1) };
+  const f = tr.callupOf(farmP, 'me'), w = tr.callupOf(waitP, 'me'), u = tr.callupOf(upP, 'me');
+  if (f.status !== cu.STATUS.farm || u.status !== cu.STATUS.up) bad('callupOf: 二軍 / 一軍 states');
+  if (w.status !== cu.STATUS.wait && w.status !== cu.STATUS.up) bad('callupOf: ready player is 等位置 or 一軍');
+  const pool = Object.entries(waitP).filter(([k, p]) => k === 'me' || p.tier === 2).map(([k, p]) => ({ id: k, pos: p.pos, overall: p.overall, waited: 0 }));
+  const dec = cu.decide(waitP, pool).waiting.find(x => x.id === 'me');
+  if (dec && (w.queue !== dec.queue || !tr.callupText(waitP, 'me').includes('#' + dec.queue))) bad('callupText queue number must equal decide');
+  if (!/二軍/.test(tr.callupText(farmP, 'me')) || tr.callupText(upP, 'me') !== '一軍' || tr.callupText(P, 'nobody') !== '') bad('callupText wording');
+  const dm = combine({ teams: [], players: farmP, games: [] });
+  if (!render('me', dm, 'me').includes('二軍')) bad('我的球員 shows no call-up state');
+  const t = run(farmP.me, 'me'); const t2 = (() => { const mem = {}, root = mk('section'); mountTrain(root, { doc, player: farmP.me, players: farmP, id: 'me', table: disk, load: k => mem[k] ?? null, save() {}, go() {} }); return find(root, () => true).map(n => n._t).join('|'); })();
+  if (!t2.includes('二軍')) bad('訓練 screen shows no call-up state'); void t; }
 const html = readFileSync(new URL('../baseball9.html', import.meta.url), 'utf8');
 if (!/id="me-link"/.test(html)) bad('baseball9.html has no link back to 我的球員');
 const scr = readFileSync(new URL('../ui/baseball9/screen.js', import.meta.url), 'utf8');
