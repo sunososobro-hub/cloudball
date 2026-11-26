@@ -1202,6 +1202,9 @@ var deckRings=[];
 import(new URL('ondeck_lite.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{const trim=(PARKS[parkCur&&parkCur.id]||PARK_DEFAULT).trim;for(const side of [-1,1])for(const p of M.liteOnDeck(side)){
   const ring=p.kind==='ring',m=new THREE.Mesh(ring?new THREE.RingGeometry(p.r0,p.r1,32).rotateX(-Math.PI/2):new THREE.CylinderGeometry(p.r0,p.r1,p.h,24),new THREE.MeshLambertMaterial({color:ring?trim:p.color}));
   m.name='old:ondeck';m.position.set(p.x,p.y,p.z);m.receiveShadow=true;if(ring)deckRings.push(m.material);scene.add(m)}}).catch(err=>console.warn('lite on-deck circles off',err));
+/* #150 part 6: the cheap batter's eye every tier draws (one open curved screen behind the cleared CF block, Lambert, 1 draw call); props/index.js hides it while max shows the polished one (named old:batterseye). */
+import(new URL('batterseye_lite.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{const E=M.liteEye(),m=new THREE.Mesh(new THREE.CylinderGeometry(E.r,E.r,E.top,24,1,true,E.thetaStart,E.thetaLength),new THREE.MeshLambertMaterial({color:E.color,side:THREE.DoubleSide}));
+  m.name='old:batterseye';m.position.y=E.top/2;scene.add(m)}).catch(err=>console.warn('lite batter\'s eye off',err));
 function crouch(f,R,c,fwd,splay,lean,shrink){const fw=fwd*c,sp=splay*c,len=LEG_LEN*(1-shrink*c);f.g.position.y=-(LEG_LEN-len*Math.cos(sp)*Math.cos(fw))*(f.k||1);R.l0.scale.y=R.l1.scale.y=1-shrink*c;R.l0.rotation.set(-fw,0,-sp);R.l1.rotation.set(-fw,0,sp);R.up.rotation.set(lean*c,0,0)}
 function aimWorld(R,arm,sx,wx,wy,wz){R.up.updateWorldMatrix(true,false);_tv.set(wx,wy,wz);R.up.worldToLocal(_tv);aimArm(arm,sx,_tv.x,_tv.y,_tv.z)}
 function armsDown(R){R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1}
