@@ -11,7 +11,7 @@ import { RETIRE_AGE, slotTemplate, slotPos } from '../league/callup.js';
 import { seasonEnd, advanceYear, CULL_PER_POS, FREE_TIER, SECOND_TIER, ROOKIE_AGE, FARM_MAX_AGE } from '../league/turnover.js';
 
 const read = f => readFileSync(new URL(f, import.meta.url), 'utf8');
-const players = JSON.parse(read('../league/site/players.json')), before = JSON.stringify(players);
+const players = (await import('../league/tools/site.mjs')).factoryPlayers(), before = JSON.stringify(players);
 const aged = advanceYear(players);
 assert.equal(JSON.stringify(players), before, 'advanceYear leaves its input alone');
 const ids = Object.keys(aged), oldOnes = ids.filter(i => aged[i].tier === 1).slice(0, 3);

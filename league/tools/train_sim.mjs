@@ -22,6 +22,7 @@
  * and, from then on, days until a slot opens at that position. Slots open only when a starter retires (RETIRE_AGE), on the
  * day his age gets there (starters keep their overall, nobody else queues: the best case, the wait is at least this long).
  * Printed as it comes out, never tuned. */
+import { factoryPlayers } from './site.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -122,7 +123,7 @@ export function slotDays(players, pos) {
 export const waitFrom = (days, from) => { const d = days.find(x => x >= from); return d === undefined ? Infinity : d - from; };
 
 export function simulate() {
-  const players = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../site/players.json'), 'utf8'));
+  const players = factoryPlayers();   /* factory 一軍 (the day-1 snapshot in site/players.json is 8 seasons older, #565) */
   const t = targets(players), goals = [t.median, t.bottom], r = rng(SIM_SEED), res = { hands: [[], []], active: [[], []], 'hands, no pot stop': [[], []], 'active, no pot stop': [[], []] };
   const start = [], pots = [], byPitches = Object.fromEntries(PITCH_COUNTS.flatMap(n => [[`${n} hands`, []], [`${n} active`, []]]));
   const ageTab = { hands: [], active: [] };
