@@ -1,5 +1,5 @@
 /* Highlights showing of a recorded game (#118). Pure: the reel is computed from the recorded event stream (rule 10 spirit:
- * the engine decided what happened, nothing is hand-picked). Loaded by index.html as window.HIGHLIGHTS; render/game.js plays it
+ * the engine decided what happened, nothing is hand-picked). Loaded by play.html as window.HIGHLIGHTS; render/game.js plays it
  * with the player bar's seek. No import from commentary/ (rule 9): the booth lines are passed in by the caller.
  *
  * A play is in the reel when it is a pitch event that scores (`runs > 0`) or the last pitch of the game (the last out, or the

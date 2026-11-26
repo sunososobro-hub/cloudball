@@ -26,7 +26,7 @@ async def main():
       return await r.abort()
     await pg.route('**/*',route)
     await pg.add_init_script("try{localStorage.setItem('zu_gl','1');localStorage.setItem('zu_tier','0')}catch(e){}")
-    await pg.goto('http://local/index.html'); await pg.wait_for_function("()=>!document.getElementById('enter').disabled",timeout=900000,polling=1000)  # buttons wake after the warm-up (#125)
+    await pg.goto('http://local/play.html'); await pg.wait_for_function("()=>!document.getElementById('enter').disabled",timeout=900000,polling=1000)  # buttons wake after the warm-up (#125)
     if not await pg.evaluate("()=>!!window.__X"): print('page failed:',[x for x in errs if 'Failed to load resource' not in x][:5]); return await b.close()
     await pg.evaluate("()=>{const b=[...document.querySelectorAll('#intro button')];b.length&&b[b.length-1].click()}"); await pg.wait_for_timeout(800)
     await pg.evaluate("()=>document.getElementById('studioBtn').click()"); await pg.wait_for_timeout(800)
