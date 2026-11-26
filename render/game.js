@@ -769,6 +769,21 @@ if(window.PL){fielders.C.setHead('helmet');if(fielders.C.setGear)fielders.C.setG
 const BR=rigUpper(batter),CR=rigUpper(fielders.C),UR=rigUpper(ump),PR=rigUpper(fielders.P);
 const batPivot=new THREE.Group();BR.up.add(batPivot);
 const bat=window.PL?PL.makeBat(0xc9a06a):new THREE.Mesh(new THREE.CylinderGeometry(.04,.022,.85,8),SM(0xc9a06a,.45));if(!window.PL)bat.position.y=.42;bat.castShadow=true;batPivot.add(bat);
+/* #43 items 2-3: the bat he lets go when he sets off (render/batdrop.js plans the flight: HR flip, toss, walk lay). One loose copy in world
+   space, handle origin at the group origin like batPivot; shown from the batter's st0 to the end of the event. Dev switch ?off=batdrop. */
+const looseBat=new THREE.Group(),looseIn=bat.clone();looseBat.add(looseIn);looseBat.visible=false;scene.add(looseBat);let batM=null;
+import(new URL('batdrop.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{batM=M}).catch(err=>console.warn('bat drop off',err));
+const _lb0=new THREE.Vector3(),_lb1=new THREE.Vector3(),_lbq=new THREE.Quaternion(),_lbq2=new THREE.Quaternion(),_lba=new THREE.Vector3();
+/* Release pose = the held bat at st0 (the batter re-posed there: pure in (event, time)), then the planned arc, slerped to lying flat and
+   spun end over end a whole number of turns about the horizontal axis square to where it lies */
+function poseLooseBat(e,u){const k=batM&&!OFF.has('batdrop')?batM.batKind(e):null;if(!k)return;const rel=batM.batRelease(e);if(u<rel)return;
+  const vis=batter.g.visible;batter.g.visible=true;poseBatter(e,rel);batterWalk(e,rel);batterMocap(e,rel);batter.g.updateMatrixWorld(true);
+  batPivot.localToWorld(_lb0.set(0,0,0));batPivot.localToWorld(_lb1.set(0,1,0));batter.g.visible=vis;
+  _lb1.sub(_lb0).normalize();_lbq.setFromUnitVectors(_up,_lb1);
+  const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',F=batM.batFlight(k,[_lb0.x,_lb0.y,_lb0.z],lf?1:-1,u-rel);
+  _lb1.set(Math.sin(F.head),0,Math.cos(F.head));_lbq2.setFromUnitVectors(_up,_lb1);_lbq.slerp(_lbq2,ease(F.s));
+  _lba.set(Math.cos(F.head),0,-Math.sin(F.head));_lbq2.setFromAxisAngle(_lba,-F.spin);
+  looseBat.quaternion.multiplyQuaternions(_lbq2,_lbq);looseBat.position.set(...F.p);looseBat.visible=true}
 /* batting keyframes: S stance, L load (stride + hands back), C contact, F follow-through. Frame: batter-local, +z faces the plate, +x faces the pitcher */
 const BK={yaw:[-.15,-.45,.75,1.7],lean:[.12,.16,.2,.1],hx:[-.2,-.3,-.05,.35],hy:[.55,.62,.38,.65],hz:[.3,.22,.56,.35],
   bx:[-.3,-.5,-.55,.4],by:[.95,.85,.12,.7],bz:[.12,.1,.82,.55],stride:[.2,.3,.42,.4],back:[-.2,-.2,-.25,-.32],head:[1.1,1.15,.6,.2]};
@@ -1448,7 +1463,7 @@ function poseScene(e,u,dt,ei){
   if(e.k==='PRE'){FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],d0=jogRank(k)*JOG_GAP,sx=dugout(def)[0],sz=INTRO_Z,tt=sat01((u-d0)/(Math.hypot(f.home[0]-sx,f.home[1]-sz)/JOG_SPEED));
     f.g.visible=u>=d0;f.g.position.set(lerp(sx,f.home[0],tt),tt>0&&tt<1?Math.abs(Math.sin(u*9+i))*.07:0,lerp(sz,f.home[1],tt));
     if(tt<1)face(f,f.home[0]-sx,f.home[1]-sz);else face(f,-f.home[0],-f.home[1])})}
-  batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;
+  batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;looseBat.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
   poseOnDeck(e,u,ei);poseStaff(e,u,ei);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
@@ -1511,6 +1526,7 @@ function poseScene(e,u,dt,ei){
     if(slide&&u>=ts){const k=ease(sat01((u-ts)/(ST*.35)))*(1-ease(sat01((u-arriveT-SLIDE_HOLD)/SLIDE_UP)));if(k>0)slidePose(r,k)}
   }
   peelers();
+  poseLooseBat(e,u);/* #43: before hiding him, so the release pose can be read from his hands */
   if(u>=batGone)batter.g.visible=false;
   if(e.r==='inplay'){
     /* the whole defensive play (who fields, who covers, every throw and its timing) is e.plan, computed by the engine */
