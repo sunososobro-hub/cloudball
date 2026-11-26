@@ -18,7 +18,7 @@ const { simGame, ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'engine/
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/constants.js')));
 const GAMES = 1000;
 const DRIFT = { 'runs/game': 0.4, 'K%': 0.01, 'BB%': 0.01, AVG: 0.008, OBP: 0.008, SLG: 0.015 };
-const opts = (s, on) => ({ teams: [s % 4, (s + 1) % 4], pinchHit: on, pinchRun: false });
+const opts = (s, on) => ({ teams: [s % 4, (s + 1) % 4], pinchHit: on, pinchRun: false, defSub: false });   /* other substitutions off: this check follows pinch hitters only (#436 part 8) */
 const problems = [], bad = s => problems.push(s);
 
 const rates = games => {
