@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CREATE, makePlayer, validateCreate } from '../league/freeagents.js';
-import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND } from '../ui/preview-spec.js';
+import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf } from '../ui/preview-spec.js';
 
 const problems = [], bad = m => problems.push(m);
 /* points come from CREATE, so a change of the budget or the ability list never breaks this guard */
@@ -64,12 +64,23 @@ for (const [k, labels] of Object.entries(LOOK_CHIPS)) {
 }
 if (PL) for (const v of LOOK_CHIPS.hair.keys()) if (PL.gearOf(PL.headOfPlayer({ id: 'X1', look: { head: 0, skin: 0, hair: v } })).hair !== v) bad(`hair chip ${v}: the game draws another hair colour`);
 
+/* #441 part 3: opens from the front with a close-up of the head; the turn button flips front/back; the head frame follows the height */
+if (PREVIEW_OPEN.side !== 'front' || PREVIEW_OPEN.zoom !== 'close' || yawOfSide(PREVIEW_OPEN.side) !== 0) bad('the preview must open from the front (yaw 0) with a head close-up');
+if (flipSide('front') !== 'back' || flipSide(flipSide('front')) !== 'front' || yawOfSide('back') !== Math.PI) bad('turn button: front -> back -> front, back is half a turn');
+if (flipZoom('close') !== 'full' || flipZoom('full') !== 'close') bad('zoom button must switch between close-up and full body');
+const cl = frameOf('close', 1.8), fu = frameOf('full', 1.8);
+if (!(cl.h < fu.h / 2) || !(cl.y > 1.5 && cl.y < 1.8)) bad(`close-up frame is not on the head: ${JSON.stringify(cl)}`);
+if (frameOf('close', 1.92).y <= frameOf('close', 1.72).y) bad('the head close-up must follow the height');
+if (frameOf('full', 1.72).y !== frameOf('full', 1.92).y) bad('the full-body frame must not depend on the height');
+
 /* page: import map before the module script, no render/ change needed, preview module loads three after first paint */
 const html = readFileSync('agent.html', 'utf8'), js = readFileSync('ui/agent-preview.js', 'utf8');
 if (!(html.indexOf('type="importmap"') > 0 && html.indexOf('type="importmap"') < html.indexOf('type="module"'))) bad('agent.html: the import map must come before the module script');
 if (/^import .*three/m.test(js)) bad('ui/agent-preview.js must import three.js dynamically (after first paint), not at load');
 if (!/requestIdleCallback/.test(js)) bad('ui/agent-preview.js must start loading when the browser is idle');
+if (/requestAnimationFrame|TURN\b/.test(js)) bad('the preview must not turn by itself any more (front view stays still)');
 for (const id of ['stage', 'stageCap']) if (!html.includes(`id="${id}"`)) bad(`agent.html lost #${id}`);
+for (const c of ['stage-turn', 'stage-zoom']) if (!html.includes(`class="${c}"`) || !js.includes(c)) bad(`agent.html / agent-preview.js lost the ${c} button`);
 
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
 console.log(`OK: preview spec follows build, side, head and height for ${Object.keys(CREATE.builds).length} builds; look chips ${LOOK_CHIPS.head.length} heads, ${LOOK_CHIPS.hair.length} hair colours; page loads three after first paint.`);

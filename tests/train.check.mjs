@@ -41,6 +41,7 @@ if (JSON.stringify(keysOf(pit3)) !== JSON.stringify(k3) || pitchesOf(bat).length
 const fresh = table(), disk = JSON.parse(readFileSync(new URL('../league/site/train_days.json', import.meta.url), 'utf8'));
 if (JSON.stringify(fresh) !== JSON.stringify(disk)) bad('league/site/train_days.json is stale: run node league/tools/train_days.mjs --write');
 if (!handsOffText(disk, bat).includes(String(disk.hands.median)) || /undefined|NaN/.test(handsOffText(disk, bat)) || !/沒有可用/.test(handsOffText(null, bat)) || !/已經/.test(handsOffText(disk, { overall: 99 }))) bad('handsOffText');
+if (!/ready/.test(handsOffText(disk, bat)) || /天內追上一軍|多少天到一軍|\d+ 天.*上一軍[^，。，]*$/.test(handsOffText(disk, bat)) || !/等位置|空位/.test(handsOffText(disk, bat)) || !/空位/.test(handsOffText(disk, { overall: 99 }))) bad('handsOffText says ready, promises no call-up');
 
 /* the screen on a fake DOM */
 const mk = tag => ({ tag, children: [], dataset: {}, value: '', className: '', _t: '', setAttribute() {}, append(...k) { this.children.push(...k); }, set textContent(v) { this._t = v; if (v === '') this.children = []; }, get textContent() { return this._t; } });

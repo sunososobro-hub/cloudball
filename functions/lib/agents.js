@@ -5,13 +5,15 @@
  * Account: the browser makes a random 32-byte key (64 hex characters) and sends it as `Authorization: Bearer <key>`.
  * The server keeps only SHA-256(key). No password, no e-mail, no cookie.
  * Who counts: the owner's word in #179. Game outcomes are never touched here (rule 10): a created player is a row. */
-import { validateCreate, makePlayer, drawName } from '../../league/freeagents.js';
+import { validateCreate, makePlayer, drawName, CREATE } from '../../league/freeagents.js';
 
 export const DRAW_CAP = 20;               /* name draws 0 .. DRAW_CAP (the first one plus this many redraws) */
 export const AGENTS_PER_DAY = 300;        /* new agents per UTC day, in total */
 export const AGENTS_PER_ADDRESS_PER_DAY = 3;  /* new agents per UTC day from one address */
 export const PAGE_SIZE = 20;
 export const MAX_PAGE = 500;
+export const SYSTEM_PER_KIND = 10;        /* 系統 fillers kept per kind until real fans take their places (#437) */
+export const SYSTEM_SEED = 437000;        /* filler i of a kind uses seed SYSTEM_SEED + i (+ 500 for pitchers) */
 const BODY_MAX = 1000;                    /* characters of a request body */
 const PAGES_HOST = 'cloudball-3uy.pages.dev';
 
@@ -39,6 +41,7 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, seed INTEGER NOT NULL, created_at INTEGER NOT NULL)',
   `CREATE TABLE IF NOT EXISTS players (agent_id TEXT PRIMARY KEY, pid TEXT NOT NULL, name TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
      ovr INTEGER NOT NULL, player TEXT NOT NULL, ratings TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+  'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS players_ovr ON players (ovr DESC, created_at DESC)',
   'CREATE INDEX IF NOT EXISTS players_new ON players (created_at DESC)',
   /* #435: a released player keeps his row (name, ratings, history); players.agent_id becomes 'free:<pid>' (never a 64-hex agent id)
@@ -49,8 +52,27 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS reg_seen (day TEXT NOT NULL, h TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS reg_seen_day ON reg_seen (day, h)',
 ];
+/* #437: a 系統 filler is a players row whose agent_id is 'sys:<pid>' (no agent holds it) and whose player JSON has system:true.
+ * Even spread of the budget, positions / roles in turn, so nobody is a star; made once, marked in `meta`. */
+export const systemChoice = (kind, i) => {
+  const keys = CREATE.keys[kind], per = Math.round(CREATE.budget[kind] / keys.length), look = { head: 0, skin: 0, hair: 0 };
+  const points = Object.fromEntries(keys.map(k => [k, per])); points[keys[0]] += CREATE.budget[kind] - per * keys.length;
+  return kind === 'bat' ? { kind, pos: CREATE.positions[i % CREATE.positions.length], bats: 'R', build: 'normal', look, points }
+    : { kind, role: CREATE.roles[i % CREATE.roles.length], throws: 'R', build: 'normal', look, points };
+};
+const seedSystem = async db => {
+  if (await db.prepare("SELECT 1 AS x FROM meta WHERE k = 'system_seeded'").first()) return;
+  const steps = [], now = Date.now();
+  for (const kind of CREATE.kinds) for (let i = 0; i < SYSTEM_PER_KIND; i++) {
+    const { player, ratings } = makePlayer(SYSTEM_SEED + (kind === 'pit' ? 500 : 0) + i, { ...systemChoice(kind, i), nameDraw: 0 });
+    steps.push(db.prepare('INSERT OR IGNORE INTO players (agent_id, pid, name, kind, ovr, player, ratings, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)')
+      .bind('sys:' + player.id, player.id, player.name, kind, ratings.ovr, JSON.stringify({ ...player, system: true }), JSON.stringify(ratings), now - i));
+  }
+  steps.push(db.prepare("INSERT OR IGNORE INTO meta (k, v) VALUES ('system_seeded', '1')"));
+  await db.batch(steps);
+};
 const ready = new WeakMap();
-const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
+const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).then(() => seedSystem(db)).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
 
 /* every handler: closed unless the binding exists on a dev host; one small catch so nothing ever breaks the page */
 const guarded = (handler, { needKey = false } = {}) => async ctx => {
@@ -134,6 +156,8 @@ export const create = guarded(async ({ request, db, agent }) => {
     /* a unique key said no: this agent already has his player (a second tap at the same time), or the name is taken */
     return fail(409, (await db.prepare('SELECT 1 AS x FROM players WHERE agent_id = ?1').bind(agent.id).first()) ? 'already' : 'name');
   }
+  /* #437: a real fan takes the place of the oldest 系統 filler of the same kind (none left: nothing to drop) */
+  await db.prepare("DELETE FROM players WHERE pid = (SELECT pid FROM players WHERE agent_id LIKE 'sys:%' AND kind = ?1 ORDER BY created_at, pid LIMIT 1)").bind(choice.kind).run();
   return json(201, { ok: true, player: { id: player.id, name: player.name, kind: choice.kind, ovr: ratings.ovr, player, ratings, created: Date.now() } });
 }, { needKey: true });
 

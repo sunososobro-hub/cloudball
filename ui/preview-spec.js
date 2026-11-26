@@ -33,5 +33,15 @@ export function specOfRow(row) {
   return { kind: row.kind, hand: bat ? p.hand : p.throws, body: snapBody(p.body), ht: p.ht, ...lookOf(p.look), num: p.num ?? null };
 }
 
+/* #441 part 3: the preview opens from the FRONT with a close-up of the head (face, hair colour and head shape read there); 轉身 flips
+   to the back (number), 全身 / 特寫 switches the frame. Pure, so tests/preview.check.mjs can hold it. render/players.js: +z is the front and
+   the camera stands on +z, so yaw 0 faces the viewer. */
+export const PREVIEW_OPEN = { side: 'front', zoom: 'close' };
+export const FRAME_CLOSE_H = 0.7, FRAME_CLOSE_W = 0.62, FRAME_FULL_H = 2.2, FRAME_FULL_W = 1.5, FULL_TARGET_Y = 0.98, HEAD_BELOW_TOP = 0.12;   /* metres; the head centre sits about 12 cm under the top of the body */
+export const yawOfSide = side => (side === 'back' ? Math.PI : 0);
+export const flipSide = side => (side === 'back' ? 'front' : 'back');
+export const flipZoom = zoom => (zoom === 'full' ? 'close' : 'full');
+export const frameOf = (zoom, ht) => (zoom === 'full' ? { h: FRAME_FULL_H, w: FRAME_FULL_W, y: FULL_TARGET_Y } : { h: FRAME_CLOSE_H, w: FRAME_CLOSE_W, y: ht - HEAD_BELOW_TOP });
+
 /* two specs that draw the same body (used to skip needless work) */
 export const sameSpec = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);

@@ -34,6 +34,9 @@ main h2{margin:0 0 10px;font-size:20px}
 .stage.live .stage-sil,.stage.dead .stage-sil{display:none}
 .stage.dead .stage-sil{display:block;opacity:.35}
 .stage-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;cursor:grab}
+.stage-ctl{position:absolute;left:0;right:0;bottom:8px;display:none;justify-content:center;gap:8px}
+.stage.live .stage-ctl{display:flex}
+.stage-ctl button{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:#0c0f16cc;color:inherit;font:inherit;font-size:14px;cursor:pointer}
 .stage-note{position:absolute;left:0;right:0;bottom:10px;margin:0;padding:0 14px;text-align:center;color:var(--muted);font-size:13px}
 .stage-cap{position:absolute;left:0;right:0;top:8px;margin:0;padding:0 14px;text-align:center;font-size:14px;font-weight:600;pointer-events:none;text-shadow:0 1px 3px #000}
 .roster .see{margin-left:auto;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--glass);color:var(--ink);font:600 14px 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}
