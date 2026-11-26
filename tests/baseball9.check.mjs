@@ -97,8 +97,11 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
       if (o.play) { seen.hit = 1; if (!A.ball.length || A.ball[0].t < F.PITCH_S) bad('batted ball starts before the pitch lands'); const e = F.ballAt(A, A.dur), L = o.play.ball[o.play.ball.length - 1]; if (!e || e.x !== L.x || e.z !== L.z) bad('ball does not end at the last point of the script');
         if (A.hr !== (o.play.kind === 'HR') || (A.hr && !A.beats.some(b => /全壘打/.test(b.txt)))) bad('home run beat'); if (A.hr) seen.hr = 1; }
       else { if (A.ball.length) bad('no batted ball but ball points'); if (/三振/.test(o.txt)) { seen.k = 1; if (!A.beats.some(b => /三振/.test(b.txt))) bad('strikeout beat'); } if (/保送/.test(o.txt)) { seen.bb = 1; if (!A.beats.some(b => /保送/.test(b.txt))) bad('walk beat'); } if (o.steal) { seen.steal = 1; if (!A.beats.some(b => /盜壘/.test(b.txt))) bad('steal beat'); } }
+      if (o.play) { if (A.runners.length !== o.play.runners.length) bad('runner count in the script'); seen.run = 1;
+        for (const R of A.runners) { const a = F.runnerAt(R, 0), z = F.runnerAt(R, A.dur), L = R.pts[R.pts.length - 1]; if (z.x !== L.x || z.z !== L.z) bad('runner does not end at its last point'); if (!Number.isFinite(a.x + a.z)) bad('runner start'); if (L.t > A.dur) bad('runner outlasts the script'); } }
+      else if (A.runners.length) bad('runners without a batted ball');
       for (let t = 0; t <= A.dur; t += .1) { const q = F.ballAt(A, t); if (q && !Number.isFinite(q.x + q.y + q.z)) bad('non-finite ball position'); } } }
-  for (const k of ['hit', 'hr', 'k', 'bb', 'steal']) if (!seen[k]) bad('30 games never showed a ' + k + ' beat');
+  for (const k of ['hit', 'hr', 'k', 'bb', 'steal', 'run']) if (!seen[k]) bad('30 games never showed a ' + k + ' beat');
   if (F.createField({}) !== null || F.createField({ getContext: () => null }) !== null) bad('createField must return null without a 2D context'); }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
