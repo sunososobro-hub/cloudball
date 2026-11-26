@@ -1,6 +1,6 @@
 /* render/props/batterseye.js: the batter's eye (#215 polish lane, rounds 1-2). Polish rounds edit only this file (#237: index.js, game.js,
  * pbr.js and render/HANDOFF.md are read-only; new materials live here; round notes in this header and on the #215 board).
- * Old: none (the park never had one), so old() is [] and the fans stay exactly as they are (owner: leave the fans; #215: no fans' geometry).
+ * Old: `old:batterseye` = the cheap one-mesh screen of render/batterseye_lite.js (#150 part 6), hidden while max draws this; the fans stay exactly as they are (owner: leave the fans; #215: no fans' geometry).
  * Where: a real batter's eye is a dark, matte, unlit wall straight behind the pitcher as the batter sees him. Our CF bleachers run right
  * behind the fence (game.js OF_R 111.5, 10 rows, back wall top at 12.9 m, back face at r 121.5), so the screen stands BEHIND the CF
  * bleachers, centred on the CF line, and rises well over their back wall: from the plate and from the broadcast camera behind home it is the
@@ -185,4 +185,4 @@ export function buildBattersEye(){const R=lcg(EYE.RNG),g=new THREE.Group();g.nam
   return g}
 
 /* slot descriptor (#237): the park never had a batter's eye, nothing to hide. ?prop=batterseye in the viewer. */
-export const PROPS=[{name:'batterseye',build:()=>buildBattersEye(),old:()=>[]}];
+export const PROPS=[{name:'batterseye',build:()=>buildBattersEye(),old:c=>c.old('batterseye')}];
