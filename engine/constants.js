@@ -212,6 +212,11 @@ export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
 export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
 export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
+/* pinch hit (#436 part 2): off by default (factory games unchanged); simGame opts.pinchHit overrides */
+export const PINCH_HIT_ON = false;
+export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
+export const PH_EDGE = 0.3;               /* coach's own pick is the pinch hitter when his bat value (con x pow) is this much higher */
+export const PH_DUR = 10;                 /* seconds of the pinch-hit frame (walk from the dugout) */
 export const BUNT_POW_MAX = 1.0;
 export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;

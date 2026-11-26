@@ -15,7 +15,7 @@ function playGame(season,night,slot,away,home,rosters,starts,S){
   const sp=[starts[away]++%ROTATION,starts[home]++%ROTATION];
   const g=simGame(hash(season,night,slot),{}, {teams:[away,home],starters:sp,pen:[starts[away]*3,starts[home]*3],rosters});
   [away,home].forEach((ti,k)=>{
-    g.stats[k].forEach((b,i)=>{const t=S[ti].bat[i];t.g++;t.pa+=b.ab+b.bb;for(const f of ['ab','h','d','t','hr','rbi','bb','k'])t[f]+=b[f]});
+    g.stats[k].forEach((b,i)=>{const t=S[ti].bat[i];if(!t)return;/* a pinch hitter's row (#436): bench season lines not kept yet */t.g++;t.pa+=b.ab+b.bb;for(const f of ['ab','h','d','t','hr','rbi','bb','k'])t[f]+=b[f]});
     g.pst[k].forEach((p,j)=>{if(!p.bf)return;const idx=rosters[ti].pit.indexOf(g.staff[k][j]),t=S[ti].pit[idx];t.g++;if(j===0)t.gs++;for(const f of ['outs','r','h','bb','k','hr'])t[f]+=p[f]});
   });
   const credit=(rec,f)=>{if(!rec)return;const [k,j]=rec,ti=[away,home][k],idx=rosters[ti].pit.indexOf(g.staff[k][j]);S[ti].pit[idx][f]++};

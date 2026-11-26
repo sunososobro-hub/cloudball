@@ -6,6 +6,7 @@
 - #59 + #65 (0.4.2): the coach keeps a starter to a pitch budget (`SP_LIMIT_*`), 5.02 -> 5.23 IP/start;
   `run.mjs` checks IP/start and the quick hook; walk-off line without the comma.
 - #7 (0.4.3): `sinCosDeg` (`+ - * /` only) replaces `Math.sin`/`Math.cos`. `run.mjs` bans `Math.sin`, `Math.pow`, `**` in `engine/`, pins `TRIG_PRINT`.
+- #436 part 2: pinch hit behind `PINCH_HIT_ON` (off; `opts.pinchHit`), vote kind `H`, event `substitution` role `pinch_hitter`, frame `SUB`; `stats` gets a row per pinch hitter (`batters` names the rows); `tests/pinchhit.check.mjs`.
 - #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`).
 - #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 
