@@ -292,9 +292,13 @@ export function simGame(seed, decisions, opts) {
             plan = resolveHit(ctx).plan; result = 'home_run'; desc = COPY.homer(name, runs); e.big = K.BIG.HUGE;
           } else if (res !== 'out') {
             const adv = res === '3B' ? 3 : res === '2B' ? 2 : 1, nb = [null, null, null];
+            let sendHome = false;   /* out on the bases (#38): a runner from second who would hold at third is sent home */
             for (let i = 2; i >= 0; i--) {
               if (!B[i]) continue; let to = i + 1 + adv;
               if (res === '1B' && i === 1 && R() < K.SCORE_FROM_2ND_ON_SINGLE) to = HOME;
+              else if (res === '1B' && i === 1 && OUTFIELD_KEYS.includes(fielder) && st.outs < K.OUTS_PER_HALF - 1 && R() < K.SEND_FROM_2ND_ON_SINGLE_P) {
+                sendHome = true; moves.push([2, HOME, B[1]]); continue;   /* scores or is out: decided by the throw below */
+              }
               if (res === '1B' && i === 0 && !nb[2] && R() < K.FIRST_TO_THIRD_ON_SINGLE) to = 3;
               if (res === '2B' && i === 0 && R() < K.SCORE_FROM_1ST_ON_DOUBLE) to = HOME;
               to = Math.min(HOME, to); while (to < HOME && nb[to - 1]) to++;
@@ -302,14 +306,17 @@ export function simGame(seed, decisions, opts) {
             }
             /* advancing on a throw (#38): the runner from second scores on an outfield single, second is open, the
              * outfielder throws home behind him and the batter takes second on the throw */
-            const throwHome = res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
+            const throwHome = !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
             const bTo = throwHome ? 2 : adv;
-            moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb; plan = resolveHit(ctx, { throwHome }).plan;
+            moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb;
+            const h = resolveHit(ctx, { throwHome, sendHome }); plan = h.plan;
+            if (sendHome) { if (h.safe) runs++; else { outs = h.outs; play.outHome = true; } }
             if (throwHome) { play.onThrow = true; }
             if (res === 'E') { st.E[def]++; result = 'error'; desc = COPY.error(name, type === 'GB'); }
             else { bs.h++; st.H[off]++; ps.h++; if (res === '2B') bs.d++; if (res === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[res]; desc = COPY.hit(name, res); }
             if (runs) desc += COPY.drivesIn(runs);
             if (play.onThrow) desc += COPY.onThrow(name);
+            if (play.outHome) desc += COPY.outAtHome(B[1]);
             e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;
@@ -428,7 +435,7 @@ export function simGame(seed, decisions, opts) {
         for (const m of moves) {
           if (m[3]) continue;
           const [from, to, who] = m, stays = to < HOME && e.s1.b[to - 1] === who, outHere = outs.some(o => o.runner === who && o.base === to);
-          const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? look() < K.HOME_SLIDE_P : stays || outHere));
+          const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? outHere || look() < K.HOME_SLIDE_P : stays || outHere));
           m[3] = runnerTimeline(from, to, { kind: inplay ? 'inplay' : e.wp ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
         }
 

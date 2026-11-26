@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.10';
+export const ENGINE_VERSION = '0.4.11';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -147,6 +147,10 @@ export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
  * with this chance (he is safe: the throw arrives after him) and the batter, with second open, takes it on the throw.
  * First guess, not tuned: about one try in three; it only moves a runner, never adds an out. */
 export const THROW_HOME_ON_SINGLE_P = 0.35;
+/* Out on the bases (#38): on an outfield single with fewer than two outs, a runner from second who would be held at
+ * third is sent home anyway with this chance; the outfielder's throw to the catcher decides (rules/fielding.js): out
+ * when the ball beats him, else he scores. First guess, not tuned (MLB sends about 60% and loses a few percent of them). */
+export const SEND_FROM_2ND_ON_SINGLE_P = 0.12;
 export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
