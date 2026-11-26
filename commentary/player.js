@@ -103,7 +103,7 @@ function triggerOf(x, m) {
     case 'runner_advance': return x.how === 'steal' ? 'stolen_base' : null;
     case 'out': return x.steal ? 'caught_stealing' : null;
     case 'pa_end': if (m.frameRuns > 0 && x.result !== 'home_run') return 'run_scores'; return x.result;
-    case 'substitution': return 'pitching_change';
+    case 'substitution': return x.role === 'pitcher' ? 'pitching_change' : null;   /* #436: a pinch hitter / runner is not a pitching change; the feed shows its line */
     case 'decision': return x.pending ? null : 'fan_decision';
     case 'half_end': return 'half_end';
     case 'game_end': return x.walkoff ? 'walkoff' : 'game_end';
