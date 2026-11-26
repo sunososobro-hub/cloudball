@@ -1,0 +1,112 @@
+/* 九宮格棒球 3D field (#543): the same picture as field.js, as a three.js scene in the look of the owner prototype (ui/ref/baseball_9grid/:
+ * green park, dirt diamond, low-poly figures, dusk sky). It only READS what field.js already scripts (`buildBeats` / `ballAt` / `runnerAt`),
+ * so the beats, skip and 1x / 3x are the same and no rule or result changes (rule 10); nothing here uses a random number.
+ * three.js is the one the page's import map loads (`three/webgpu`, same build as agent.html); no second copy, no build step (rule 22).
+ * `createField3D(canvas, THREE)` is async (the renderer starts up) and returns null when there is no THREE or no renderer, so the caller
+ * falls back to the canvas 2D field. `openField` does that fallback. Units as ball.js; world x is mirrored so first base is on the right. */
+import { BASES } from './play.js';
+import { fenceR, POS_N } from './ball.js';
+import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S } from './field.js';
+
+export const CAM = { fov: 50, pos: [0, 30, -36], look: [0, 0, 50] };   // behind home plate, high enough to see the fence
+export const TRAIL_N = 24;                                            // ball trail points
+export const FENCE_ARC = Math.PI / 4;                                 // fence drawn from -45 to +45 degrees
+export const FENCE_SEGS = 24;
+export const FENCE_H = 3;
+export const COL = { sky: 0x0d1b2a, grass: 0x3d9c4a, grass2: 0x46a853, dirt: 0xc28a57, white: 0xf3f3ee, wall: 0x1f5f3d, top: 0xffc84a, mine: 0x4f9bff, foe: 0xff5b48, bat: 0xe9b949, run: 0x8fd3ff, out: 0xdc5050, skin: 0xe8c39e };
+export const BATTER_X = -1.3;                                         // the batter stands beside the plate
+
+/** Cached tiny materials + mesh helper bound to one THREE. */
+function kit(THREE) {
+  const M = {}, mat = (c, o = {}) => M[c + JSON.stringify(o)] || (M[c + JSON.stringify(o)] = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .85 }, o)));
+  const mesh = (geo, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); return o; };
+  return { mat, mesh };
+}
+
+/** A low-poly figure (legs, body, head, cap) in a team colour; `scale` 1 = a 1.8 m player. */
+function figure(THREE, K, color) {
+  const g = new THREE.Group(), tm = K.mat(color);
+  for (const s of [-1, 1]) g.add(K.mesh(new THREE.CylinderGeometry(.1, .09, .8, 8), K.mat(COL.white), s * .13, .4, 0));
+  g.add(K.mesh(new THREE.CylinderGeometry(.27, .33, .62, 10), tm, 0, 1.1, 0));
+  g.add(K.mesh(new THREE.SphereGeometry(.22, 10, 8), K.mat(COL.skin), 0, 1.62, 0));
+  g.add(K.mesh(new THREE.CylinderGeometry(.23, .23, .1, 10), tm, 0, 1.78, 0));
+  return g;
+}
+
+/** Builds the static park into `scene`: grass, dirt, infield, mound, plate, bases, foul lines, fence. */
+export function buildPark(THREE, scene, K = kit(THREE)) {
+  const flat = (geo, c, x, y, z) => { const m = K.mesh(geo, K.mat(c), x, y, z); m.rotation.x = -Math.PI / 2; scene.add(m); return m; };
+  flat(new THREE.CircleGeometry(160, 48), COL.grass, 0, 0, 40);
+  flat(new THREE.CircleGeometry(29, 40, Math.PI / 4, Math.PI / 2), COL.dirt, 0, .02, 0);
+  flat(new THREE.PlaneGeometry(23.5, 23.5), COL.grass2, 0, .03, 19.4).rotation.z = Math.PI / 4;
+  flat(new THREE.CircleGeometry(4, 24), COL.dirt, 0, .035, 0);
+  scene.add(K.mesh(new THREE.CylinderGeometry(2.6, 3, .25, 20), K.mat(COL.dirt), -POS_N[0][0], .12, POS_N[0][1]));
+  scene.add(K.mesh(new THREE.BoxGeometry(.6, .05, .15), K.mat(COL.white), -POS_N[0][0], .26, POS_N[0][1]));
+  for (const b of BASES.slice(1, 4)) scene.add(K.mesh(new THREE.BoxGeometry(.6, .1, .6), K.mat(COL.white), -b[0], .07, b[1]));
+  scene.add(K.mesh(new THREE.CylinderGeometry(.33, .33, .04, 5), K.mat(COL.white), 0, .05, .15));
+  for (const s of [-1, 1]) { const l = K.mesh(new THREE.BoxGeometry(.12, .02, 120), K.mat(COL.white), -s * Math.sin(FENCE_ARC) * 60, .04, Math.cos(FENCE_ARC) * 60); l.rotation.y = -s * FENCE_ARC; scene.add(l); }
+  let prev = null;
+  for (let i = 0; i <= FENCE_SEGS; i++) {
+    const a = -FENCE_ARC + (2 * FENCE_ARC) * i / FENCE_SEGS, r = fenceR(a), p = [r * Math.sin(a), r * Math.cos(a)];
+    if (prev) { const dx = p[0] - prev[0], dz = p[1] - prev[1], len = Math.hypot(dx, dz) + .2, mx = (p[0] + prev[0]) / 2, mz = (p[1] + prev[1]) / 2;
+      const w = K.mesh(new THREE.BoxGeometry(.4, FENCE_H, len), K.mat(COL.wall), -mx, FENCE_H / 2, mz); w.rotation.y = Math.atan2(-dx, dz); scene.add(w);
+      const t = K.mesh(new THREE.BoxGeometry(.45, .15, len), K.mat(COL.top), -mx, FENCE_H + .05, mz); t.rotation.y = w.rotation.y; scene.add(t); }
+    prev = p;
+  }
+}
+
+/** The 3D field. -> Promise<{play(out), skip(), setSpeed(n), dispose()} | null>. */
+export async function createField3D(canvas, THREE, opts = {}) {
+  if (!canvas || !THREE || typeof THREE.WebGPURenderer !== 'function') return null;
+  let renderer; try { renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: !!opts.forceWebGL }); await renderer.init(); } catch (e) { return null; }
+  const W = canvas.width || 360, H = canvas.height || 270, K = kit(THREE), scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(CAM.fov, W / H, .1, 600);
+  renderer.setPixelRatio(1); renderer.setSize(W, H, false);
+  scene.background = new THREE.Color(COL.sky); cam.position.set(...CAM.pos); cam.lookAt(...CAM.look);
+  scene.add(new THREE.HemisphereLight(0xd6e6ff, 0x2c4a2c, .9)); const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(-30, 70, -25); scene.add(sun);
+  buildPark(THREE, scene, K);
+  const wx = x => -x;                                                   // core x -> world x (first base on the right)
+  POS_N.forEach((p, i) => { if (i === 1) return; const f = figure(THREE, K, COL.foe); f.position.set(wx(p[0]), 0, p[1]); scene.add(f); });   // index 1 = catcher, stands behind the plate below
+  const catcher = figure(THREE, K, COL.foe); catcher.position.set(0, 0, -1.6); scene.add(catcher);
+  const batter = figure(THREE, K, COL.bat); batter.position.set(wx(BATTER_X), 0, .2); scene.add(batter);
+  const ball = K.mesh(new THREE.SphereGeometry(.4, 10, 8), K.mat(0xffffff, { emissive: 0x444444 })), shadow = K.mesh(new THREE.CircleGeometry(.5, 12), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 }));
+  shadow.rotation.x = -Math.PI / 2; ball.visible = shadow.visible = false; scene.add(ball, shadow);
+  const tpos = new Float32Array(TRAIL_N * 3), tgeo = new THREE.BufferGeometry(); tgeo.setAttribute('position', new THREE.BufferAttribute(tpos, 3));
+  const trail = new THREE.Line(tgeo, new THREE.LineBasicMaterial({ color: 0xf1efe6, transparent: true, opacity: .6 })); trail.frustumCulled = false; scene.add(trail);
+  let wrap = null, beatEl = null;
+  if (typeof document !== 'undefined' && canvas.parentNode && canvas.replaceWith) {            // the beat text is a DOM overlay (a canvas can't have both)
+    wrap = document.createElement('div'); wrap.className = 'fwrap'; canvas.replaceWith(wrap); wrap.append(canvas);
+    beatEl = document.createElement('div'); beatEl.className = 'fbeat'; beatEl.setAttribute('role', 'status'); wrap.append(beatEl); }
+  let S = null, runners = [], t0 = 0, speed = SPEEDS[0], raf = 0, trailN = 0, lastBeat = '';
+  const showBeat = txt => { if (beatEl && txt !== lastBeat) { beatEl.textContent = txt; lastBeat = txt; } };
+  const clearRunners = () => { for (const r of runners) scene.remove(r.fig); runners = []; };
+  const draw = () => renderer.render(scene, cam);
+  function frame(now) {
+    const t = ((now - t0) / 1000) * speed, p = ballAt(S, t);
+    if (p) { ball.visible = shadow.visible = true; ball.position.set(wx(p.x), Math.max(p.y, .4), p.z); shadow.position.set(wx(p.x), .05, p.z); shadow.scale.setScalar(Math.max(.4, 1.4 - p.y / 40));
+      if (trailN < TRAIL_N) trailN++; else tpos.copyWithin(0, 3); const o = (trailN - 1) * 3; tpos[o] = wx(p.x); tpos[o + 1] = Math.max(p.y, .4); tpos[o + 2] = p.z;
+      tgeo.setDrawRange(0, trailN); tgeo.attributes.position.needsUpdate = true; } else ball.visible = shadow.visible = false;
+    for (const r of runners) { const q = runnerAt(r.R, t), end = t >= r.R.pts[r.R.pts.length - 1].t; r.fig.position.set(wx(q.x), 0, q.z); r.fig.visible = !(r.R.out && end); }
+    batter.visible = !(runners.some(r => r.R.bat) && t > S.pitch.t1);
+    const b = S.beats.find(x => t >= x.t && t < x.t + BEAT_S); showBeat(b ? b.txt : '');
+    draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; }
+  }
+  const api = {
+    play(out) { api.skip(); S = buildBeats(out); trailN = 0;
+      for (const R of S.runners) { const fig = figure(THREE, K, R.bat ? COL.bat : COL.run); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig }); }
+      t0 = performance.now(); raf = requestAnimationFrame(frame); },
+    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); draw(); },
+    setSpeed(n) { if (SPEEDS.includes(n)) { const now = performance.now(); if (S) t0 = now - (now - t0) * speed / n; speed = n; } },
+    dispose() { api.skip(); if (renderer.dispose) renderer.dispose(); },
+  };
+  draw(); return api;
+}
+
+/** Picture for a canvas: the 3D field when three.js and a renderer are there, else the canvas 2D field (field.js), else null (no picture).
+ *  `loadThree` -> the THREE module (default: the import map's `three/webgpu`). Never throws. A canvas that 3D tried to start is replaced by a fresh one for 2D. */
+export async function openField(canvas, loadThree = () => import('three/webgpu')) {
+  let f = null;
+  try { f = await createField3D(canvas, await loadThree()); } catch (e) { f = null; }
+  if (f) return f;
+  if (canvas && canvas.cloneNode && canvas.replaceWith && canvas.getContext) { try { const c2 = canvas.cloneNode(false); canvas.replaceWith(c2); canvas = c2; } catch (e) { /* keep the old one */ } }
+  return createField(canvas);
+}
