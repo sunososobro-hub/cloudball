@@ -55,7 +55,7 @@ const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points
 const is = (what, r, status, why) => { if (r.status !== status || (why && r.body?.why !== why)) bad(`${what}: expected ${status}${why ? ' ' + why : ''}, got ${r.status} ${JSON.stringify(r.body)}`); };
 
 /* closed: no binding, and a production host with a binding */
-const ROUTES = [[lib.register, 'POST'], [lib.draw, 'GET'], [lib.mine, 'GET'], [lib.create, 'POST'], [lib.list, 'GET']];
+const ROUTES = [[lib.register, 'POST'], [lib.draw, 'GET'], [lib.mine, 'GET'], [lib.create, 'POST'], [lib.list, 'GET'], [lib.release, 'POST'], [lib.reclaim, 'POST']];
 for (const [h, method] of ROUTES) {
   const none = await call(h, {}, { method, k: key() });
   if (none.status !== 503 || JSON.stringify(none.body) !== '{"ok":false,"why":"closed"}') bad(`no DB binding: expected 503 closed, got ${none.status} ${JSON.stringify(none.body)}`);
@@ -86,7 +86,7 @@ const seenCols = db.sql.prepare('PRAGMA table_info(reg_seen)').all().map(c => c.
 if (seenCols !== 'day,h') bad(`reg_seen must hold only day and h, has ${seenCols}`);
 const seen = db.sql.prepare('SELECT * FROM reg_seen').all();
 if (seen.some(r => r.h.includes('1.1.1.1') || r.h.includes('2.2.2.2'))) bad('an address is stored in the clear');
-for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen'].includes(t)) bad(`unexpected table ${t}`);
+for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases'].includes(t)) bad(`unexpected table ${t}`);
 db.sql.prepare("UPDATE reg_seen SET day='2000-01-01'").run(); db.sql.prepare("UPDATE reg_salt SET day='2000-01-01'").run();
 is('a new day', await call(lib.register, env, { method: 'POST', k: k3, ip: '3.3.3.3' }), 201);
 if (db.sql.prepare("SELECT COUNT(*) n FROM reg_seen WHERE day < date('now')").get().n || db.sql.prepare("SELECT COUNT(*) n FROM reg_salt WHERE day < date('now')").get().n) bad('rows of an older day were not deleted');
@@ -123,6 +123,41 @@ db.sql.prepare('UPDATE agents SET seed = ? WHERE id = ?').run(seed, id2);
 const shown = await call(lib.draw, env, { k: k2, url: '/api/agent/draw?n=0' });
 if (shown.body?.taken !== true) bad('a name already taken is not marked taken in the draw');
 is('create with a taken name', await call(lib.create, env, { method: 'POST', k: k2, body: BAT }), 409, 'name');
+
+/* #435 release + reclaim: switch, reclaim, reclaim after another agent took him (refused), two rapid switches */
+{ const rdb = makeDb(), renv = { DB: rdb }, ka = key(), kb = key(), post = (h, k, body) => call(h, renv, { method: 'POST', k, body });
+  const mk = async (k, ip, c) => { const reg = await call(lib.register, renv, { method: 'POST', k, ip }); if (reg.status !== 201 && reg.status !== 200) bad('register ' + reg.status);
+    for (c.nameDraw = 0; c.nameDraw <= lib.DRAW_CAP; c.nameDraw++) { const r = await call(lib.create, renv, { method: 'POST', k, body: c }); if (r.status === 201) return r.body.player; } bad('no free name'); return null; };
+  const pa = await mk(ka, '5.5.5.1', { ...BAT }), pb = await mk(kb, '5.5.5.2', { ...PIT });
+  is('release without a key', await call(lib.release, renv, { method: 'POST' }), 401, 'key');
+  is('release when a new agent has no player', await post(lib.release, key()), 401, 'unknown');
+  const rel = await post(lib.release, ka); is('release', rel, 200);
+  const row = rdb.sql.prepare('SELECT name, ratings, player FROM players WHERE pid = ?').get(pa.id);
+  if (!row || row.name !== pa.name || JSON.parse(row.ratings).ovr !== pa.ratings.ovr) bad('a released player must keep name and ratings');
+  if ((await call(lib.mine, renv, { k: ka })).body?.player !== null) bad('after release the agent has no player');
+  is('release twice (two rapid taps)', await post(lib.release, ka), 404, 'none');
+  const fl = (await call(lib.list, renv, { url: '/api/freeagents?page=0' })).body.players;
+  if (!fl.find(p => p.id === pa.id)?.free || fl.find(p => p.id === pb.id)?.free) bad('the free list must mark the released player free and only him');
+  if (JSON.stringify(fl).includes(rdb.sql.prepare('SELECT id FROM agents LIMIT 1').get().id)) bad('the list shows an agent id after release');
+  is('reclaim by another agent', await post(lib.reclaim, kb, { id: pa.id }), 403, 'notyours');
+  is('reclaim without an id', await post(lib.reclaim, ka, {}), 400, 'invalid');
+  is('reclaim of a player that was never released', await post(lib.reclaim, kb, { id: pb.id }), 403, 'notyours');
+  const sw = await mk(ka, '5.5.5.1', { ...PIT }); if (sw?.id === pa.id) bad('the next player of the same agent must not reuse the released player id'); is('create the new player after release', { status: sw ? 201 : 0 }, 201);
+  const back = await post(lib.reclaim, ka, { id: pa.id }); is('reclaim', back, 200);
+  if (back.body?.released !== sw.id) bad('reclaim must release the player he controls now');
+  if ((await call(lib.mine, renv, { k: ka })).body?.player?.id !== pa.id) bad('after reclaim the old player is his again');
+  const fl2 = (await call(lib.list, renv, { url: '/api/freeagents?page=0' })).body.players;
+  if (fl2.find(p => p.id === pa.id)?.free || !fl2.find(p => p.id === sw.id)?.free) bad('reclaim must swap who is free');
+  is('reclaim again (already his)', await post(lib.reclaim, ka, { id: pa.id }), 403, 'notyours');
+  /* two rapid switches: release, release, reclaim of the other one, all leave exactly one player per agent */
+  is('switch 1', await post(lib.release, ka), 200); is('switch 2', await post(lib.release, ka), 404, 'none');
+  is('reclaim the newer one', await post(lib.reclaim, ka, { id: sw.id }), 200);
+  const held = rdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id NOT LIKE 'free:%'").get().n; if (held !== 2) bad(`two agents must hold two players, hold ${held}`);
+  /* another agent took him (the pickup rule is not built yet: simulate it in the table): reclaim is refused */
+  is('release again', await post(lib.release, ka), 200);
+  rdb.sql.prepare('UPDATE players SET agent_id = ? WHERE pid = ?').run('c'.repeat(64), sw.id);
+  is('reclaim after another agent took him', await post(lib.reclaim, ka, { id: sw.id }), 409, 'taken');
+  const kc = rdb.sql.prepare('SELECT COUNT(*) n FROM players WHERE agent_id = ?').get('c'.repeat(64)).n; if (kc !== 1) bad('the other agent lost the player he took'); }
 
 /* the list */
 const lister = makeDb(), lenv = { DB: lister }, keys = [];
