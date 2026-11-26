@@ -12,7 +12,8 @@
  * pitches (#378 part 2, optional): the pitcher's starter list, names from CREATE.pitches (the engine's PITCH_TYPES),
  * 1 to CREATE.starterPitches of them, no repeats, always with the fastball CREATE.pitches[0]. Each starts at his stuff
  * points and is stored on the player as `pitches: { name: display rating }`; the training split then holds each pitch
- * too (league/training.js). Display and training only for now: the engine still mixes PITCH_TYPES for every pitcher.
+ * too (league/training.js). The engine throws only the listed pitches, at their factory shares (engine/sim/game.js mixOf);
+ * the pitch is a look there (name, km/h), never an outcome.
  * role (#378): SP 先發, MR 中繼, RP 後援, CL 終結. The engine starts an SP and puts every other role in the bullpen.
  * train (#369, optional): the daily training split, whole percents over the same ability keys, sum 100
  * (league/training.js); left out = defaultSplit (by pitcher role, even for batters). It is stored on the player as `train`.

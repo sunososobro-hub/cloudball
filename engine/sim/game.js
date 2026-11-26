@@ -62,6 +62,20 @@ export function simGame(seed, decisions, opts) {
   /* hit / error chance factor of a defence for a ball type (constants.js DEF_HIT_WEIGHT): 1 exactly when nobody has `def` */
   const defGroup = (def, type) => { const ks = type === 'GB' ? INFIELD_KEYS : type === 'PU' ? GLOVE_KEYS : OUTFIELD_KEYS; return ks.reduce((t, k) => t + defOf(def, k), 0) / ks.length; };
   const defFactor = (def, type, w) => 1 / (1 + (defGroup(def, type) - 1) * w);
+  /* pitch mix of a pitcher (#378): a `pitches` list ({ name: rating } as league/freeagents.js stores it, or plain names) keeps only his own PITCH_TYPES,
+   * each with its factory share, rescaled to sum 1; no list (every factory pitcher), or no known name in it = all of
+   * PITCH_TYPES, the same table as before. Drawn with `look`, so it changes the pitch name and km/h, never an outcome. */
+  const mixes = new Map();
+  const mixOf = p => {
+    if (!p.pitches) return K.PITCH_TYPES;
+    if (!mixes.has(p)) {
+      const has = n => Array.isArray(p.pitches) ? p.pitches.includes(n) : Object.prototype.hasOwnProperty.call(p.pitches, n);
+      const own = K.PITCH_TYPES.map((t, i) => [t, t[1] - (i ? K.PITCH_TYPES[i - 1][1] : 0)]).filter(([t]) => has(t[0]));
+      const total = own.reduce((s, [, w]) => s + w, 0); let cum = 0;
+      mixes.set(p, own.length ? own.map(([t, w], i) => [t[0], i === own.length - 1 ? 1 : (cum += w / total), t[2]]) : K.PITCH_TYPES);
+    }
+    return mixes.get(p);
+  };
   const addRun = n => { const o = st.half; st.sc[o] += n; st.ls[o][st.inn - 1] = (st.ls[o][st.inn - 1] || 0) + n; };
 
   /* A decision the fans (or anyone outside the engine) may make. Without an entry in
@@ -182,7 +196,7 @@ export function simGame(seed, decisions, opts) {
         const inZ = bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX);
         const zx = inZ ? (R() - K.HALF) * 2 * K.ZONE_HALF_WIDTH : (R() < K.HALF ? -1 : 1) * (K.MISS_X_MIN + R() * K.MISS_X_SPAN);
         const zy = inZ ? K.ZONE_Y_MIN + R() * K.ZONE_Y_SPAN : (R() < K.HALF ? K.MISS_LOW_Y - R() * K.MISS_LOW_SPAN : K.MISS_HIGH_Y + R() * K.MISS_HIGH_SPAN);
-        const pq = look(), PT = K.PITCH_TYPES.find(p => pq < p[1]);
+        const pq = look(), PT = mixOf(pit0).find(p => pq < p[1]);
         const kmh = Math.round(K.KMH_BASE + (pit.stuff - K.KMH_STUFF_REF) * K.KMH_PER_STUFF + PT[2] + (look() - K.HALF) * K.KMH_JITTER);
         const e = { t, k: 'P', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0, inZ, zx, zy, line, pline, pt: PT[0], kmh, s0, swing: false };
 
