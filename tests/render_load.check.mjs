@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),bad=[];
-const MODULES=['compact','highlights','barcurve','dugout_lite','ondeck_lite','visit','lead','batdrop','batboy','lineup'];
+const MODULES=['compact','highlights','barcurve','dugout_lite','ondeck_lite','visit','lead','batdrop','batboy','skyocc','lineup'];
 for(const m of MODULES){
   const file=path.join(ROOT,'render',m+'.js');
   let src;

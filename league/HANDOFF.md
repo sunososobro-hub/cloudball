@@ -13,7 +13,7 @@
 - #500 part 1: `callup.js` (pure: ready by ability at the weakest 一軍 starter of the position; a slot opens only on retirement at `RETIRE_AGE` or a new team; queue by overall then days waited) + `tests/callup.check.mjs`; `train_sim` prints days to ready and ready -> called up. Real numbers: ready at day 0 for 962/1000, then 720/720/1260 days (p25/median/p75) to a slot.
 
 ## Next
-0. #437 part 2 done in code: `system: true` in `site.mjs` export + 系統 tag on cards, pure `placeFan` in `freeagents.js` (`tests/system.check.mjs`). Part 3: D1 store seeds `SYSTEM_PER_KIND` 系統 rows per kind (`agent_id` `sys:<pid>`, `system:true`, table `meta` marker) and `create` deletes the oldest filler of the fan's kind (`tests/agent.check.mjs`). Left: place the 系統 二軍 into `buildSite({second})` (the data site reads the list API, not the store).
+0. #437 part 2 done in code: `system: true` in `site.mjs` export + 系統 tag on cards, pure `placeFan` in `freeagents.js` (`tests/system.check.mjs`). Part 3: D1 store seeds `SYSTEM_PER_KIND` 系統 rows per kind (`agent_id` `sys:<pid>`, `system:true`, table `meta` marker) and `create` deletes the oldest filler of the fan's kind (`tests/agent.check.mjs`). Part 4: `site.mjs` `systemSecond()` puts `SYSTEM_SECOND_PER_KIND` (3) 系統 players per kind into each team's 二軍 in `players.json` (tier 2, `system:true`; leaguesite check). Left: the data site still does not read the store, so a real fan does not yet replace a site 系統 二軍 player.
 1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes. Order: issue #68.
 2. #336 follow-ups: fill 二軍/free agents (`buildSite({second, free})`) once placement exists; add each new recorded game to `RECORDED_GAMES`.
 
