@@ -4,8 +4,11 @@
 - #50 names, #52 staff, #47 recorder, #113 slots, #137/#102 banter + audio, #71 fan slots, #54 wave 1 bios (28).
 - #169 halves (PRs #172, #173): frozen rosters of seed 704, `tools/abilities.mjs`, `ratings.js`. #178: `freeagents.js` (drawName, CREATE budget, validateCreate, makePlayer), `namepool.js`, `ratingsOf.raw`. #369: `training.js` + `tools/train_sim.mjs` (first-guess constants), `train` split on created players.
 - #378: roles SP/MR/RP/CL (`ROLE_SPLIT` training by role; bullpen = non-SP); optional `pitches` list (1..3, fastball always), a rating per pitch, `PITCH_SHARE` % each in the split, off the overall; train_sim by 1/3/5 pitches. Part 5: `learnPitch`/`knownPitches` (new pitch 0 -> LEARN_AT, potential never holds it). Part 6: optional `points.def` (pool budget + `defBudget` over six), raw `def` via `defRaw` (mid 62 = 1.0, not in the overall), `positionFit` text (`POS_NEED`).
+- #433: decline after the peak in `training.js` (`DECLINE_CURVE` from 31, `DECLINE_PER_SEASON`, per-key `DECLINE_RATE`, `DECLINE_FLOOR`; no RNG draw, so seeds and the 540-day sim are unchanged); train_sim prints overall by age 25/30/34/38. Active fans refill up to the potential, so their players barely decline (bonus is not age-scaled).
 - #169 written (PR #188): seed 201, rating knees (stars 95..98, nobody 1 or 100), CREATE bat 305/70, pit 183/66.
 - #54 wave 2 (PR #194): the other 44 lines; bios.check needs all 72 players. #37: `tests/replay/README.md`. #336: `tools/site.mjs` -> `site/*.json`. #276: commentary checks take seed 704 from `opening.json`, never re-simulate it.
+
+- #436 part 1: `bench` list of 4 per team in `players.js` (`tools/bench.mjs`, ids `<team>-x1..x4`); `bat` stays the lineup, the engine ignores the bench (`tests/bench.check.mjs`).
 
 ## Next
 1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes. Order: issue #68.
