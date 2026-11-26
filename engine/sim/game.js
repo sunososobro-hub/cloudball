@@ -38,7 +38,7 @@ export function simGame(seed, decisions, opts) {
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
   const st = { inn: 1, half: 0, outs: 0, b: [null, null, null], sc: [0, 0], ls: [[], []], H: [0, 0], E: [0, 0],
-    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], steal: false, sbAsked: false, ibbAsked: false };
+    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false };
   const stats = [0, 1].map(k => RR[k].bat.map(() => ({ ab: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0 })));
   const pst = [0, 1].map(k => RR[k].pit.map(() => ({ outs: 0, r: 0, h: 0, bb: 0, k: 0, hr: 0, bf: 0 })));
 
@@ -150,7 +150,17 @@ export function simGame(seed, decisions, opts) {
         const cur = RR[def].pit[st.pi[def]], nx = RR[def].pit[st.pi[def] + 1];
         const coach = st.pi[def] > 0 || st.pc[def] >= spBudget || st.ra[def] >= K.SP_MAX_RUNS ? 'change' : 'stay';
         const pick = vote(def, 'P', COPY.askChange(cur, st.pc[def]), [['change', COPY.optChange(nx)], ['stay', COPY.optStay(cur)]], coach);
-        if (pick === 'stay') { st.hold[def] = K.STAY_HOLD_BATTERS; continue; }
+        if (pick === 'stay') {
+          st.hold[def] = K.STAY_HOLD_BATTERS;
+          /* #81: the pitching coach goes out to talk to him, once per pitcher (a second visit to the same pitcher would take him out).
+           * Timing only: no draw, so every outcome stays as it was; only later times move. */
+          if (st.vis[def] !== st.pi[def]) {
+            st.vis[def] = st.pi[def];
+            emit('mound_visit', t, { team: def, pitcher: cur.name, staff: 'pitching' });
+            pushFrame({ t, d: K.MOUND_VISIT_DUR, k: 'VIS', desc: COPY.visit(TT[def], cur), s0: snap(), s1: snap(), def });
+          }
+          continue;
+        }
         const s0 = snap(); st.pi[def]++; st.pc[def] = 0; st.ra[def] = 0;
         emit('substitution', t, { team: def, role: 'pitcher', out: cur.name, in: nx.name });
         pushFrame({ t, d: K.CHANGE_DUR, k: 'CHG', desc: COPY.change(TT[def], nx), s0, s1: snap(), def });
@@ -290,10 +300,17 @@ export function simGame(seed, decisions, opts) {
               to = Math.min(HOME, to); while (to < HOME && nb[to - 1]) to++;
               moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i];
             }
-            moves.push([0, adv, name]); nb[adv - 1] = name; st.b = nb; plan = resolveHit(ctx).plan;
+            /* advancing on a throw (#38): the runner from second scores on an outfield single, second is open, the
+             * outfielder throws home behind him and the batter takes second on the throw */
+            const throwHome = res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
+            const bTo = throwHome ? 2 : adv;
+            moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb; plan = resolveHit(ctx, { throwHome }).plan;
+            if (throwHome) { play.onThrow = true; }
             if (res === 'E') { st.E[def]++; result = 'error'; desc = COPY.error(name, type === 'GB'); }
             else { bs.h++; st.H[off]++; ps.h++; if (res === '2B') bs.d++; if (res === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[res]; desc = COPY.hit(name, res); }
-            if (runs) desc += COPY.drivesIn(runs); e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
+            if (runs) desc += COPY.drivesIn(runs);
+            if (play.onThrow) desc += COPY.onThrow(name);
+            e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;
             const g = resolveGround(ctx, { tryDoublePlay, leadBase: tryLead });
