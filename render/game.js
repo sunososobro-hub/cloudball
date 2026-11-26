@@ -96,6 +96,8 @@ const LC=h=>new THREE.Color(h);
 const TXL=new THREE.TextureLoader(),TX={};
 function tex(name,srgb){if(TX[name])return TX[name];const t=TXL.load('assets/tex/'+name+'.jpg');t.wrapS=t.wrapT=THREE.RepeatWrapping;if(srgb)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return TX[name]=t}/* r152+ colour management: hex is treated as sRGB and converted to linear */
 $('stage').appendChild(renderer.domElement);
+/* #144: the dip to dark over a covered half-inning cut (compact.js dipAlpha); opacity set per frame from the game time */
+const cutDip=document.createElement('div');cutDip.id='cutDip';cutDip.style.cssText='position:absolute;inset:0;background:#000;opacity:0;pointer-events:none';$('stage').appendChild(cutDip);let cutDipK=0;
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(LC(0x0d1220),.0032);/* Thin night-stadium haze: the distance fades out, adding depth */
 /* #208 item 1, depth haze (all tiers: one fog node, uniforms only, no extra pass). Exp2 haze whose density thins with the mean height of the
    view ray (HAZE_H m e-folding, never below HAZE_FLOOR), so the wall, the stands and the towers sit back in the air while a fly ball high
@@ -728,9 +730,9 @@ const qBody=b=>{const o={};for(const k in b){const v=Math.round(b[k]*4)/4;if(v)o
 /* Prewarm: before first pitch, build every player's body geometry plus cap/helmet for both teams (one at a time while idle), so a substitution does not stutter mid-game */
 function prewarmBodies(){if(!window.PL)return;const dummies=[PL.makePlayer({head:'cap'}),PL.makePlayer({head:'helmet',role:'batter'})],list=[];
   for(const t of [0,1])for(const p of [...ROSTERS[t].bat,...ROSTERS[t].pit])list.push(p);
-  const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
-const headIx=id=>OFF.has('faces')||!window.PL?0:PL.headOf(id);/* ?off=faces: one head shape for all */
-function dress(f,p){if(f.setName)f.setName(p&&p.name);/* #204: family name on the back */if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p.id))}
+  const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p))}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
+const headIx=p=>OFF.has('faces')||!window.PL?0:PL.headOfPlayer(p);/* ?off=faces: one head shape for all */
+function dress(f,p){if(f.setName)f.setName(p&&p.name);/* #204: family name on the back */if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p))}
 const fielders={};for(const k of FIELDER_KEYS){const f=figure(matDef,pants,true);f.home=spotXZ(...FIELD_SPOTS[k]);fielders[k]=f}
 fielders.C.home=[0,1.75];
 const ump=figure(matUmp,matUmp,false);ump.g.position.set(.3,0,2.6);ump.g.rotation.y=Math.PI;ump.g.scale.y=.95;
@@ -1729,7 +1731,7 @@ function cpEvents(g){const ev=g.ev;
       if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P')tail=Math.max(tail,u2End(ev,i));/* #42 slice 9: U2 jogs between his inside spot and his post */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
-    return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch'}})}
+    return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch',jogEnd:e.k==='BRK'?jogEnd(dugout(off),BRK_ON_AT):0}})}/* #144: jogEnd = new defence at its posts */
 let cpClock=null,cpFor=null,cpReal=false;
 try{cpReal=!!(window.SITE&&window.SITE.dev)&&(localStorage.getItem('zu_realTime')==='1'||new URLSearchParams(location.search).get('rt')==='1')}catch(e){}
 /* the cuts need the booth's line times, so they are known once the script has loaded (a second or so; real time until then) */
@@ -2023,8 +2025,9 @@ renderer.setAnimationLoop(()=>{
   const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);if(!bootReady&&warmStarted)bootGaps.push(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
   if(mode==='studio')studioTick(dt);
-  else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));const prev=replayT;replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed));if(cpOn())replayT=cpClock.step(prev,replayT)}
+  else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));const prev=replayT;replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed));if(cpOn()){replayT=cpClock.step(prev,replayT);if(replayT-prev>dt*speed+.5)plFresh=true}}/* #144: a covered cut moves the figures: not a stride */
   hlTick();
+  {const k=cpOn()&&mode==='opening'?cpClock.dip(replayT):0;if(k!==cutDipK){cutDipK=k;cutDip.style.opacity=String(k)}}
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
   curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
