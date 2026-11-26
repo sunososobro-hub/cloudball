@@ -133,10 +133,18 @@ export function resolveFly(ctx, tagUp = null) {
   return { plan, outs: [out] };
 }
 
-/* Hit, error or home run: nobody is out. The ball comes back in to second base. */
-export function resolveHit(ctx) {
+/* Hit, error or home run: nobody is out. The ball comes back in to second base.
+ * throwHome (#38): the outfielder throws home behind the runner scoring from second (he is safe: the ball arrives
+ * TAG_LATE after him), so the batter takes second on the throw. */
+export function resolveHit(ctx, { throwHome = false } = {}) {
   const plan = chase(ctx), p = ctx.play;
   if (p.res === 'HR') return { plan: throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null }), outs: [] };
+  if (throwHome) {
+    const runnerAt = sinceContact(runnerTimeline(2, HOME, { kind: 'inplay', slide: true }).arriveT);
+    throwTo(plan, ctx, { key: 'C', spot: K.HOME_TAG_SPOT, base: HOME }, { notBefore: runnerAt + K.TAG_LATE });
+    plan.throwHome = true; plan.tagPlay = true;   /* the catcher's late sweep tag, as on a sac fly */
+    return { plan, outs: [] };
+  }
   let key = p.lx >= 0 ? '2B' : 'SS';
   if (key === p.fielder) key = key === '2B' ? 'SS' : '2B';
   return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }), outs: [] };
