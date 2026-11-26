@@ -136,7 +136,7 @@ export function resolveFly(ctx, tagUp = null) {
 /* Hit, error or home run: nobody is out (except a runner sent home or a batter stretching a single, below). The ball comes back in to second base.
  * throwHome (#38): the outfielder throws home behind the runner scoring from second (he is safe: the ball arrives
  * TAG_LATE after him), so the batter takes second on the throw. */
-export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch = false } = {}) {
+export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch = false, bobble = false } = {}) {
   const plan = chase(ctx), p = ctx.play;
   if (p.res === 'HR') return { plan: throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null }), outs: [] };
   if (sendHome) {
@@ -170,7 +170,8 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch =
     plan.actions.push({ t: runnerAt, a: 'tag', f: key, base: 2 });
     return { plan, outs: [out], safe: false };
   }
-  return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }), outs: [] };
+  /* bobble (#38): ctx.fumble already delays the pickup; the ball comes in to the relay at second only after the batter is there */
+  return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }, { notBefore: bobble ? slideArrival(0, 2) + K.TAG_LATE : 0 }), outs: [] };
 }
 
 /* Steal of second on a pitch that is not put in play. wantOut: the simulation's draw says the

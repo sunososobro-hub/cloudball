@@ -7,7 +7,9 @@
  *   - the abuse tables hold anything but a day and a salted hash, keep an older day, or sit next to an agent;
  *   - a draw past the cap is answered, a choice off the rules is accepted, a second player of one agent is accepted,
  *     or two players get the same name;
- *   - the public list shows an agent id, or its order or paging is wrong.
+ *   - the public list shows an agent id, or its order or paging is wrong;
+ *   - (#437) the 系統 fillers are not seeded once per kind with system:true, a fan does not replace the oldest filler of his kind
+ *     (or replaces another kind / a fan), or a store without fillers breaks create.
  * Usage: node tests/agent.check.mjs */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -86,7 +88,7 @@ const seenCols = db.sql.prepare('PRAGMA table_info(reg_seen)').all().map(c => c.
 if (seenCols !== 'day,h') bad(`reg_seen must hold only day and h, has ${seenCols}`);
 const seen = db.sql.prepare('SELECT * FROM reg_seen').all();
 if (seen.some(r => r.h.includes('1.1.1.1') || r.h.includes('2.2.2.2'))) bad('an address is stored in the clear');
-for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases'].includes(t)) bad(`unexpected table ${t}`);
+for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases', 'meta'].includes(t)) bad(`unexpected table ${t}`);
 db.sql.prepare("UPDATE reg_seen SET day='2000-01-01'").run(); db.sql.prepare("UPDATE reg_salt SET day='2000-01-01'").run();
 is('a new day', await call(lib.register, env, { method: 'POST', k: k3, ip: '3.3.3.3' }), 201);
 if (db.sql.prepare("SELECT COUNT(*) n FROM reg_seen WHERE day < date('now')").get().n || db.sql.prepare("SELECT COUNT(*) n FROM reg_salt WHERE day < date('now')").get().n) bad('rows of an older day were not deleted');
@@ -111,18 +113,21 @@ is('create with free text', await call(lib.create, env, { method: 'POST', k: k1,
 is('create over the budget', await call(lib.create, env, { method: 'POST', k: k1, body: { ...BAT, points: { ...BAT.points, pow: 70 } } }), 400, 'invalid');
 is('create past the draw cap', await call(lib.create, env, { method: 'POST', k: k1, body: { ...BAT, nameDraw: lib.DRAW_CAP + 1 } }), 400, 'invalid');
 is('create without a body', await call(lib.create, env, { method: 'POST', k: k1 }), 400, 'invalid');
-const made = await call(lib.create, env, { method: 'POST', k: k1, body: BAT }); is('create', made, 201);
-if (made.body?.player?.name !== d0.body?.name) bad('the created player does not carry the drawn name');
+/* the agent's seed is random and a 系統 filler may hold the first name drawn: use the first free draw, as the page does (#437) */
+let nd = 0; while (nd < lib.DRAW_CAP && (await call(lib.draw, env, { k: k1, url: `/api/agent/draw?n=${nd}` })).body?.taken) nd++;
+const ownBat = { ...BAT, nameDraw: nd };
+const made = await call(lib.create, env, { method: 'POST', k: k1, body: ownBat }); is('create', made, 201);
+if (made.body?.player?.name !== drawName(seed, nd)) bad('the created player does not carry the drawn name');
 if (made.body?.player?.player?.id !== `fa-${seed.toString(36)}`) bad('the player was not made from the seed the server made');
-is('create a second player', await call(lib.create, env, { method: 'POST', k: k1, body: BAT }), 409, 'already');
+is('create a second player', await call(lib.create, env, { method: 'POST', k: k1, body: ownBat }), 409, 'already');
 const mineNow = await call(lib.mine, env, { k: k1 }); if (mineNow.body?.player?.name !== made.body?.player?.name) bad('GET /api/player does not give the created player back');
 is('create with the points moved by a client-made seed', await call(lib.create, env, { method: 'POST', k: k2, body: { ...PIT, seed: 5 } }), 400, 'invalid');
 /* the same name for two agents: marked taken in the draw, refused at the create */
 const id2 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k2)))].map(b => b.toString(16).padStart(2, '0')).join('');
 db.sql.prepare('UPDATE agents SET seed = ? WHERE id = ?').run(seed, id2);
-const shown = await call(lib.draw, env, { k: k2, url: '/api/agent/draw?n=0' });
+const shown = await call(lib.draw, env, { k: k2, url: `/api/agent/draw?n=${nd}` });
 if (shown.body?.taken !== true) bad('a name already taken is not marked taken in the draw');
-is('create with a taken name', await call(lib.create, env, { method: 'POST', k: k2, body: BAT }), 409, 'name');
+is('create with a taken name', await call(lib.create, env, { method: 'POST', k: k2, body: ownBat }), 409, 'name');
 
 /* #435 release + reclaim: switch, reclaim, reclaim after another agent took him (refused), two rapid switches */
 { const rdb = makeDb(), renv = { DB: rdb }, ka = key(), kb = key(), post = (h, k, body) => call(h, renv, { method: 'POST', k, body });
@@ -152,7 +157,7 @@ is('create with a taken name', await call(lib.create, env, { method: 'POST', k: 
   /* two rapid switches: release, release, reclaim of the other one, all leave exactly one player per agent */
   is('switch 1', await post(lib.release, ka), 200); is('switch 2', await post(lib.release, ka), 404, 'none');
   is('reclaim the newer one', await post(lib.reclaim, ka, { id: sw.id }), 200);
-  const held = rdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id NOT LIKE 'free:%'").get().n; if (held !== 2) bad(`two agents must hold two players, hold ${held}`);
+  const held = rdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id NOT LIKE 'free:%' AND agent_id NOT LIKE 'sys:%'").get().n; if (held !== 2) bad(`two agents must hold two players, hold ${held}`);
   /* another agent took him (the pickup rule is not built yet: simulate it in the table): reclaim is refused */
   is('release again', await post(lib.release, ka), 200);
   rdb.sql.prepare('UPDATE players SET agent_id = ? WHERE pid = ?').run('c'.repeat(64), sw.id);
@@ -192,6 +197,23 @@ is('list page past the max', await call(lib.list, lenv, { url: `/api/freeagents?
 /* nothing here may reach the engine's results or the production site by accident */
 const src = readFileSync(path.join(ROOT, 'functions/lib/agents.js'), 'utf8');
 if (/engine\//.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))) bad('functions/lib/agents.js must not import the engine (rule 10)');
+
+/* 系統 fillers (#437): seeded once, a fan takes the oldest filler of his kind */
+{ const sdb = makeDb(), senv = { DB: sdb }, count = (kind) => sdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id LIKE 'sys:%' AND kind = ?").get(kind).n;
+  const ka = key(); is('system: register', await call(lib.register, senv, { method: 'POST', k: ka }), 201);
+  if (count('bat') !== lib.SYSTEM_PER_KIND || count('pit') !== lib.SYSTEM_PER_KIND) bad(`expected ${lib.SYSTEM_PER_KIND} 系統 fillers per kind, have ${count('bat')} bat, ${count('pit')} pit`);
+  if (sdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id LIKE 'sys:%'").all()[0].n !== 2 * lib.SYSTEM_PER_KIND) bad('fillers are not all marked sys:');
+  const flags = sdb.sql.prepare("SELECT player FROM players WHERE agent_id LIKE 'sys:%'").all().map(r => JSON.parse(r.player).system);
+  if (flags.some(f => f !== true)) bad('a 系統 filler lacks system:true');
+  const oldest = sdb.sql.prepare("SELECT pid FROM players WHERE agent_id LIKE 'sys:%' AND kind = 'bat' ORDER BY created_at, pid LIMIT 1").get().pid;
+  is('system: create batter', await call(lib.create, senv, { method: 'POST', k: ka, body: { ...BAT, nameDraw: 0 } }), 201);
+  if (count('bat') !== lib.SYSTEM_PER_KIND - 1 || count('pit') !== lib.SYSTEM_PER_KIND) bad('a fan batter must remove exactly one batter filler and no pitcher filler');
+  if (sdb.sql.prepare('SELECT 1 FROM players WHERE pid = ?').get(oldest)) bad('the fan did not replace the oldest filler of his kind');
+  if (sdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id NOT LIKE 'sys:%'").get().n !== 1) bad('the fan row is missing');
+  const again = makeDb(), aenv = { DB: again }; await call(lib.register, aenv, { method: 'POST', k: key() });
+  if (again.sql.prepare("SELECT COUNT(*) n FROM meta").get().n !== 1) bad('the seed marker is not written once');
+  await call(lib.list, aenv, { url: '/api/freeagents' }); if (again.sql.prepare("SELECT COUNT(*) n FROM players").get().n !== 2 * lib.SYSTEM_PER_KIND) bad('fillers were seeded twice');
+  const listed = await call(lib.list, senv, { url: '/api/freeagents' }); if (!listed.body?.players?.some(p => p.player.system === true)) bad('the public list does not show the system flag'); }
 
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
 console.log(`OK: ${ROUTES.length} routes closed without the binding and on production, caps, one player per agent, unique names, public list of ${total}.`);
