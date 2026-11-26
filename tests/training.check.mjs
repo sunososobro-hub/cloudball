@@ -15,6 +15,9 @@
  *     does not grow with its share, a pitch moves the overall, or train_sim's 5-pitch pitchers reach the 一軍 sooner than 1-pitch ones,
  *   - the same seed does not give the same days (determinism), or a bonus makes a player slower,
  *   - the sim targets are not the nearest-rank median and bottom quartile of the 一軍 in league/site/players.json,
+ *   - learning a pitch (#378 part 5): learnPitch accepts a batter, an unknown or already held pitch or an illegal split;
+ *     the new pitch is thrown (knownPitches) before LEARN_AT, does not reach it, moves the overall, stops at the potential,
+ *     or a wider share does not learn it sooner (train_sim);
  *   - league/training.js uses Math.random or Date.
  * static.mjs runs this file.
  * Usage: node tests/training.check.mjs */
@@ -24,8 +27,8 @@ import path from 'node:path';
 import { CREATE, validateCreate, makePlayer, potShareAtLeast } from '../league/freeagents.js';
 import { RATING_TOP } from '../league/ratings.js';
 import { PITCH_TYPES } from '../engine/constants.js';
-import { validateSplit, evenSplit, defaultSplit, ROLE_SPLIT, PITCH_SHARE, trainKeys, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
-import { targets, daysTo, choiceOf, withPitches, pitchRun } from '../league/tools/train_sim.mjs';
+import { validateSplit, evenSplit, defaultSplit, ROLE_SPLIT, PITCH_SHARE, trainKeys, learnPitch, learnSplit, knownPitches, LEARN_AT, LEARN_SHARE, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
+import { targets, daysTo, choiceOf, withPitches, pitchRun, learnDays, LEARN_WIDE } from '../league/tools/train_sim.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DAYS = 400, EPS = 1e-9;
@@ -88,6 +91,34 @@ for (const role of ['RP', 'CL']) if (!(ROLE_SPLIT.SP.stuff < ROLE_SPLIT[role].st
     if (b > a) slower++; if (b < a) faster++;
   }
   if (faster || !slower) bad(`5 pitches vs 1: ${faster} pitchers faster, ${slower} slower to the 一軍`);
+}
+
+/* learning a pitch (#378 part 5) */
+{
+  const [FB, SL, CU] = PITCH_TYPES.map(t => t[0]);
+  const mk = pot => ({ pit: true, age0: 20, day: 0, pot, split: { stuff: 22, ctrl: 45, arm: 25, [FB]: 8 }, abil: { stuff: 60, ctrl: 60, arm: 60, [FB]: 60 } });
+  for (const [what, s, name, split] of [['batter', { ...mk(99), pit: false }, SL], ['unknown pitch', mk(99), '魔球'], ['held pitch', mk(99), FB],
+    ['split without it', mk(99), SL, { stuff: 22, ctrl: 45, arm: 25, [FB]: 8 }], ['split not 100', mk(99), SL, { stuff: 22, ctrl: 45, arm: 25, [FB]: 8, [SL]: 1 }]])
+    if (!learnPitch(s, name, split).length) bad(`learnPitch ${what}: accepted`);
+  const want = learnSplit(mk(99).split, SL);
+  if (want[SL] !== LEARN_SHARE || validateSplit([...Object.keys(mk(99).split), SL], want).length) bad(`learnSplit ${JSON.stringify(want)} is not a legal split with ${LEARN_SHARE} % on ${SL}`);
+  for (const pot of [99, 30]) {
+    const s = mk(pot), o0 = overallOf(s), stuff0 = s.abil.stuff, w = learnPitch(s, SL);
+    if (w.length) { bad(`learnPitch refused a legal pitch: ${w.join('; ')}`); continue; }
+    if (s.abil[SL] !== 0 || JSON.stringify(s.split) !== JSON.stringify(want)) bad(`learning ${SL} did not start at 0 with the learnSplit`);
+    let early = false;
+    for (let d = 0; d < DAYS_PER_SEASON * 2 && s.abil[SL] < LEARN_AT; d++) { trainDay(s, rng(d), 0); if (s.abil[SL] < LEARN_AT && knownPitches(s).includes(SL)) early = true; }
+    if (early) bad(`${SL} thrown before ${LEARN_AT}`);
+    if (!knownPitches(s).includes(SL)) bad(`${SL} not learned in two seasons at ${LEARN_SHARE} % (potential ${pot}): ${s.abil[SL]}`);
+    if (pot < o0 && (s.abil.stuff !== stuff0 || overallOf(s) !== o0)) bad(`over the potential an ability grew while learning (stuff ${stuff0} -> ${s.abil.stuff})`);
+    if (learnPitch(s, CU).length || knownPitches(s).includes(CU)) bad(`${CU} refused or thrown at once after ${SL}`);
+  }
+  { const s = mk(99), o0 = overallOf(s); learnPitch(s, SL, { stuff: 0, ctrl: 0, arm: 0, [FB]: 0, [SL]: 100 });
+    for (let d = 0; d < 30; d++) trainDay(s, rng(d), 0);
+    if (overallOf(s) !== o0 || s.abil.stuff !== 60) bad('learning a pitch moved the overall'); }
+  const lr = rng(11); let slower = 0;
+  for (let i = 1; i < 40; i += 2) { const made = withPitches(makePlayer(3000 + i, choiceOf(i, lr)), 1); if (!(learnDays(made, SL, LEARN_WIDE, 0, i) < learnDays(made, SL, LEARN_SHARE, 0, i))) slower++; }
+  if (slower) bad(`${slower} pitchers did not learn ${SL} sooner at ${LEARN_WIDE} % than at ${LEARN_SHARE} %`);
 }
 
 /* daily cap, potential caps the overall, no drop, 0 % does not grow, age */

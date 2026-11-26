@@ -14,6 +14,11 @@
  *                                gave that day (0 = hands-off). Returns the display points gained that day.
  *   roomFactor(ovr, pot)         share of the day's gain left this close to the potential (1 far away, 0 at it).
  *   overallOf(state)             the overall a state reads as (league/ratings.js, whole display numbers).
+ *   learnPitch(state, name, split)  start learning a pitch he does not throw (#378 part 5): list of plain reasons, empty =
+ *                                done (the pitch enters abil at 0 and the split; split left out = learnSplit).
+ *   learnSplit(split, name, pct) the split after adding that pitch: pct (default LEARN_SHARE) percent on it, the rest in
+ *                                the old ratio.
+ *   knownPitches(state)          the pitches he throws: those at LEARN_AT or above (the caller copies them to the player).
  *
  * The model, in display points (the 1 to 100 scale of league/ratings.js):
  *   gain of the day = min(DAILY_CAP, BASE_GAIN * ageFactor(age) * jitter + bonus), jitter uniform in 1 +- JITTER;
@@ -25,8 +30,12 @@
  *   Pitches (#378 part 2): a pitcher's own pitches are split keys too, each a display rating that grows like an ability
  *   but does not count in the overall (league/ratings.js knows stuff, ctrl, arm only), so every percent on a pitch is a
  *   percent the overall does not get: more pitches, slower to the 一軍 (train_sim prints it for 1, 3 and 5 pitches).
+ *   Learning (#378 part 5): a new pitch starts at 0 and takes its split share LEARN_SPEED times over until it reaches
+ *   LEARN_AT (the creation floor); below that he cannot throw it. Learning costs the same split percents as any pitch;
+ *   it does not count in the overall, so neither roomFactor nor the potential stop slows it.
  *   Age: one season is one year (DAYS_PER_SEASON days of training), so age = age at creation + whole seasons passed. */
 import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
+import { PITCH_TYPES } from '../engine/constants.js';
 
 export const SPLIT_TOTAL = 100;
 /* display points a 20-year-old gains per day over all his abilities, before jitter. Starting value, not tuned:
@@ -63,6 +72,15 @@ export const ROLE_SPLIT = {
 /* default percent of the daily training on each pitch of the list (#378 part 2). First guess, not tuned: 8 keeps a
  * five-pitch pitcher at 60 % on his abilities. */
 export const PITCH_SHARE = 8;
+/* learning a new pitch (#378 part 5). First guesses, not tuned: LEARN_AT is the creation floor (league/freeagents.js
+ * CREATE.floor), the weakest pitch a created pitcher can throw; LEARN_SPEED 4 at LEARN_SHARE 15 % is about 135 days
+ * (most of a season) for a 20-year-old hands-off, a fan who puts more on it learns sooner (train_sim prints both). */
+export const PITCH_NAMES = PITCH_TYPES.map(t => t[0]);
+export const LEARN_AT = 40;
+export const LEARN_SPEED = 4;
+export const LEARN_SHARE = 15;
+const isPitch = k => PITCH_NAMES.includes(k);
+export const knownPitches = s => PITCH_NAMES.filter(n => n in s.abil && s.abil[n] >= LEARN_AT);
 export const trainKeys = (kind, pitches) => [...KEYS[kind], ...(kind === 'pit' && pitches ? pitches : [])];
 /* whole percents in the ratio of w summing to total, largest remainder (ties: key order) */
 function scaleTo(w, total) {
@@ -81,6 +99,19 @@ export function defaultSplit(kind, role, pitches) {
   return { ...scaleTo(base, SPLIT_TOTAL - PITCH_SHARE * pitches.length), ...Object.fromEntries(pitches.map(n => [n, PITCH_SHARE])) };
 }
 
+export function learnSplit(split, name, pct = LEARN_SHARE) {
+  return { ...scaleTo(split, SPLIT_TOTAL - pct), [name]: pct };
+}
+export function learnPitch(s, name, split) {
+  if (!s.pit) return ['only a pitcher learns pitches'];
+  if (!isPitch(name)) return [`pitch ${name} must be one of ${PITCH_NAMES.join(', ')}`];
+  if (name in s.abil) return [`he already has ${name}`];
+  const next = split || learnSplit(s.split, name), why = validateSplit([...Object.keys(s.split), name], next);
+  if (why.length) return why;
+  s.abil[name] = 0; s.split = { ...next };
+  return [];
+}
+
 export function ageFactor(age) {
   const c = AGE_CURVE;
   if (age <= c[0][0]) return c[0][1];
@@ -94,17 +125,23 @@ export const roomFactor = (ovr, pot) => Math.min(1, Math.max(0, (pot - ovr) / PO
 export function trainDay(s, r, bonus = 0) {
   const jitter = r(), age = ageOn(s), room = roomFactor(overallOf(s), s.pot);
   s.day++;
-  if (room <= 0) return 0;
-  const g = Math.min(DAILY_CAP, BASE_GAIN * ageFactor(age) * (1 - JITTER + 2 * JITTER * jitter) + bonus) * room;
-  const next = {};
-  let used = 0;
-  for (const [k, pct] of Object.entries(s.split)) {
-    const v = s.abil[k], add = Math.max(0, Math.min(g * pct / SPLIT_TOTAL, ABIL_MAX - v));
-    next[k] = v + add; used += add;
-  }
-  if (overallOf({ ...s, abil: { ...s.abil, ...next } }) > s.pot) return 0;
-  Object.assign(s.abil, next);
-  return used;
+  const g = Math.min(DAILY_CAP, BASE_GAIN * ageFactor(age) * (1 - JITTER + 2 * JITTER * jitter) + bonus);
+  /* a pitch still being learned does not count in the overall, so the potential never holds it back */
+  const grow = keep => {
+    const next = {};
+    let used = 0;
+    for (const [k, pct] of Object.entries(s.split)) {
+      const v = s.abil[k], learning = isPitch(k) && v < LEARN_AT;
+      if (!keep(learning)) continue;
+      const add = Math.max(0, Math.min(g * (learning ? LEARN_SPEED : room) * pct / SPLIT_TOTAL, ABIL_MAX - v));
+      next[k] = v + add; used += add;
+    }
+    return { next, used };
+  };
+  let day = grow(() => true);
+  if (overallOf({ ...s, abil: { ...s.abil, ...day.next } }) > s.pot) day = grow(learning => learning);
+  Object.assign(s.abil, day.next);
+  return day.used;
 }
 
 export function overallOf(s) {
