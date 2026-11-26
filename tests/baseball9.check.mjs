@@ -87,6 +87,19 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
   if (!res) bad('the game screen never finished a game in 3000 clicks'); else { if (!/比賽結束/.test(els.gend.textContent) || els.gend.hidden) bad('no end line'); if (!/^比賽結束/.test(els.ghalf.textContent)) bad('half title at the end');
     if (els.ggrid.children.some(b => !b.disabled)) bad('cells still enabled after the game'); if (els.glog.children.length < 20) bad('log too short: ' + els.glog.children.length); }
   startGame(); if (globalThis.baseball9GameResult !== null || els.gend.hidden !== true) bad('again does not reset the game'); }
+/* #430 part 1: field.js script of one pitch (pure): pitch leg first, then the batted-ball points; same result = same picture; no canvas = no picture, the game still runs */
+{ const F = await import('../ui/baseball9/field.js'), Gm = await import('../ui/baseball9/game.js'), seen = {};
+  for (let s = 1; s <= 30; s++) { const g = Gm.createGame({ rnd: seeded(s * 13) }), r = seeded(s * 3); let n = 0;
+    while (!g.S.over && n++ < 400) { const o = g.pitch(g.userBats() ? { mode: ['one', 'row', 'take', 'box'][n % 4], r: 1 + n % 3, c: 1 + (n >> 1) % 3, steal: n % 6 === 0, app: 'mid' } : { pt: 'fb', r: Math.floor(r() * 5), c: Math.floor(r() * 5), shift: 'N' });
+      const A = F.buildBeats(o), B = F.buildBeats(o); if (JSON.stringify(A) !== JSON.stringify(B)) bad('buildBeats is not deterministic');
+      if (!(A.dur > F.PITCH_S) || A.dur > 30) bad('beat duration ' + A.dur);
+      const p0 = F.ballAt(A, 0), p1 = F.ballAt(A, F.PITCH_S); if (!p0 || Math.hypot(p0.x - F.MOUND[0], p0.z - F.MOUND[1]) > 1e-9 || !p1 || Math.hypot(p1.x, p1.z) > 1e-9) bad('pitch leg does not run mound to plate');
+      if (o.play) { seen.hit = 1; if (!A.ball.length || A.ball[0].t < F.PITCH_S) bad('batted ball starts before the pitch lands'); const e = F.ballAt(A, A.dur), L = o.play.ball[o.play.ball.length - 1]; if (!e || e.x !== L.x || e.z !== L.z) bad('ball does not end at the last point of the script');
+        if (A.hr !== (o.play.kind === 'HR') || (A.hr && !A.beats.some(b => /全壘打/.test(b.txt)))) bad('home run beat'); if (A.hr) seen.hr = 1; }
+      else { if (A.ball.length) bad('no batted ball but ball points'); if (/三振/.test(o.txt)) { seen.k = 1; if (!A.beats.some(b => /三振/.test(b.txt))) bad('strikeout beat'); } if (/保送/.test(o.txt)) { seen.bb = 1; if (!A.beats.some(b => /保送/.test(b.txt))) bad('walk beat'); } if (o.steal) { seen.steal = 1; if (!A.beats.some(b => /盜壘/.test(b.txt))) bad('steal beat'); } }
+      for (let t = 0; t <= A.dur; t += .1) { const q = F.ballAt(A, t); if (q && !Number.isFinite(q.x + q.y + q.z)) bad('non-finite ball position'); } } }
+  for (const k of ['hit', 'hr', 'k', 'bb', 'steal']) if (!seen[k]) bad('30 games never showed a ' + k + ' beat');
+  if (F.createField({}) !== null || F.createField({ getContext: () => null }) !== null) bad('createField must return null without a 2D context'); }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');
