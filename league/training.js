@@ -19,6 +19,8 @@
  *   learnSplit(split, name, pct) the split after adding that pitch: pct (default LEARN_SHARE) percent on it, the rest in
  *                                the old ratio.
  *   knownPitches(state)          the pitches he throws: those at LEARN_AT or above (the caller copies them to the player).
+ *   declineFactor(age)           decline multiplier of that age (DECLINE_CURVE, straight lines between its points, #433).
+ *   declineDay(age, key)         display points that ability loses in one day at that age, before DECLINE_FLOOR.
  *
  * The model, in display points (the 1 to 100 scale of league/ratings.js):
  *   gain of the day = min(DAILY_CAP, BASE_GAIN * ageFactor(age) * jitter + bonus), jitter uniform in 1 +- JITTER;
@@ -26,7 +28,11 @@
  *   line over the last POT_SLOW_BAND overall points below the potential, so growth slows near the ceiling and stops at
  *   it; a day that would lift the overall past the potential gains nothing. Each ability takes its split share of the
  *   gain (the split decides which abilities grow) up to ABIL_MAX, the top of the display scale; the share it cannot use
- *   is lost (the fan chose the split). Nothing ever drops.
+ *   is lost (the fan chose the split).
+ *   Decline (#433): after the peak every ability loses DECLINE_PER_SEASON * declineFactor(age) * DECLINE_RATE[key] display
+ *   points a season (spread evenly over the days, no jitter, no RNG draw), never below DECLINE_FLOOR; it is applied after
+ *   the day's growth whatever the split or the bonus (hands-off and active lose the same), so a 0 % ability declines too.
+ *   A pitch still being learned (below LEARN_AT) does not decline.
  *   Pitches (#378 part 2): a pitcher's own pitches are split keys too, each a display rating that grows like an ability
  *   but does not count in the overall (league/ratings.js knows stuff, ctrl, arm only), so every percent on a pitch is a
  *   percent the overall does not get: more pitches, slower to the 一軍 (train_sim prints it for 1, 3 and 5 pitches).
@@ -49,6 +55,14 @@ export const POT_SLOW_BAND = 5;         /* overall points below the potential wh
 export const ABIL_MAX = 99;             /* an ability stops at the top of the display scale (league/ratings.js knee rounds to 99) */
 /* [age, multiplier]: young players grow fastest, nobody grows from 34 */
 export const AGE_CURVE = [[20, 1], [23, 1], [27, 0.6], [30, 0.3], [34, 0]];
+/* decline after the peak (#433). First guesses, not tuned: [age, multiplier of DECLINE_PER_SEASON], straight lines
+ * between the points; nothing is lost up to 30, a little from 31, the full rate at 34, double at 38 and after. */
+export const DECLINE_CURVE = [[30, 0], [31, 0.25], [34, 1], [38, 2]];
+export const DECLINE_PER_SEASON = 3;    /* display points a season an ability with rate 1 loses at multiplier 1 */
+export const DECLINE_FLOOR = 40;        /* decline never takes an ability below this (the creation floor, CREATE.floor) */
+/* per-ability rate of the decline: legs, stuff and arm go first, the eye and control last; a key not listed
+ * (con, pow) is 1; a pitch declines like stuff */
+export const DECLINE_RATE = { spd: 1.5, stuff: 1.4, arm: 1.3, eye: 0.6, ctrl: 0.6 };
 export const KEYS = { bat: Object.keys(BAT_WEIGHTS), pit: Object.keys(PIT_WEIGHTS) };
 
 const isWhole = x => Number.isInteger(x);
@@ -118,6 +132,15 @@ export function ageFactor(age) {
   for (let i = 1; i < c.length; i++) if (age <= c[i][0]) { const [a0, f0] = c[i - 1], [a1, f1] = c[i]; return f0 + (f1 - f0) * (age - a0) / (a1 - a0); }
   return c[c.length - 1][1];
 }
+export function declineFactor(age) {
+  const c = DECLINE_CURVE;
+  if (age <= c[0][0]) return c[0][1];
+  for (let i = 1; i < c.length; i++) if (age <= c[i][0]) { const [a0, f0] = c[i - 1], [a1, f1] = c[i]; return f0 + (f1 - f0) * (age - a0) / (a1 - a0); }
+  return c[c.length - 1][1];
+}
+export const declineRate = k => (isPitch(k) ? DECLINE_RATE.stuff : DECLINE_RATE[k] ?? 1);
+/* display points ability k loses in one day at that age (before the floor) */
+export const declineDay = (age, k) => DECLINE_PER_SEASON * declineFactor(age) * declineRate(k) / DAYS_PER_SEASON;
 export const ageOn = s => s.age0 + Math.floor(s.day / DAYS_PER_SEASON);
 
 export const roomFactor = (ovr, pot) => Math.min(1, Math.max(0, (pot - ovr) / POT_SLOW_BAND));
@@ -141,6 +164,12 @@ export function trainDay(s, r, bonus = 0) {
   let day = grow(() => true);
   if (overallOf({ ...s, abil: { ...s.abil, ...day.next } }) > s.pot) day = grow(learning => learning);
   Object.assign(s.abil, day.next);
+  const f = declineFactor(age);
+  if (f > 0) for (const k of Object.keys(s.abil)) {
+    const v = s.abil[k];
+    if ((isPitch(k) && v < LEARN_AT) || v <= DECLINE_FLOOR) continue;
+    s.abil[k] = Math.max(DECLINE_FLOOR, v - declineDay(age, k));
+  }
   return day.used;
 }
 
