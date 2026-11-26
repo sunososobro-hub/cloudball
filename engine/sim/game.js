@@ -427,7 +427,9 @@ export function simGame(seed, decisions, opts) {
           } else {
             /* caught in the air */
             const nb = B.slice(); moves = [[0, 1, name]]; let tagUp = null, sacFly = false, toThird = null;
-            const canTag = st.outs < K.OUTS_PER_HALF - 1 && type === 'FB';
+            /* runners tag only on a ball an outfielder catches (#38 part 13): a fly or a line drive; an infield fly or a
+             * liner to an infielder is too short to score or take third on */
+            const canTag = st.outs < K.OUTS_PER_HALF - 1 && (type === 'FB' || type === 'LD') && OUTFIELD_KEYS.includes(fielder);
             if (canTag && B[2] && R() < K.SAC_FLY_P) { tagUp = { from: 3, to: HOME }; sacFly = true; moves.push([3, HOME, B[2]]); runs++; nb[2] = null; }
             /* the runner on second tags and takes third if it is open; the throw goes to the lead runner */
             if (canTag && B[1] && !nb[2] && R() < K.TAG_2ND_TO_3RD_P) { tagUp = tagUp || { from: 2, to: 3 }; toThird = B[1]; moves.push([2, 3, B[1]]); nb[2] = B[1]; nb[1] = null; }

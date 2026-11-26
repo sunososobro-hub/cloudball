@@ -58,7 +58,7 @@ control) is the chance of a strike-zone pitch: pitchers come into the zone when 
 work off the plate when ahead. `SWING_ZONE_BY_COUNT` and `SWING_CHASE_BY_COUNT` (the latter
 divided by the batter's eye) are the chance of a swing: batters take early and on 3-0, and
 protect with two strikes. Contact, foul or in play, and the batted ball follow from the
-ratings. On a fly out a runner on third may tag and score (`SAC_FLY_P`) and a runner on second
+ratings. On a fly or liner an outfielder catches, a runner on third may tag and score (`SAC_FLY_P`) and a runner on second
 may tag and take an open third (`TAG_2ND_TO_3RD_P`); the throw goes to the lead runner and
 arrives after him.
 
