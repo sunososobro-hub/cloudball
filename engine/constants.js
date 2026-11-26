@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.11';
+export const ENGINE_VERSION = '0.4.12';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -151,6 +151,10 @@ export const THROW_HOME_ON_SINGLE_P = 0.35;
  * third is sent home anyway with this chance; the outfielder's throw to the catcher decides (rules/fielding.js): out
  * when the ball beats him, else he scores. First guess, not tuned (MLB sends about 60% and loses a few percent of them). */
 export const SEND_FROM_2ND_ON_SINGLE_P = 0.12;
+/* Out on the bases (#38): on an outfield single with fewer than two outs and second open, the batter tries to stretch it
+ * into a double with this chance; the throw to second decides: tagged out when the ball beats him, else a double.
+ * First guess, not tuned (MLB: a few hundred batters a season are thrown out stretching, about 0.1 a game). */
+export const STRETCH_1B_P = 0.03;
 export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
@@ -299,6 +303,9 @@ export const RETURN_AFTER_THROW = 0.7;
 /* ---- running ---- */
 export const RUN_SPEED = 7.8;
 export const WALK_SPEED = 4.5;            /* trot on a walk */
+/* #266: home-run trot. MLB trots run about 22-23 s home to home (Statcast / Tater Trot Tracker averages, 2015-2024);
+ * 4 x 27.43 m at 5.0 m/s with RUN_ACCEL is 22.4 s. Every runner of a home run trots at this pace. */
+export const HR_TROT_SPEED = 5.0;
 export const RUN_ACCEL = 0.9;             /* seconds to reach full speed */
 export const BAT_RUN_DELAY = 0.1;         /* batter leaves the box this long after contact */
 export const STEAL_JUMP = 0.3;            /* a stealing runner breaks this long before release */
