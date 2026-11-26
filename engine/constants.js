@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.13';
+export const ENGINE_VERSION = '0.4.14';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -315,6 +315,18 @@ export const HR_TROT_SPEED = 5.0;
 export const RUN_ACCEL = 0.9;             /* seconds to reach full speed */
 export const BAT_RUN_DELAY = 0.1;         /* batter leaves the box this long after contact */
 export const STEAL_JUMP = 0.3;            /* a stealing runner breaks this long before release */
+/* #23 part 2: a steal's break is fitted to the draw between the pitcher's first move (render: the delivery clip starts at
+ * u 0, leg lift at 0.6 s) and the old fixed break (RELEASE - STEAL_JUMP). STEAL_SPEED 8.7 m/s = 28.5 ft/s, between the
+ * Statcast sprint-speed league average (27 ft/s) and elite (30 ft/s): the runners who try steals are the faster ones.
+ * First guess without per-runner data; SB/CS rates still come from the draw (stealOkP), not from these times. */
+export const STEAL_FIRST_MOVE = 0.4;
+export const STEAL_BREAK_LAST = 1.3;
+export const STEAL_SPEED = 8.7;
+/* steal of third: the runner at second is not held on, he walks off with the set (walking lead), so he may break at u 0 */
+export const STEAL3_FIRST_MOVE = 0;
+export const STEAL_SAFE_BY = 0.1;          /* good jump: the ball reaches the bag this long after the runner (a close play; TAG_LATE elsewhere) */
+export const STEAL_OUT_BY = 0.35;          /* bad jump: the runner arrives this long after the ball (> TAG_EARLY) */
+export const STEAL_FIT_ITER = 3;           /* the lead grows after the break, so the fit is refined a few times */
 export const WALK_DELAY = 0.8;
 export const SLIDE_D = 3;
 export const LEAD_STAND = 0;
