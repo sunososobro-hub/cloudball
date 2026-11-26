@@ -113,18 +113,21 @@ is('create with free text', await call(lib.create, env, { method: 'POST', k: k1,
 is('create over the budget', await call(lib.create, env, { method: 'POST', k: k1, body: { ...BAT, points: { ...BAT.points, pow: 70 } } }), 400, 'invalid');
 is('create past the draw cap', await call(lib.create, env, { method: 'POST', k: k1, body: { ...BAT, nameDraw: lib.DRAW_CAP + 1 } }), 400, 'invalid');
 is('create without a body', await call(lib.create, env, { method: 'POST', k: k1 }), 400, 'invalid');
-const made = await call(lib.create, env, { method: 'POST', k: k1, body: BAT }); is('create', made, 201);
-if (made.body?.player?.name !== d0.body?.name) bad('the created player does not carry the drawn name');
+/* the agent's seed is random and a 系統 filler may hold the first name drawn: use the first free draw, as the page does (#437) */
+let nd = 0; while (nd < lib.DRAW_CAP && (await call(lib.draw, env, { k: k1, url: `/api/agent/draw?n=${nd}` })).body?.taken) nd++;
+const ownBat = { ...BAT, nameDraw: nd };
+const made = await call(lib.create, env, { method: 'POST', k: k1, body: ownBat }); is('create', made, 201);
+if (made.body?.player?.name !== drawName(seed, nd)) bad('the created player does not carry the drawn name');
 if (made.body?.player?.player?.id !== `fa-${seed.toString(36)}`) bad('the player was not made from the seed the server made');
-is('create a second player', await call(lib.create, env, { method: 'POST', k: k1, body: BAT }), 409, 'already');
+is('create a second player', await call(lib.create, env, { method: 'POST', k: k1, body: ownBat }), 409, 'already');
 const mineNow = await call(lib.mine, env, { k: k1 }); if (mineNow.body?.player?.name !== made.body?.player?.name) bad('GET /api/player does not give the created player back');
 is('create with the points moved by a client-made seed', await call(lib.create, env, { method: 'POST', k: k2, body: { ...PIT, seed: 5 } }), 400, 'invalid');
 /* the same name for two agents: marked taken in the draw, refused at the create */
 const id2 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k2)))].map(b => b.toString(16).padStart(2, '0')).join('');
 db.sql.prepare('UPDATE agents SET seed = ? WHERE id = ?').run(seed, id2);
-const shown = await call(lib.draw, env, { k: k2, url: '/api/agent/draw?n=0' });
+const shown = await call(lib.draw, env, { k: k2, url: `/api/agent/draw?n=${nd}` });
 if (shown.body?.taken !== true) bad('a name already taken is not marked taken in the draw');
-is('create with a taken name', await call(lib.create, env, { method: 'POST', k: k2, body: BAT }), 409, 'name');
+is('create with a taken name', await call(lib.create, env, { method: 'POST', k: k2, body: ownBat }), 409, 'name');
 
 /* #435 release + reclaim: switch, reclaim, reclaim after another agent took him (refused), two rapid switches */
 { const rdb = makeDb(), renv = { DB: rdb }, ka = key(), kb = key(), post = (h, k, body) => call(h, renv, { method: 'POST', k, body });
