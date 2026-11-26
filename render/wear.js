@@ -28,3 +28,7 @@ export function wearDabs(n) {
   });
   return out;
 }
+
+/* Pitches thrown before event i, for every i of a game's event list (a Float-free prefix array, length ev.length). Only real pitches count
+   (k 'P', not an intentional walk or a balk): the wear a viewer sees at event i is wearDabs(pitchPrefix(ev)[i]), so a seek shows what playing to i shows. */
+export const pitchPrefix = ev => { const out = new Array(ev.length); let n = 0; for (let i = 0; i < ev.length; i++) { out[i] = n; if (ev[i].k === 'P' && ev[i].r !== 'ibb' && ev[i].r !== 'bk') n++; } return out; };
