@@ -1,27 +1,33 @@
 /* Runner lead stance (#268, plain Node). render/lead.js and the engine's leadAt / runnerTimeline are run, not read:
- *   - the stance is off on the bag (start of the set, after the walk back) and fully on whenever the engine has him off the bag
+ *   - the stance is off on the bag and full from LEAD_POSE_D out; since #23 part 1 a held runner is at the primary lead through
+ *     the whole pitch frame, so it stays on; a tag-up runner going back to the bag stands up without a snap
  *   - the shuffle: legs spread inside [stance, stance + step], close back to the stance at every step, >= 3 steps to LEAD_PITCH
  *   - he faces the pitcher: from each base his facing is across the base path (a side shuffle), not along it
  *   - no snap: stance weight, leg spread and yaw change by small amounts between 5 ms frames over a whole pitch frame
  *   - on the break the stance fades over LEAD_TURN, and the run starts from the lead spot (runnerTimeline lead = leadAt(st0))
  * static.mjs runs this file. Usage: node tests/lead.check.mjs */
-import { LEAD_POSE_IN, LEAD_POSE_OUT, LEAD_STEP, LEAD_SPLAY, LEAD_STEP_SPLAY, LEAD_TURN, LEAD_FROM, LEAD_HOME,
+import { LEAD_POSE_D, LEAD_STEP, LEAD_SPLAY, LEAD_STEP_SPLAY, LEAD_TURN,
   leadW, leadSplay, leadYaw, breakW, yawMix } from '../render/lead.js';
-import { leadAt, runnerTimeline, BASES, FIELD_HOME } from '../engine/rules/field.js';
+import { leadAt, tagLeadAt, runnerTimeline, BASES, FIELD_HOME } from '../engine/rules/field.js';
 import { LEAD_PITCH } from '../engine/constants.js';
 
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 const DT = .005, END = 6;
 
-if (leadW(0) !== 0) bad(`stance on at the start of the set: ${leadW(0)}`);
-if (leadW(LEAD_FROM - LEAD_POSE_IN) !== 0) bad('stance must start growing LEAD_POSE_IN before the lead');
-if (leadW(LEAD_HOME + LEAD_POSE_OUT) !== 0) bad('stance must be off LEAD_POSE_OUT after he is back on the bag');
-let prevW = leadW(0), prevS = leadSplay(leadAt(0), prevW), maxDW = 0, maxDS = 0;
+if (leadW(0) !== 0) bad(`stance on while standing on the bag: ${leadW(0)}`);
+if (leadW(LEAD_POSE_D) !== 1) bad(`stance not full at LEAD_POSE_D: ${leadW(LEAD_POSE_D)}`);
+if (leadW(leadAt(0)) !== 1) bad(`stance not on at the start of the set (primary lead ${leadAt(0)} m)`);
+let prevW = leadW(leadAt(0)), prevS = leadSplay(leadAt(0), prevW), maxDW = 0, maxDS = 0;
 for (let u = DT; u <= END; u += DT) {
-  const ld = leadAt(u), w = leadW(u), sp = leadSplay(ld, w);
-  if (ld > .01 && w < 1 - 1e-9) bad(`u ${u.toFixed(3)}: ${ld.toFixed(2)} m off the bag but stance only ${w.toFixed(3)}`);
+  const ld = leadAt(u), w = leadW(ld), sp = leadSplay(ld, w);
+  if (ld >= LEAD_POSE_D && w < 1 - 1e-9) bad(`u ${u.toFixed(3)}: ${ld.toFixed(2)} m off the bag but stance only ${w.toFixed(3)}`);
   if (!(sp >= 0 && sp <= LEAD_SPLAY + LEAD_STEP_SPLAY + 1e-12)) bad(`u ${u.toFixed(3)}: spread ${sp}`);
   maxDW = Math.max(maxDW, Math.abs(w - prevW)); maxDS = Math.max(maxDS, Math.abs(sp - prevS)); prevW = w; prevS = sp;
+}
+for (const tagUpAt of [5.5, 6.8]) {   /* tag-up (real ones start 5.5 to 6.8 s into the frame): back to the bag, he stands up as he gets there */
+  let pw = leadW(tagLeadAt(0, tagUpAt));
+  for (let u = DT; u <= tagUpAt; u += DT) { const w = leadW(tagLeadAt(u, tagUpAt)); maxDW = Math.max(maxDW, Math.abs(w - pw)); pw = w; }
+  if (pw !== 0) bad(`tag-up at ${tagUpAt}: stance ${pw} on the bag`);
 }
 if (maxDW > .05) bad(`stance weight snaps: ${maxDW.toFixed(3)} in ${DT} s`);
 if (maxDS > .03) bad(`leg spread snaps: ${maxDS.toFixed(3)} rad in ${DT} s`);
