@@ -797,6 +797,25 @@ function poseLooseBat(e,u){const k=batM&&!OFF.has('batdrop')?batM.batKind(e):nul
   _lb1.set(Math.sin(F.head),0,Math.cos(F.head));_lbq2.setFromUnitVectors(_up,_lb1);_lbq.slerp(_lbq2,ease(F.s));
   _lba.set(Math.cos(F.head),0,-Math.sin(F.head));_lbq2.setFromAxisAngle(_lba,-F.spin);
   looseBat.quaternion.multiplyQuaternions(_lbq2,_lbq);looseBat.position.set(...F.p);looseBat.visible=true}
+/* #43 item 2: the bat boy (render/batboy.js plans the trip). The batting team's boy runs out of its dugout once the bat lies still, bends,
+   picks it up and runs back into the dugout with it. Drawn from the newest bat let go (this event or an earlier one within BOY_LOOK s,
+   like peelers), so he never vanishes when the play ends; an earlier bat still lying is drawn lying. Dev switch ?off=batboy. */
+const BOY_LOOK=40,boy=figure(matOff,pants,false);boy.g.visible=false;let boyM=null;
+import(new URL('batboy.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{boyM=M;boy.g.scale.setScalar(M.BOY_SCALE)}).catch(err=>console.warn('bat boy off',err));
+const _bbq=new THREE.Quaternion(),_bbv=new THREE.Vector3();
+function poseBatBoy(e,u,ei){boy.g.visible=false;if(!batM||!boyM||!game||OFF.has('batdrop')||OFF.has('batboy')||!Number.isFinite(ei))return;
+  const T=e.t+u;let q=null,k=null,rel=0;
+  for(let j=ei;j>=0&&T-game.ev[j].t<BOY_LOOK;j--){const c=game.ev[j],kk=batM.batKind(c);if(!kk)continue;const r=batM.batRelease(c);if(T>=c.t+r){q=c;k=kk;rel=r;break}}
+  if(!q)return;
+  const lf=q.bat&&ROSTERS[q.bat[0]].bat[q.bat[1]].hand==='L',L=batM.batLand(k,lf?1:-1),tau=T-q.t-rel,plan=boyM.boyPlan(L,dugout(q.s0.half),batM.BAT_LEN),st=boyM.boyAt(plan,tau);
+  if(tau>=plan.end||st&&st.carry)looseBat.visible=false
+  else if(q!==e){_bbv.set(Math.sin(L.head),0,Math.cos(L.head));looseBat.quaternion.setFromUnitVectors(_up,_bbv);looseBat.position.set(L.x,batM.BAT_REST_Y,L.z);looseBat.visible=true}
+  if(!st)return;
+  resetPose(boy);boy.noAnim=st.bend>0;boy.g.visible=true;boy.g.position.set(st.x,-.12*st.bend,st.z);face(boy,st.fx,st.fz);setNum(boy,undefined);
+  if(st.bend>0){const R=boy.rig;R.up.rotation.x=.85*st.bend;if(boy.bend)boy.bend.knee[0]=boy.bend.knee[1]=.9*st.bend}
+  if(st.carry){/* held by the handle in his right hand, barrel hanging down and a little forward */
+    const a=boy.g.rotation.y,fx=Math.sin(a),fz=Math.cos(a),rx=-fz,rz=fx,h=st.bend>0?.75-.45*st.bend:.75;
+    looseBat.position.set(st.x+rx*.28+fx*.08,h,st.z+rz*.28+fz*.08);_bbv.set(fx*.35,-1,fz*.35).normalize();looseBat.quaternion.setFromUnitVectors(_up,_bbv);looseBat.visible=true}}
 /* batting keyframes: S stance, L load (stride + hands back), C contact, F follow-through. Frame: batter-local, +z faces the plate, +x faces the pitcher */
 const BK={yaw:[-.15,-.45,.75,1.7],lean:[.12,.16,.2,.1],hx:[-.2,-.3,-.05,.35],hy:[.55,.62,.38,.65],hz:[.3,.22,.56,.35],
   bx:[-.3,-.5,-.55,.4],by:[.95,.85,.12,.7],bz:[.12,.1,.82,.55],stride:[.2,.3,.42,.4],back:[-.2,-.2,-.25,-.32],head:[1.1,1.15,.6,.2]};
@@ -1484,7 +1503,7 @@ function poseScene(e,u,dt,ei){
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
-  if(e.k!=='P'){for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK')standRunner(i,0,s.b[i]);peelers();return s}
+  if(e.k!=='P'){for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK')standRunner(i,0,s.b[i]);peelers();poseBatBoy(e,u,ei);return s}
   /* pitch */
   const pp=pitchPose(e.bk?bkU(u):e.po?0:u),tip=pp.tip;
   /* A pitcher who fields the ball or covers first starts from where his delivery stride left him at contact (not from the rubber, which
@@ -1540,6 +1559,7 @@ function poseScene(e,u,dt,ei){
   }
   peelers();
   poseLooseBat(e,u);/* #43: before hiding him, so the release pose can be read from his hands */
+  poseBatBoy(e,u,ei);
   if(u>=batGone)batter.g.visible=false;
   if(e.r==='inplay'){
     /* the whole defensive play (who fields, who covers, every throw and its timing) is e.plan, computed by the engine */
