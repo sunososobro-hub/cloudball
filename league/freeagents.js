@@ -14,6 +14,11 @@
  * points and is stored on the player as `pitches: { name: display rating }`; the training split then holds each pitch
  * too (league/training.js). The engine throws only the listed pitches, at their factory shares (engine/sim/game.js mixOf);
  * the pitch is a look there (name, km/h), never an outcome.
+ * points.def (#378 part 6, batters, optional): fielder defence (range and glove), FLOOR to CAP like the rest; with it the
+ * budget is CREATE.budget.bat + CREATE.defBudget over all six, so defence trades against the bat. Stored as the
+ * engine's raw `def` (league/ratings.js defRaw; the engine's fielding code reads it through the roster), shown 1 to
+ * 100, not in the overall. Left out (choices made before it) = the factory fielder, def 1.0. positionFit(pos, ratings)
+ * is the plain text of how his def and arm suit the position he picked.
  * role (#378): SP 先發, MR 中繼, RP 後援, CL 終結. The engine starts an SP and puts every other role in the bullpen.
  * train (#369, optional): the daily training split, whole percents over the same ability keys, sum 100
  * (league/training.js); left out = defaultSplit (by pitcher role, even for batters). It is stored on the player as `train`.
@@ -23,7 +28,7 @@
 import { ROSTERS } from './players.js';
 import { STAFF, UMPIRES } from './staff.js';
 import { SURNAMES, GIVEN } from './namepool.js';
-import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
+import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS, RATING_MID } from './ratings.js';
 import { validateSplit, defaultSplit, trainKeys } from './training.js';
 import { PITCH_TYPES } from '../engine/constants.js';
 
@@ -56,10 +61,35 @@ export const CREATE = {
   keys: { bat: Object.keys(BAT_WEIGHTS), pit: Object.keys(PIT_WEIGHTS) },
   /* the one fixed budget per kind, and the floor and cap of each ability (display points, 1 to 100) */
   budget: { bat: 305, pit: 183 },
+  /* the optional fielder defence point (#378 part 6) and what it adds to the batter budget: one average ability,
+   * so 366 over six keys stays divisible (the UI splits it evenly) */
+  defKey: 'def',
+  defBudget: 61,
   floor: 40,
   cap: { bat: 70, pit: 66 },
   maxNameDraw: 999,
 };
+/* the point keys of a choice: a batter who sets points.def spends it from the same pool */
+export const pointKeys = c => [...CREATE.keys[c.kind], ...(c.kind === 'bat' && c.points && CREATE.defKey in c.points ? [CREATE.defKey] : [])];
+export const budgetOf = c => CREATE.budget[c.kind] + (pointKeys(c).includes(CREATE.defKey) ? CREATE.defBudget : 0);
+
+/* How a position asks for glove and arm (#378 part 6), display only (rule 10: the engine never reads it). need = the
+ * 1-100 mix of def and arm the position wants, by the usual defensive spectrum (C, SS, CF, 2B, 3B, RF, LF, 1B);
+ * first guesses, not tuned: an even created batter (61 everywhere) reads 適任 at C and SS, a 70/70 one 拿手 there. FIT_BAND: within this many points of the need reads 適任, above it 拿手, below it 吃力. */
+export const POS_NEED = {
+  C: { def: 0.5, arm: 0.5, need: 64 }, SS: { def: 0.65, arm: 0.35, need: 64 }, CF: { def: 0.7, arm: 0.3, need: 62 },
+  '2B': { def: 0.8, arm: 0.2, need: 60 }, '3B': { def: 0.5, arm: 0.5, need: 58 }, RF: { def: 0.4, arm: 0.6, need: 56 },
+  LF: { def: 0.7, arm: 0.3, need: 52 }, '1B': { def: 1, arm: 0, need: 46 },
+};
+export const FIT_BAND = 4;
+export const FIT_TEXT = { good: '拿手', ok: '適任', poor: '吃力', none: '不守備' };
+export function positionFit(pos, r) {
+  const n = POS_NEED[pos];
+  if (!n) return FIT_TEXT.none;
+  const v = n.def * (r.def ?? RATING_MID) + n.arm * r.arm;
+  return v >= n.need + FIT_BAND ? FIT_TEXT.good : v >= n.need - FIT_BAND ? FIT_TEXT.ok : FIT_TEXT.poor;
+}
+
 /* drawn, not chosen */
 export const AGE = [20, 24];
 export const NUM = [1, 99];
@@ -126,7 +156,7 @@ export function validateCreate(c) {
     }
   }
   if (c.train !== undefined) out.push(...validateSplit(trainKeys(c.kind, Array.isArray(c.pitches) ? c.pitches : null), c.train));
-  const keys = C.keys[c.kind], budget = C.budget[c.kind], cap = C.cap[c.kind];
+  const keys = pointKeys(c), budget = budgetOf(c), cap = C.cap[c.kind];
   if (!sameKeys(c.points, keys)) out.push(`points must hold exactly ${keys.join(', ')}`);
   else {
     for (const k of keys) if (!inRange(c.points[k], [C.floor, cap])) out.push(`${k} must be a whole number from ${C.floor} to ${cap}`);
@@ -159,6 +189,7 @@ export function makePlayer(seed, c) {
   else {
     const con = raw('con', c.points.con);
     Object.assign(p, { pos: c.pos, con, pow: raw('pow', c.points.pow), eye: raw('eye', c.points.eye), age, pot: raw('pot', pot), arm: r3(raw('arm', c.points.arm)), avg: AVG_FIT(con), spd: r3(raw('spd', c.points.spd)), hand: c.bats });
+    if (CREATE.defKey in c.points) p.def = r3(raw('def', c.points.def));
   }
   if (pit && c.pitches) p.pitches = Object.fromEntries(CREATE.pitches.filter(n => c.pitches.includes(n)).map(n => [n, c.points.stuff]));
   const tk = trainKeys(c.kind, pit && c.pitches ? Object.keys(p.pitches) : null), split = c.train || defaultSplit(c.kind, c.role, pit && c.pitches ? Object.keys(p.pitches) : null);
