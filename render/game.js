@@ -845,15 +845,32 @@ let swingClip=null,swingClipP=null;const _sw0=new THREE.Vector3(),_sw1=new THREE
 const swTime=u=>Math.max(SW_START,Math.min(SW_END,SW_CONTACT+(u-ARRIVE)));
 function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
   return Math.min(ease(sat01((u-a)/SW_IN)),1-ease(sat01((u-o[0])/(o[1]-o[0]))))}
+/* #303: a bunt plays bunt_124_08.json instead (square 52-64, hold 64-80, time warp and weight in render/bunt_clip.js). The clip has its
+   own crouch, so the knee-bend drop of the ground frame (buntDrop) is taken back by the clip weight; the bat follows the hands as on the swing,
+   and buntContact() then reads the clip's bat, so the pitch still ends on the sweet spot. */
+let buntClip=null,buntClipP=null,BCL=null;
+import(new URL('bunt_clip.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{BCL=M}).catch(err=>console.warn('bunt clip off',err));
 function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
-  if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
-  const w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return;
+  const bu=e.r==='inplay'&&e.play&&e.play.bunt;let w;
+  if(bu){if(BCL&&!buntClipP&&window.PL&&PL.loadClip)buntClipP=PL.loadClip(BCL.BUNT_CLIP_URL).then(c=>{buntClip=c}).catch(x=>console.warn('mocap',x));
+    w=buntClip&&BCL&&batter.g.visible?BCL.buntClipW(true,u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0;
+    batter.setMocap(buntClip,w>0?BCL.buntClipTime(u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0,w,false,BCL?BCL.BUNT_CLIP_T0:0,0);if(w<=0)return;
+    batter.g.position.y+=buntDrop*w}
+  else{if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
+    w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return}
   batter.handWorld(1,_sw0);batter.handWorld(0,_sw1);/* bottom hand (arms[1]) holds the handle, top hand (arms[0]) gives the axis */
   const up=batPivot.parent;up.updateMatrixWorld(true);_sw1.sub(_sw0);const L=_sw1.length();
   up.worldToLocal(_sw0);batPivot.position.lerp(_sw0,w);
   if(L>SW_HAND_GAP_MIN){_swm.copy(up.matrixWorld).invert();_sw1.transformDirection(_swm);_bv.set(0,1,0).applyQuaternion(batPivot.quaternion).lerp(_sw1,w).normalize();batPivot.quaternion.setFromUnitVectors(_up,_bv)}}
 /* World position of the bat's sweet spot (call after batterWalk has placed the batter): a bunted pitch ends here and the bunted ball starts here */
 function buntContact(){batter.g.updateMatrixWorld(true);_ugs.set(0,BUNT_SWEET,0);bat.localToWorld(_ugs);buntPt[0]=_ugs.x;buntPt[1]=_ugs.y;buntPt[2]=_ugs.z;return buntPt}
+/* Where the bunted ball leaves the bat: the live sweet spot up to contact; after ARRIVE the spot at ARRIVE, so the ball does not follow the bat
+   as the clip hands back to the run (pose at ARRIVE once per event and clip state, then the pose at u again) */
+let buntAt=null;
+function buntHit(e,u){if(u<=ARRIVE)return buntContact().slice();
+  if(buntAt&&buntAt.e===e&&buntAt.c===buntClip&&buntAt.m===BCL)return buntAt.p;
+  poseBatter(e,ARRIVE);batterWalk(e,ARRIVE);batterMocap(e,ARRIVE);const p=buntContact().slice();
+  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);buntAt={e,c:buntClip,m:BCL,p};return p}
 const BAT_HAND_GAP=.09,BUNT_CRACK=.3,HIT0=[0,1,.3];/* HIT0: where a swung-at ball leaves the bat */
 /* Six runner bodies: up to four movers or base runners of this play plus scorers of earlier plays still jogging off to their dugout (#43) */
 const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
@@ -1394,7 +1411,7 @@ function poseScene(e,u,dt,ei){
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
-  const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
+  const hit0=bunt?buntHit(e,u):HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
   else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
