@@ -959,11 +959,16 @@ function u2Plan(ev,i){const e=ev[i];if(!e)return null;if(u2Cache.has(e))return u
     if(e.k==='P'&&e.r==='inplay')go=Math.max(go,ARRIVE+ST_U2_SETTLE);if(Number.isFinite(e.d))go=Math.max(0,Math.min(go,e.d-T));
     pl={go,t:T,path:odPath([u2Spot(a),u2Spot(b)])}}
   const r={a,b,pl};u2Cache.set(e,r);return r}
+/* #42: from inside he turns to watch the play at first while U1 calls it (render/u2watch.js; no turn until the module is in) */
+let u2wM=null;import(new URL('u2watch.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{u2wM=M}).catch(err=>console.warn('u2 watch off',err));
+function u2Watch(f,e,u){if(!u2wM)return;const w=u2wM.watchWeight(bcCalls(e),1,u,{up:BC_UP,hold:BC_HOLD,down:BC_DOWN});if(w<=0)return;
+  const p=f.g.position,[bx,bz]=BASES[1];f.g.rotation.y=u2wM.turnYaw(f.g.rotation.y,p.x,p.z,bx,bz,u2wM.U2_WATCH.TURN*w)}
 const u2End=(ev,i)=>{const q=u2Plan(ev,i);return q&&q.pl?q.pl.go+q.pl.t:0};/* cpEvents: he moves until here */
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u)});
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);
+    if(i===1&&!mv&&!f.armsHeld&&x===ST_U2_IN[0]&&z===ST_U2_IN[1])u2Watch(f,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
