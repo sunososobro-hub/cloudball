@@ -2290,16 +2290,17 @@ function introScene(now){if($('intro').hidden||!introM||renderer.xr&&renderer.xr
   const fov=fitFov(c.fov);if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}
 /* #209 item 2, part 3 (render/wear.js): on max the scuffs of the game so far are painted on the field canvas, a function of the pitch count before the current event
    (every repaint starts from a clean copy). Dabs are drawn like the #150 static ones; the texture is re-uploaded only when the pitch count changes. */
-let wearM=null,wearBk=null,wearN=-1,wearEv=null,wearPre=null;import(new URL('wear.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{wearM=M}).catch(err=>console.warn('ground wear off',err));
+let wearM=null,wearBk=null,wearN=-1,wearEv=null,wearPre=null,wearDr=null;const WEAR_BASES=[[0,0],[19.4,-19.4],[0,-38.8],[-19.4,-19.4],[0,0]];import(new URL('wear.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{wearM=M}).catch(err=>console.warn('ground wear off',err));
 function wearTick(i){
   if(!gfxMax||!wearM||!FIELD_CV||!game)return;
-  if(wearEv!==game.ev){wearEv=game.ev;wearPre=wearM.pitchPrefix(game.ev);wearN=-1}
-  const n=wearPre[i]||0;if(n===wearN)return;
+  if(wearEv!==game.ev){wearEv=game.ev;wearPre=wearM.pitchPrefix(game.ev);wearDr=wearM.slideDrags(game.ev,WEAR_BASES);wearN=-1}
+  const dr=wearM.dragsBefore(wearDr,i),n=(wearPre[i]||0)+':'+dr.length;if(n===wearN)return;
   const {c,g,X,Y,S,t}=FIELD_CV;
   try{
     if(!wearBk){wearBk=document.createElement('canvas');wearBk.width=c.width;wearBk.height=c.height;wearBk.getContext('2d').drawImage(c,0,0)}
     else{g.globalCompositeOperation='copy';g.drawImage(wearBk,0,0);g.globalCompositeOperation='source-over'}/* always from the clean canvas: wear is a function of n only */
-    for(const d of wearM.wearDabs(n)){const s=d.r*S;g.fillStyle=`rgba(${DIRT_RGB},${d.a})`;g.fillRect(X(d.x)-s/2,Y(d.z)-s/2,s,s*.75)}
+    for(const d of wearM.wearDabs(wearPre[i]||0)){const s=d.r*S;g.fillStyle=`rgba(${DIRT_RGB},${d.a})`;g.fillRect(X(d.x)-s/2,Y(d.z)-s/2,s,s*.75)}
+    g.lineCap='round';for(const d of dr){g.strokeStyle=`rgba(${DIRT_RGB},${d.a})`;g.lineWidth=d.w*S;g.beginPath();g.moveTo(X(d.x0),Y(d.z0));g.lineTo(X(d.x1),Y(d.z1));g.stroke()}/* #209 part 8: slide drag marks */
     t.needsUpdate=true;wearN=n;
   }catch(e){wearN=n;console.warn('ground wear',e)}
 }

@@ -4,7 +4,7 @@
  *   - every dab sits near its spot (inside the spread radius), radius and alpha in range, all numbers finite
  * static.mjs runs this file. Usage: node tests/wear.check.mjs */
 import { simGame } from '../engine/index.js';
-import { pitchPrefix, wearDabs, wearCount, WEAR_FULL_N, WEAR_MAX, WEAR_SPOTS, WEAR_ALPHA, WEAR_KINDS } from '../render/wear.js';
+import { slideDrags, dragsBefore, WEAR_DRAG_MAX, WEAR_SLIDE_D, pitchPrefix, wearDabs, wearCount, WEAR_FULL_N, WEAR_MAX, WEAR_SPOTS, WEAR_ALPHA, WEAR_KINDS } from '../render/wear.js';
 
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 const by = (a, k) => a.filter(d => d.kind === k);
@@ -38,5 +38,30 @@ for (const seed of [1, 2, 3]) {
   if (JSON.stringify(wearDabs(pre[pre.length >> 1])) !== JSON.stringify(wearDabs(pitchPrefix(simGame(seed, {}).ev)[pre.length >> 1]))) bad(`seed ${seed}: wear differs for the same event`);
   if (wearDabs(pre[pre.length - 1]).length < wearDabs(pre[pre.length >> 1]).length) bad(`seed ${seed}: wear shrank later in the game`);
 }
+/* #209 part 8: slide drag marks. Real games: found per event, only before the event, prefix growth, hand-made slide line ends at the bag */
+const BASES = [[0, 0], [19.4, -19.4], [0, -38.8], [-19.4, -19.4], [0, 0]];
+let slides = 0;
+for (let seed = 1; seed <= 40; seed++) {
+  const g = simGame(seed, {}), dr = slideDrags(g.ev, BASES);
+  slides += dr.length;
+  if (JSON.stringify(dr) !== JSON.stringify(slideDrags(g.ev, BASES))) bad(`seed ${seed}: drags not deterministic`);
+  let last = 0;
+  for (let i = 0; i <= g.ev.length; i += 5) {
+    const k = dragsBefore(dr, i);
+    if (k.some(d => d.i >= i)) bad(`seed ${seed}: drag from event ${i} or later shown at ${i}`);
+    if (k.length > WEAR_DRAG_MAX) bad(`seed ${seed}: ${k.length} drags over the cap`);
+    if (k.length < Math.min(last, WEAR_DRAG_MAX)) bad(`seed ${seed}: drags shrank at ${i}`);
+    last = k.length;
+  }
+}
+if (slides < 5) bad(`only ${slides} slides in 40 games: the check sees nothing`);
+const fake = [{ k: 'P', moves: [[1, 2, 'A', { slide: true, slideTime: .5, ts: 1 }]] }, { k: 'P', moves: [[0, 1, 'B', { slide: false, slideTime: 0 }], [2, 2, 'C', null]] }];
+const fd = slideDrags(fake, BASES);
+if (fd.length !== 1 || fd[0].i !== 0) bad('hand-made: exactly one drag, from event 0');
+else {
+  const d = fd[0]; if (Math.hypot(d.x0 - d.x1, d.z0 - d.z1) < WEAR_SLIDE_D * .9 - 1) bad('hand-made: drag too short');
+  if (Math.hypot(d.x1 - BASES[2][0], d.z1 - BASES[2][1]) > .5) bad('hand-made: drag does not end at the bag');
+  if (dragsBefore(fd, 0).length !== 0 || dragsBefore(fd, 1).length !== 1) bad('hand-made: drag shown at the wrong event');
+}
 if (problems.length) { console.log('wear check FAILED\n' + problems.join('\n')); process.exit(1); }
-console.log(`wear check ok (${full.length} dabs at full wear)`);
+console.log(`wear check ok (${full.length} dabs at full wear, ${slides} slide drags in 40 games)`);
