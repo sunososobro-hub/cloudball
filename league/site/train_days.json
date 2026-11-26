@@ -1,0 +1,18 @@
+{
+ "seed": 369,
+ "players": 1000,
+ "horizon": 540,
+ "target": 62,
+ "hands": {
+  "share": 0.56,
+  "p25": 42,
+  "median": 64,
+  "p75": 85
+ },
+ "active": {
+  "share": 0.56,
+  "p25": 21,
+  "median": 32,
+  "p75": 43
+ }
+}

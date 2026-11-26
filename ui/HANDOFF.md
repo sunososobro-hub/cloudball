@@ -20,3 +20,4 @@ Agent: the interface window: `ui/`, `functions/`, root files.
 - New development control? Class `dev-only` + add its id to `DEV_ONLY_PAGES` in `tests/site.check.mjs`. `ui/stats.js`: `prev`/`live` state, seek fires before the scorebug changes.
 - Re-recording opening.json is a remaster (`--remaster`, pin `FROZEN` in `tests/opening.check.mjs`); read it through `league/recording.js`.
 - `#introStatus` stays hidden on purpose; the scorebug footer says 「開發版」 on production (owner's call).
+- #429 part 1 (2026-11-26): 我的球員 → 訓練 (`#me/train`, `ui/site/train.js`): split sliders (sum 100), 放養 (days from `league/site/train_days.json`, written by `league/tools/train_days.mjs` out of train_sim; rerun `--write` when the model changes), 認真玩 (`baseball9.html?player=&side=`; practice result kept in localStorage `cloudball.trainResult`, shown as the #369 bonus number). Local only. Not done: pitches in the pitcher's split (site data has no pitch list), server credit.
