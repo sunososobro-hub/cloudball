@@ -5,10 +5,13 @@ on:
     branches: [dev, main]
 permissions:
   contents: read
+# #472: a push run belongs to one commit and is never cancelled, so a red on dev points at one merge;
+# a PR run is replaced by the next push to the same PR.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  # The required PR check: a quick smoke (about 20 s). Rates and the browser are left to `full`.
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -19,7 +22,26 @@ jobs:
           node-version: 22
       - name: Static site check (no missing files, scripts parse)
         run: node tests/replay/static.mjs
-      - name: Headless game suite (1000 full games)
+      - name: Headless game suite (200 games, every rule check, rates not checked)
         run: node tests/replay/run.mjs
+        env:
+          GAMES: 200
       - name: Commentary checks
         run: node tests/replay/commentary.mjs
+  # Full quality: pushes to dev / main and PRs into main. 1000 games with the league-rate tolerances,
+  # then a browser smoke: play.html boots, a game starts, no page error, the centre of the frame is not all black.
+  full:
+    if: github.event_name == 'push' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Headless game suite (1000 full games, league rates checked)
+        run: node tests/replay/run.mjs
+      - name: Install Playwright Chromium
+        run: npm install --no-save --no-package-lock playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Browser smoke (play.html starts a game and draws)
+        run: node tests/smoke/play.mjs
