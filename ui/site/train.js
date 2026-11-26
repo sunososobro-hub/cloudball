@@ -5,7 +5,7 @@
  * changes, no weekly cap, no server credit (season-1 design). The practice score never converts to ability: it becomes the
  * plain bonus number of league/training.js (#369), shown here and nowhere else. Pure helpers first, `mountTrain` last. */
 import { esc, ABILITY_LABEL } from './shared.js';
-import { KEYS, SPLIT_TOTAL, ACTIVE_BONUS, validateSplit, defaultSplit } from '../../league/training.js';
+import { SPLIT_TOTAL, ACTIVE_BONUS, validateSplit, defaultSplit, trainKeys } from '../../league/training.js';
 
 export const TRAIN_FILE = 'league/site/train_days.json';
 export const SPLIT_KEY = 'cloudball.trainSplit.';   /* + player id */
@@ -19,10 +19,12 @@ export const sideOf = p => (kindOf(p) === 'pit' ? 'pitch' : 'bat');
 export const bonusOf = r => (r && r.tier === 'full' ? ACTIVE_BONUS : r && r.tier === 'half' ? BONUS_HALF : 0);
 export const gameUrl = (id, side) => `${GAME_PAGE}?player=${encodeURIComponent(id)}&side=${side}`;
 
-/* the saved split when it is a legal one for this player, else his default (pitchers by role, batters even) */
+/* the split keys of this player: the abilities, plus each pitch of a pitcher's list (#378; site data carries the names in `p.pitches`) */
+export const keysOf = p => trainKeys(kindOf(p), kindOf(p) === 'pit' && Array.isArray(p.pitches) && p.pitches.length ? p.pitches : null);
+/* the saved split when it is a legal one for this player, else his default (pitchers by role and pitch list, batters even) */
 export function splitOf(p, saved) {
-  const kind = kindOf(p);
-  return saved && !validateSplit(KEYS[kind], saved).length ? { ...saved } : defaultSplit(kind, p && p.pos);
+  const kind = kindOf(p), keys = keysOf(p);
+  return saved && !validateSplit(keys, saved).length ? { ...saved } : defaultSplit(kind, p && p.pos, keys.filter(k => !trainKeys(kind).includes(k)));
 }
 /* move one slider to pct (whole, 0..100); the others share what is left in their old ratio, whole percents, sum stays 100 */
 export function setShare(split, key, pct) {
@@ -49,21 +51,21 @@ export const trainShell = '<section id="train-root" class="train"></section>';
 
 /* ctx: { doc, player, id, table, load(key) -> string|null, save(key, string), go(url) }; builds the screen in root */
 export function mountTrain(root, ctx) {
-  const { doc, player: p, id } = ctx, kind = kindOf(p), el = (tag, cls, text) => { const e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const { doc, player: p, id } = ctx, keys = keysOf(p), el = (tag, cls, text) => { const e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const read = key => { try { return JSON.parse(ctx.load(key)); } catch (e) { return null; } };
   let split = splitOf(p, read(SPLIT_KEY + id));
   root.textContent = '';
   root.append(el('h2', '', `訓練：${p.name}`), el('p', 'mut', '決定他每天練什麼（加起來 100%），再選放養或自己打九宮格。成績只留在這個瀏覽器，不會直接改能力。'));
   const rows = {}, total = el('p', 'train-total', ''), note = el('p', 'train-note', ''), out = el('p', 'train-result', '');
-  for (const k of KEYS[kind]) {
+  for (const k of keys) {
     const row = el('label', 'train-row'), name = el('span', '', ABILITY_LABEL[k] || k), pct = el('span', 'num', ''), range = el('input', '');
     range.type = 'range'; range.min = 0; range.max = SPLIT_TOTAL; range.step = 1; range.dataset.k = k; range.setAttribute('aria-label', ABILITY_LABEL[k] || k);
     range.oninput = () => { split = setShare(split, k, range.value); ctx.save(SPLIT_KEY + id, JSON.stringify(split)); sync(); };
     row.append(name, range, pct); rows[k] = { range, pct }; root.append(row);
   }
   function sync() {
-    for (const k of KEYS[kind]) { rows[k].range.value = split[k]; rows[k].pct.textContent = `${split[k]}%`; }
-    total.textContent = `合計 ${KEYS[kind].reduce((t, k) => t + split[k], 0)}%`;
+    for (const k of keys) { rows[k].range.value = split[k]; rows[k].pct.textContent = `${split[k]}%`; }
+    total.textContent = `合計 ${keys.reduce((t, k) => t + split[k], 0)}%`;
   }
   const hands = el('button', 'big', '放養：讓他自己練'), play = el('button', 'big', '認真玩：打九宮格');
   hands.type = play.type = 'button'; hands.dataset.mode = 'hands'; play.dataset.mode = 'play';

@@ -1,8 +1,8 @@
 /* 我的球員 訓練 screen (#429): the 訓練 entry, the split sliders (always sum 100), both modes reachable, the practice result shown as the plain bonus
  * number, and the 放養 numbers equal a fresh train_sim run. The screen is driven on a tiny fake DOM. Usage: node tests/train.check.mjs */
 import { readFileSync } from 'node:fs';
-import { combine, render } from '../ui/site-data.js';
-import { mountTrain, setShare, splitOf, bonusOf, sideOf, gameUrl, handsOffText, SPLIT_KEY, RESULT_KEY, BONUS_HALF } from '../ui/site/train.js';
+import { combine, render, mergeCreated } from '../ui/site-data.js';
+import { mountTrain, keysOf, setShare, splitOf, bonusOf, sideOf, gameUrl, handsOffText, SPLIT_KEY, RESULT_KEY, BONUS_HALF } from '../ui/site/train.js';
 import { KEYS, ACTIVE_BONUS, validateSplit } from '../league/training.js';
 import { table } from '../league/tools/train_days.mjs';
 
@@ -63,5 +63,17 @@ const html = readFileSync(new URL('../baseball9.html', import.meta.url), 'utf8')
 if (!/id="me-link"/.test(html)) bad('baseball9.html has no link back to 我的球員');
 const scr = readFileSync(new URL('../ui/baseball9/screen.js', import.meta.url), 'utf8');
 if (!/cloudball\.trainResult/.test(scr) || /fetch\(|XMLHttpRequest|sendBeacon/.test(scr)) bad('screen.js: keep the result in localStorage only, no network');
+
+/* pitches in the pitcher's split (#429 part 2): the list comes through mergeCreated, each pitch is a slider, the split sums to 100 */
+const made = mergeCreated(combine({}), [{ id: 'p9', kind: 'pit', player: { name: '新球', age: 20, role: 'SP', throws: 'R', pitches: { 直球: 60, 滑球: 60, 曲球: 60 } }, ratings: { ovr: 50, stuff: 60, ctrl: 60, arm: 60 } }]).players.p9;
+if (JSON.stringify(made.pitches) !== JSON.stringify(['直球', '滑球', '曲球'])) bad('mergeCreated drops the pitch list: ' + JSON.stringify(made.pitches));
+if (keysOf(made).length !== KEYS.pit.length + 3 || keysOf(bat).length !== KEYS.bat.length || keysOf(pit).length !== KEYS.pit.length) bad('keysOf: abilities + one key per pitch, batters and list-less pitchers unchanged');
+const withP = run(made, 'p9'), sp = JSON.parse(JSON.stringify(splitOf(made, null)));
+if (withP.sliders.length !== KEYS.pit.length + 3 || !withP.text().includes('滑球') || !withP.text().includes('合計 100%') || sum(sp) !== 100) bad('pitch sliders / total missing: ' + withP.sliders.length);
+withP.sliders[KEYS.pit.length].value = 40; withP.sliders[KEYS.pit.length].oninput();
+const sv = JSON.parse(withP.mem[SPLIT_KEY + 'p9']);
+if (sum(sv) !== 100 || validateSplit(keysOf(made), sv).length || sv[Object.keys(sv)[KEYS.pit.length]] !== 40) bad('pitch split after a move: ' + JSON.stringify(sv));
+if (JSON.stringify(run(made, 'p9', sv).sliders.map(s => +s.value)) !== JSON.stringify(keysOf(made).map(k => sv[k]))) bad('pitch split not restored');
+if (JSON.stringify(splitOf(made, { stuff: 40, ctrl: 30, arm: 30 })) !== JSON.stringify(sp)) bad('an old split without the pitches must fall back to the default');
 if (problems.length) { console.error('train.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
-console.log('train.check ok (both kinds, split sums to 100, both modes, result bonus shown, days = train_sim)');
+console.log('train.check ok (both kinds, split sums to 100, both modes, result bonus shown, days = train_sim, pitches in the pitcher split)');

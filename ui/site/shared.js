@@ -31,7 +31,8 @@ export function mergeCreated(d, rows) {
     if (!p || !R || typeof p !== 'object' || id == null || id === '' || players[id]) continue;
     const pit = r.kind === 'pit', keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
     players[id] = { name: p.name, num: p.num, age: p.age, role: pit ? 'P' : 'B', pos: pit ? (p.role === 'SP' ? 'SP' : 'RP') : p.pos, hand: pit ? p.throws : p.hand,
-      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3 };
+      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3,
+      ...(pit && p.pitches && typeof p.pitches === 'object' ? { pitches: Object.keys(p.pitches) } : {}) };  /* #429: the pitch list, names only, for the training split */
   }
   return { ...d, players };
 }
