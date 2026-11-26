@@ -158,6 +158,22 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
       if (![...who].some(b => b.opts.role === 'batter')) bad('3D acts: the batter must swing');
       f4.skip(); if (!calls.slice(-2).every(c => c[1] === null)) bad('3D acts: skip() must let the clips go');
       void now0; globalThis.requestAnimationFrame = raf0; }
+    /* #563 part 4: the fan's own player: his /api/freeagents row becomes the batter (bat practice) or the pitcher (pitch practice) with his body, height and look;
+       the other body goes back to its stock look; no row = his id look; no id = nothing changes. */
+    { const row = { id: 'fa9', kind: 'bat', player: { id: 'fa9', hand: 'R', body: { belly: .5 }, ht: 1.9, look: { head: 3, skin: 0, hair: 2 } }, ratings: {} };
+      const sp = F3.meSpecOf([{ id: 'x', player: { id: 'x' } }, row], 'fa9'), seen = [], hop = p => { seen.push(p); return 77; };
+      if (!sp || sp.id !== 'fa9' || sp.ht !== 1.9 || sp.head !== 3 || sp.hair !== 2) bad('meSpecOf must find his row by id: ' + JSON.stringify(sp));
+      if (F3.meSpecOf([row], 'nope') !== null || F3.meSpecOf(null, 'fa9') !== null || F3.meSpecOf([row], '') !== null) bad('meSpecOf without his row must be null');
+      const a = F3.meBuild(sp, hop); if (!a || a[0].belly !== .5 || a[1] !== 1.9 || a[2] !== 77 || seen[0].id !== 'fa9' || seen[0].look.head !== 3 || seen[0].look.hair !== 2) bad('meBuild: body / height / head index ' + JSON.stringify(a));
+      const b = F3.meBuild({ id: 'p1' }, hop); if (!b || b[0] !== 'normal' || b[1] !== undefined || b[2] !== 77) bad('meBuild with only an id must give his id look');
+      if (F3.meBuild(null, hop) !== null || F3.meBuild({ id: '' }, hop) !== null || F3.meBuild(sp, null) !== null) bad('meBuild without an id or headOfPlayer must be null');
+      const built = []; const mk2 = o => { const b2 = { g: fake('g'), opts: o, buildArgs: ['normal', undefined, 0] }; b2.setBuild = (...x) => { b2.buildArgs = x; built.push([b2, x]); }; return b2; }, bod = [];
+      const f5 = await F3.createField3D(canvas, THREE, { PL: { makePlayer: o => { const x = mk2(o); bod.push(x); return x; }, headOfPlayer: hop } });
+      const bat = bod.find(x => x.opts.role === 'batter'), pit = bod[0];
+      f5.setMe(sp, 'bat'); if (bat.buildArgs[2] !== 77 || bat.buildArgs[1] !== 1.9 || pit.buildArgs[2] !== 0) bad('setMe bat: the batter must wear his look, the pitcher stays stock');
+      f5.setMe(sp, 'pitch'); if (pit.buildArgs[2] !== 77 || bat.buildArgs[2] !== 0 || bat.buildArgs[0] !== 'normal') bad('setMe pitch: the pitcher wears his look, the batter goes back to stock');
+      if (built.some(([x]) => x !== bat && x !== pit)) bad('setMe must only touch the batter and the pitcher');
+      f5.setMe(null, 'bat'); if (pit.buildArgs[2] !== 0 || bat.buildArgs[2] !== 0) bad('setMe(null) must leave both stock'); }
     const f3 = await F3.createField3D(canvas, THREE, { PL: { makePlayer() { throw new Error('no body'); } } }); if (!f3) bad('a throwing makePlayer must fall back to the low-poly figures'); } }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }

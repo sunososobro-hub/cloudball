@@ -7,6 +7,7 @@
 import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
 import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S, PITCH_S } from './field.js';
+import { specOfRow } from '../preview-spec.js';
 
 export const CAM = { fov: 42, pos: [0, 9, -24], look: [0, 3, 30] };      // #563 part 3: broadcast angle, low behind home plate, pitcher and plate framed
 /** #563 part 3: the camera follows a ball in play like the broadcast: it widens and rises toward CAM_HIT and leans toward the ball (CAM_LEAN of its way, never
@@ -90,7 +91,15 @@ export function buildPark(THREE, scene, K = kit(THREE)) {
   }
 }
 
-/** The 3D field. -> Promise<{play(out), skip(), setSpeed(n), dispose()} | null>.
+/** #563 part 4: the fan's own player on the field (認真玩 from 我的球員, baseball9.html?player=<id>). Pure.
+ *  `meSpecOf(rows, id)` = his row of /api/freeagents as a ui/preview-spec.js spec (body, height, look); no row -> null.
+ *  `meBuild(spec, headOfPlayer)` -> the setBuild args [build, height, head index] render/ uses for him; a spec with only `id` gets his id look. No id -> null. */
+export const meSpecOf = (rows, id) => { if (id == null || id === '' || !Array.isArray(rows)) return null;
+  const r = rows.find(x => x && x.player && typeof x.player === 'object' && String(x.id ?? x.player.id) === String(id)); return r ? { ...specOfRow(r), id: String(id) } : null; };
+export const meBuild = (spec, headOfPlayer) => !spec || spec.id == null || spec.id === '' || typeof headOfPlayer !== 'function' ? null
+  : [spec.body && Object.keys(spec.body).length ? spec.body : 'normal', spec.ht > 0 ? spec.ht : undefined, headOfPlayer({ id: spec.id, look: { head: spec.head | 0, skin: 0, hair: spec.hair | 0 } })];
+
+/** The 3D field. -> Promise<{play(out), skip(), setSpeed(n), setMe(spec, side), dispose()} | null>.
  *  `opts.PL` = the render/players.js module (#563 part 1): bodies come from its `makePlayer` (the broadcast bodies); without it (tests, load failure) the low-poly figure stays. */
 export async function createField3D(canvas, THREE, opts = {}) {
   if (!canvas || !THREE || typeof THREE.WebGPURenderer !== 'function') return null;
@@ -125,6 +134,7 @@ export async function createField3D(canvas, THREE, opts = {}) {
   const clips = {}, loadAct = (k, url) => { if (!clips[k] && PL && PL.loadClip) { clips[k] = 0; PL.loadClip(url).then(c => { clips[k] = c; }).catch(() => { /* no clip: no act */ }); } };
   const fp = pitcher && figs.get(pitcher), fb = figs.get(batter), setAct = (f, c, ct, w, t0, mir) => { if (f && f.setMocap && c) f.setMocap(c, ct, w, mir, t0, 0); };
   const clearActs = () => { for (const f of [fp, fb]) if (f && f.setMocap) f.setMocap(null, 0, 0); };
+  const init = new Map([fp, fb].filter(f => f && f.setBuild).map(f => [f, (f.buildArgs || ['normal', undefined, 0]).slice()]));   // #563 part 4: the stock look, back when the fan switches side
   const acts = t => {
     if (!S) return;
     if (fp && clips.pitch) { const a = pitchAct(t); setAct(fp, clips.pitch, a.ct, a.w, PM.start, !!fp.mirrored); }
@@ -149,6 +159,10 @@ export async function createField3D(canvas, THREE, opts = {}) {
       for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z }); }
       t0 = performance.now(); raf = requestAnimationFrame(frame); },
     skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); clearActs(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); cam.fov = CAM.fov; cam.position.set(...CAM.pos); cam.lookAt(...CAM.look); cam.updateProjectionMatrix(); draw(); },
+    /** #563 part 4: `side` 'bat' -> the fan's player is the batter, 'pitch' -> the pitcher; the other body goes back to its stock look. Picture only (rule 10). */
+    setMe(spec, side) { const a = PL ? meBuild(spec, PL.headOfPlayer) : null, me = side === 'pitch' ? fp : side === 'bat' ? fb : null;
+      for (const [f, args] of init) { try { f.setBuild(...(f === me && a ? a : args)); } catch (e) { /* keep the body as it is */ } }
+      if (!raf) draw(); },
     setSpeed(n) { if (SPEEDS.includes(n)) { const now = performance.now(); if (S) t0 = now - (now - t0) * speed / n; speed = n; } },
     dispose() { api.skip(); if (renderer.dispose) renderer.dispose(); },
   };
