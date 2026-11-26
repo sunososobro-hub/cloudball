@@ -125,7 +125,15 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
   let g = Gm.createGame({ rnd: seeded(5) }), n = 0, played = 0; while (!g.S.over && n++ < 60) { const o = g.pitch(g.userBats() ? { mode: 'one', r: 1 + n % 3, c: 1 + (n >> 1) % 3, steal: false, app: 'mid' } : { pt: 'fb', r: n % 5, c: (n >> 1) % 5, shift: 'N' }); f.play(o); played++; f.setSpeed(F.SPEEDS[n % 2]); f.skip(); }
   if (!played) bad('3D field played nothing');
   const fb = await F3.openField({ width: 360, height: 270 }, () => { throw new Error('no three'); }); if (fb !== null) bad('openField with no 3D and no 2D context must return null');
-  if (F3.CAM.pos[2] >= 0 || F3.TRAIL_N < 2) bad('3D camera must sit behind home plate'); }
+  if (F3.CAM.pos[2] >= 0 || F3.TRAIL_N < 2) bad('3D camera must sit behind home plate');
+  /* #563 part 1: with the render/ player module the bodies are makePlayer bodies (8 fielders + catcher + batter, runners later), facing the plate; a throwing makePlayer falls back */
+  { const calls = [], PL = { makePlayer: o => { calls.push(o); return { g: fake('g') }; } };
+    const f2 = await F3.createField3D(canvas, THREE, { PL }); if (!f2) bad('createField3D with PL must still return a field');
+    if (calls.length !== 10) bad('3D field must build 10 makePlayer bodies, built ' + calls.length);
+    if (calls.filter(o => o.role === 'batter').length !== 1 || calls.filter(o => o.glove).length !== 9) bad('3D field: one batter, nine gloves expected');
+    const o = Gm.createGame({ rnd: seeded(9) }); let k = 0, last = null; while (!o.S.over && k++ < 12) last = o.pitch(o.userBats() ? { mode: 'one', r: 1, c: 1, steal: false, app: 'mid' } : { pt: 'fb', r: 2, c: 2, shift: 'N' }), f2.play(last), f2.skip();
+    if (Math.abs(F3.faceYaw(0, 18, 0, 0)) !== Math.PI || F3.faceYaw(0, 0, 0, 5) !== 0 || F3.faceYaw(1.3, .2, 0, .2) >= 0) bad('faceYaw must turn a +z-front body toward the target');
+    const f3 = await F3.createField3D(canvas, THREE, { PL: { makePlayer() { throw new Error('no body'); } } }); if (!f3) bad('a throwing makePlayer must fall back to the low-poly figures'); } }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');
