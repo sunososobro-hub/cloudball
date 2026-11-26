@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.15';
+export const ENGINE_VERSION = '0.4.16';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -168,7 +168,10 @@ export const OF_BOBBLE_TIME = 1.6;
 export const WILD_THROW_SHARE = 0.4;
 export const WILD_THROW_PAST = [6, 6];
 export const DP_TRY_P = 0.44;
-export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
+/* Runner on third, fewer than two outs, ball caught by an outfielder (fly or liner): he tags and scores with this chance.
+ * Tuned so SF/game approaches tests/replay/run.mjs REFERENCE (MLB 2025 0.54, #38): 0.8 gave 0.40, 0.9 gives 0.45 on 10,000
+ * games. The rest of the gap is chances, not this rate (about 0.5 outfield catches a game with a runner on third). */
+export const SAC_FLY_P = 0.9;
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
 export const GB_ADVANCE_P = 0.5;
 export const STEAL_CONSIDER_P = 0.4;       /* 0.48 before #38 part 4: steals of third now take their share of SB/game */
