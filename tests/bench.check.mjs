@@ -4,7 +4,7 @@
  *   - league/players.js does not hold what league/tools/bench.mjs draws (hand edits or a stale draw),
  *   - a bench player reads outside BENCH_OVR on the 1 to 100 scale, the pinch runner (x3) is not the fastest on the bench or
  *     reads under RUNNER_SPD on speed, or the pinch-hit bat (x4) is not better than the weakest lineup batter,
- *   - with substitutions off (pinchHit and pinchRun false) the engine game changes when the bench is present:
+ *   - with substitutions off (pinchHit, pinchRun and defSub false) the engine game changes when the bench is present:
  *     simGame on SEEDS with and without `bench` must give the same stream, byte for byte.
  * Usage: node tests/bench.check.mjs */
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,7 +17,7 @@ const { STAFF } = await imp('league/staff.js');
 const { ratingsOf } = await imp('league/ratings.js');
 const { draw, BENCH_SIZE } = await imp('league/tools/bench.mjs');
 const { simGame } = await imp('engine/index.js');
-const NO_SUBS = { pinchHit: false, pinchRun: false };   /* the bench only plays when substitutions are on (#436 part 5) */
+const NO_SUBS = { pinchHit: false, pinchRun: false, defSub: false };   /* the bench only plays when substitutions are on (#436 parts 5, 8) */
 const K = await imp('engine/constants.js');
 
 const BENCH_OVR = [35, 90], RUNNER_SPD = 85, SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];

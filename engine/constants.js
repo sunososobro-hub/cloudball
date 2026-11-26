@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.16';
+export const ENGINE_VERSION = '0.4.17';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -253,8 +253,8 @@ export const PR_MIN_INNING = 8;           /* asked only from this inning on, for
 export const PR_EDGE = 0.15;              /* asked only when the fastest bench man's spd is this much higher (bench x3 runners ~1.3 vs ~0.95) */
 export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runner only within this many runs */
 export const PR_DUR = 8;                  /* seconds of the pinch-run frame (jog out from the dugout) */
-/* defensive replacement (#436 part 7, off: factory games byte for byte); simGame opts.defSub overrides */
-export const DEF_SUB_ON = false;
+/* defensive replacement (#436 part 7, on since part 8 / 0.4.17); simGame opts.defSub overrides */
+export const DEF_SUB_ON = true;
 export const DS_MIN_INNING = 8;           /* asked only from this inning on, at the start of the half the leading team fields */
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
