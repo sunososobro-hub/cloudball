@@ -19,3 +19,4 @@ a { color: var(--acc); } button { font: inherit; color: inherit; cursor: pointer
 .row { display: flex; gap: 8px; } .row button { flex: 1; min-height: 48px; border: 1px solid var(--line); border-radius: 10px; background: var(--cell); }
 [hidden] { display: none !important; }
 #gline { white-space: pre-wrap; margin: 4px 0 10px; font: inherit; } #gstealbox { display: block; min-height: 44px; margin: 4px 0 10px; }
+#gfield { display: block; width: 100%; max-width: 420px; height: auto; aspect-ratio: 4 / 3; margin: 6px auto; border: 1px solid var(--line); border-radius: 10px; } #gfbar { max-width: 420px; margin: 0 auto 10px; } #gfbar button { min-height: 44px; }
