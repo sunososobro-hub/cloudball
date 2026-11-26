@@ -12,13 +12,15 @@
  * RATING_TOP (the star line of league/ratings.js, the rare tail), exact from the constants and as drawn.
  * Pitch lists (#378 part 2): the pitchers again, each with 1, 3 and 5 pitches (CREATE.pitches in order, the default
  * split of his role with that list; 5 is more than a created pitcher starts with, as if he learned two), hands-off and
- * active: days to the 一軍 median and the mean pitch rating gained after one season. */
+ * active: days to the 一軍 median and the mean pitch rating gained after one season.
+ * Learning (#378 part 5): the 1-pitch pitchers learn the next pitch with learnPitch, at LEARN_SHARE and at LEARN_WIDE
+ * percent, hands-off and active: days until he can throw it (LEARN_AT). */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { CREATE, makePlayer, potShareAtLeast } from '../freeagents.js';
 import { RATING_TOP } from '../ratings.js';
-import { trainDay, overallOf, defaultSplit, ACTIVE_BONUS, DAYS_PER_SEASON, SPLIT_TOTAL } from '../training.js';
+import { trainDay, overallOf, defaultSplit, learnPitch, learnSplit, knownPitches, ACTIVE_BONUS, DAYS_PER_SEASON, SPLIT_TOTAL, LEARN_SHARE } from '../training.js';
 
 export const PLAYERS = 1000, SIM_SEED = 369, SEASONS = 3, HORIZON = SEASONS * DAYS_PER_SEASON, EVEN_EVERY = 10;
 const LOOK = { head: 0, skin: 0, hair: 0 };
@@ -77,10 +79,23 @@ export function pitchRun(made, bonus, seed, goal) {
   return { days, gain: names.reduce((t, k) => t + s.abil[k] - p.pitches[k], 0) / names.length };
 }
 
+/* days until a created pitcher (his list as made) can throw the pitch name, learning it at pct percent of his
+ * training (the rest of his split in its old ratio); Infinity = not within HORIZON */
+export const LEARN_WIDE = 30;
+export function learnDays(made, name, pct, bonus, seed) {
+  const { player: p, ratings } = made;
+  const s = { pit: true, age0: p.age, day: 0, pot: ratings.pot, split: p.train, abil: Object.fromEntries(Object.keys(p.train).map(k => [k, k in ratings ? ratings[k] : p.pitches[k]])) };
+  if (learnPitch(s, name, learnSplit(p.train, name, pct)).length) throw new Error(`learnPitch refused ${name}`);
+  const r = rng(seed);
+  while (!knownPitches(s).includes(name)) { if (s.day >= HORIZON) return Infinity; trainDay(s, r, bonus); }
+  return s.day;
+}
+
 export function simulate() {
   const players = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../site/players.json'), 'utf8'));
   const t = targets(players), goals = [t.median, t.bottom], r = rng(SIM_SEED), res = { hands: [[], []], active: [[], []], 'hands, no pot stop': [[], []], 'active, no pot stop': [[], []] };
   const start = [], pots = [], byPitches = Object.fromEntries(PITCH_COUNTS.flatMap(n => [[`${n} hands`, []], [`${n} active`, []]]));
+  const learn = Object.fromEntries([LEARN_SHARE, LEARN_WIDE].flatMap(n => [[`${n} % hands`, []], [`${n} % active`, []]]));
   for (let i = 0; i < PLAYERS; i++) {
     const made = makePlayer((SIM_SEED * 100003 + i) >>> 0, choiceOf(i, r));
     start.push(made.ratings.ovr); pots.push(made.ratings.pot);
@@ -88,13 +103,15 @@ export function simulate() {
       daysTo(made, bonus, i + 1, goals, free).forEach((d, j) => res[mode][j].push(d));
     if (made.player.role) for (const n of PITCH_COUNTS) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]])
       byPitches[`${n} ${mode}`].push(pitchRun(withPitches(made, n), bonus, i + 1, t.median));
+    if (made.player.role) for (const pct of [LEARN_SHARE, LEARN_WIDE]) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]])
+      learn[`${pct} % ${mode}`].push(learnDays(withPitches(made, 1), CREATE.pitches[1], pct, bonus, i + 1));
   }
-  return { t, res, byPitches, start: start.sort((a, b) => a - b), pots: pots.sort((a, b) => a - b) };
+  return { t, res, byPitches, learn, start: start.sort((a, b) => a - b), pots: pots.sort((a, b) => a - b) };
 }
 
 const fmt = d => (d === Infinity ? 'never' : String(d));
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { t, res, byPitches, start, pots } = simulate();
+  const { t, res, byPitches, learn, start, pots } = simulate();
   console.log(`train_sim (#369): ${PLAYERS} created players (seed ${SIM_SEED}), horizon ${HORIZON} days (${SEASONS} seasons of ${DAYS_PER_SEASON}), active bonus ${ACTIVE_BONUS}/day`);
   console.log(`一軍 (${t.n} players in league/site/players.json): median overall ${t.median}, bottom quartile ${t.bottom}`);
   console.log(`一軍 p75 ${t.p75}; created at day 0: overall p25/median/p75 ${[0.25, 0.5, 0.75].map(q => rank(start, q)).join('/')}, potential (hidden) ${[0.25, 0.5, 0.75].map(q => rank(pots, q)).join('/')}`);
@@ -110,5 +127,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   for (const [k, list] of Object.entries(byPitches)) {
     const d = list.map(x => x.days).sort((a, b) => a - b), got = d.filter(x => x !== Infinity).length, gain = list.reduce((s, x) => s + x.gain, 0) / list.length;
     console.log(`  ${k.replace('hands', 'hands-off').padEnd(12)}: reached ${String(got).padStart(3)}/${list.length}, days p25/median/p75 ${[0.25, 0.5, 0.75].map(q => fmt(rank(d, q))).join('/')}; season-1 gain per pitch ${gain.toFixed(1)}`);
+  }
+  console.log(`learning a second pitch (#378 part 5: ${CREATE.pitches[1]} for the 1-pitch pitchers), days until he can throw it:`);
+  for (const [k, list] of Object.entries(learn)) {
+    const d = [...list].sort((a, b) => a - b), got = d.filter(x => x !== Infinity).length;
+    console.log(`  ${k.replace('hands', 'hands-off').padEnd(14)}: learned ${String(got).padStart(3)}/${list.length}, days p25/median/p75 ${[0.25, 0.5, 0.75].map(q => fmt(rank(d, q))).join('/')}`);
   }
 }
