@@ -4,7 +4,7 @@
  *   - a roster card shows the 系統 tag for a filler, or shows it for anyone else (and the name stays escaped);
  *   - placeFan does not replace the first 系統 player of the same kind, replaces a fan or a 一軍 player or the other kind, or changes its input.
  * Usage: node tests/system.check.mjs */
-import { buildSite } from '../league/tools/site.mjs';
+import { buildSite, placeFans, systemSecond } from '../league/tools/site.mjs';
 import { makePlayer, placeFan, CREATE } from '../league/freeagents.js';
 import { mergeCreated, rosterCards } from '../ui/site/shared.js';
 
@@ -47,6 +47,24 @@ if (r2.replaced !== sysP.id) bad('a pitcher fan must replace the 系統 pitcher'
 const r3 = placeFan(r1.pool, mk(23, 'bat'));
 if (r3.replaced !== null || r3.pool.length !== r1.pool.length + 1) bad('no 系統 batter left: the fan is added and nobody is replaced');
 if (JSON.stringify(pool) !== frozen) bad('placeFan changed its input');
+
+/* placeFans (#437 part 5) */
+const sec = systemSecond(), t0 = Object.keys(sec)[0], frozen2 = JSON.stringify(sec);
+const batFan = mk(31, 'bat').player, pitFan = mk(32, 'pit').player;
+if (JSON.stringify(placeFans(sec)) !== frozen2) bad('placeFans with no fans must change nothing');
+const placed = placeFans(sec, [{ team: t0, player: batFan }, { team: t0, player: pitFan }]);
+const firstBat = sec[t0].find(p => !p.role), firstPit = sec[t0].find(p => p.role);
+if (placed[t0].length !== sec[t0].length) bad('a fan must replace a 系統 player, not grow the 二軍');
+if (placed[t0].some(p => p.id === firstBat.id) || placed[t0].some(p => p.id === firstPit.id)) bad('the first 系統 player of each kind must be gone');
+if (!placed[t0].some(p => p.id === batFan.id) || !placed[t0].some(p => p.id === pitFan.id)) bad('the fans are not on the 二軍');
+if (placed[t0].filter(p => p.system === true).length !== sec[t0].length - 2) bad('exactly two 系統 players must be replaced');
+const site = buildSite({ second: placed });
+if ('system' in site.players[batFan.id] || site.players[batFan.id].tier !== 2) bad('a fan on the site is tier 2 and carries no system flag');
+if (JSON.stringify(sec) !== frozen2) bad('placeFans changed its input');
+let threw = false; try { placeFans(sec, [{ team: 'nope', player: batFan }]); } catch { threw = true; }
+if (!threw) bad('a fan with an unknown team must be an error');
+const full = placeFans(sec, Array.from({ length: 5 }, (_, i) => ({ team: t0, player: mk(40 + i, 'bat').player })));
+if (full[t0].filter(p => !p.role && p.system === true).length !== 0 || full[t0].length !== sec[t0].length + 2) bad('after the 系統 batters are gone more fans are added');
 
 if (problems.length) { console.error('system check FAILED:\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('system check: ok');

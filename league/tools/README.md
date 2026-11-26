@@ -17,7 +17,7 @@ Hand-run tools for league data. Nothing here runs at game time.
   runner, a bat = pinch hitter), ratings around the lineup on the `../ratings.js` scale, names by `names.mjs`.
   `node league/tools/bench.mjs` prints, `--write` rewrites the `bench` lists of `../players.js`. Deterministic
   (`BENCH_SEED`); `tests/bench.check.mjs` fails when the file and the draw differ.
-- `site.mjs` (#336): exports `../site/teams.json`, `players.json`, `games.json` from the league modules and the recorded games (`RECORDED_GAMES`). `node league/tools/site.mjs` prints, `--write` writes. Export only, deterministic; rerun it whenever `players.js`, `ratings.js`, `teams.js` or a recording changes.
+- `site.mjs` (#336): exports `../site/teams.json`, `players.json`, `games.json` from the league modules and the recorded games (`RECORDED_GAMES`). `node league/tools/site.mjs` prints, `--write` writes; `--fans fans.json` (`[{ team, player }]`, #437 part 5) puts real fans on a team's 二軍 in place of 系統 players (default none: same bytes). Export only, deterministic; rerun it whenever `players.js`, `ratings.js`, `teams.js` or a recording changes.
 - `train_sim.mjs` (#369): 1000 seeded created players train day by day with `../training.js`, hands-off and active
   (a full-tier mini-game bonus every day); prints days to reach the 一軍 median and bottom quartile of `../site/players.json`,
   plus what-if rows without the potential stop. `node league/tools/train_sim.mjs`. Deterministic (`SIM_SEED`).
