@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.13';
+export const ENGINE_VERSION = '0.4.14';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -161,6 +161,12 @@ export const STRETCH_1B_P = 0.03;
  * a game between both teams; only some of those are bobbles on a single). */
 export const OF_BOBBLE_1B_P = 0.012;
 export const OF_BOBBLE_TIME = 1.6;
+/* Advancing on an error (#38): a reached-on-error ground ball to an infielder other than the first baseman is a wild
+ * throw past first with this chance: the ball ends WILD_THROW_PAST metres (x, z) beyond the bag in foul territory, the
+ * batter takes second and every runner two bases. First guess, not tuned (MLB infield errors split roughly evenly
+ * between fielding and throwing errors; not every bad throw gets past the first baseman). */
+export const WILD_THROW_SHARE = 0.4;
+export const WILD_THROW_PAST = [6, 6];
 export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
@@ -238,6 +244,12 @@ export const PINCH_HIT_ON = false;
 export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
 export const PH_EDGE = 0.3;               /* coach's own pick is the pinch hitter when his bat value (con x pow) is this much higher */
 export const PH_DUR = 10;                 /* seconds of the pinch-hit frame (walk from the dugout) */
+/* pinch run (#436 part 3): off by default (factory games unchanged); simGame opts.pinchRun overrides */
+export const PINCH_RUN_ON = false;
+export const PR_MIN_INNING = 8;           /* asked only from this inning on, for the lead runner */
+export const PR_EDGE = 0.15;              /* asked only when the fastest bench man's spd is this much higher (bench x3 runners ~1.3 vs ~0.95) */
+export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runner only within this many runs */
+export const PR_DUR = 8;                  /* seconds of the pinch-run frame (jog out from the dugout) */
 export const BUNT_POW_MAX = 1.0;
 export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;

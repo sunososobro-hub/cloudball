@@ -34,12 +34,13 @@ export function simGame(seed, decisions, opts) {
     return { bat: r.bat.slice(), bench: (r.bench || []).slice(), pit: [r.pit[sp], ...rp.slice(o), ...rp.slice(0, o)] };
   });
   const pinchHit = opts.pinchHit ?? K.PINCH_HIT_ON;   /* #436 part 2: off = factory games byte for byte */
+  const pinchRun = opts.pinchRun ?? K.PINCH_RUN_ON;   /* #436 part 3: off = factory games byte for byte */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
   const st = { inn: 1, half: 0, outs: 0, b: [null, null, null], sc: [0, 0], ls: [[], []], H: [0, 0], E: [0, 0],
-    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false, phAsked: false };
+    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false, phAsked: false, prAsked: false };
   const newLine = () => ({ ab: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0 });
   /* stats: one row per player who batted; the first LINEUP_SIZE rows are the starting lineup in order, a pinch hitter
    * gets a new row (batters[k][row] = his name) and row[k][slot] points at the row of whoever holds that slot now */
@@ -123,7 +124,7 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? (e.play && e.play.errAdvance ? 'error' : 'batted') : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
     if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0 });
@@ -191,12 +192,37 @@ export function simGame(seed, decisions, opts) {
           continue;
         }
       }
+      /* ---- offence: pinch run (#436 part 3)? Late, for the lead runner, when the fastest man on the bench is clearly
+       * quicker. The coach's own pick is the runner only in a close game. The new man takes the base, the lineup slot and
+       * the position of the one he replaces and stays in; the replaced player is out of the game. Asked once per batter. ---- */
+      if (pinchRun && !st.prAsked && st.inn >= K.PR_MIN_INNING && RR[off].bench.length) {
+        const base = st.b[2] ? 2 : st.b[1] ? 1 : st.b[0] ? 0 : -1;
+        const slot = base < 0 ? -1 : RR[off].bat.findIndex(b => b.name === st.b[base]);
+        if (slot >= 0) {
+          st.prAsked = true;
+          const cur = RR[off].bat[slot], spd = b => b.spd || 1;
+          const pr = RR[off].bench.reduce((a, b) => spd(b) > spd(a) ? b : a);
+          if (spd(pr) - spd(cur) >= K.PR_EDGE) {
+            const coach = Math.abs(st.sc[off] - st.sc[def]) <= K.PR_CLOSE_RUNS ? 'pr' : 'stay';
+            const pick = vote(off, 'R', COPY.askRun(cur, pr, base + 1), [['pr', COPY.optRun(pr)], ['stay', COPY.optLetRun(cur)]], coach);
+            if (pick === 'pr') {
+              const s0 = snap(), inPlayer = { ...pr, pos: cur.pos };
+              RR[off].bench = RR[off].bench.filter(b => b !== pr); RR[off].bat[slot] = inPlayer;
+              const nb = st.b.slice(); nb[base] = pr.name; st.b = nb;
+              row[off][slot] = stats[off].length; stats[off].push(newLine()); batters[off].push(pr.name);
+              emit('substitution', t, { team: off, role: 'pinch_runner', out: cur.name, in: pr.name, lineup: slot, pos: cur.pos, base: base + 1 });
+              pushFrame({ t, d: K.PR_DUR, k: 'SUB', desc: COPY.pinchRun(TT[off], pr, cur), s0, s1: snap(), team: off, lineup: slot, base: base + 1 });
+            }
+            continue;
+          }
+        }
+      }
       const pit0 = RR[def].pit[st.pi[def]], bi = st.lu[off], bat = RR[off].bat[bi], bs = stats[off][row[off][bi]], ps = pst[def][st.pi[def]];
       const tire = Math.max(0, st.pc[def] - K.TIRE_AFTER_PITCHES);
       const pit = { name: pit0.name, stuff: pit0.stuff * (1 - tire * K.TIRE_STUFF_PER_PITCH), ctrl: pit0.ctrl * (1 - tire * K.TIRE_CTRL_PER_PITCH) };
       const line = COPY.batLine(bs), pline = COPY.pitLine(ps);
       const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def), vavg: rangeOf(def) });
-      const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; st.phAsked = false; };
+      const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; st.phAsked = false; st.prAsked = false; };
 
       /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
       const sbB = stealBase();
@@ -320,9 +346,11 @@ export function simGame(seed, decisions, opts) {
             let sendHome = false;   /* out on the bases (#38): a runner from second who would hold at third is sent home */
             /* advancing on an error (#38): the outfielder bobbles the single; everyone takes one base more */
             const bobble = res === '1B' && OUTFIELD_KEYS.includes(fielder) && R() < K.OF_BOBBLE_1B_P;
+            /* advancing on an error (#38): the infielder's throw to first sails past the bag; everyone takes one base more */
+            const wildThrow = res === 'E' && type === 'GB' && !bunt && fielder !== '1B' && R() < K.WILD_THROW_SHARE;
             for (let i = 2; i >= 0; i--) {
               if (!B[i]) continue; let to = i + 1 + adv;
-              if (bobble) { to = Math.min(HOME, to + 1); moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i]; continue; }
+              if (bobble || wildThrow) { to = Math.min(HOME, to + 1); moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i]; continue; }
               if (res === '1B' && i === 1 && R() < K.SCORE_FROM_2ND_ON_SINGLE) to = HOME;
               else if (res === '1B' && i === 1 && OUTFIELD_KEYS.includes(fielder) && st.outs < K.OUTS_PER_HALF - 1 && R() < K.SEND_FROM_2ND_ON_SINGLE_P) {
                 sendHome = true; moves.push([2, HOME, B[1]]); continue;   /* scores or is out: decided by the throw below */
@@ -337,10 +365,11 @@ export function simGame(seed, decisions, opts) {
             const throwHome = !bobble && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
             /* out on the bases (#38): the batter tries to stretch an outfield single into a double; the throw decides */
             const stretch = !bobble && !throwHome && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && !nb[1] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.STRETCH_1B_P;
-            const bTo = throwHome || stretch || bobble ? 2 : adv;
+            const bTo = throwHome || stretch || bobble || wildThrow ? 2 : adv;
             moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb;
             if (bobble) { ctx.fumble = K.OF_BOBBLE_TIME; play.errAdvance = true; }
-            const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble }); plan = h.plan;
+            if (wildThrow) play.wildThrow = true;
+            const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble, wildThrow }); plan = h.plan;
             if (sendHome) { if (h.safe) runs++; else { outs = h.outs; play.outHome = true; } }
             if (throwHome) { play.onThrow = true; }
             let hitRes = res;   /* the scorer's hit: a stretch that is safe is a double, one thrown out stays a single */
@@ -352,6 +381,7 @@ export function simGame(seed, decisions, opts) {
             if (play.outHome) desc += COPY.outAtHome(B[1]);
             if (play.outStretch) desc += COPY.outStretching();
             if (bobble) desc += COPY.errAdvance(fielder);
+            if (wildThrow) desc += COPY.wildThrow(fielder);
             e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;
@@ -516,7 +546,7 @@ export function simGame(seed, decisions, opts) {
     if (st.half === 1 && st.inn >= K.REGULATION_INNINGS && st.sc[0] !== st.sc[1]) { over = true; break; }
     if (st.half === 1 && st.inn >= K.MAX_INNINGS) { over = true; break; }
     if (st.half === 0) st.half = 1; else { st.half = 0; st.inn++; }
-    st.outs = 0; st.b = [null, null, null]; st.sbAsked = false; st.ibbAsked = false; st.steal = false; st.phAsked = false;
+    st.outs = 0; st.b = [null, null, null]; st.sbAsked = false; st.ibbAsked = false; st.steal = false; st.phAsked = false; st.prAsked = false;
     pushFrame({ t, d: K.BREAK_DUR, k: 'BRK', desc: COPY.halfEnd(s0.inn, s0.half, TT, s0.sc), s0, s1: snap() });
   }
 

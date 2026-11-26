@@ -418,6 +418,8 @@ const dofU={};/* uniforms of the depth-of-field pass (#211 item 4); filled by do
 try{const {uniform}=TSL;dofU.focus=uniform(1);dofU.len=uniform(1);dofU.scale=uniform(0)}catch(e){console.warn('dof uniforms',e)}
 const mbU={};/* uniforms of the motion-blur pass (#211 item 4, render/mblur.js); driven by mbFrame */
 try{const {uniform}=TSL;mbU.scale=uniform(0);mbU.cap=uniform(.02)}catch(e){console.warn('mb uniforms',e)}
+const finU={};/* uniforms of the video finish (#209 item 3, render/finish.js); knee 99 / amount 0 = pass-through until the module is loaded */
+try{const {uniform}=TSL;finU.knee=uniform(99);finU.max=uniform(100);finU.amt=uniform(0);finU.f=uniform(0)}catch(e){console.warn('finish uniforms',e)}
 /* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
    fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
 const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r'],['dof','d'],['motionBlur','m']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgrdm' = all five, '-' = not loaded or ?off= */
@@ -444,6 +446,10 @@ function setupPost(){try{const {int,pass,mrt,output,normalView,velocity,screenUV
     if(mx)c=FX.traa(c,dep,sp.getTextureNode('velocity'),camera)}
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
+  if(gfxMax&&HQ&&finU.knee&&!OFF.has('finish')){/* #209 item 3, max only, no extra pass: highlight roll-off (same maths as finish.js roll) and film grain (hash of the pixel and the 24/s grain frame) */
+    const {select,exp,fract,sin,dot,vec2,screenCoordinate}=TSL,K=finU.knee,R=finU.max.sub(K),rl=v=>select(v.greaterThan(K),K.add(R.mul(float(1).sub(exp(v.sub(K).negate().div(R))))),v),
+      gr=fract(sin(dot(screenCoordinate.xy.add(finU.f.mul(vec2(37.2,17.9))),vec2(12.9898,78.233))).mul(43758.5453)).sub(.5).mul(finU.amt.mul(2));
+    c=vec4(rl(c.r).add(gr),rl(c.g).add(gr),rl(c.b).add(gr),c.a)}
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
   pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.fx=key;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
@@ -688,11 +694,11 @@ import(new URL('cloud.js',document.currentScript&&document.currentScript.src||lo
   const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,fog:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   m.colorNode=vec3(0,0,0);m.opacityNode=smoothstep(float(M.CLOUD_COVER-M.CLOUD_SOFT),float(M.CLOUD_COVER+M.CLOUD_SOFT),n).mul(M.CLOUD_MAX).mul(cloudU.k);
   cloudMesh=new THREE.Mesh(new THREE.PlaneGeometry(260,190),m);cloudMesh.name='old:cloud';cloudMesh.rotation.x=-Math.PI/2;cloudMesh.position.set(0,.02,-55);cloudMesh.renderOrder=1;cloudMesh.visible=false;scene.add(cloudMesh);cloudSet()}).catch(err=>console.warn('cloud shadows off',err));
-/* #208 item 4 (part 4): slide dust drawn. render/dust.js is pure (event + time -> puffs); here DUST_MAX soft sprites show the current event's puffs at curU, so a seek shows what playing shows.
+/* #208 item 4 (part 4): slide dust drawn; part 5: plus a puff where a batted ball comes down on dirt (DUST.eventDust). render/dust.js is pure (event + time -> puffs); here DUST_MAX soft sprites show the current event's puffs at curU, so a seek shows what playing shows.
    Tiers 0-1 and max (envOn), no new pass; `?off=dust`. Colour = the dirt dabs (DIRT_RGB). */
 let DUST=null;const DUST_MAX=32,DUST_BASES=[[0,0],[19.4,-19.4],[0,-38.8],[-19.4,-19.4],[0,0]],dustCache=new WeakMap(),dustSprites=[];
-function dustPuffs(e){let p=dustCache.get(e);if(!p){p=DUST.slideDust(e,DUST_BASES);dustCache.set(e,p)}return p}
-function dustTick(e,u){if(!DUST)return;let n=0;if(envOn&&!OFF.has('dust')&&e&&e.moves)for(const p of dustPuffs(e)){const q=DUST.puffAt(p,u);if(!q||n>=DUST_MAX)continue;const sp=dustSprites[n++];sp.visible=true;sp.position.set(q.x,q.y,q.z);sp.scale.set(q.r*2,q.r*2,1);sp.material.opacity=q.a}
+function dustPuffs(e){let p=dustCache.get(e);if(!p){p=DUST.eventDust(e,DUST_BASES);dustCache.set(e,p)}return p}
+function dustTick(e,u){if(!DUST)return;let n=0;if(envOn&&!OFF.has('dust')&&e)for(const p of dustPuffs(e)){const q=DUST.puffAt(p,u);if(!q||n>=DUST_MAX)continue;const sp=dustSprites[n++];sp.visible=true;sp.position.set(q.x,q.y,q.z);sp.scale.set(q.r*2,q.r*2,1);sp.material.opacity=q.a}
   for(let k=n;k<dustSprites.length;k++)dustSprites[k].visible=false}
 import(new URL('dust.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{DUST=M;
   const c=document.createElement('canvas');c.width=c.height=64;{const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,`rgba(${DIRT_RGB},1)`);gr.addColorStop(.6,`rgba(${DIRT_RGB},.5)`);gr.addColorStop(1,`rgba(${DIRT_RGB},0)`);g.fillStyle=gr;g.fillRect(0,0,64,64)}
@@ -1129,7 +1135,7 @@ function bcPose(f,b,e,u){let c=null;for(const q of bcCalls(e))if(q.b===b&&u>=q.t
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
-const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
+const BALL_R=.042,BUNT_GROUND_Y=BALL_R,/* #43: a rolling bunt sits on the dirt, not 15 cm above it */BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
 const ZONE_W=.43,ZONE_LO=.55,ZONE_HI=1.1,ZONE_Z=0;
 const zoneBox=new THREE.Line(new THREE.BufferGeometry().setFromPoints([[-1,0],[1,0],[1,1],[-1,1],[-1,0]].map(([x,y])=>new THREE.Vector3(x*ZONE_W/2,ZONE_LO+y*(ZONE_HI-ZONE_LO),ZONE_Z))),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.75,toneMapped:false}));scene.add(zoneBox);
 $('zone').onclick=e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',on);zoneBox.visible=on};
@@ -1516,7 +1522,7 @@ function poseScene(e,u,dt,ei){
   paintKit(matDef,defT);paintKit(matOff,e.k==='BRK'&&u>=BRK_ON_AT?def:off);/* #42: after the change the walkers out of the dugout are the new batting side */
   applyNums(e,off,defT);
   /* fielders default */
-  for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=fielderStart(k,e.s0.b,e.s0.outs);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
+  for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=f.ret=fielderStart(k,e.s0.b,e.s0.outs);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
   ump.auto=true;ump.armsHeld=false;/* ump never gets resetPose: undo a call of the last frame (#42 slice 8) */poseBattery(e,u);
   if(e.k==='BRK')brkSwap(e,u,off,def,ei);
   const P=fielders.P;P.arms[1].rotation.x=0;PR.up.rotation.set(0,0,0);PR.hg.rotation.set(0,0,0);P.noAnim=e.k==='P';
@@ -1597,11 +1603,13 @@ function poseScene(e,u,dt,ei){
   if(e.r==='inplay'){
     /* the whole defensive play (who fields, who covers, every throw and its timing) is e.plan, computed by the engine */
     const p=e.play,PL=e.plan,f=fielders[p.fielder],T=p.hang,u2=u-ARRIVE,hr=p.res==='HR',hit=PL.hit;
-    const land=[p.lx,hr?6+(p.dist-114)*.15:(hit||p.type==='GB'?.15:1.5),p.lz];
-    const rollEnd=[PL.target[0],.15,PL.target[1]];
+    const land=[p.lx,hr?6+(p.dist-114)*.15:bunt&&BCL?BUNT_GROUND_Y:(hit||p.type==='GB'?.15:1.5),p.lz];
+    const rollEnd=[PL.target[0],bunt&&BCL?BUNT_GROUND_Y:.15,PL.target[1]];
+    /* #43 item 5: a bunt goes down off the bat, hops low and rolls slowing to the engine's stop point at T (render/bunt_clip.js buntRoll) */
+    const gbAt=t=>bunt&&BCL?BCL.buntRoll(hit0,land,T,t):arc(hit0,land,p.peak,t/T),rollPk=bunt&&BCL?0:.3;
     const CV=PL.CV,tagPlay=PL.tagPlay,tagA=PL.actions.find(a=>a.a==='tag'&&a.f===CV.key),tg=tagA?{t:tagA.t,out:true}:tagPlay?{t:PL.arrive+TAG_LATE_SWEEP,out:false}:null,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer;
     const catchT=PL.catchT,D=PL.D,cx=PL.stand[0],cz=PL.stand[1];
-    const tgt=[CV.spot[0],1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
+    const tgt=[CV.spot[0],PL.wild?.15:1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
     const BAG=[BASES[1][0],BASES[1][1]],DB=Math.hypot(BAG[0]-cx,BAG[1]-cz),soloAt=PL.soloAt;
     const crowd=!!CV.key&&CV.key!==p.fielder&&Math.hypot(f.pos[0]-CV.spot[0],f.pos[1]-CV.spot[1])<BAG_CROWD_R;
     const t0=solo?Infinity:PL.t0,TT=PL.TT,rt=PL.rt,a1=dp?PL.a1:t0+TT,t1=dp?PL.t1:a1,arrive=PL.arrive;
@@ -1609,7 +1617,7 @@ function poseScene(e,u,dt,ei){
     if(u2>0){const tc=catchT-FIELD_REACT,cc=tc<=0?1:tc<RUN_ACCEL?.5*tc*tc/RUN_ACCEL:.5*RUN_ACCEL+(tc-RUN_ACCEL),vCh=clamp(D/cc,CHASE_VMIN,CHASE_VMAX);/* Chase speed: arrive exactly at the catch moment (capped at 9 m/s) */
       const k=D<.5?1:clamp(runDist(u2-FIELD_REACT,vCh)/D,0,1),kk=hr?Math.min(k,.5):k,tx=lerp(f.pos[0],cx,kk),tz=lerp(f.pos[1],cz,kk);
       if(CV.key){const c=fielders[CV.key],D2=Math.hypot(CV.spot[0]-c.pos[0],CV.spot[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u2-FIELD_REACT-COVER_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u2-(arrive+COVER_BACK_AT),COVER_SPEED)/D2,0,1);
-        c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),c.pos[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),c.pos[1],bk));
+        const cR=c.ret||c.pos;c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),cR[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),cR[1],bk));/* #42: back to his pitch spot (the rubber for a pitcher covering first) */
         if(tagPlay&&CV.key==='C'){resetPose(c);c.g.position.y=0}
         const fromX=dp?PVspot[0]:cx,fromZ=dp?PVspot[1]:cz;if(bk===0&&u2>arrive-TT-(dp?TT2:0)-.2){face(c,fromX-c.g.position.x,fromZ-c.g.position.z);c.noAnim=true;
           /* Receiving a throw: glove meets the ball, then the other hand takes it */
@@ -1621,10 +1629,10 @@ function poseScene(e,u,dt,ei){
         pv.g.position.set(lerp(lerp(pv.pos[0],PVspot[0],kp),pv.pos[0],bp2),0,lerp(lerp(pv.pos[1],PVspot[1],kp),pv.pos[1],bp2));
         if(bp2===0&&u2>a1-.6){pv.noAnim=true;if(u2<a1){face(pv,cx-pv.g.position.x,cz-pv.g.position.z);gloveTo(pv,ease(sat01((u2-(a1-.45))/.3)),null)}
           else{face(pv,tgt[0]-pv.g.position.x,tgt[2]-pv.g.position.z);throwPose(pv,u2-a1,PIVOT_XFER,tgt)}}else if(kp<1)face(pv,PVspot[0]-pv.g.position.x,PVspot[1]-pv.g.position.z)}
-      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.pos[0]-sx0,f.pos[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.pos[0],back),0,lerp(sz0,f.pos[1],back));/* Back to position: walk back from wherever he last stood */
+      const R0=f.ret||f.pos,[sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(R0[0]-sx0,R0[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,R0[0],back),0,lerp(sz0,R0[1],back));/* Back to position: walk back from wherever he last stood; #42: a pitcher who fielded walks back to the rubber (f.ret), not to his stride spot, so the next frame does not jump ~1 m */
       if(solo&&u2>catchT+.15&&back===0){const k2=DB<.3?1:clamp(runDist(u2-catchT-.15,6.5)/DB,0,1);f.g.position.set(lerp(tx,BAG[0],k2),0,lerp(tz,BAG[1],k2));if(k2<1){face(f,BAG[0]-cx,BAG[1]-cz);f.noAnim=false}}
       const fx=f.g.position.x,fz=f.g.position.z;
-      if(back>0&&back<1)face(f,f.pos[0]-sx0,f.pos[1]-sz0);
+      if(back>0&&back<1)face(f,R0[0]-sx0,R0[1]-sz0);
       else if(!hr&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
       else if(crowd&&u2<rtF)face(f,CV.spot[0]-fx,CV.spot[1]-fz);/* Waiting off the bag: watch the coverer */
       else face(f,-p.lx,-p.lz);
@@ -1633,11 +1641,11 @@ function poseScene(e,u,dt,ei){
         if(u2<catchT+.12){const bpos=ballAt(u2+.04);reachGlove(f,bpos||[fx,low?.25:1.6,fz])}
         else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* Glove raised holding the ball while touching the base */
         else throwPose(f,u2-catchT,TH.xfer,tgtF)}}
-    if(u2>0&&u2<T)bp=p.type==='GB'?arc(hit0,land,p.peak,u2/T):flyPath(e,hit0,land,T)(u2);
+    if(u2>0&&u2<T)bp=p.type==='GB'?gbAt(u2):flyPath(e,hit0,land,T)(u2);
     else if(u2>=T&&!hr){
-      if(hit&&u2<T+.8)bp=arc(land,rollEnd,.3,(u2-T)/.8);
+      if(hit&&u2<T+.8)bp=arc(land,rollEnd,rollPk,(u2-T)/.8);
       else{const fx=f.g.position.x,fz=f.g.position.z,c=CV.key&&fielders[CV.key];
-        if(u2<catchT)bp=hit?[rollEnd[0],.15,rollEnd[2]]:[p.lx,.15,p.lz];
+        if(u2<catchT)bp=hit?[rollEnd[0],rollEnd[1],rollEnd[2]]:[p.lx,bunt&&BCL?land[1]:.15,p.lz];
         else if(solo&&u2>=catchT){if(u2<rt+.3){const q=f.handWorld(0);bp=[q.x,q.y,q.z]}}
         else if(u2>=catchT&&u2<t0){const q=f.handWorld(u2-catchT<TH.xfer*.45?0:1);bp=[q.x,q.y,q.z]}/* In the glove first, in the throwing hand after the transfer */
         else if(u2>=t0&&u2<a1){const rel=throwRelease(e,f,[cx,cz],TH.xfer,tgtF);bp=arc(rel,tgtF,Math.min(3,TD*THROW_ARC*(32/TH.v)),(u2-t0)/TT)}
@@ -1645,7 +1653,7 @@ function poseScene(e,u,dt,ei){
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,Math.min(3,TD2*THROW_ARC*(32/V2)),(u2-t1)/TT2)}
         else if(u2<arrive+3.2){if(c){const q=c.handWorld(tg||u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
     if(hr&&u2>0&&u2<T+.2&&!bp)bp=null;
-    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?arc(hit0,land,p.peak,t/T):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,.3,(t-T)/.8):rollEnd;return null}
+    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?gbAt(t):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,rollPk,(t-T)/.8):rollEnd;return null}
   }
   if(bp){ball.visible=true;ball.position.set(bp[0],bp[1],bp[2]);ballSh.position.set(bp[0],.03,bp[2]);const dB=ball.position.distanceTo(camera.getWorldPosition(_cw)),pxR=BALL_R*(innerHeight/2)/(dB*Math.tan(camera.fov*Math.PI/360)),bs=clamp(BALL_MIN_PX/pxR,1,BALL_MAX);ball.scale.setScalar(bs);ballSh.scale.setScalar(.35*bs)}
   ballSh.visible=ball.visible;
@@ -1784,6 +1792,9 @@ const _dofT=new THREE.Vector3();
 /* #211 item 4: per-object motion blur (bat, arm, ball) on the same two shots, max only; render/mblur.js is pure, a frame over MB_MAX_DT is a jump and gets none */
 let mbM=null;import(new URL('mblur.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{mbM=M;MB_SAMPLES=M.MB_SAMPLES}).catch(err=>console.warn('motion blur off',err));
 function mbFrame(tw,pw,dt){if(!mbM||!mbU.scale)return;const p=mbM.mbParams(gfxMax?tw:0,gfxMax?pw:0,dt);mbU.scale.value=p.scale;mbU.cap.value=p.cap}
+/* #209 item 3: video finish on max (render/finish.js, pure). The grain frame is a function of the game time, so a seek shows the grain of playing there. */
+let finM=null;import(new URL('finish.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{finM=M;if(finU.knee){finU.knee.value=M.ROLL_KNEE;finU.max.value=M.ROLL_MAX;finU.amt.value=M.GRAIN_AMT}}).catch(err=>console.warn('finish off',err));
+function finFrame(){if(finM&&finU.f)finU.f.value=finM.grainFrame(curT())}
 function fitKey(on){if(!keyfitM)return;on=on&&gfxMax;if(!on&&!keyTight)return;const f=keyfitM.keyFit(on?batter.g.position:null),c=key.shadow.camera;keyTight=on;key.target.position.set(...f.target);key.position.set(...f.position);Object.assign(c,{left:-f.half,right:f.half,top:f.half,bottom:-f.half});c.updateProjectionMatrix();key.target.updateMatrixWorld()}
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
@@ -1808,7 +1819,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
   const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
   if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
-  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw);mbFrame(tw,pw,dt)}
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw);mbFrame(tw,pw,dt);finFrame()}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(isEditing())return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
@@ -2017,6 +2028,7 @@ const STUDIO_ACTS=[
   ['跑壘','outhome','一壘安打・二壘跑者衝本壘遭捕手觸殺（#38）',e=>pl(e,p=>!!p.outHome),STUDIO_SEEDS_RARE],
   ['跑壘','stretch','一壘安打・打者硬闖二壘遭觸殺（#38）',e=>pl(e,p=>!!p.outStretch),STUDIO_SEEDS_RARE],
   ['跑壘','bobble','一壘安打・外野漏接、跑者多推進（#38）',e=>pl(e,p=>!!p.errAdvance),STUDIO_SEEDS_RARE],
+  ['跑壘','wildthrow','滾地球・內野暴傳一壘、跑者多推進（#38）',e=>pl(e,p=>!!p.wildThrow),STUDIO_SEEDS_RARE],/* the ball ends on the ground past first (plan.wild) */
   ['跑壘','score','跑壘・跑者回本壘得分',e=>e.k==='P'&&e.play&&e.play.res!=='HR'&&e.runs>0],
   ['跑壘','HR','跑壘・全壘打繞壘',e=>pl(e,p=>p.res==='HR')],
   ['跑壘','sb','盜壘',e=>e.k==='P'&&e.sbGo],
