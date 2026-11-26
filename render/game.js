@@ -415,6 +415,10 @@ const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend
 let PP=null;
 const dofU={};/* uniforms of the depth-of-field pass (#211 item 4); filled by dofInit once TSL is there, driven by dofFrame */
 try{const {uniform}=TSL;dofU.focus=uniform(1);dofU.len=uniform(1);dofU.scale=uniform(0)}catch(e){console.warn('dof uniforms',e)}
+/* #209 item 3, video finish on max (render/film.js, pure): grain, one grade per park, highlight roll-off. Uniforms follow the park sky (applySky) and game time (filmTick). */
+const filmU={};let FILM=null;
+try{const {uniform,vec3}=TSL;filmU.grain=uniform(.02);filmU.seed=uniform(0);filmU.sat=uniform(1);filmU.tint=uniform(vec3(1,1,1))}catch(e){console.warn('film uniforms',e)}
+function filmApply(name){if(!FILM||!filmU.grain)return;const f=FILM.filmOf(name);filmU.grain.value=f.grain;filmU.sat.value=f.sat;filmU.tint.value.set(...f.tint)}
 /* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
    fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
 const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r'],['dof','d']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgrd' = all four, '-' = not loaded or ?off= */
@@ -441,6 +445,11 @@ function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,len
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
+  if(mx&&filmU.grain&&!OFF.has('film')){try{/* #209 item 3: roll-off before tone mapping, then park tint + saturation, then grain (own try: a missing TSL node leaves the picture as it was) */
+    const {select,exp,fract,sin,dot,vec2,vec3,screenCoordinate}=TSL,kn=float(FILM_KNEE),rg=float(1-FILM_KNEE),ch=c.rgb.max(0),roll=select(ch.lessThanEqual(kn),ch,kn.add(rg.mul(float(1).sub(exp(ch.sub(kn).negate().div(rg)))))),
+      lum=dot(roll,vec3(.2126,.7152,.0722)),gr=mix(vec3(lum),roll,filmU.sat).mul(filmU.tint),
+      nz=fract(sin(dot(screenCoordinate.xy.add(filmU.seed.mul(vec2(37.2,91.7))),vec2(12.9898,78.233))).mul(43758.5453));
+    c=vec4(gr.mul(float(1).add(nz.sub(.5).mul(2).mul(filmU.grain))),1)}catch(e){console.warn('film pass off',e)}}
   pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.fx=key;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
 /* ---------- max tier (#211): the owner's desktop, above tier 0 ----------
@@ -452,6 +461,7 @@ const IS_GPU=!!(renderer.backend&&renderer.backend.isWebGPUBackend),IS_DEV=!!(wi
 /* SSGI presets: three's "medium with temporal filtering" (TRAA is on); radius in metres. #256: MAX_GI_I 1 = bounce equal to the light the
    neighbours send (was 4: four times that), MAX_GI_CAP = most bounce light one pixel takes (direct ~1.06 on the plate + .45 stays under bloom's 1.6). SSR: half resolution, rays up to MAX_SSR_DIST m. */
 const MAX_GI_SLICES=2,MAX_GI_STEPS=8,MAX_GI_RADIUS=4,MAX_GI_I=1,MAX_GI_CAP=.45,MAX_GI_AO=1,MAX_SSR_ROUGH=.35,MAX_SSR_F0=.04,MAX_SSR_RES=.5,MAX_SSR_DIST=25,MAX_SSR_THICK=.05,MAX_SSR_Q=.5;
+const FILM_KNEE=.8;/* = render/film.js KNEE (the pass is built before the module arrives) */
 const MAX_SHADOW_MAP=4096,MAX_SHADOW_RADIUS=2.5,TIER_SHADOW_RADIUS=1,MAX_AO_RES=1,AO_RES=.5,MAX_IBL_I=.6,SKY_ENV_FAR=1000,SKY_ENV_MIN_R=400;
 let maxWish=false;try{if(IS_DEV){const q=new URLSearchParams(location.search).get('q');if(q!==null)localStorage.setItem('zu_max',q==='max'?'1':'0');maxWish=localStorage.getItem('zu_max')==='1'}}catch(e){}
 let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
@@ -694,7 +704,7 @@ import(new URL('dust.js',document.currentScript&&document.currentScript.src||loc
   const c=document.createElement('canvas');c.width=c.height=64;{const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,`rgba(${DIRT_RGB},1)`);gr.addColorStop(.6,`rgba(${DIRT_RGB},.5)`);gr.addColorStop(1,`rgba(${DIRT_RGB},0)`);g.fillStyle=gr;g.fillRect(0,0,64,64)}
   const tex=new THREE.CanvasTexture(c);
   for(let i=0;i<DUST_MAX;i++){const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false});m.colorNode=TSL.texture(tex);const sp=new THREE.Sprite(m);sp.name='old:dust';sp.visible=false;sp.frustumCulled=false;scene.add(sp);dustSprites.push(sp)}}).catch(err=>console.warn('slide dust off',err));
-function applySky(S){skyCur=S;csSoft=GRADE?GRADE.softOf(S.mood):csSoft;const mood=GRADE?GRADE.moodOf(S.mood):null,gr=h=>mood?GRADE.grade(h,mood):h;renderer.toneMappingExposure=S.exposure*(mood?mood.exp:1);key.intensity=S.key*Math.PI;key.color.set(gr(S.keyC));fill.intensity=S.fill*Math.PI;fill.color.set(gr(S.fillC));
+function applySky(S){skyCur=S;filmApply(S.mood);csSoft=GRADE?GRADE.softOf(S.mood):csSoft;const mood=GRADE?GRADE.moodOf(S.mood):null,gr=h=>mood?GRADE.grade(h,mood):h;renderer.toneMappingExposure=S.exposure*(mood?mood.exp:1);key.intensity=S.key*Math.PI;key.color.set(gr(S.keyC));fill.intensity=S.fill*Math.PI;fill.color.set(gr(S.fillC));
   hemi.intensity=S.hemi*Math.PI;hemi.color.set(gr(S.hemiC));hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
   skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
   for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
@@ -1851,6 +1861,7 @@ const PITCH_STILL=Math.max(PK_END,BALL_BACK_AT+BALL_BACK_DUR,ARRIVE+CATCH_SNAP+U
   ARRIVE+window.ENGINE.LEAD_BACK_AT+window.ENGINE.LEAD_BACK_DUR,ARRIVE+CATCH_SNAP+MITT_HOLD+MITT_BACK);
 const CP_RUNNER_SETTLE=.6+SLIDE_HOLD+SLIDE_UP,CP_PEEL_STEP=.05,CP_PEEL_MAX=30;/* after a runner arrives (vanish / get up from a slide); peel search step and cap */
 const cpHere=document.currentScript&&document.currentScript.src;
+import(new URL('film.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{FILM=M;filmApply(skyCur.mood)}).catch(err=>console.warn('film off',err));/* #209 item 3: max only in use, fetched small and early */
 import(new URL('grade.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{GRADE=M;applySky(skyCur)}).catch(err=>console.warn('park mood off',err));/* #208 item 5 */
 const BARCURVE=import(new URL('barcurve.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).catch(err=>{console.warn('bar curve off',err);return null});
 const COMPACT=import(new URL('compact.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).catch(err=>{console.warn('compact showing off',err);return null});
@@ -2197,6 +2208,7 @@ renderer.setAnimationLoop(()=>{
   else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));const prev=replayT;replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed));if(cpOn()){replayT=cpClock.step(prev,replayT);if(replayT-prev>dt*speed+.5)plFresh=true}}/* #144: a covered cut moves the figures: not a stride */
   hlTick();
   cloudU.t.value=curT();
+  if(gfxMax&&FILM&&filmU.seed)filmU.seed.value=FILM.grainSeed(curT());/* #209 item 3: grain is a pure function of game time */
   {const k=cpOn()&&mode==='opening'?cpClock.dip(replayT):0;if(k!==cutDipK){cutDipK=k;cutDip.style.opacity=String(k)}}
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
