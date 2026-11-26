@@ -461,7 +461,7 @@ export function simGame(seed, decisions, opts) {
           if (m[3]) continue;
           const [from, to, who] = m, stays = to < HOME && e.s1.b[to - 1] === who, outHere = outs.some(o => o.runner === who && o.base === to);
           const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? outHere || look() < K.HOME_SLIDE_P : stays || outHere));
-          m[3] = runnerTimeline(from, to, { kind: inplay ? 'inplay' : e.wp ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
+          m[3] = runnerTimeline(from, to, { kind: inplay ? (play.res === 'HR' ? 'trot' : 'inplay') : e.wp ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
         }
 
         /* ---- broadcast timing: the result is shown when it has really happened ---- */

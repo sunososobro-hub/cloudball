@@ -299,6 +299,9 @@ export const RETURN_AFTER_THROW = 0.7;
 /* ---- running ---- */
 export const RUN_SPEED = 7.8;
 export const WALK_SPEED = 4.5;            /* trot on a walk */
+/* #266: home-run trot. MLB trots run about 22-23 s home to home (Statcast / Tater Trot Tracker averages, 2015-2024);
+ * 4 x 27.43 m at 5.0 m/s with RUN_ACCEL is 22.4 s. Every runner of a home run trots at this pace. */
+export const HR_TROT_SPEED = 5.0;
 export const RUN_ACCEL = 0.9;             /* seconds to reach full speed */
 export const BAT_RUN_DELAY = 0.1;         /* batter leaves the box this long after contact */
 export const STEAL_JUMP = 0.3;            /* a stealing runner breaks this long before release */

@@ -7,7 +7,7 @@
 - #436 part 2: pinch hit behind `PINCH_HIT_ON` (off; `opts.pinchHit`), vote kind `H`, event `substitution` role `pinch_hitter`, frame `SUB`; `stats` gets a row per pinch hitter (`batters` names the rows); `tests/pinchhit.check.mjs`.
 - #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`); a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 - #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`).
-- #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
+- #266 (0.4.11): home-run runners trot (kind `'trot'`, `HR_TROT_SPEED`); `tests/hr_trot.check.mjs`. #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 - #81 (0.4.10): a "stay" pick on the pitching vote brings the pitching coach out (`VIS` frame, `MOUND_VISIT_DUR`, stream `mound_visit`), once per pitcher; no draw, outcomes unchanged, only later times move.
 
 ## Next
