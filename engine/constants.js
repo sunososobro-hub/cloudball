@@ -244,6 +244,12 @@ export const PINCH_HIT_ON = false;
 export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
 export const PH_EDGE = 0.3;               /* coach's own pick is the pinch hitter when his bat value (con x pow) is this much higher */
 export const PH_DUR = 10;                 /* seconds of the pinch-hit frame (walk from the dugout) */
+/* pinch run (#436 part 3): off by default (factory games unchanged); simGame opts.pinchRun overrides */
+export const PINCH_RUN_ON = false;
+export const PR_MIN_INNING = 8;           /* asked only from this inning on, for the lead runner */
+export const PR_EDGE = 0.15;              /* asked only when the fastest bench man's spd is this much higher (bench x3 runners ~1.3 vs ~0.95) */
+export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runner only within this many runs */
+export const PR_DUR = 8;                  /* seconds of the pinch-run frame (jog out from the dugout) */
 export const BUNT_POW_MAX = 1.0;
 export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;
