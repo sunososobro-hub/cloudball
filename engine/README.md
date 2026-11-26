@@ -79,6 +79,7 @@ belongs to), `t` (seconds on the broadcast timeline) and `type`:
 | `runner_placed` | extra-inning runner: `runner`, `base` |
 | `decision` | `id`, `team`, `kind`, `pick`, `pending` |
 | `substitution` | `team`, `role`, `out`, `in` |
+| `mound_visit` | `team`, `pitcher`, `staff` (`pitching`): the pitching coach's visit after a "stay" pick, once per pitcher (frame `VIS`, `MOUND_VISIT_DUR` s) |
 | `pitch` | `pitcher`, `batter`, `lineup`, `pitchType`, `kmh`, `inZone`, `count`, `n` |
 | `swing` | `batter` |
 | `call` | `call`: `ball`, `called_strike`, `swinging_strike`, `foul`, `hit_by_pitch`; `count` after it |

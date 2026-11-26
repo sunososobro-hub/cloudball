@@ -1154,7 +1154,8 @@ function makeRealPlayer(opts, A) {
     /* #186: drive the skeleton from a mocap clip at clip time t, blended over the proxy pose by w (0..1). t0 = clip time that stands on
        the figure's spot (hips travel is measured from there), dz = metres of g.position.z the caller already moved (taken back off).
        The clip holds only while the proxies stay as they were at this call: any later pose (another event, resetPose) drops it. */
-    setMocap(clip, t, w, mirror, t0 = 0, dz = 0) { f.mo = clip && w > 0 ? { clip, t, w, mirror, t0, dz, key: proxyKey() } : null },
+    /* lw (optional, #274): [legs[0], legs[1]] clip weights for the leg bones (thigh to toe), in place of w; the rest of the body keeps w */
+    setMocap(clip, t, w, mirror, t0 = 0, dz = 0, lw = null) { f.mo = clip && w > 0 ? { clip, t, w, mirror, t0, dz, lw, key: proxyKey() } : null },
     /* Metres the clip's hips travel along z (toward the plate) from clip time t0 to t on this figure: same scale as setMocap's root move.
        A caller that hands back from the clip to its own pose stands the figure there, so the hand-off moves nothing (#186, no glide). */
     moTravel(clip, t, t0 = 0) { const o = { q: clip.names.map(() => new THREE.Quaternion()), p: new THREE.Vector3() };
@@ -1209,6 +1210,7 @@ function makeRealPlayer(opts, A) {
   const shRest = [bones[B.shL].position.clone(), bones[B.shR].position.clone()];
   /* #186 mocap: bones nothing else turns go back to rest once a clip let go of them */
   const MO_FREE = [B.root, B.chest, B.clL, B.clR, B.wrL, B.wrR, B.toeL, B.toeR, B.head, B.handL, B.handR], rootRest = bones[0].position.clone(), pelvisAt = V3(J.pelvis);
+  const MO_LEG = bones.map((_, i) => [B.thL, B.knL, B.ftL, B.toeL].includes(i) ? 0 : [B.thR, B.knR, B.ftR, B.toeR].includes(i) ? 1 : -1);   /* legs[0] drives thL (sync) */
   const MO_ORDER = []; { const walk = i => { MO_ORDER.push(i); PAR.forEach((p, k) => { if (p === i) walk(k) }) }; walk(0) }
   const PX = [up, hg, l0, l1, a0, a1, hips];
   const proxyKey = () => { let k = g.position.x + ',' + g.position.z; for (const o of PX) k += ',' + o.quaternion.x + ',' + o.quaternion.y + ',' + o.quaternion.z + ',' + o.quaternion.w + ',' + o.scale.y; return k };
@@ -1227,7 +1229,7 @@ function makeRealPlayer(opts, A) {
     for (const i of MO_ORDER) {   /* bones the clip does not drive (pelvis, forearm twist) keep rest under their parent */
       const p = PAR[i]; if (!moSet[i]) moT[i].copy(p < 0 ? _ml.identity() : moT[p]);
       _ml.copy(p < 0 ? moT[i] : _q4.copy(moT[p]).invert().multiply(moT[i]));
-      bones[i].quaternion.slerp(_ml, m.w);
+      const lg = MO_LEG[i]; bones[i].quaternion.slerp(_ml, m.lw && lg >= 0 ? m.lw[lg] : m.w);
     }
     /* Hips travel in hip heights, measured from the clip's start spot; the caller's own stride (dz) comes back off */
     /* The root bone sits on the floor: its turn (the hips') pivots about the pelvis joint instead */
