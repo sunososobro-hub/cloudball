@@ -2,7 +2,7 @@
  * loads none, and the prototype's look only needs a diamond, a ball and its shadow). It only READS a result from game.js (`out.play.ball`
  * = the points ball.js already computed, `out.res`, `out.steal`); it never changes one (rule 10), and nothing here uses a random number,
  * so the same result draws the same picture. `buildBeats` / `ballAt` are pure (tested without a DOM); `createField` is the canvas part.
- * Units as ball.js: metres, seconds, home (0,0), +z toward centre field, +x toward first base. Runners come in part 2. */
+ * Units as ball.js: metres, seconds, home (0,0), +z toward centre field, +x toward first base. Runners (part 2) come from `out.play.runners` (play.js `sc.runners`). */
 import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
 
@@ -16,12 +16,15 @@ export const ARC_PX = .7;                   // pixels of lift per metre of ball 
 
 /** The script of one pitch: {dur, pitch:{t0,t1}, ball:[{t,x,y,z,air}] (already shifted after the pitch), beats:[{t,txt}], hr}. Pure. */
 export function buildBeats(out) {
-  const res = out && out.res || {}, play = out && out.play, beats = [], ball = [];
+  const res = out && out.res || {}, play = out && out.play, beats = [], ball = [], runners = [];
   let dur = PITCH_S + .3, hr = false;
   if (play && play.ball && play.ball.length) {
     for (const p of play.ball) ball.push({ t: PITCH_S + p.t, x: p.x, y: p.y, z: p.z, air: p.air !== false });
     hr = play.kind === 'HR'; dur = Math.max(dur, PITCH_S + (play.dur || play.ball[play.ball.length - 1].t) + .3);
     if (hr) beats.push({ t: ball[ball.length - 1].t, txt: '全壘打！' });
+    for (const r of play.runners || []) if (r.pts && r.pts.length) {
+      const pts = r.pts.map(p => ({ t: PITCH_S + p.t, x: p.x, z: p.z })); runners.push({ bat: !!r.bat, out: !!r.out, pts });
+      dur = Math.max(dur, pts[pts.length - 1].t + .3); }
   } else {
     const k = res.kind, txt = k === 'whiff' ? '揮空' : k === 'called' ? '好球' : k === 'ball' ? '壞球' : k === 'foul' || k === 'foulBunt' ? '界外' : '';
     if (txt) beats.push({ t: PITCH_S, txt });
@@ -29,7 +32,7 @@ export function buildBeats(out) {
     if (out && out.steal) beats.push({ t: PITCH_S + .5, txt: out.steal.ok ? '盜壘成功' : '盜壘失敗' });
     dur = Math.max(dur, ...beats.map(b => b.t + BEAT_S));
   }
-  return { dur, pitch: { t0: 0, t1: PITCH_S }, ball, beats, hr };
+  return { dur, pitch: { t0: 0, t1: PITCH_S }, ball, beats, hr, runners };
 }
 
 /** Ball position at time t: pitch leg, then the batted-ball points (linear between them); null when no ball is shown. Pure. */
@@ -41,6 +44,14 @@ export function ballAt(S, t) {
   let i = 1; while (B[i].t < t) i++;
   const a = B[i - 1], b = B[i], u = (t - a.t) / ((b.t - a.t) || 1);
   return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, air: b.air };
+}
+
+/** Position of one scripted runner at time t (linear between points, held before the first and after the last point). Pure. */
+export function runnerAt(R, t) {
+  const P = R.pts; if (t <= P[0].t) return { x: P[0].x, z: P[0].z };
+  const L = P[P.length - 1]; if (t >= L.t) return { x: L.x, z: L.z };
+  let i = 1; while (P[i].t < t) i++;
+  const a = P[i - 1], b = P[i], u = (t - a.t) / ((b.t - a.t) || 1); return { x: a.x + (b.x - a.x) * u, z: a.z + (b.z - a.z) * u };
 }
 
 /** Canvas field. `createField(canvas)` -> {play(out), skip(), setSpeed(n)}; no canvas or no 2D context -> null (the screen then just has no picture). */
@@ -63,6 +74,8 @@ export function createField(canvas) {
     const t = ((now - t0) / 1000) * speed; field();
     const p = ballAt(S, t); if (p) { trail.push(p); if (trail.length > 24) trail.shift(); }
     cx.strokeStyle = 'rgba(241,239,230,.45)'; cx.lineWidth = 1.5; cx.beginPath(); trail.forEach((q, i) => cx[i ? 'lineTo' : 'moveTo'](X(q.x), Y(q.z) - q.y * ARC_PX * k)); cx.stroke();
+    for (const R of S.runners) { const q = runnerAt(R, t), end = t >= R.pts[R.pts.length - 1].t;
+      cx.fillStyle = R.out && end ? 'rgba(220,80,80,.55)' : R.bat ? '#e9b949' : '#8fd3ff'; cx.beginPath(); cx.arc(X(q.x), Y(q.z), 3.6, 0, 6.3); cx.fill(); }
     if (p) { cx.fillStyle = 'rgba(0,0,0,.35)'; cx.beginPath(); cx.ellipse(X(p.x), Y(p.z), 3, 1.6, 0, 0, 6.3); cx.fill();
       cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(X(p.x), Y(p.z) - p.y * ARC_PX * k, 3.2, 0, 6.3); cx.fill(); }
     for (const b of S.beats) if (t >= b.t && t < b.t + BEAT_S) { cx.font = 'bold 22px "Noto Sans TC", system-ui, sans-serif'; cx.textAlign = 'center'; cx.fillStyle = css('--acc', '#e9b949'); cx.fillText(b.txt, W / 2, H * .3); }
