@@ -145,9 +145,9 @@ function fieldTex(){
     dab(0,-18.42,.3,BASE_DUST,.4,DIRT_RGB)}
   try{const im=g.getImageData(0,0,c.width,c.height),d=im.data;let r=12345;for(let i=0;i<d.length;i+=4){r=(r*1103515245+12345)&0x7fffffff;const n=((r>>16)&31)-15;d[i]+=n;d[i+1]+=n*1.1;d[i+2]+=n*.7}g.putImageData(im,0,0)}catch(e){}
   try{FIELD_PIX={d:g.getImageData(0,0,c.width,c.height).data,w:c.width,h:c.height,X,Y}}catch(e){}
-  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.getMaxAnisotropy();return t;
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.getMaxAnisotropy();FIELD_CV={c,g,X,Y,S,t};return t;
 }
-let FIELD_PIX=null;
+let FIELD_PIX=null,FIELD_CV=null;
 const isGrassAt=(x,z)=>{const F=FIELD_PIX;if(!F)return false;const px=Math.round(F.X(x)),py=Math.round(F.Y(z));if(px<0||py<0||px>=F.w||py>=F.h)return false;const i=(py*F.w+px)*4;return F.d[i+1]-F.d[i]>18};
 /* #203 item 5 slice 4: turf look per park (TURF below, picked by PARKS[id].shape.turf in applyPark). Uniforms only, so a park change does
    not recompile: grass and dirt colour gains, and `even` = how much of the grass's light/dark variation is flattened (artificial turf
@@ -2156,6 +2156,21 @@ function introScene(now){if($('intro').hidden||!introM||renderer.xr&&renderer.xr
   for(const f of [...Object.values(fielders),...runners,batter,ump,odNext,odDeck,...umpB,...coaches])f.g.visible=false;
   const c=introM.introShot(now/1000),[y,p]=look(c.x,c.y,c.z,c.tx,c.ty,c.tz);rig.position.set(c.x,c.y,c.z);camera.rotation.set(p,y,0);
   const fov=fitFov(c.fov);if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}
+/* #209 item 2, part 3 (render/wear.js): on max the scuffs of the game so far are painted on the field canvas, a function of the pitch count before the current event
+   (every repaint starts from a clean copy). Dabs are drawn like the #150 static ones; the texture is re-uploaded only when the pitch count changes. */
+let wearM=null,wearBk=null,wearN=-1,wearEv=null,wearPre=null;import(new URL('wear.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{wearM=M}).catch(err=>console.warn('ground wear off',err));
+function wearTick(i){
+  if(!gfxMax||!wearM||!FIELD_CV||!game)return;
+  if(wearEv!==game.ev){wearEv=game.ev;wearPre=wearM.pitchPrefix(game.ev);wearN=-1}
+  const n=wearPre[i]||0;if(n===wearN)return;
+  const {c,g,X,Y,S,t}=FIELD_CV;
+  try{
+    if(!wearBk){wearBk=document.createElement('canvas');wearBk.width=c.width;wearBk.height=c.height;wearBk.getContext('2d').drawImage(c,0,0)}
+    else{g.globalCompositeOperation='copy';g.drawImage(wearBk,0,0);g.globalCompositeOperation='source-over'}/* always from the clean canvas: wear is a function of n only */
+    for(const d of wearM.wearDabs(n)){const s=d.r*S;g.fillStyle=`rgba(${DIRT_RGB},${d.a})`;g.fillRect(X(d.x)-s/2,Y(d.z)-s/2,s,s*.75)}
+    t.needsUpdate=true;wearN=n;
+  }catch(e){wearN=n;console.warn('ground wear',e)}
+}
 renderer.setAnimationLoop(()=>{
   const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);if(!bootReady&&warmStarted)bootGaps.push(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
@@ -2166,7 +2181,7 @@ renderer.setAnimationLoop(()=>{
   {const k=cpOn()&&mode==='opening'?cpClock.dip(replayT):0;if(k!==cutDipK){cutDipK=k;cutDip.style.opacity=String(k)}}
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
-  curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
+  wearTick(i);curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
   const s=poseScene(e,u,dt,i);staffGiveWay();/* #42: staff step off their posts for runners and fielders */
   if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump,...umpB,...coaches,mgr]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
