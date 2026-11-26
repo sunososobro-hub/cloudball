@@ -29,7 +29,7 @@ export const SLOTS=[
   ['wells',()=>import('./wells.js')],          /* camera wells: never existed */
   ['flags',()=>import('./flags.js')],          /* never existed */
   ['ondeck',()=>import('./ondeck.js')],        /* on-deck circles: old:ondeck = the cheap circles of render/ondeck_lite.js (#392) */
-  ['batterseye',()=>import('./batterseye.js')],/* batter's eye: not built yet (CF fans stand there; owner said leave the fans) */
+  ['batterseye',()=>import('./batterseye.js')],/* batter's eye: old:batterseye = the cheap screen of render/batterseye_lite.js (#150 part 6) */
 ];
 
 /* every mesh game.js named old:<name> or old:<name>:<part> (one object can be several meshes), in the order game.js made them.
