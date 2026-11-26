@@ -14,13 +14,16 @@
  * split of his role with that list; 5 is more than a created pitcher starts with, as if he learned two), hands-off and
  * active: days to the 一軍 median and the mean pitch rating gained after one season.
  * Learning (#378 part 5): the 1-pitch pitchers learn the next pitch with learnPitch, at LEARN_SHARE and at LEARN_WIDE
- * percent, hands-off and active: days until he can throw it (LEARN_AT). */
+ * percent, hands-off and active: days until he can throw it (LEARN_AT).
+ * Decline (#433): AGE_PLAYERS of the same players train on past the peak, hands-off and active; it prints the overall
+ * p25 / median / p75 on the first day of each age in TABLE_AGES (up to 18 seasons for a 20-year-old) and after
+ * LONG_SEASONS seasons. */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { CREATE, makePlayer, potShareAtLeast } from '../freeagents.js';
 import { RATING_TOP } from '../ratings.js';
-import { trainDay, overallOf, defaultSplit, learnPitch, learnSplit, knownPitches, ACTIVE_BONUS, DAYS_PER_SEASON, SPLIT_TOTAL, LEARN_SHARE } from '../training.js';
+import { trainDay, overallOf, ageOn, declineFactor, defaultSplit, learnPitch, learnSplit, knownPitches, ACTIVE_BONUS, DAYS_PER_SEASON, SPLIT_TOTAL, LEARN_SHARE } from '../training.js';
 
 export const PLAYERS = 1000, SIM_SEED = 369, SEASONS = 3, HORIZON = SEASONS * DAYS_PER_SEASON, EVEN_EVERY = 10;
 const LOOK = { head: 0, skin: 0, hair: 0 };
@@ -60,7 +63,7 @@ export function daysTo(made, bonus, seed, goals, free = false) {
   for (;;) {
     goals.forEach((g, j) => { if (out[j] === Infinity && ovr >= g) out[j] = s.day; });
     if (s.day >= HORIZON || out.every(d => d !== Infinity)) return out;
-    if (trainDay(s, r, bonus) > 0) ovr = overallOf(s);
+    if (trainDay(s, r, bonus) > 0 || declineFactor(ageOn(s)) > 0) ovr = overallOf(s);
   }
 }
 
@@ -91,10 +94,26 @@ export function learnDays(made, name, pct, bonus, seed) {
   return s.day;
 }
 
+/* overall on the first day of each age in ages, and after `seasons` seasons; trains until both are past */
+export const TABLE_AGES = [25, 30, 34, 38], LONG_SEASONS = 10, AGE_PLAYERS = 200;
+export function ageRun(made, bonus, seed, ages = TABLE_AGES, seasons = LONG_SEASONS) {
+  const { player: p, ratings } = made;
+  const s = { pit: !!p.role, age0: p.age, day: 0, pot: ratings.pot, split: p.train, abil: Object.fromEntries(Object.keys(p.train).map(k => [k, k in ratings ? ratings[k] : p.pitches[k]])) };
+  const r = rng(seed), at = {}, end = Math.max(seasons, ages[ages.length - 1] - p.age) * DAYS_PER_SEASON;
+  for (;;) {
+    const age = ageOn(s);
+    if (ages.includes(age) && !(age in at)) at[age] = overallOf(s);
+    if (s.day === seasons * DAYS_PER_SEASON) at.long = overallOf(s);
+    if (s.day >= end) return at;
+    trainDay(s, r, bonus);
+  }
+}
+
 export function simulate() {
   const players = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../site/players.json'), 'utf8'));
   const t = targets(players), goals = [t.median, t.bottom], r = rng(SIM_SEED), res = { hands: [[], []], active: [[], []], 'hands, no pot stop': [[], []], 'active, no pot stop': [[], []] };
   const start = [], pots = [], byPitches = Object.fromEntries(PITCH_COUNTS.flatMap(n => [[`${n} hands`, []], [`${n} active`, []]]));
+  const ageTab = { hands: [], active: [] };
   const learn = Object.fromEntries([LEARN_SHARE, LEARN_WIDE].flatMap(n => [[`${n} % hands`, []], [`${n} % active`, []]]));
   for (let i = 0; i < PLAYERS; i++) {
     const made = makePlayer((SIM_SEED * 100003 + i) >>> 0, choiceOf(i, r));
@@ -103,15 +122,16 @@ export function simulate() {
       daysTo(made, bonus, i + 1, goals, free).forEach((d, j) => res[mode][j].push(d));
     if (made.player.role) for (const n of PITCH_COUNTS) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]])
       byPitches[`${n} ${mode}`].push(pitchRun(withPitches(made, n), bonus, i + 1, t.median));
+    if (i < AGE_PLAYERS) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]]) ageTab[mode].push(ageRun(made, bonus, i + 1));
     if (made.player.role) for (const pct of [LEARN_SHARE, LEARN_WIDE]) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]])
       learn[`${pct} % ${mode}`].push(learnDays(withPitches(made, 1), CREATE.pitches[1], pct, bonus, i + 1));
   }
-  return { t, res, byPitches, learn, start: start.sort((a, b) => a - b), pots: pots.sort((a, b) => a - b) };
+  return { t, res, byPitches, learn, ageTab, start: start.sort((a, b) => a - b), pots: pots.sort((a, b) => a - b) };
 }
 
 const fmt = d => (d === Infinity ? 'never' : String(d));
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { t, res, byPitches, learn, start, pots } = simulate();
+  const { t, res, byPitches, learn, ageTab, start, pots } = simulate();
   console.log(`train_sim (#369): ${PLAYERS} created players (seed ${SIM_SEED}), horizon ${HORIZON} days (${SEASONS} seasons of ${DAYS_PER_SEASON}), active bonus ${ACTIVE_BONUS}/day`);
   console.log(`一軍 (${t.n} players in league/site/players.json): median overall ${t.median}, bottom quartile ${t.bottom}`);
   console.log(`一軍 p75 ${t.p75}; created at day 0: overall p25/median/p75 ${[0.25, 0.5, 0.75].map(q => rank(start, q)).join('/')}, potential (hidden) ${[0.25, 0.5, 0.75].map(q => rank(pots, q)).join('/')}`);
@@ -132,5 +152,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   for (const [k, list] of Object.entries(learn)) {
     const d = [...list].sort((a, b) => a - b), got = d.filter(x => x !== Infinity).length;
     console.log(`  ${k.replace('hands', 'hands-off').padEnd(14)}: learned ${String(got).padStart(3)}/${list.length}, days p25/median/p75 ${[0.25, 0.5, 0.75].map(q => fmt(rank(d, q))).join('/')}`);
+  }
+  console.log(`decline (#433): overall p25/median/p75 of the first ${AGE_PLAYERS} players (created at 20 to 24) by age, and after ${LONG_SEASONS} seasons:`);
+  for (const [mode, list] of Object.entries(ageTab)) {
+    const q = key => { const v = list.map(x => x[key]).sort((a, b) => a - b); return [0.25, 0.5, 0.75].map(x => rank(v, x)).join('/'); };
+    console.log(`  ${mode.replace('hands', 'hands-off').padEnd(9)}: ${TABLE_AGES.map(a => `age ${a} ${q(a)}`).join(', ')}; ${LONG_SEASONS} seasons ${q('long')}`);
   }
 }

@@ -13,6 +13,10 @@ Hand-run tools for league data. Nothing here runs at game time.
   star reads 90 or more and first on his team, each hole under 45, the league mean 60 to 65). `node league/tools/abilities.mjs` prints the
   draw, `--write` rewrites only the ability, `avg` and `body` fields. Deterministic (`ABILITY_SEED`, then the
   first balanced seed after it). The demonstration game keeps `../preseason/rosters-opening.js`.
+- `bench.mjs` (#436): draws the factory bench of every team (4 batters: backup C, utility SS, fast CF = pinch
+  runner, a bat = pinch hitter), ratings around the lineup on the `../ratings.js` scale, names by `names.mjs`.
+  `node league/tools/bench.mjs` prints, `--write` rewrites the `bench` lists of `../players.js`. Deterministic
+  (`BENCH_SEED`); `tests/bench.check.mjs` fails when the file and the draw differ.
 - `site.mjs` (#336): exports `../site/teams.json`, `players.json`, `games.json` from the league modules and the recorded games (`RECORDED_GAMES`). `node league/tools/site.mjs` prints, `--write` writes. Export only, deterministic; rerun it whenever `players.js`, `ratings.js`, `teams.js` or a recording changes.
 - `train_sim.mjs` (#369): 1000 seeded created players train day by day with `../training.js`, hands-off and active
   (a full-tier mini-game bonus every day); prints days to reach the 一軍 median and bottom quartile of `../site/players.json`,
