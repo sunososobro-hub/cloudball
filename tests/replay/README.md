@@ -1,6 +1,6 @@
 # tests/replay
 
-Headless checks, plain Node, no browser and no dependencies. CI runs all three.
+Headless checks, plain Node, no browser and no dependencies. CI job `test` (every PR) runs all three with `GAMES=200`; job `full` (pushes to dev / main, PRs into main) runs the 1000-game `run.mjs` and the browser smoke `tests/smoke/play.mjs` (#472).
 
 - `run.mjs` (the engine's referee; it belongs to the engine area): simulates 1000 full games and fails on any out without a legal reason, any half inning without exactly 3 outs (walk-offs excepted), a broken batting order, a score that differs from the runs recorded, a game that does not terminate or end legally, a seed that does not replay identically, a fielder who covers ground or throws faster than a person can, or a fielder waiting to tag in the lane of the runner sliding into his base. It re-derives each out from the fielder actions in the event stream instead of trusting the engine, checks that `engine/` stays pure (no DOM, three.js, clock, unseeded randomness, network or viewer imports), and checks that the engine's count tables have one probability for every ball-strike count.
   - Sample: seeds `SEED` to `SEED + GAMES - 1` (default 1 to 1000). Game n uses the n-th of the 12 home/away pairings of the four teams in turn, so every team plays every other team at home and away and the rates belong to the league, not to one matchup. The run prints the stream digest and the league-wide rates.
