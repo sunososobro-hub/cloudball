@@ -32,3 +32,24 @@ export function wearDabs(n) {
 /* Pitches thrown before event i, for every i of a game's event list (a Float-free prefix array, length ev.length). Only real pitches count
    (k 'P', not an intentional walk or a balk): the wear a viewer sees at event i is wearDabs(pitchPrefix(ev)[i]), so a seek shows what playing to i shows. */
 export const pitchPrefix = ev => { const out = new Array(ev.length); let n = 0; for (let i = 0; i < ev.length; i++) { out[i] = n; if (ev[i].k === 'P' && ev[i].r !== 'ibb' && ev[i].r !== 'bk') n++; } return out; };
+
+/* #209 item 2, part 8: drag marks after slides. A slide in an event (engine move 4th element `slide`, `slideTime`) scrapes a line over the last
+   WEAR_SLIDE_D m before the bag it ends at (same 3 m as engine SLIDE_D and render/dust.js). `slideDrags(ev, bases)` lists them in event order, each
+   tagged with its event index `i`; `dragsBefore(list, i)` = the marks of events before i (the newest WEAR_DRAG_MAX), so a seek to i shows what playing
+   to i shows and the list only grows. Mark = {i, x0, z0, x1, z1, w, a}: world metres, width m, alpha. Pure: the sideways offset is a hash of (i, move). */
+export const WEAR_SLIDE_D = 3, WEAR_DRAG_MAX = 40, WEAR_DRAG_W = .35, WEAR_DRAG_A = .28, WEAR_DRAG_SIDE = .5;
+export function slideDrags(ev, bases) {
+  const out = [], L = 27.43;
+  if (!ev || !bases) return out;
+  for (let i = 0; i < ev.length; i++) {
+    const mv = ev[i] && ev[i].moves; if (!mv) continue;
+    mv.forEach((m, mi) => {
+      const to = m[1], tl = m[3];
+      if (!tl || !tl.slide || !(tl.slideTime > 0) || !(to >= 1 && to <= 4)) return;
+      const [x0, z0] = bases[to - 1], [x1, z1] = bases[to], dx = x1 - x0, dz = z1 - z0, a0 = (L - WEAR_SLIDE_D) / L, side = (h01(i * 8 + mi, 77) - .5) * 2 * WEAR_DRAG_SIDE, nx = -dz / L * side, nz = dx / L * side;
+      out.push({ i, x0: x0 + dx * a0 + nx, z0: z0 + dz * a0 + nz, x1: x1 + nx * .4, z1: z1 + nz * .4, w: WEAR_DRAG_W * (.7 + .6 * h01(i * 8 + mi, 78)), a: WEAR_DRAG_A });
+    });
+  }
+  return out;
+}
+export const dragsBefore = (list, i) => { const k = list.filter(d => d.i < i); return k.slice(Math.max(0, k.length - WEAR_DRAG_MAX)); };
