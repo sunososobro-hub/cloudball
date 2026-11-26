@@ -2,7 +2,7 @@
  * refer to exists, every script parses, and the workflow folder holds only the two allowed files.
  * It also runs every tests/*.check.mjs (sorted; skip list: tests/_skip.txt, #471) as child processes, so CI covers them; formerly listed one by one: tests/names.check.mjs (league name rules), tests/bench.check.mjs (一軍 bench, #436), tests/staff.check.mjs (league staff
  * rules), tests/bios.check.mjs (player bio rules), tests/ratings.check.mjs (1 to 100 display
- * ratings), tests/freeagents.check.mjs (created free agents) and tests/leaguesite.check.mjs (site data, #336) and tests/training.check.mjs (training model, #369) and tests/defence.check.mjs (fielder def, #378) and tests/pitchmix.check.mjs (pitch list, #378), tests/players_load.check.mjs and tests/render_load.check.mjs (render modules load, #293), tests/gpu_shots.check.mjs (real-GPU mailbox, #444) as child processes, so CI covers them.
+ * ratings), tests/freeagents.check.mjs (created free agents) and tests/leaguesite.check.mjs (site data, #336) and tests/training.check.mjs (training model, #369) and tests/defence.check.mjs (fielder def, #378) and tests/onthrow.check.mjs (advance on the throw, #38) and tests/pitchmix.check.mjs (pitch list, #378), tests/players_load.check.mjs and tests/render_load.check.mjs (render modules load, #293), tests/gpu_shots.check.mjs (real-GPU mailbox, #444) as child processes, so CI covers them.
  * Usage: node tests/replay/static.mjs */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
