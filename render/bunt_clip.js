@@ -30,3 +30,42 @@ export function buntClipW(bunt, u, arrive, lead, dur) {
   const w = ease(sat((u - (arrive - lead)) / dur)), o0 = arrive + BUNT_CLIP_OUT[0], o1 = arrive + BUNT_CLIP_OUT[1];
   return Math.min(w, 1 - ease(sat((u - o0) / (o1 - o0))));
 }
+
+/* #43 item 5 (owner 2026-11-21: "the ball looks like it floats"): path of a bunted ball from the bat (p0) to where the engine says it
+ * stops being a roll (p1, reached at T = play.hang, engine BUNT_DIST / BUNT_ROLL_SPEED). The engine's timing is kept exactly (rule 12):
+ * the ball is at p1 at T. Inside that: it leaves the bat going down and hits the dirt within BUNT_FIRST_HOP m, takes the low hops in
+ * BUNT_HOP_LEN / BUNT_HOP_H, then rolls on the ground (height g) while slowing down at a constant rate (friction) to BUNT_END_V of its
+ * starting speed at T. Before: a straight line with a 0.6 m (GB_PEAK) arch at constant speed, i.e. gliding at bat height. */
+export const BUNT_FIRST_HOP = 1.2;          /* m along the ground from the bat to the first touch of the dirt */
+export const BUNT_FIRST_SHARE = .25;        /* on a short bunt the first touch comes within this share of the distance */
+export const BUNT_HOP_LEN = [1.6, 1.0];     /* m: the low hops after the first touch */
+export const BUNT_HOP_H = [.12, .04];       /* m: their heights; after them it rolls */
+export const BUNT_HOP_SHARE = .6;           /* the hops use at most this share of what is left after the first touch */
+export const BUNT_END_V = .25;              /* speed at T over speed off the bat: constant friction in between */
+export const BUNT_DOWN = .6;                /* share of the first drop that is the ball's downward angle off the bat (rest: gravity) */
+
+/* share of the ground distance covered at time share k (0..1) under constant deceleration ending at BUNT_END_V */
+export function buntRollShare(k) {
+  const x = sat(k), r = BUNT_END_V;
+  return (2 * x - (1 - r) * x * x) / (1 + r);
+}
+
+/* height above the ground plane g at s metres along a roll of total length D, starting at height y0 */
+export function buntRollY(s, D, y0, g) {
+  const s1 = Math.min(BUNT_FIRST_HOP, BUNT_FIRST_SHARE * D);
+  if (s <= s1) { const q = s1 > 0 ? sat(s / s1) : 1; return g + (y0 - g) * (1 - (BUNT_DOWN * q + (1 - BUNT_DOWN) * q * q)) }
+  const tot = BUNT_HOP_LEN.reduce((a, b) => a + b, 0), k = Math.min(1, Math.max(0, D - s1) * BUNT_HOP_SHARE / tot);
+  let a = s1;
+  for (let i = 0; i < BUNT_HOP_LEN.length; i++) {
+    const L = BUNT_HOP_LEN[i] * k;
+    if (L > 0 && s < a + L) { const q = (s - a) / L; return g + BUNT_HOP_H[i] * k * 4 * q * (1 - q) }
+    a += L;
+  }
+  return g;
+}
+
+/* ball position [x, y, z] at t seconds after contact (0..T); p0 = bat sweet spot, p1 = roll end (its y is the ground height) */
+export function buntRoll(p0, p1, T, t) {
+  const k = T > 0 ? buntRollShare(t / T) : 1, D = Math.hypot(p1[0] - p0[0], p1[2] - p0[2]);
+  return [lerp(p0[0], p1[0], k), buntRollY(k * D, D, p0[1], p1[1]), lerp(p0[2], p1[2], k)];
+}
