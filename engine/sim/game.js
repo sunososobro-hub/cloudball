@@ -34,12 +34,13 @@ export function simGame(seed, decisions, opts) {
     return { bat: r.bat.slice(), bench: (r.bench || []).slice(), pit: [r.pit[sp], ...rp.slice(o), ...rp.slice(0, o)] };
   });
   const pinchHit = opts.pinchHit ?? K.PINCH_HIT_ON;   /* #436 part 2: off = factory games byte for byte */
+  const pinchRun = opts.pinchRun ?? K.PINCH_RUN_ON;   /* #436 part 3: off = factory games byte for byte */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
   const st = { inn: 1, half: 0, outs: 0, b: [null, null, null], sc: [0, 0], ls: [[], []], H: [0, 0], E: [0, 0],
-    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false, phAsked: false };
+    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false, phAsked: false, prAsked: false };
   const newLine = () => ({ ab: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0 });
   /* stats: one row per player who batted; the first LINEUP_SIZE rows are the starting lineup in order, a pinch hitter
    * gets a new row (batters[k][row] = his name) and row[k][slot] points at the row of whoever holds that slot now */
@@ -191,12 +192,37 @@ export function simGame(seed, decisions, opts) {
           continue;
         }
       }
+      /* ---- offence: pinch run (#436 part 3)? Late, for the lead runner, when the fastest man on the bench is clearly
+       * quicker. The coach's own pick is the runner only in a close game. The new man takes the base, the lineup slot and
+       * the position of the one he replaces and stays in; the replaced player is out of the game. Asked once per batter. ---- */
+      if (pinchRun && !st.prAsked && st.inn >= K.PR_MIN_INNING && RR[off].bench.length) {
+        const base = st.b[2] ? 2 : st.b[1] ? 1 : st.b[0] ? 0 : -1;
+        const slot = base < 0 ? -1 : RR[off].bat.findIndex(b => b.name === st.b[base]);
+        if (slot >= 0) {
+          st.prAsked = true;
+          const cur = RR[off].bat[slot], spd = b => b.spd || 1;
+          const pr = RR[off].bench.reduce((a, b) => spd(b) > spd(a) ? b : a);
+          if (spd(pr) - spd(cur) >= K.PR_EDGE) {
+            const coach = Math.abs(st.sc[off] - st.sc[def]) <= K.PR_CLOSE_RUNS ? 'pr' : 'stay';
+            const pick = vote(off, 'R', COPY.askRun(cur, pr, base + 1), [['pr', COPY.optRun(pr)], ['stay', COPY.optLetRun(cur)]], coach);
+            if (pick === 'pr') {
+              const s0 = snap(), inPlayer = { ...pr, pos: cur.pos };
+              RR[off].bench = RR[off].bench.filter(b => b !== pr); RR[off].bat[slot] = inPlayer;
+              const nb = st.b.slice(); nb[base] = pr.name; st.b = nb;
+              row[off][slot] = stats[off].length; stats[off].push(newLine()); batters[off].push(pr.name);
+              emit('substitution', t, { team: off, role: 'pinch_runner', out: cur.name, in: pr.name, lineup: slot, pos: cur.pos, base: base + 1 });
+              pushFrame({ t, d: K.PR_DUR, k: 'SUB', desc: COPY.pinchRun(TT[off], pr, cur), s0, s1: snap(), team: off, lineup: slot, base: base + 1 });
+            }
+            continue;
+          }
+        }
+      }
       const pit0 = RR[def].pit[st.pi[def]], bi = st.lu[off], bat = RR[off].bat[bi], bs = stats[off][row[off][bi]], ps = pst[def][st.pi[def]];
       const tire = Math.max(0, st.pc[def] - K.TIRE_AFTER_PITCHES);
       const pit = { name: pit0.name, stuff: pit0.stuff * (1 - tire * K.TIRE_STUFF_PER_PITCH), ctrl: pit0.ctrl * (1 - tire * K.TIRE_CTRL_PER_PITCH) };
       const line = COPY.batLine(bs), pline = COPY.pitLine(ps);
       const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def), vavg: rangeOf(def) });
-      const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; st.phAsked = false; };
+      const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; st.phAsked = false; st.prAsked = false; };
 
       /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
       const sbB = stealBase();
@@ -516,7 +542,7 @@ export function simGame(seed, decisions, opts) {
     if (st.half === 1 && st.inn >= K.REGULATION_INNINGS && st.sc[0] !== st.sc[1]) { over = true; break; }
     if (st.half === 1 && st.inn >= K.MAX_INNINGS) { over = true; break; }
     if (st.half === 0) st.half = 1; else { st.half = 0; st.inn++; }
-    st.outs = 0; st.b = [null, null, null]; st.sbAsked = false; st.ibbAsked = false; st.steal = false; st.phAsked = false;
+    st.outs = 0; st.b = [null, null, null]; st.sbAsked = false; st.ibbAsked = false; st.steal = false; st.phAsked = false; st.prAsked = false;
     pushFrame({ t, d: K.BREAK_DUR, k: 'BRK', desc: COPY.halfEnd(s0.inn, s0.half, TT, s0.sc), s0, s1: snap() });
   }
 
