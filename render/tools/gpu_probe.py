@@ -27,7 +27,7 @@ async def main():
       return await r.abort()
     await pg.route('**/*',route)
     await pg.add_init_script("try{localStorage.removeItem('zu_gl');localStorage.removeItem('zu_tier')}catch(e){}")
-    await pg.goto(BASE+'index.html'+Q,wait_until='commit')
+    await pg.goto(BASE+'play.html'+Q,wait_until='commit')
     print('adapter',await pg.evaluate("navigator.gpu?navigator.gpu.requestAdapter().then(a=>a?(a.info?a.info.vendor+'/'+a.info.architecture:'yes'):'none'):'no navigator.gpu'"))
     try: await pg.wait_for_function("()=>{const e=document.getElementById('enter');return e&&!e.disabled}",timeout=WAIT)
     except Exception: print('FAIL: the enter button never woke');bad=1
