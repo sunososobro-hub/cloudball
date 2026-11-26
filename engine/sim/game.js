@@ -101,7 +101,7 @@ export function simGame(seed, decisions, opts) {
     const [off, bi] = e.bat, bat = RR[off].bat[bi], out = [], add = (type, time, data) => out.push({ type, time, data });
     const who = { batter: bat.name, team: off, lineup: bi };
     if (e.r === 'ibb') add('intentional_walk', e.t + e.showAt, { ...who, pitcher: x.pitcher });
-    else if (e.r === 'po') add('pickoff', e.t + K.PO_THROW_AT, { ...who, pitcher: x.pitcher, runner: e.s0.b[0], base: 1, count: e.c0 });
+    else if (e.po) add('pickoff', e.t + K.PO_THROW_AT, { ...who, pitcher: x.pitcher, runner: e.s0.b[0], base: 1, count: e.c0, safe: e.pof ? true : undefined, runnerAt: e.pof ? round3(e.t + e.plan.runnerAt) : undefined });
     else if (e.r === 'bk') add('balk', e.t + e.showAt, { ...who, pitcher: x.pitcher, count: e.c0 });
     else {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
@@ -189,7 +189,7 @@ export function simGame(seed, decisions, opts) {
         bunt = st.inn >= K.BUNT_MIN_INNING && margin <= 0 && margin >= -K.BUNT_MAX_DEFICIT;
       }
 
-      let balls = 0, strikes = 0, paDone = false;
+      let balls = 0, strikes = 0, paDone = false, pofN = 0;
       while (!paDone) {
         const s0 = snap(), c0 = [balls, strikes]; st.pc[def]++;
         const going = st.steal && st.steal === stealBase() ? st.steal : 0; st.steal = false;
@@ -207,6 +207,9 @@ export function simGame(seed, decisions, opts) {
         } else if (!going && st.b[0] && !st.b[1] && R() < K.PO_P) {
           /* pickoff (#38): the pitcher throws over to first before the pitch and the runner is tagged diving back; no pitch counts */
           e.r = 'po'; st.pc[def]--; e.pc = st.pc[def];
+        } else if (!going && st.b[0] && !st.b[1] && pofN < K.POF_MAX_PA && R() < K.POF_P) {
+          /* throw-over that does not get him (#38): the runner is back in time, the ball goes back to the pitcher; no pitch counts */
+          e.r = 'pof'; pofN++; st.pc[def]--; e.pc = st.pc[def];
         } else if (bunt) { e.swing = true; e.r = 'inplay'; }
         else {
           const sw = inZ ? K.SWING_ZONE_BY_COUNT[balls][strikes] : K.SWING_CHASE_BY_COUNT[balls][strikes] / bat.eye;
@@ -350,6 +353,10 @@ export function simGame(seed, decisions, opts) {
           const runner = B[0], p = resolvePickoff(ctxOf(null));
           plan = p.plan; outs = p.outs; st.b = [null, null, B[2]]; e.po = true; e.big = K.BIG.NOTABLE;
           desc = COPY.pickoff(runner);
+        } else if (e.r === 'pof') {
+          /* e.po marks every pickoff-throw frame, e.pof the ones where the runner is safe */
+          plan = resolvePickoff(ctxOf(null), true).plan; e.po = true; e.pof = true; e.big = K.BIG.NONE;
+          desc = COPY.pickoffSafe(B[0]);
         } else if (e.r === 'bk') {
           const nb = [null, B[0], B[1]];
           if (B[2]) { moves.push([3, HOME, B[2]]); runs++; }
@@ -419,6 +426,9 @@ export function simGame(seed, decisions, opts) {
         } else if (sbGo) {
           showAt = moves[0][3].arriveT + K.OUT_CALL_LAG;
           d = Math.max(d, plan.arrive + K.POST_PLAY_HOLD, showAt + K.POST_PLAY_HOLD);
+        } else if (e.pof) {
+          showAt = plan.arrive + K.OUT_CALL_LAG;
+          d = Math.max(K.PITCH_DUR.pof, plan.back.arrive + K.POST_PLAY_HOLD);
         } else if (e.po) {
           showAt = lastOut + K.OUT_CALL_LAG;
           d = Math.max(K.PITCH_DUR.po, showAt + K.POST_PLAY_HOLD);
