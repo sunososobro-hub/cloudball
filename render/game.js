@@ -415,6 +415,8 @@ const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend
 let PP=null;
 const dofU={};/* uniforms of the depth-of-field pass (#211 item 4); filled by dofInit once TSL is there, driven by dofFrame */
 try{const {uniform}=TSL;dofU.focus=uniform(1);dofU.len=uniform(1);dofU.scale=uniform(0)}catch(e){console.warn('dof uniforms',e)}
+const finU={};/* uniforms of the video finish (#209 item 3, render/finish.js); knee 99 / amount 0 = pass-through until the module is loaded */
+try{const {uniform}=TSL;finU.knee=uniform(99);finU.max=uniform(100);finU.amt=uniform(0);finU.f=uniform(0)}catch(e){console.warn('finish uniforms',e)}
 /* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
    fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
 const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r'],['dof','d']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgrd' = all four, '-' = not loaded or ?off= */
@@ -440,6 +442,10 @@ function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,len
     if(mx)c=FX.traa(c,dep,sp.getTextureNode('velocity'),camera)}
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
+  if(gfxMax&&HQ&&finU.knee&&!OFF.has('finish')){/* #209 item 3, max only, no extra pass: highlight roll-off (same maths as finish.js roll) and film grain (hash of the pixel and the 24/s grain frame) */
+    const {select,exp,fract,sin,dot,vec2,screenCoordinate}=TSL,K=finU.knee,R=finU.max.sub(K),rl=v=>select(v.greaterThan(K),K.add(R.mul(float(1).sub(exp(v.sub(K).negate().div(R))))),v),
+      gr=fract(sin(dot(screenCoordinate.xy.add(finU.f.mul(vec2(37.2,17.9))),vec2(12.9898,78.233))).mul(43758.5453)).sub(.5).mul(finU.amt.mul(2));
+    c=vec4(rl(c.r).add(gr),rl(c.g).add(gr),rl(c.b).add(gr),c.a)}
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
   pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.fx=key;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
@@ -1728,6 +1734,9 @@ let dofM=null;import(new URL('dof.js',document.currentScript&&document.currentSc
 function dofFrame(tw,pw){if(!dofM||!dofU.scale)return;let d=0;if(gfxMax){const t=pw>=dofM.DOF_MIN_W&&platecamM?_dofT.set(...platecamM.PLATE_AIM):tw>0?batter.g.position:null;if(t)d=rig.position.distanceTo(t)}
   const p=dofM.dofParams(gfxMax?tw:0,gfxMax?pw:0,d);dofU.focus.value=p.focus;dofU.len.value=p.length;dofU.scale.value=p.scale}
 const _dofT=new THREE.Vector3();
+/* #209 item 3: video finish on max (render/finish.js, pure). The grain frame is a function of the game time, so a seek shows the grain of playing there. */
+let finM=null;import(new URL('finish.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{finM=M;if(finU.knee){finU.knee.value=M.ROLL_KNEE;finU.max.value=M.ROLL_MAX;finU.amt.value=M.GRAIN_AMT}}).catch(err=>console.warn('finish off',err));
+function finFrame(){if(finM&&finU.f)finU.f.value=finM.grainFrame(curT())}
 function fitKey(on){if(!keyfitM)return;on=on&&gfxMax;if(!on&&!keyTight)return;const f=keyfitM.keyFit(on?batter.g.position:null),c=key.shadow.camera;keyTight=on;key.target.position.set(...f.target);key.position.set(...f.position);Object.assign(c,{left:-f.half,right:f.half,top:f.half,bottom:-f.half});c.updateProjectionMatrix();key.target.updateMatrixWorld()}
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
@@ -1752,7 +1761,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
   const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
   if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
-  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw)}
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw);finFrame()}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(isEditing())return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
