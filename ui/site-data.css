@@ -26,7 +26,7 @@ main{padding-top:14px}
 .tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:96px;padding:10px;background:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)),var(--tc,#5b6479);color:#fff}
 .tile .ov{font-size:44px;line-height:1;font-weight:800}.tile small{font-size:12px;opacity:.85;letter-spacing:.2em}
 .tile .no{position:absolute;top:6px;left:8px;font-size:12px;opacity:.8}
-.pt .info{display:flex;flex-direction:column;gap:2px;padding:8px 10px 10px}.pt .nm{font-size:16px;line-height:1.3}.pt .meta{color:var(--muted);font-size:13px}
+.pt .info{display:flex;flex-direction:column;gap:2px;padding:8px 10px 10px}.pt .nm{font-size:16px;line-height:1.3}.pt .nm .sys{font-style:normal;font-size:12px;margin-left:6px;padding:0 6px;border:1px solid var(--muted);border-radius:8px;color:var(--muted)}.pt .meta{color:var(--muted);font-size:13px}
 .ab{margin:0;padding:0 10px 10px;display:grid;gap:6px;font-size:13px}
 .ab>div{display:grid;grid-template-columns:3.5em 2em 1fr;align-items:center;gap:6px}.ab dt{color:var(--muted)}.ab dd{margin:0;text-align:right;font-weight:700}
 .ab .bar{display:block;height:6px;border-radius:3px;background:rgba(255,255,255,.1)}.ab .bar i{display:block;height:100%;border-radius:3px;background:var(--gold)}

@@ -31,7 +31,7 @@ export function mergeCreated(d, rows) {
     if (!p || !R || typeof p !== 'object' || id == null || id === '' || players[id]) continue;
     const pit = r.kind === 'pit', keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
     players[id] = { name: p.name, num: p.num, age: p.age, role: pit ? 'P' : 'B', pos: pit ? (p.role === 'SP' ? 'SP' : 'RP') : p.pos, hand: pit ? p.throws : p.hand,
-      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3 };
+      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3, ...(p.system === true ? { system: true } : {}) };
   }
   return { ...d, players };
 }
@@ -68,7 +68,7 @@ function card(id, p, base, f, open) {
   const abilities = Object.entries(p.abilities || {}).filter(([, v]) => v != null);
   const panel = open ? `<dl class="ab">${abilities.map(([k, v]) => `<div><dt>${esc(ABILITY_LABEL[k] || k)}</dt><dd class="num">${esc(v)}</dd><span class="bar"><i style="width:${Math.max(0, Math.min(100, Number(v) || 0))}%"></i></span></div>`).join('') || `<div><dt>能力</dt><dd>—</dd></div>`}</dl>` : '';
   /* the open card links back to the list without it (tap again closes); the others link to themselves */
-  return `<div class="pc${open ? ' open' : ''}" data-id="${esc(id)}"><a class="pt" href="${esc(base)}/${f}${open ? '' : '/' + encodeURIComponent(id)}" aria-expanded="${open}"><span class="tile" style="--tc:${teamCss(p.team)}">${p.num != null ? `<span class="no">#${esc(p.num)}</span>` : ''}<b class="ov num">${esc(p.overall)}</b><small>評價</small></span><span class="info"><b class="nm">${esc(p.name)}</b><span class="meta">${meta}</span></span></a>${panel}</div>`;
+  return `<div class="pc${open ? ' open' : ''}" data-id="${esc(id)}"><a class="pt" href="${esc(base)}/${f}${open ? '' : '/' + encodeURIComponent(id)}" aria-expanded="${open}"><span class="tile" style="--tc:${teamCss(p.team)}">${p.num != null ? `<span class="no">#${esc(p.num)}</span>` : ''}<b class="ov num">${esc(p.overall)}</b><small>評價</small></span><span class="info"><b class="nm">${esc(p.name)}${p.system === true ? '<em class="sys">系統</em>' : ''}</b><span class="meta">${meta}</span></span></a>${panel}</div>`;
 }
 /* rows: [id, player] pairs; `filter` and `openId` come from the hash. Returns the groups (or the one filtered list); '' when nobody shows. */
 export function rosterCards(rows, { base, filter, openId } = {}) {
