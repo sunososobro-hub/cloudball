@@ -6,6 +6,7 @@
  * The server keeps only SHA-256(key). No password, no e-mail, no cookie.
  * Who counts: the owner's word in #179. Game outcomes are never touched here (rule 10): a created player is a row. */
 import { validateCreate, makePlayer, drawName, CREATE } from '../../league/freeagents.js';
+import { growTo, viewOf, checkpointOf, CKPT_EVERY } from '../../league/growth.js';
 
 export const DRAW_CAP = 20;               /* name draws 0 .. DRAW_CAP (the first one plus this many redraws) */
 export const AGENTS_PER_DAY = 300;        /* new agents per UTC day, in total */
@@ -131,12 +132,31 @@ export const draw = guarded(async ({ request, db, agent }) => {
 /* sort keys of the free-agent list: overall, newest, and the ability keys of league/ratings.js (display numbers) */
 const SORTS = new Set(['ovr', 'new', 'con', 'pow', 'eye', 'spd', 'arm', 'stuff', 'ctrl', 'pot']);
 const FREE = pid => 'free:' + pid;        /* players.agent_id of a released player nobody has picked up */
-const publicRow = r => ({ id: r.pid, name: r.name, kind: r.kind, ovr: r.ovr, player: JSON.parse(r.player), ratings: JSON.parse(r.ratings), created: r.created_at, free: !!r.free });
+const DAY_MS = 86400000;
+/* #564: a created player grows lazily. `ratings` in the row stay his creation ratings (the replay base); each read advances them by
+ * one training day per whole day since created_at (league/growth.js, seeded from his id and the day, so the same day is the same numbers).
+ * player.ckpt = { day, abil } is a checkpoint written back at most every CKPT_EVERY days; it never leaves the server. 系統 fillers do not grow. */
+const grow = (r, now) => {
+  const player = JSON.parse(r.player), ratings = JSON.parse(r.ratings);
+  if (player.system || !player.train) return { player, ratings, save: null };
+  const ckpt = player.ckpt || null, s = growTo(player, ratings, Math.max(0, Math.floor((now - r.created_at) / DAY_MS)), ckpt);
+  const view = viewOf(player, ratings, s), { ckpt: hidden, ...shown } = view.player;
+  /* write back: the day count moved CKPT_EVERY past the stored checkpoint; ovr (the sort column) follows */
+  const save = s.day - (ckpt ? ckpt.day : 0) >= CKPT_EVERY ? { pid: r.pid, player: JSON.stringify({ ...player, ckpt: checkpointOf(s) }), ovr: view.ratings.ovr } : null;
+  return { player: shown, ratings: view.ratings, save };
+};
+const saveStep = (db, x) => db.prepare('UPDATE players SET player = ?2, ovr = ?3 WHERE pid = ?1').bind(x.pid, x.player, x.ovr);
+const publicRow = (r, now = Date.now(), saves = []) => {
+  const g = grow(r, now); if (g.save) saves.push(g.save);
+  return { id: r.pid, name: r.name, kind: r.kind, ovr: g.ratings.ovr, player: g.player, ratings: g.ratings, created: r.created_at, free: !!r.free };
+};
 
 /* GET /api/player: the player of this agent, or null */
 export const mine = guarded(async ({ db, agent }) => {
   const r = await db.prepare('SELECT pid, name, kind, ovr, player, ratings, created_at FROM players WHERE agent_id = ?1').bind(agent.id).first();
-  return json(200, { ok: true, player: r ? publicRow(r) : null, cap: DRAW_CAP });
+  const saves = [], row = r ? publicRow(r, Date.now(), saves) : null;
+  if (saves.length) await db.batch(saves.map(x => saveStep(db, x)));
+  return json(200, { ok: true, player: row, cap: DRAW_CAP });
 }, { needKey: true });
 
 /* POST /api/player: create the one player of this agent. The body is the choice of league/freeagents.js (kind, position or
@@ -170,10 +190,12 @@ export const list = guarded(async ({ request, db }) => {
    a player without that ability (a batter has no stuff) sorts last */
   const order = sort === 'ovr' ? 'ovr DESC, created_at DESC, pid' : sort === 'new' ? 'created_at DESC, pid'
     : `json_extract(ratings, '$.${sort}') DESC, ovr DESC, created_at DESC, pid`;
+  const saves = [], now = Date.now();
   const rows = (await db.prepare(`SELECT pid, name, kind, ovr, player, ratings, created_at, (agent_id LIKE 'free:%') AS free FROM players ORDER BY ${order} LIMIT ?1 OFFSET ?2`)
     .bind(PAGE_SIZE + 1, page * PAGE_SIZE).all()).results;
-  return json(200, { ok: true, page, sort, more: rows.length > PAGE_SIZE, players: rows.slice(0, PAGE_SIZE).map(publicRow) },
-    { 'cache-control': 'public, max-age=10' });
+  const players = rows.slice(0, PAGE_SIZE).map(r => publicRow(r, now, saves));
+  if (saves.length) await db.batch(saves.map(x => saveStep(db, x)));
+  return json(200, { ok: true, page, sort, more: rows.length > PAGE_SIZE, players }, { 'cache-control': 'public, max-age=10' });
 });
 
 /* POST /api/player/release: this agent lets his player go (解約). The row stays (records are append-only); he loses his agent,
