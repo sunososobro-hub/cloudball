@@ -7,12 +7,12 @@
 - #436 part 2: pinch hit behind `PINCH_HIT_ON` (off; `opts.pinchHit`), vote kind `H`, event `substitution` role `pinch_hitter`, frame `SUB`; `stats` gets a row per pinch hitter (`batters` names the rows); `tests/pinchhit.check.mjs`.
 - #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`); a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 - #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`).
-- #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
+- #266 (0.4.11): home-run runners trot (kind `'trot'`, `HR_TROT_SPEED`); `tests/hr_trot.check.mjs`. #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 - #81 (0.4.10): a "stay" pick on the pitching vote brings the pitching coach out (`VIS` frame, `MOUND_VISIT_DUR`, stream `mound_visit`), once per pitcher; no draw, outcomes unchanged, only later times move.
 
 ## Next
 1. #23 catcher holds the ball on steals: needs a primary lead from `render/` first (see the issue).
-2. #38 rest (0.4.4 wild pitch `WP_P`, 0.4.5 passed ball `PB_P`, 0.4.6 balk `BK_P`, frame `r: 'bk'`, no pitch event; 0.4.7 steal of 3rd `STEAL3_*`, `st.steal` = the base; 0.4.8 pickoff at first `PO_*`, frame `r: 'po'`; 0.4.9 throw-over that misses `POF_*`, frame `r: 'pof'`, `e.po`+`e.pof`, max 2 per PA; 0.4.10 batter takes 2nd on the throw home `THROW_HOME_ON_SINGLE_P`, `plan.throwHome`, `tests/onthrow.check.mjs`; 0.4.11 runner from 2nd sent home on a single `SEND_FROM_2ND_ON_SINGLE_P`, the throw decides, `play.outHome`, `tests/outhome.check.mjs`): advancing on an error, other outs on the bases (batter thrown out stretching).
+2. #38 rest (0.4.4 wild pitch `WP_P`, 0.4.5 passed ball `PB_P`, 0.4.6 balk `BK_P`, frame `r: 'bk'`, no pitch event; 0.4.7 steal of 3rd `STEAL3_*`, `st.steal` = the base; 0.4.8 pickoff at first `PO_*`, frame `r: 'po'`; 0.4.9 throw-over that misses `POF_*`, frame `r: 'pof'`, `e.po`+`e.pof`, max 2 per PA; 0.4.10 batter takes 2nd on the throw home `THROW_HOME_ON_SINGLE_P`, `plan.throwHome`, `tests/onthrow.check.mjs`; 0.4.11 runner from 2nd sent home on a single `SEND_FROM_2ND_ON_SINGLE_P`, the throw decides, `play.outHome`, `tests/outhome.check.mjs`; 0.4.12 batter stretching a single `STRETCH_1B_P`, the throw to second decides, `play.outStretch`, `tests/stretch.check.mjs`): advancing on an error; then tighten the runs tolerance.
 3. Staffs have 4 relievers: 5.3 changes/game against about 6.6 in MLB. 4. Called third strikes: 19% of K, real ~25%.
 5. #436 rest: render and commentary for frame `SUB` (then switch `PINCH_HIT_ON` on), pinch run, defensive replacement, bench season lines.
 

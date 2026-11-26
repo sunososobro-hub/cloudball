@@ -3,7 +3,8 @@
  *   - wearDabs(n) is a prefix of wearDabs(n + k) per kind (a seek to n equals playing to n), and the same call twice is identical
  *   - every dab sits near its spot (inside the spread radius), radius and alpha in range, all numbers finite
  * static.mjs runs this file. Usage: node tests/wear.check.mjs */
-import { wearDabs, wearCount, WEAR_FULL_N, WEAR_MAX, WEAR_SPOTS, WEAR_ALPHA, WEAR_KINDS } from '../render/wear.js';
+import { simGame } from '../engine/index.js';
+import { pitchPrefix, wearDabs, wearCount, WEAR_FULL_N, WEAR_MAX, WEAR_SPOTS, WEAR_ALPHA, WEAR_KINDS } from '../render/wear.js';
 
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 const by = (a, k) => a.filter(d => d.kind === k);
@@ -26,6 +27,16 @@ for (const d of full) {
   if (![d.x, d.z, d.r, d.a].every(Number.isFinite)) { bad('non-finite dab'); break; }
   if (!(d.r >= .03 && d.r <= .12 + 1e-9) || !(d.a > 0 && d.a <= WEAR_ALPHA[d.kind] + 1e-9)) bad(`${d.kind}: r ${d.r} a ${d.a}`);
   if (!WEAR_SPOTS[d.kind].some(s => Math.hypot(d.x - s[0], d.z - s[1]) <= s[2] + 1e-9)) { bad(`${d.kind}: dab off its spot (${d.x}, ${d.z})`); break; }
+}
+/* pitchPrefix on real simulated games: starts at 0, never decreases, +1 only after a real pitch, ends at the game's pitch count, the same wear for the same index */
+for (const seed of [1, 2, 3]) {
+  const g = simGame(seed, {}), pre = pitchPrefix(g.ev), real = e => e.k === 'P' && e.r !== 'ibb' && e.r !== 'bk';
+  if (pre.length !== g.ev.length || pre[0] !== 0) bad(`seed ${seed}: prefix shape`);
+  for (let i = 1; i < pre.length; i++) if (pre[i] !== pre[i - 1] + (real(g.ev[i - 1]) ? 1 : 0)) { bad(`seed ${seed}: prefix step at ${i}`); break; }
+  const total = g.ev.filter(real).length;
+  if (total < 100) bad(`seed ${seed}: only ${total} pitches`);
+  if (JSON.stringify(wearDabs(pre[pre.length >> 1])) !== JSON.stringify(wearDabs(pitchPrefix(simGame(seed, {}).ev)[pre.length >> 1]))) bad(`seed ${seed}: wear differs for the same event`);
+  if (wearDabs(pre[pre.length - 1]).length < wearDabs(pre[pre.length >> 1]).length) bad(`seed ${seed}: wear shrank later in the game`);
 }
 if (problems.length) { console.log('wear check FAILED\n' + problems.join('\n')); process.exit(1); }
 console.log(`wear check ok (${full.length} dabs at full wear)`);

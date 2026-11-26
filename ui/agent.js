@@ -6,7 +6,7 @@ import { CREATE, validateCreate, pointKeys, budgetOf, positionFit, presetBody, p
 import { makePreview } from './agent-preview.js';
 import { ratingRow } from './bars.js';
 import { attachCompare } from './compare.js';
-import { specOfChoice, specOfRow } from './preview-spec.js';
+import { specOfChoice, specOfRow, LOOK_CHIPS, LOOK_LEGEND } from './preview-spec.js';
 import { needsOf, slotLine, abilityTag, compareLine, RBI_NOTE, WORD } from '../league/needs.js';
 
 const KEY_NAME = 'cloudball.agentKey';
@@ -43,6 +43,19 @@ const preview = makePreview($('stage'));
 const showPreview = (spec, caption) => { $('stage').hidden = false; $('stageCap').textContent = caption; preview.show(spec); };
 const say = (text, err) => { const s = $('status'); s.textContent = text; s.hidden = !text; s.classList.toggle('err', !!err); };
 
+/* ---- 取回 (#435): the browser remembers the ids it released (site-page.js); the server decides again who may take him back ---- */
+const RELEASED_KEY = 'cloudball.releasedIds';
+const releasedByMe = id => { try { return id != null && JSON.parse(localStorage.getItem(RELEASED_KEY) || '[]').includes(String(id)); } catch (e) { return false; } };
+async function reclaimPlayer(row, btn) {
+  const key = store.get(), pid = String(row.id ?? row.player.id); btn.disabled = true;
+  const r = await api('/api/player/reclaim', { method: 'POST', key, body: { id: pid } });
+  if (r.body && r.body.ok) {
+    try { localStorage.setItem('cloudball.myPlayerId', pid); const old = JSON.parse(localStorage.getItem(RELEASED_KEY) || '[]').filter(x => x !== pid); if (r.body.released != null) old.push(String(r.body.released)); localStorage.setItem(RELEASED_KEY, JSON.stringify(old)); } catch (e) { /* storage blocked */ }
+    location.reload(); return;
+  }
+  btn.disabled = false; say(r.body && r.body.why === 'taken' ? '他已經被別人簽走了，取不回來。' : '取回失敗，等一下再試。', true);
+}
+
 /* ---- team needs (#431): display only, read once from the data site's roster file; no answer = no needs lines ---- */
 const rosterData = (async () => {
   try { const r = await fetch('league/site/players.json'), j = await r.json(), needs = needsOf(j); return needs.teams.length ? { players: j, needs } : null; } catch (e) { return null; }
@@ -57,6 +70,7 @@ function playerRow(row) {
   for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) if (R[k] !== undefined) r.appendChild(ratingRow(label, R[k]));
   if (!pit) who.appendChild(el('span', 'fit', `守位適性：${positionFit(p.pos, R)}`));
   const see = el('button', 'see', '看他'); see.type = 'button'; see.setAttribute('aria-label', `看 ${p.name} 的樣子`); who.appendChild(see);
+  if (row.free && releasedByMe(p.id ?? row.id)) { const b = el('button', 'see', '取回'); b.type = 'button'; b.onclick = ev => { ev.stopPropagation(); reclaimPlayer(row, b); }; who.appendChild(b); }   /* #435 */
   li.onclick = () => { for (const o of document.querySelectorAll('li.p[aria-current]')) o.removeAttribute('aria-current'); li.setAttribute('aria-current', 'true'); showPreview(specOfRow(row), `${p.name} #${p.num}`); };
   li.append(who, r);
   attachCompare(li, { id: `fa:${p.id ?? p.name}`, name: p.name, num: p.num, meta, kind: row.kind, R: { ...R, pot: undefined }, hidePot: true });/* #384: potential is hidden for created players */
@@ -170,8 +184,9 @@ function buildMaker(key, state) {
       slotNeed,
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
       chipGroup('體型預設', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), null, v => { state.body = presetBody(v); state.ht = presetHt(v); buildFields(); refresh(); look(); }),
-      bodyFields());
-    /* 外觀 chips (head, skin, hair) are hidden until #151 lands a real look mapping: they draw nothing yet. `state.look` keeps its defaults (0) so the posted choice is unchanged. */
+      bodyFields(),
+      /* #441: 外觀 chips, only the look numbers the preview and the game draw (ui/preview-spec.js LOOK_CHIPS); look.skin stays 0 (draws nothing off max) */
+      ...Object.entries(LOOK_CHIPS).map(([k, labels]) => chipGroup(LOOK_LEGEND[k], labels.map((l, i) => [i, l]), state.look[k], edit(v => { state.look = { ...state.look, [k]: Number(v) }; }))));
     const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = budgetOf(state), keys = pointKeys(state);
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));
     for (const k of keys) {

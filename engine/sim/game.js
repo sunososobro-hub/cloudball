@@ -332,16 +332,21 @@ export function simGame(seed, decisions, opts) {
             /* advancing on a throw (#38): the runner from second scores on an outfield single, second is open, the
              * outfielder throws home behind him and the batter takes second on the throw */
             const throwHome = !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
-            const bTo = throwHome ? 2 : adv;
+            /* out on the bases (#38): the batter tries to stretch an outfield single into a double; the throw decides */
+            const stretch = !throwHome && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && !nb[1] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.STRETCH_1B_P;
+            const bTo = throwHome || stretch ? 2 : adv;
             moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb;
-            const h = resolveHit(ctx, { throwHome, sendHome }); plan = h.plan;
+            const h = resolveHit(ctx, { throwHome, sendHome, stretch }); plan = h.plan;
             if (sendHome) { if (h.safe) runs++; else { outs = h.outs; play.outHome = true; } }
             if (throwHome) { play.onThrow = true; }
+            let hitRes = res;   /* the scorer's hit: a stretch that is safe is a double, one thrown out stays a single */
+            if (stretch) { if (h.safe) hitRes = '2B'; else { outs = h.outs; play.outStretch = true; nb[1] = null; } }
             if (res === 'E') { st.E[def]++; result = 'error'; desc = COPY.error(name, type === 'GB'); }
-            else { bs.h++; st.H[off]++; ps.h++; if (res === '2B') bs.d++; if (res === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[res]; desc = COPY.hit(name, res); }
+            else { bs.h++; st.H[off]++; ps.h++; if (hitRes === '2B') bs.d++; if (hitRes === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[hitRes]; desc = COPY.hit(name, hitRes); }
             if (runs) desc += COPY.drivesIn(runs);
             if (play.onThrow) desc += COPY.onThrow(name);
             if (play.outHome) desc += COPY.outAtHome(B[1]);
+            if (play.outStretch) desc += COPY.outStretching();
             e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;
@@ -461,7 +466,7 @@ export function simGame(seed, decisions, opts) {
           if (m[3]) continue;
           const [from, to, who] = m, stays = to < HOME && e.s1.b[to - 1] === who, outHere = outs.some(o => o.runner === who && o.base === to);
           const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? outHere || look() < K.HOME_SLIDE_P : stays || outHere));
-          m[3] = runnerTimeline(from, to, { kind: inplay ? 'inplay' : e.wp ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
+          m[3] = runnerTimeline(from, to, { kind: inplay ? (play.res === 'HR' ? 'trot' : 'inplay') : e.wp ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
         }
 
         /* ---- broadcast timing: the result is shown when it has really happened ---- */
