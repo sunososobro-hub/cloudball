@@ -45,6 +45,10 @@ if (JSON.stringify([...expect].sort()) !== JSON.stringify([...BLOCKED].sort())) 
 const look = { head: 3, skin: 2, hair: 5 };
 const BAT = { kind: 'bat', pos: 'SS', bats: 'L', build: 'slim', look, points: { con: 70, pow: 40, eye: 65, spd: 70, arm: 60 }, nameDraw: 0 };
 const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points: { stuff: 66, ctrl: 62, arm: 55 } };
+/* #541: look is optional, key by key: nothing picked, or one chip picked, is legal and kept as is (the id fills the rest at draw time) */
+{ const { look: _l, ...NOL } = BAT;
+  for (const [what, c] of [['no look', NOL], ['empty look', { ...BAT, look: {} }], ['head only', { ...BAT, look: { head: 2 } }]]) { const w = validateCreate(c); if (w.length) bad(`${what}: refused: ${w.join('; ')}`); }
+  if (JSON.stringify(makePlayer(5, NOL).player.look) !== '{}' || JSON.stringify(makePlayer(5, { ...BAT, look: { head: 2 } }).player.look) !== '{"head":2}') bad('makePlayer must keep exactly the picked look keys'); }
 for (const c of [BAT, PIT]) { const w = validateCreate(c); if (w.length) bad(`valid ${c.kind} choice refused: ${w.join('; ')}`); }
 const off = {
   'over budget': { ...BAT, points: { ...BAT.points, pow: 41 } },
@@ -59,6 +63,7 @@ const off = {
   'bad role': { ...PIT, role: 'P' },
   'switch hitter': { ...BAT, bats: 'S' },
   'bad build': { ...BAT, build: 'giant' },
+  'look not an object': { ...BAT, look: 3 },
   'look out of range': { ...BAT, look: { ...look, hair: 10 } },
   'look with text': { ...BAT, look: { ...look, hat: 'red' } },
   'bad nameDraw': { ...BAT, nameDraw: -1 },

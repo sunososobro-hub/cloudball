@@ -43,7 +43,7 @@ export function makePreview(host) {
     floor.rotation.x = -Math.PI / 2; floor.position.y = 0.002; pivot.add(floor);
 
     let f = null, kind = null, hairIx = -1, bat = null, side = PREVIEW_OPEN.side, zoom = PREVIEW_OPEN.zoom, yaw = yawOfSide(side), ht = 1.8, dragging = false, w = 0, h = 0, lastX = 0;
-    const R = PL.HEAD_SHAPES.length, headOf = n => ((n | 0) % R + R) % R, HT = PL.HAIR_TONES.length, hairOf = n => ((n | 0) % HT + HT) % HT;
+    const headIxOf = s => PL.headOfPlayer({ id: s.id, look: s.look });   /* #541: the same head index the game draws: picked chips, else derived from the id */
 
     const fit = () => {   /* the frame (head close-up or whole body) fits both ways: tall box on a phone, wide box on a desktop */
       const fr = frameOf(zoom, ht), aspect = w / Math.max(h, 1), vf = FOV * Math.PI / 180, dh = fr.h / 2 / Math.tan(vf / 2), dw = fr.w / 2 / (Math.tan(vf / 2) * aspect);
@@ -53,9 +53,10 @@ export function makePreview(host) {
     const draw = () => { pivot.rotation.y = yaw; renderer.render(scene, camera); };
 
     const dress = s => {
-      if (!f || kind !== s.kind || hairIx !== hairOf(s.hair)) {   /* #441: the hair colour is a material of the figure, so a new pick builds it again (geometry is cached) */
+      const hd = headIxOf(s), hx = PL.gearOf(hd).hair;
+      if (!f || kind !== s.kind || hairIx !== hx) {   /* #441: the hair colour is a material of the figure, so a new pick builds it again (geometry is cached) */
         if (f) { pivot.remove(f.g); bat = null; }   /* body geometry is cached in players.js, so nothing to free */
-        kind = s.kind; hairIx = hairOf(s.hair);
+        kind = s.kind; hairIx = hx;
         const batter = s.kind === 'bat';
         f = PL.makePlayer({ jersey: JERSEY, pants: PANTS, sock: JERSEY, skin: SKIN, hair: PL.HAIR_TONES[hairIx], head: 'cap', role: batter ? 'batter' : undefined, throws: 'R', glove: !batter, parent: pivot });
         if (f.glove) f.glove.traverse(m => { if (m.isMesh) m.material = new THREE.MeshStandardMaterial({ color: LEATHER, roughness: 0.6 }); });
@@ -63,7 +64,7 @@ export function makePreview(host) {
           bat = PL.makeBat(BAT_COLOR); f.sockets.handR.add(bat); bat.rotation.x = BAT_GRIP_X; f.arms[1].rotation.x = BAT_ARM_X;
         }
       }
-      f.setBuild(s.body, s.ht, headOf(s.head));
+      f.setBuild(s.body, s.ht, hd);
       if (s.kind === 'bat') f.g.scale.x = s.hand === 'L' ? -1 : 1; else f.setThrows(s.hand === 'L' ? 'L' : 'R');
       f.setNum(s.num); ht = s.ht; fit();
     };

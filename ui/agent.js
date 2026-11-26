@@ -116,7 +116,7 @@ function chipGroup(legend, options, current, onPick, cls) {
 const evenPoints = kind => { const c = { kind, points: kind === 'bat' ? { [CREATE.defKey]: 0 } : {} }, keys = pointKeys(c);
   return Object.fromEntries(keys.map(k => [k, budgetOf(c) / keys.length])); };
 const defaults = kind => ({ kind, [kind === 'bat' ? 'pos' : 'role']: kind === 'bat' ? 'SS' : 'SP', [kind === 'bat' ? 'bats' : 'throws']: 'R', body: presetBody('normal'), ht: presetHt('normal'),
-  look: { head: 0, skin: 0, hair: 0 }, points: evenPoints(kind) });
+  look: {}, points: evenPoints(kind) });   /* #541: no chip picked = the look comes from his id */
 
 function buildMaker(key, state) {
   const s = $('maker'); s.replaceChildren(el('h2', null, '建立你的球員'));
@@ -185,7 +185,7 @@ function buildMaker(key, state) {
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
       chipGroup('體型預設', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), null, v => { state.body = presetBody(v); state.ht = presetHt(v); buildFields(); refresh(); look(); }),
       bodyFields(),
-      /* #441: 外觀 chips, only the look numbers the preview and the game draw (ui/preview-spec.js LOOK_CHIPS); look.skin stays 0 (draws nothing off max) */
+      /* #441: 外觀 chips, only the look numbers the preview and the game draw (ui/preview-spec.js LOOK_CHIPS); look.skin is never offered (the id decides it); an unpicked chip stays out of the post */
       ...Object.entries(LOOK_CHIPS).map(([k, labels]) => chipGroup(LOOK_LEGEND[k], labels.map((l, i) => [i, l]), state.look[k], edit(v => { state.look = { ...state.look, [k]: Number(v) }; }))));
     const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = budgetOf(state), keys = pointKeys(state);
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));

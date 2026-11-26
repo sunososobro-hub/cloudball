@@ -25,7 +25,7 @@ for (const c of [base, ...Object.keys(CREATE.builds).map(b => ({ ...base, build:
   const made = makePlayer(7, c), row = { kind: c.kind, player: made.player, ratings: made.ratings }, a = specOfChoice(c), b = specOfRow(row);
   if (JSON.stringify(a.body) !== JSON.stringify(b.body)) bad(`${c.build}: the choice preview body differs from the saved player's body`);
   const [lo, hi] = CREATE.builds[c.build].ht; if (a.ht < lo || a.ht > hi) bad(`${c.build}: preview height ${a.ht} is outside the build range`);
-  if (a.hand !== b.hand || a.head !== b.head) bad(`${c.build}: hand or head differs between the choice and the saved row`);
+  if (a.hand !== b.hand || JSON.stringify(a.look) !== JSON.stringify(b.look)) bad(`${c.build}: hand or look differs between the choice and the saved row`);
 }
 if (JSON.stringify(snapBody({ slim: .6, power: .7 })) !== JSON.stringify({ slim: .5, power: .75 })) bad('snapBody must snap to quarter steps like render/game.js');
 
@@ -57,7 +57,7 @@ for (const [k, labels] of Object.entries(LOOK_CHIPS)) {
     const c = { ...base, look: { ...base.look, [k]: v } }, why = validateCreate(c);
     if (v < CREATE.look[k][0] || v > CREATE.look[k][1] || why.length) bad(`look.${k} ${v}: not a legal choice (${why.join('; ')})`);
     const made = makePlayer(7, c), row = specOfRow({ kind: c.kind, player: made.player, ratings: made.ratings }), a = specOfChoice(c);
-    if (a[k] !== v || row[k] !== v) bad(`look.${k} ${v}: preview ${a[k]}, saved row ${row[k]}`);
+    if (a.look[k] !== v || row.look[k] !== v) bad(`look.${k} ${v}: preview ${a.look[k]}, saved row ${row.look[k]}`);
     return a;
   });
   for (let i = 0; i < specs.length; i++) for (let j = i + 1; j < specs.length; j++) if (sameSpec(specs[i], specs[j])) bad(`look.${k} ${i} and ${j} give the same preview spec`);

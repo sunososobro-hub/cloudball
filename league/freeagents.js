@@ -166,9 +166,16 @@ export function validateCreate(c) {
     const cm = [C.htRange[0] * HT_STEP, C.htRange[1] * HT_STEP].map(Math.round);
     if (!(typeof c.ht === 'number' && isWhole(Math.round(c.ht * HT_STEP)) && Math.abs(c.ht * HT_STEP - Math.round(c.ht * HT_STEP)) < 1e-6 && Math.round(c.ht * HT_STEP) >= cm[0] && Math.round(c.ht * HT_STEP) <= cm[1])) out.push(`ht must be whole centimetres from ${C.htRange[0]} to ${C.htRange[1]} m`);
   } else if (!(c.build in C.builds)) out.push(`build must be one of ${Object.keys(C.builds).join(', ')}`);
+  /* #541: look is optional, and so is each key of it: a key the fan did not pick stays out, and the renderer derives that digit from his id
+     (render/players.js headOfPlayer), so two players who never touched the 外觀 chips still look different. */
   const lk = Object.keys(C.look);
-  if (!sameKeys(c.look, lk)) out.push(`look must hold exactly ${lk.join(', ')}`);
-  else for (const k of lk) if (!inRange(c.look[k], C.look[k])) out.push(`look.${k} must be a whole number from ${C.look[k][0]} to ${C.look[k][1]}`);
+  if (c.look !== undefined) {
+    if (!c.look || typeof c.look !== 'object' || Array.isArray(c.look)) out.push(`look must be an object with some of ${lk.join(', ')}`);
+    else for (const k of Object.keys(c.look)) {
+      if (!lk.includes(k)) out.push(`look has an unknown key ${k}`);
+      else if (!inRange(c.look[k], C.look[k])) out.push(`look.${k} must be a whole number from ${C.look[k][0]} to ${C.look[k][1]}`);
+    }
+  }
   if (c.nameDraw !== undefined && !inRange(c.nameDraw, [0, C.maxNameDraw])) out.push(`nameDraw must be a whole number from 0 to ${C.maxNameDraw}`);
   if (!bat && c.pitches !== undefined) {
     const ok = Array.isArray(c.pitches) && c.pitches.length >= 1 && c.pitches.length <= C.starterPitches;
@@ -218,7 +225,7 @@ export function makePlayer(seed, c) {
   }
   if (pit && c.pitches) p.pitches = Object.fromEntries(CREATE.pitches.filter(n => c.pitches.includes(n)).map(n => [n, c.points.stuff]));
   const tk = trainKeys(c.kind, pit && c.pitches ? Object.keys(p.pitches) : null), split = c.train || defaultSplit(c.kind, c.role, pit && c.pitches ? Object.keys(p.pitches) : null);
-  Object.assign(p, { body: custom ? Object.fromEntries(CREATE.bodyKeys.map(k => [k, c.body[k] / 100])) : { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(tk.map(k => [k, split[k]])) });
+  Object.assign(p, { body: custom ? Object.fromEntries(CREATE.bodyKeys.map(k => [k, c.body[k] / 100])) : { ...B.body }, ht, look: { ...(c.look || {}) }, train: Object.fromEntries(tk.map(k => [k, split[k]])) });
   return { player: p, ratings: ratingsOf(p) };
 }
 

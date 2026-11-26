@@ -643,6 +643,10 @@ function eachLive(fn) { for (const r of LIVE) { const f = r.deref(); if (!f) { L
    and page. TONE_STEPS multiply the map colour after the small shift: lightest .. deepest, TONE_MID = no change. No Math.random. */
 export const TONE_STEPS = [1.22, 1.11, 1, .88, .76], TONE_MID = 2;
 export const toneStepOf = head => { let h = 2166136261 ^ ((((head | 0) >>> 0) % (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS * GEAR_SPAN)) >>> 0);   /* #559: the hair-style digit on top does not move the tone */ h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 16)) >>> 0) % TONE_STEPS.length };
+/* #541: off max the skin maps never load, so a plain skin material would make everybody one colour. The same map digit and tone step tint it instead:
+   PLAIN_MAP_K per map (light / dark / old) times the tone step. Pure, so tests can hold it; the material is a cached clone per factor. */
+export const PLAIN_MAP_K = { light: 1, dark: .62, old: .94 };
+export const plainTintK = head => Math.round(PLAIN_MAP_K[skinKeyOf(head)] * TONE_STEPS[toneStepOf(head)] * 1000) / 1000;
 const skinKeyOf = head => SKIN_KEYS[Math.floor((head | 0) / HEAD_SHAPES.length) % SKIN_KEYS.length];
 const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
 /* Get (cached) the geometry for a build, plus head shape (for the cap) and back depth (for the number) */
@@ -1094,7 +1098,7 @@ function makeRealPlayer(opts, A) {
   names.forEach((n, i) => { const p = V3(J[n]); if (PAR[i] >= 0) { p.sub(V3(J[names[PAR[i]]])); bones[PAR[i]].add(bones[i]) } bones[i].position.copy(p) });
   mir.add(bones[0]);
   skin.vertexColors = true;   /* Face paint lives in the geometry's colour attribute (faceColors); white everywhere else */
-  const plainSkin = skin, tone = opts.skin && opts.skin.isMaterial ? opts.skin.color.getHex(THREE.SRGBColorSpace) : opts.skin ?? 0xc99572;
+  const plainSkin = skin, plainTints = new Map(), tone = opts.skin && opts.skin.isMaterial ? opts.skin.color.getHex(THREE.SRGBColorSpace) : opts.skin ?? 0xc99572;
   const sk = skinMat(tone, 'light');   /* #207: full skin when on (the map follows the head index in setBuild) */
   if (sk) skin = sk;
   const mesh = new THREE.SkinnedMesh(A.geo, kit ? [kit.jersey, kit.pants, skin, dark, kit.sock, hair, stdMat(0xf2f0ea, .4), stdMat(0x2a1d14, .3), kit.trim, kit.belt]
@@ -1232,7 +1236,8 @@ function makeRealPlayer(opts, A) {
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
   const plainEye = [mesh.material[6], mesh.material[7]];   /* #207 round 3: eye materials follow SKIN.full like the skin */
-  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2]), toneStepOf(f.buildArgs[2])) || plainSkin, bp = (f.buildArgs[2] | 0), ew = eyeMat('white', bp) || plainEye[0], ei = eyeMat('iris', bp) || plainEye[1];
+  const plainFor = head => { const k = plainTintK(head); if (k === 1 || !plainSkin.color) return plainSkin; let m = plainTints.get(k); if (!m) { m = plainSkin.clone(); m.color.multiplyScalar(k); plainTints.set(k, m) } return m };   /* #541 */
+  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2]), toneStepOf(f.buildArgs[2])) || plainFor(f.buildArgs[2]), bp = (f.buildArgs[2] | 0), ew = eyeMat('white', bp) || plainEye[0], ei = eyeMat('iris', bp) || plainEye[1];
     if (mesh.material[MAT.skin] !== m || mesh.material[6] !== ew || mesh.material[7] !== ei) { mesh.material[MAT.skin] = m; mesh.material[6] = ew; mesh.material[7] = ei; mesh.material = mesh.material.slice() } };
   f.rebuild = () => { f.buildKey = null; f.setBuild(...f.buildArgs) };
   LIVE.add(new WeakRef(f));

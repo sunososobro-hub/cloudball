@@ -36,5 +36,18 @@ for(const R of ROSTERS){const rows=[...(R.bat||[]),...(R.pit||[])].filter(p=>p&&
   if(ks.size!==rows.length)bad.push(`${R.id||R.name||'team'}: ${rows.length-ks.size} players share the whole look incl. build`);
   const hs=rows.map(p=>p.ht||0),sp=Math.max(...hs)-Math.min(...hs);if(!(sp>=HT_SPREAD_MIN))bad.push(`${R.id||R.name||'team'}: height spread ${sp.toFixed(2)} m < ${HT_SPREAD_MIN}`)}
 if(process.argv.includes('--table')){const R=ROSTERS[0];for(const p of (R.bat||[]).slice(0,9)){const h=headOfPlayer(p);console.log([p.id,p.name,'head '+h%HS,'skin '+Math.floor(h/HS)%SK,'hair '+gearOf(h).hair,'tone '+toneStepOf(h),'build '+qBody(p.body),'ht '+p.ht].join(' | '))}}
+/* #541 part 4: created players (look {} = no chip picked) get their look from the id: 6 consecutive created ids on one page all differ in (head, skin map, hair, tone step),
+   the same id gives the same look, and the plain (non-max) skin tint differs between them too */
+{const {makePlayer,CREATE}=await import(pathToFileURL(path.join(ROOT,'league/freeagents.js')).href);
+ const pts=Object.fromEntries(CREATE.keys.bat.map(k=>[k,CREATE.budget.bat/CREATE.keys.bat.length]));
+ const mk=seed=>makePlayer(seed,{kind:'bat',pos:'SS',bats:'R',build:'normal',look:{},points:pts,nameDraw:0}).player;
+ const SEED0=1000,ids=[];for(let i=0;i<6;i++)ids.push(mk(SEED0+i));
+ const ks=new Set(),tints=new Set(),heads=new Set(),hairs=new Set();
+ for(const p of ids){const l=look(p);ks.add(l.join());tints.add(M.plainTintK(headOfPlayer(p)));heads.add(l[0]);hairs.add(l[2]);
+   if(look(p).join()!==look({id:p.id,look:{}}).join())bad.push(p.id+': created look not stable')}
+ if(ks.size!==6)bad.push(`created ids ${ids.map(p=>p.id)}: only ${ks.size} of 6 distinct looks`);
+ if(tints.size<4)bad.push(`created ids: only ${tints.size} distinct plain skin tints of 6 (need 4)`);
+ if(heads.size<3||hairs.size<3)bad.push(`created ids: ${heads.size} head shapes, ${hairs.size} hair colours of 6 (need 3 each)`);
+ if(process.argv.includes('--table'))for(const p of ids){const h=headOfPlayer(p);console.log([p.id,'head '+h%HS,'hair '+gearOf(h).hair,'skin map '+Math.floor(h/HS)%SK,'tone '+toneStepOf(h),'tint x'+M.plainTintK(h)].join(' | '))}}
 if(bad.length){console.error('FAIL look_unique:\n - '+[...new Set(bad)].slice(0,15).join('\n - '));process.exit(1)}
 console.log(`look_unique ok: ${n} players in ${ROSTERS.length} teams, no two of a team share head, skin, hair and tone; ${steps.size} tone steps used`);

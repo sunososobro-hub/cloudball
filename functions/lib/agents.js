@@ -55,7 +55,7 @@ const SCHEMA = [
 /* #437: a 系統 filler is a players row whose agent_id is 'sys:<pid>' (no agent holds it) and whose player JSON has system:true.
  * Even spread of the budget, positions / roles in turn, so nobody is a star; made once, marked in `meta`. */
 export const systemChoice = (kind, i) => {
-  const keys = CREATE.keys[kind], per = Math.round(CREATE.budget[kind] / keys.length), look = { head: 0, skin: 0, hair: 0 };
+  const keys = CREATE.keys[kind], per = Math.round(CREATE.budget[kind] / keys.length), look = {};   /* #541: nothing picked, so the id decides the look */
   const points = Object.fromEntries(keys.map(k => [k, per])); points[keys[0]] += CREATE.budget[kind] - per * keys.length;
   return kind === 'bat' ? { kind, pos: CREATE.positions[i % CREATE.positions.length], bats: 'R', build: 'normal', look, points }
     : { kind, role: CREATE.roles[i % CREATE.roles.length], throws: 'R', build: 'normal', look, points };

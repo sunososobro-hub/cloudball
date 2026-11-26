@@ -18,19 +18,22 @@ export const LOOK_CHIPS = {
   head: ['標準', '方臉', '長臉', '圓臉', '濃眉', '寬臉'],
   hair: ['黑', '深棕', '棕', '栗色', '灰'],
 };
-export const LOOK_LEGEND = { head: '臉型', hair: '髮色' };
-const lookOf = L => ({ head: L && Number.isInteger(L.head) ? L.head : 0, hair: L && Number.isInteger(L.hair) ? L.hair : 0 });
+export const LOOK_LEGEND = { head: '臉型（不選＝依編號）', hair: '髮色（不選＝依編號）' };
+/* #541: only the chips the fan picked go in; a missing key is derived from the id by render/players.js headOfPlayer (same id = same look). */
+const lookOf = L => { const o = {}; for (const k of ['head', 'skin', 'hair']) if (L && Number.isInteger(L[k]) && L[k] >= 0) o[k] = L[k]; return o; };
+/* a choice that is not saved yet has no id: the maker previews it under a draft id (the real id is made by the server) */
+export const DRAFT_ID = 'draft';
 
-export function specOfChoice(c) {
+export function specOfChoice(c, id = DRAFT_ID) {
   const bat = c.kind === 'bat', B = CREATE.builds[c.build] || CREATE.builds.normal;
   const body = c.body ? Object.fromEntries(Object.entries(c.body).map(([k, v]) => [k, v / 100])) : B.body;   /* #442: sliders (percent) or a preset */
-  return { kind: c.kind, hand: bat ? c.bats : c.throws, body: snapBody(body), ht: c.body ? c.ht : mid(B.ht), ...lookOf(c.look), num: null };
+  return { kind: c.kind, hand: bat ? c.bats : c.throws, body: snapBody(body), ht: c.body ? c.ht : mid(B.ht), id, look: lookOf(c.look), num: null };
 }
 
 /* a row of /api/freeagents or /api/player: { kind, player, ratings } */
 export function specOfRow(row) {
   const p = row.player, bat = row.kind === 'bat';
-  return { kind: row.kind, hand: bat ? p.hand : p.throws, body: snapBody(p.body), ht: p.ht, ...lookOf(p.look), num: p.num ?? null };
+  return { kind: row.kind, hand: bat ? p.hand : p.throws, body: snapBody(p.body), ht: p.ht, id: p.id, look: lookOf(p.look), num: p.num ?? null };
 }
 
 /* #441 part 3: the preview opens from the FRONT with a close-up of the head (face, hair colour and head shape read there); 轉身 flips
