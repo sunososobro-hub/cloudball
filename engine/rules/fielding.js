@@ -133,12 +133,23 @@ export function resolveFly(ctx, tagUp = null) {
   return { plan, outs: [out] };
 }
 
-/* Hit, error or home run: nobody is out. The ball comes back in to second base.
+/* Hit, error or home run: nobody is out (except a runner sent home, below). The ball comes back in to second base.
  * throwHome (#38): the outfielder throws home behind the runner scoring from second (he is safe: the ball arrives
  * TAG_LATE after him), so the batter takes second on the throw. */
-export function resolveHit(ctx, { throwHome = false } = {}) {
+export function resolveHit(ctx, { throwHome = false, sendHome = false } = {}) {
   const plan = chase(ctx), p = ctx.play;
   if (p.res === 'HR') return { plan: throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null }), outs: [] };
+  if (sendHome) {
+    /* out on the bases (#38): the runner from second is sent home; the outfielder throws to the catcher. The ball is
+     * held back to TAG_EARLY before the runner (a close play); if it cannot be there by then he is safe and scores. */
+    const runnerAt = slideArrival(2, HOME);
+    throwTo(plan, ctx, { key: 'C', spot: K.HOME_TAG_SPOT, base: HOME }, { notBefore: runnerAt - K.TAG_EARLY });
+    plan.throwHome = true; plan.tagPlay = true;
+    if (!beats(plan.arrive, plan.CV.at, runnerAt)) return { plan, outs: [], safe: true };
+    const out = tagOut({ runner: ctx.bases[1], from: 2, base: HOME, fielder: 'C', ballAt: toFrame(plan.arrive), fielderAt: toFrame(plan.CV.at), runnerAt: toFrame(runnerAt) });
+    plan.actions.push({ t: runnerAt, a: 'tag', f: 'C', base: HOME });
+    return { plan, outs: [out], safe: false };
+  }
   if (throwHome) {
     const runnerAt = sinceContact(runnerTimeline(2, HOME, { kind: 'inplay', slide: true }).arriveT);
     throwTo(plan, ctx, { key: 'C', spot: K.HOME_TAG_SPOT, base: HOME }, { notBefore: runnerAt + K.TAG_LATE });
