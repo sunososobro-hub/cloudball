@@ -25,6 +25,16 @@ const free = Object.values(a.players).filter(p => p.tier === 3), culled = a.rows
 assert.ok(culled > 0 && free.length > 0 && free.length <= culled && free.every(p => p.team === null), 'culled players reach the 自由市場 and stay in the data');
 assert.equal(a.rows.length, 4);
 
+/* steady state (#565 part 3): a long run keeps the 一軍 (nearly) full and inside the bands read from the sim (seeds 1-4, 30 seasons:
+ * avgAge 27.6..29.7, medOvr 65.5..77, over30 0.33..0.57, career 8.9..9.4); the limits below are those bands with a margin */
+const long = simulate(start, { seasons: 30, seed: 565 }), seats = Math.max(...long.rows.map(r => r.starters));
+assert.ok(long.rows.filter(r => r.season >= 3).every(r => r.starters >= seats - 4), 'the 一軍 stays within 4 of full from season 3 on (sim: 69..72 of 72)');
+assert.ok(long.band.avgAge[0] >= 26 && long.band.avgAge[1] <= 31, `一軍 average age band ${long.band.avgAge}`);
+assert.ok(long.band.medOvr[0] >= 62 && long.band.medOvr[1] <= 80, `一軍 median overall band ${long.band.medOvr}`);
+assert.ok(long.band.over30[0] >= 0.25 && long.band.over30[1] <= 0.65, `share aged 30+ band ${long.band.over30}`);
+assert.ok(long.career.mean >= 6 && long.career.mean <= 10, `mean 一軍 career ${long.career.mean} seasons`);
+assert.ok(long.rows.some(r => r.signed > 0), 'the 自由市場 is the way back into the 一軍');
+
 const src = read('../league/tools/turnover_sim.mjs');
 assert.ok(!/Math\.random|Date\.now|new Date/.test(src), 'no clock, no unseeded randomness');
 console.log('turnover_sim.check ok');
