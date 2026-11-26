@@ -12,7 +12,7 @@
 - #437 part 1: `tools/season_sim.mjs` + `tests/season_sim.check.mjs` (model of who plays and the audition are the tool's own rules, not the product's).
 
 ## Next
-0. #437 part 2: `system: true` in the roster format shown as a 系統 tag on the data site; a real fan replaces a 系統 player of the same kind in the store.
+0. #437 part 2 done in code: `system: true` in `site.mjs` export + 系統 tag on cards, pure `placeFan` in `freeagents.js` (`tests/system.check.mjs`). Left: wire `placeFan` into the D1 store (`functions/lib/agents.js`) once 系統 rows are stored, and place the 系統 二軍 into `buildSite({second})`.
 1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes. Order: issue #68.
 2. #336 follow-ups: fill 二軍/free agents (`buildSite({second, free})`) once placement exists; add each new recorded game to `RECORDED_GAMES`.
 

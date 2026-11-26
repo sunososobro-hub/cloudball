@@ -1,7 +1,7 @@
 /* Exports the publishable data of the text-first site (#336, read by the pages of #335) into league/site/:
  *   teams.json    { season, teams: [{ id, name, city, logo, record: {w, l}, roster: [playerId, ...] }] }   (roster = 一軍)
  *   players.json  { "<playerId>": { name, num, age, role: "P"|"B", pos, hand, overall, abilities, team, tier } }
- *                 tier 1 = 一軍, 2 = 二軍, 3 = free agent (team null)
+ *                 tier 1 = 一軍, 2 = 二軍, 3 = free agent (team null); `system: true` only on a 系統 filler (#437), shown as a 系統 tag
  *   games.json    [{ id, season, date, home, away, score: [home, away], replay }]
  *
  *   node league/tools/site.mjs           print what would be written (no file is written)
@@ -39,7 +39,7 @@ export function buildSite({ teams = TEAMS, rosters = ROSTERS, rate = ratingsOf, 
     if (players[p.id]) throw new Error(`player id ${p.id} appears twice`);
     const { ovr, ...abilities } = rate(p);
     players[p.id] = { name: p.name, num: p.num, age: p.age, role: p.role ? 'P' : 'B', pos: p.role || p.pos,
-      hand: p.role ? p.throws : p.hand, overall: ovr, abilities, team, tier };
+      hand: p.role ? p.throws : p.hand, overall: ovr, abilities, team, tier, ...(p.system === true ? { system: true } : {}) };
   };
   const record = Object.fromEntries(teams.map(t => [t.id, { w: 0, l: 0 }]));
   const gameRows = games.map(({ id, date, file, rec }) => {
