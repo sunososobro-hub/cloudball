@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.9';
+export const ENGINE_VERSION = '0.4.10';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -23,6 +23,9 @@ export const COSMETIC_SALT = 0x5ca1ab1e;  /* seed offset of the RNG used for loo
 export const PRE_DUR = 18;
 export const BREAK_DUR = 34;
 export const CHANGE_DUR = 14;
+/* #81: the pitching coach's mound visit after a "stay" pick, once per pitcher (frame `VIS`). render/visit.js needs about 13.2 s for the
+ * walk out and back from either dugout; the rest is the talk at the mound. Timing only: no draw, no outcome reads it. */
+export const MOUND_VISIT_DUR = 16;
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
 export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10, po: 10, pof: 8 };
@@ -140,6 +143,10 @@ export const HIT_ROLL_TIME = 0.8;
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;
 export const FIRST_TO_THIRD_ON_SINGLE = 0.29;
 export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
+/* Advancing on a throw (#38): on an outfield single that scores the runner from second, the outfielder throws home
+ * with this chance (he is safe: the throw arrives after him) and the batter, with second open, takes it on the throw.
+ * First guess, not tuned: about one try in three; it only moves a runner, never adds an out. */
+export const THROW_HOME_ON_SINGLE_P = 0.35;
 export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
