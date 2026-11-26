@@ -270,6 +270,11 @@ for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.co
    polish rounds never edit this file: an object file finds its old meshes with ctx.old('<slot>'). */
 {const PROPS_POLL_MS=1000,url=new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;/* max only (#215 10:30): nothing is fetched until max is on; gfxMax is declared further down, so the first look waits a tick */
   const go=()=>{let on=false;try{on=gfxMax}catch(e){}if(!on)return void setTimeout(go,PROPS_POLL_MS);import(url).then(M=>M.mountProps({scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err))};setTimeout(go,0)}
+/* #214 item 2 part 2: sky occlusion baked into the old stands (render/skyocc_stands.js), max only: nothing is fetched before max is on; bakes once, then follows gfxMax (off = the old material). `?off=skyocc`. Any failure keeps the old look. */
+{const SKYOCC_POLL_MS=1000,url=new URL('skyocc_stands.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;let ctl=null,loading=false;
+  const go=()=>{let on=false;try{on=gfxMax&&!OFF.has('skyocc')}catch(e){}
+    if(ctl)ctl.apply(on);else if(on&&!loading){loading=true;import(url).then(M=>{ctl=M.mountSkyOcc({THREE,TSL,scene,standMat});ctl.apply(true)}).catch(err=>console.warn('skyocc off',err))}
+    setTimeout(go,SKYOCC_POLL_MS)};setTimeout(go,0)}
 const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
   {x:0,y:OF_BASE+FRONT_H+OF_SEAT_ROW*ROW_RISE+.55,z:-(OF_R+OF_SEAT_ROW*ROW_D+ROW_D/2+.12),tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
 const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
