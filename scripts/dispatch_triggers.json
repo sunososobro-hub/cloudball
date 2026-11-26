@@ -1,0 +1,7 @@
+{
+  "_note": "Scheduled-task ids that scripts/dispatch_gate.sh may print as FIRE. The product window fills the real trig_ ids; ids still starting with REPLACE_ are placeholders.",
+  "A": "REPLACE_trig_worker_A",
+  "B": "REPLACE_trig_worker_B",
+  "C": "REPLACE_trig_worker_C",
+  "reviewer": "REPLACE_trig_reviewer"
+}
