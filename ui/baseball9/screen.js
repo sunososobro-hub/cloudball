@@ -34,6 +34,11 @@ function drawGrid() {
   $('go').hidden = !(bat && noCell); $('go').disabled = !sess || sess.S.done;
 }
 
+/* #429: opened from 我的球員 with ?player=<id>, the practice result is kept in this browser for the 訓練 screen (local only, never sent) */
+const PLAYER = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('player');
+function keepResult(result) { if (PLAYER) try { localStorage.setItem('cloudball.trainResult', JSON.stringify({ id: PLAYER, result })); } catch (e) { /* storage blocked: the result stays on this page */ } }
+if (PLAYER) { const back = $('me-link'); if (back) { back.href = 'index.html#me/train'; back.hidden = false; } }
+
 function status() {
   const S = sess.S; $('count').textContent = `第 ${Math.min(S.pitches + 1, PRACTICE_PITCHES)} / ${PRACTICE_PITCHES} 球`;
   $('score').textContent = `${side === 'bat' ? '安打' : '成功'} ${S.hits}`;
@@ -47,7 +52,7 @@ function play(r, c) {
   catch (e) { $('line').textContent = String(e.message || e); return; }
   const li = el('li', '', describeOutcome(res.out, side, HIT_Q)); $('log').prepend(li);
   $('line').textContent = li.textContent; status();
-  if (res.done) { $('end').textContent = describeResult(res.result); $('end').hidden = false; window.baseball9Result = res.result; drawGrid(); }
+  if (res.done) { $('end').textContent = describeResult(res.result); $('end').hidden = false; window.baseball9Result = res.result; keepResult(res.result); drawGrid(); }
 }
 
 function start(s) {
