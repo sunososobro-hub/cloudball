@@ -2030,6 +2030,12 @@ setTier(gfxMax?0:gfxTier);
 
 /* ---------- loop ---------- */
 applyLayout();let lastNow=performance.now(),stKey='',outFixed=null,introVis=null;prewarmBodies();
+/* #73: while the entry card is up the camera drifts over the empty park (render/intro_cam.js) and every figure is hidden, so nobody stands behind the card. Poses run as usual underneath; the first shot after the card closes is the normal one. */
+let introM=null;import(new URL('intro_cam.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{introM=M}).catch(err=>console.warn('intro camera off',err));
+function introScene(now){if($('intro').hidden||!introM||renderer.xr&&renderer.xr.isPresenting)return;
+  for(const f of [...Object.values(fielders),...runners,batter,ump,odNext,odDeck,...umpB,...coaches])f.g.visible=false;
+  const c=introM.introShot(now/1000),[y,p]=look(c.x,c.y,c.z,c.tx,c.ty,c.tz);rig.position.set(c.x,c.y,c.z);camera.rotation.set(p,y,0);
+  const fov=fitFov(c.fov);if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}
 renderer.setAnimationLoop(()=>{
   const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);if(!bootReady&&warmStarted)bootGaps.push(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
@@ -2049,7 +2055,7 @@ renderer.setAnimationLoop(()=>{
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
+  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);introScene(now);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
   if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyNow()}
