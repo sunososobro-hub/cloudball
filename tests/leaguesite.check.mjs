@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { ROSTERS } from '../league/players.js';
 import { ratingsOf } from '../league/ratings.js';
-import { buildSite, validateSite, siteFiles, OUT_DIR, TIER } from '../league/tools/site.mjs';
+import { buildSite, validateSite, siteFiles, OUT_DIR, TIER, SYSTEM_SECOND_PER_KIND } from '../league/tools/site.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const problems = [], bad = m => problems.push(m);
@@ -33,8 +33,15 @@ if (files) {
   if (files.teams.season !== '0') bad(`season is ${files.teams.season}, expected "0"`);
   if (files.teams.teams.length !== 4) bad(`${files.teams.teams.length} teams, expected 4`);
   const n = ROSTERS.reduce((s, t) => s + t.bat.length + t.pit.length, 0);
-  if (Object.keys(files.players).length !== n) bad(`players.json has ${Object.keys(files.players).length} players, the rosters ${n}`);
-  for (const p of Object.values(files.players)) if (p.tier !== TIER.FIRST) bad(`season 0 has a tier ${p.tier} player before anyone was placed there`);
+  const all = Object.values(files.players), first = all.filter(p => p.tier === TIER.FIRST), farm = all.filter(p => p.tier === TIER.SECOND), per = 2 * SYSTEM_SECOND_PER_KIND;
+  if (first.length !== n) bad(`players.json has ${first.length} 一軍 players, the rosters ${n}`);
+  if (farm.length !== per * files.teams.teams.length) bad(`${farm.length} 二軍 players, expected ${per} 系統 players for each of ${files.teams.teams.length} teams (#437)`);
+  for (const p of all) {
+    if (p.tier === TIER.FREE) bad('season 0 has a free agent before anyone was placed there');
+    if ((p.tier === TIER.SECOND) !== (p.system === true)) bad(`season 0: ${p.name} is tier ${p.tier} with system ${p.system} (only the 二軍 is 系統)`);
+  }
+  for (const t of files.teams.teams) if (all.filter(p => p.tier === TIER.SECOND && p.team === t.id).length !== per) bad(`team ${t.id} has no ${per} 系統 二軍 players`);
+  if (new Set(all.map(p => p.name)).size !== all.length) bad('player names repeat in the season-0 site');
 }
 
 /* Empty tiers are valid (season 0 today); filled tiers are valid too: a 二軍 player and a free agent. */

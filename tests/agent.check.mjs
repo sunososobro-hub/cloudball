@@ -206,7 +206,9 @@ if (/engine\//.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))) bad('functions/lib/ag
   const flags = sdb.sql.prepare("SELECT player FROM players WHERE agent_id LIKE 'sys:%'").all().map(r => JSON.parse(r.player).system);
   if (flags.some(f => f !== true)) bad('a 系統 filler lacks system:true');
   const oldest = sdb.sql.prepare("SELECT pid FROM players WHERE agent_id LIKE 'sys:%' AND kind = 'bat' ORDER BY created_at, pid LIMIT 1").get().pid;
-  is('system: create batter', await call(lib.create, senv, { method: 'POST', k: ka, body: { ...BAT, nameDraw: 0 } }), 201);
+  /* the agent's seed is random, so his name can hit a filler's (409 name): draw the next name until it is free, as the maker does */
+  let made; for (let draw = 0; draw < 20; draw++) { made = await call(lib.create, senv, { method: 'POST', k: ka, body: { ...BAT, nameDraw: draw } }); if (!made || made.status !== 409) break; }
+  is('system: create batter', made, 201);
   if (count('bat') !== lib.SYSTEM_PER_KIND - 1 || count('pit') !== lib.SYSTEM_PER_KIND) bad('a fan batter must remove exactly one batter filler and no pitcher filler');
   if (sdb.sql.prepare('SELECT 1 FROM players WHERE pid = ?').get(oldest)) bad('the fan did not replace the oldest filler of his kind');
   if (sdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id NOT LIKE 'sys:%'").get().n !== 1) bad('the fan row is missing');
