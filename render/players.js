@@ -654,17 +654,31 @@ function plainTint(base, key, step) {
 }
 export const toneStepOf = head => { let h = 2166136261 ^ ((((head | 0) >>> 0) % (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS * GEAR_SPAN)) >>> 0);   /* #559: the hair-style digit on top does not move the tone */ h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 16)) >>> 0) % TONE_STEPS.length };
 const skinKeyOf = head => SKIN_KEYS[Math.floor((head | 0) / HEAD_SHAPES.length) % SKIN_KEYS.length];
+/* #585: the face is dice-rolled from his id, nothing else. The roll is a hash of the id-derived head index (hair-style digit left out, like toneStepOf),
+   so one man keeps his face in every game and no UI or roster field moves it. Seven parameters, each a fixed draw from the roll: head width, face length,
+   jaw, brow, nose, eye spacing, ears (FACE_ROLL_AMP = the largest swing of each, a fraction or metres). Roll 0 = no change (old faces stay byte for byte). */
+export const FACE_ROLLS = 65536;
+export const FACE_ROLL_AMP = { wid: .035, len: .03, jaw: .12, brow: .003, nose: .005, eye: .004, ear: .22 };
+export const faceRollOf = head => { let h = 2166136261 ^ ((((head | 0) >>> 0) % (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS * GEAR_SPAN)) >>> 0);
+  h = Math.imul(h ^ (h >>> 16), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); h ^= h >>> 16; return (h >>> 0) % FACE_ROLLS };
+export function faceParamsOf(roll) {   /* roll -> {wid, len, jaw, brow, nose, eye, ear}, each in [-1, 1] x its FACE_ROLL_AMP; roll 0 -> all 0 */
+  const o = {}; if (!roll) { for (const k in FACE_ROLL_AMP) o[k] = 0; return o }
+  let i = 0; for (const k in FACE_ROLL_AMP) { let h = Math.imul(roll + 1, 2654435761) ^ Math.imul(++i, 374761393); h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); h ^= h >>> 16;
+    o[k] = (((h >>> 0) % 2001) / 1000 - 1) * FACE_ROLL_AMP[k] }
+  return o;
+}
 const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
 /* Get (cached) the geometry for a build, plus head shape (for the cap) and back depth (for the number) */
 function realAsset(build, head = 0) {
   const look = PACK.uv ? faceLookOf(head) : 0, G = gearOf(head), eye = G.eye, hair = look ? G.hair : 0;   /* #207 step 2: facial hair and brows per player, only on the UV (max) pack */
+  const roll = PACK.uv ? faceRollOf(head) : 0;   /* #585: per-id face roll, only on the UV (max) pack like the other face detail */
   head = (head | 0) % HEAD_SHAPES.length;
-  const key = buildKey(build) + (head ? '|h' + head : '') + (look ? '|f' + look + (hair ? 'c' + hair : '') : '') + (eye ? '|e' : ''); if (PACK.geos.has(key)) return PACK.geos.get(key);
+  const key = buildKey(build) + (head ? '|h' + head : '') + (roll ? '|r' + roll : '') + (look ? '|f' + look + (hair ? 'c' + hair : '') : '') + (eye ? '|e' : ''); if (PACK.geos.has(key)) return PACK.geos.get(key);
   const { H, P0, D: Dl, SI, SW, DG, DW, IX } = PACK, J = H.joints, n = H.n;
   const w = typeof build === 'string' ? (build === 'normal' ? {} : { [build]: 1 }) : build || {};
   const P = new Float32Array(P0);
   for (const k in w) { const d = Dl[k], a = w[k] * H.ds; if (!d || !a) continue; for (let i = 0; i < n * 3; i++) P[i] += d[i] * a }
-  shapeHead(P, HEAD_SHAPES[head]);
+  shapeHead(P, HEAD_SHAPES[head], faceParamsOf(roll));
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
   /* Topology, weights and index are the same for every build/head: share the attribute objects so the GPU keeps one copy */
@@ -673,7 +687,7 @@ function realAsset(build, head = 0) {
   geo.setAttribute('skinIndex', PACK.att.si); geo.setAttribute('skinWeight', PACK.att.sw);
   if (PACK.att.uv) { geo.setAttribute('uv', PACK.att.uv); geo.setAttribute('skinAttr', PACK.att.sk) }
   geo.setIndex(PACK.att.ix);
-  geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P, look, eye, hair), 4, true));
+  geo.setAttribute('color', new THREE.BufferAttribute(faceColors(P, look, eye, hair, faceParamsOf(roll).eye), 4, true));
   for (const [start, count, name] of PACK.groups) geo.addGroup(start, count, R_SLOTS.indexOf(name));
   geo.computeVertexNormals(); geo.computeBoundingSphere();
   if (PACK.seam) {   /* UV seam copies: one normal shared by a vertex and its copies, so the seam does not show in the light */
@@ -788,18 +802,22 @@ export const hairStyleOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length *
 export const gearOf = head => { let g = Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS)); const W = GEAR_SHARES.wrist.length, E = GEAR_SHARES.elbow.length;
   const Y = GEAR_SHARES.eye.length, L = GEAR_SHARES.glove.length;
   return { wrist: g % W, elbow: Math.floor(g / W) % E, eye: Math.floor(g / (W * E)) % Y, glove: Math.floor(g / (W * E * Y)) % L, hair: Math.floor(g / (W * E * Y * L)) % GEAR_SHARES.hair.length, leg: Math.floor(g / (W * E * Y * L * GEAR_SHARES.hair.length)) % GEAR_SHARES.leg.length } };
-function shapeHead(P, S) {
-  if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin) return;
-  const { DG, DW, H } = PACK, n = H.n;
+function shapeHead(P, S, R = {}) {
+  const { wid = 0, len = 0, jaw = 0, brow = 0, nose: rn = 0, ear = 0 } = R;   /* #585 id roll on top of the shape */
+  if (!S.jaw && !S.cheek && !S.nose && !S.noseW && !S.brow && !S.chin && !wid && !len && !jaw && !brow && !rn && !ear) return;
+  const { DG, DW, H } = PACK, n = H.n, eyeY = H.joints.eyeL[1];
   for (let i = 0; i < n; i++) {
     if (DG[i] !== B.neck) continue;
     const wt = DW[i], x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], fr = ramp(z, HEAD_FRONT[0], HEAD_FRONT[1]) * wt;
+    if (ear && Math.abs(x) > .072 && Math.abs(z) < .045 && y > eyeY - .05 && y < FACE.cheekY + .01) {   /* ears: push the part beyond the skull side out or in */
+      P[i * 3] = Math.sign(x) * (.072 + (Math.abs(x) - .072) * (1 + ear)); continue }
     if (!fr || y > FACE.browY + .03 || y < FACE.chinY - .06) continue;
     const nose = g1(x, 0, .014) * g1(y, FACE.noseY + .008, .022) * ramp(z, .15, .175);
-    let sx = 1 + S.jaw * g1(y, FACE.chinY + .02, .03) * fr + S.cheek * g1(y, FACE.cheekY, .022) * fr + S.noseW * nose;
-    let dz = S.nose * nose + S.brow * g1(y, FACE.browY - .002, .008) * ramp(z, .13, .16) + S.chin * g1(y, FACE.chinY, .016) * g1(x, 0, .032) * fr
+    let sx = (1 + wid) * (1 + (S.jaw + jaw) * g1(y, FACE.chinY + .02, .03) * fr + S.cheek * g1(y, FACE.cheekY, .022) * fr + S.noseW * nose);
+    let dz = (S.nose + rn) * nose + (S.brow + brow) * g1(y, FACE.browY - .002, .008) * ramp(z, .13, .16) + S.chin * g1(y, FACE.chinY, .016) * g1(x, 0, .032) * fr
       + S.cheek * .03 * g1(y, FACE.cheekY, .018) * g1(Math.abs(x), .05, .02) * fr;
     P[i * 3] = x * sx; P[i * 3 + 2] = z + dz;
+    if (len) P[i * 3 + 1] = y + len * (y - eyeY) * ramp(eyeY - y, 0, .05) * fr;   /* face length: the part below the eye line stretches */
   }
 }
 /* Face paint as RGBA8 multipliers (white = skin as is): cap shadow over the eyes, eye sockets, brows, lips and mouth line, nostrils, a little cheek colour */
@@ -834,7 +852,7 @@ function faceHair(x, y, z, ax, eyeY, H) {
   const m = Math.min(1, Math.max(jaw * (H.jaw || 0), lip * (H.lip || 0), chin * (H.chin || 0)));
   return m * H.k * (1 - (H.grain || 0) * grain(x, y, z));
 }
-function faceColors(P, look = 0, eye = 0, hair = 0) {
+function faceColors(P, look = 0, eye = 0, hair = 0, eyeSp = 0) {
   const { DG, H } = PACK, n = H.n, C = new Uint8Array(n * 4).fill(255), J = H.joints, eyeY = J.eyeL[1], F = FACE_PAINT;
   for (let i = 0; i < n; i++) {
     if (DG[i] !== B.neck) continue;
@@ -843,7 +861,7 @@ function faceColors(P, look = 0, eye = 0, hair = 0) {
     const HT = STUBBLE_BY_HAIR[hair] || STUBBLE_BY_HAIR[0];
     let r = 1, g = 1, b = 1; const mul = (k, cr = k, cg = k, cb = k) => { r *= cr; g *= cg; b *= cb };
     const cap = ramp(y, eyeY - .035, eyeY + .03); mul(1 - F.capShade * cap * fr);                                  /* The cap brim's shadow on the upper face */
-    const de = Math.hypot(ax - FACE.eyeX, (y - eyeY) * 1.3); mul(1 - F.socket * g1(de, 0, .021) * fr);              /* Eye sockets */
+    const de = Math.hypot(ax - FACE.eyeX - eyeSp, (y - eyeY) * 1.3); mul(1 - F.socket * g1(de, 0, .021) * fr);              /* Eye sockets */
     const by = FACE.browY + .006 * g1(ax, .036, .018), brow = g1(y, by, .0055) * ramp(ax, .01, .018) * (1 - ramp(ax, .055, .066));
     if (look) { const bw = BROWS[Math.floor(look / FACE_HAIR.length) % BROWS.length], b2 = g1(y, by, bw.w) * ramp(ax, .01, .018) * (1 - ramp(ax, .055, .066));
       const bd = bw.k * b2 * fr; mul(1, 1 - bd * HT[0], 1 - bd * HT[1], 1 - bd * HT[2]) }   /* #207 step 2: brow weight per player */
@@ -852,7 +870,7 @@ function faceColors(P, look = 0, eye = 0, hair = 0) {
     mul(1 - F.mouth * g1(y, FACE.mouthY, .0028) * g1(x, 0, .019) * fr);                                          /* Mouth line */
     mul(1 - F.nostril * g1(y, FACE.nostrilY, .004) * g1(ax, .011, .006) * fr);                                     /* Nostrils / under the nose */
     const ck = g1(y, FACE.cheekY - .006, .016) * g1(ax, .052, .016) * fr; mul(1, 1 - (1 - CHEEK_RGB[0]) * ck, 1 - (1 - CHEEK_RGB[1]) * ck, 1 - (1 - CHEEK_RGB[2]) * ck);
-    if (eye) mul(1 - EYE_BLACK.k * g1(y, eyeY - EYE_BLACK.dy, EYE_BLACK.h) * g1(ax, FACE.eyeX, EYE_BLACK.w) * fr);   /* #151: eye black under both eyes */
+    if (eye) mul(1 - EYE_BLACK.k * g1(y, eyeY - EYE_BLACK.dy, EYE_BLACK.h) * g1(ax, FACE.eyeX + eyeSp, EYE_BLACK.w) * fr);   /* #151: eye black under both eyes */
     mul(1 - F.chinShade * ramp(y, FACE.chinY - .005, FACE.chinY - .035) * fr);                                          /* Under the chin */
     const FH = FACE_HAIR[look % FACE_HAIR.length]; if (look && FH.k) { const d = faceHair(x, y, z, ax, eyeY, FH); mul(1, 1 - d * HT[0], 1 - d * HT[1], 1 - d * HT[2]) }
     C[i * 4] = Math.round(r * 255); C[i * 4 + 1] = Math.round(g * 255); C[i * 4 + 2] = Math.round(b * 255);
