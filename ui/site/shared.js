@@ -29,7 +29,10 @@ export function mergeCreated(d, rows) {
   for (const r of Array.isArray(rows) ? rows : []) {
     const p = r && r.player, R = r && r.ratings, id = r && (r.id ?? (p && p.id));
     if (!p || !R || typeof p !== 'object' || id == null || id === '' || players[id]) continue;
-    const pit = r.kind === 'pit', keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
+    const pit = r.kind === 'pit';
+    /* #437: a real fan (not a 系統 row) takes the place of the first 系統 二軍 player of his kind published in the site files, never a 一軍 player (display only, rule 10) */
+    if (p.system !== true) { const at = Object.keys(players).find(k => players[k].system === true && players[k].tier === 2 && (players[k].role === 'P') === pit); if (at !== undefined) delete players[at]; }
+    const keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
     players[id] = { name: p.name, num: p.num, age: p.age, role: pit ? 'P' : 'B', pos: pit ? (p.role === 'SP' ? 'SP' : 'RP') : p.pos, hand: pit ? p.throws : p.hand,
       overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3, ...(p.system === true ? { system: true } : {}) };
   }
