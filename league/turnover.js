@@ -10,9 +10,13 @@
  *     3. call-up: the seats that opened go through callup.decide (#500): ready 二軍 players by overall, then days waited.
  *        `waited` on a row = days since he was ready; a ready player who got no seat gains DAYS_PER_SEASON, one who
  *        was called up or is not ready yet has none.
- *     4. rookies: each team gets code-generated rookies (league/freeagents.js makePlayer, age ROOKIE_AGE, seeded,
+ *     3b. farm release: every 二軍 player at or past FARM_MAX_AGE (still there after the call-up) goes to the 自由市場.
+ *     4. market: a seat still open after the call-up (nobody ready in the 二軍) is signed from the 自由市場: the best
+ *        overall at that position, ties by id; players culled or released this very season sit out one year; when the
+ *        market has nobody at the position, the best 二軍 player there is promoted. `signed` lists them.
+ *     5. rookies: each team gets code-generated rookies (league/freeagents.js makePlayer, age ROOKIE_AGE, seeded,
  *        a random legal point spread, `system: true`) until its 一軍 + 二軍 count is what it was, so roster size stays constant.
- *   Returns { players, retired, culled, called: [{ id, team, pos }], waiting, rookies } (ids; `players` is a new object). */
+ *   Returns { players, retired, culled, called: [{ id, team, pos }], signed: [{ id, team, pos }], released, waiting, rookies } (ids; `players` is a new object). */
 import { RETIRE_AGE, FIRST_TIER, slotPos, slotTemplate, teamsOf, decide } from './callup.js';
 import { CREATE, makePlayer, drawName } from './freeagents.js';
 import { DAYS_PER_SEASON } from './training.js';
@@ -20,6 +24,7 @@ import { DAYS_PER_SEASON } from './training.js';
 export const CULL_PER_POS = 1;              /* 一軍 starters per position who leave each season (start value of #565, to be tuned by the sim) */
 export const SECOND_TIER = 2, FREE_TIER = 3;
 export const ROOKIE_AGE = [18, 22];
+export const FARM_MAX_AGE = 27;             /* a 二軍 player this old who was not called up goes to the 自由市場 (the farm is for prospects) */
 export const SEED_SALT = 0x9e3779b1;
 const NAME_TRIES = 1000;
 
@@ -82,17 +87,37 @@ export function seasonEnd(players, { seed, retireAge = RETIRE_AGE, cullPerPos = 
   for (const w of d.waiting) next[w.id].waited = (next[w.id].waited || 0) + DAYS_PER_SEASON;
   for (const f of d.farm) delete next[f.id].waited;
 
+  const released = ids.filter(i => next[i] && next[i].tier === SECOND_TIER && next[i].age >= FARM_MAX_AGE);
+  for (const i of released) { Object.assign(next[i], { team: null, tier: FREE_TIER }); delete next[i].waited; }
+
+  /* market: seats the call-up could not fill are signed from the 自由市場 (the way back for players culled in earlier seasons) */
+  const tplSeats = slotTemplate(players), have = {}, signed = [];
+  for (const i of ids) if (next[i] && next[i].tier === FIRST_TIER) { const k = `${next[i].team}/${slotPos(next[i])}`; have[k] = (have[k] || 0) + 1; }
+  const total = t => Object.keys(next).filter(i => next[i].team === t && league(next, i)).length;     /* a team never grows past its old size */
+  const culledNow = new Set([...culled, ...released]);
+  for (const team of teamsOf(players)) for (const pos of Object.keys(tplSeats))
+    for (let n = have[`${team}/${pos}`] || 0; n < tplSeats[pos] && total(team) < size[team]; n++) {
+      const pick = ids.filter(i => next[i] && next[i].tier === FREE_TIER && !culledNow.has(i) && slotPos(next[i]) === pos)
+        .sort((a, b) => next[b].overall - next[a].overall || byId(a, b))[0]
+        ?? ids.filter(i => next[i] && next[i].tier === SECOND_TIER && slotPos(next[i]) === pos)
+          .sort((a, b) => next[b].overall - next[a].overall || byId(a, b))[0];
+      if (!pick) break;
+      Object.assign(next[pick], { team, tier: FIRST_TIER }); delete next[pick].waited; signed.push({ id: pick, team, pos });
+    }
+
   /* rookies refill each team's 二軍 to its old size; positions are drawn from the seats of the template */
-  const tpl = slotTemplate(players), seats = Object.entries(tpl).flatMap(([pos, n]) => Array(n).fill(pos));
+  const tpl = slotTemplate(players), farm = {};
+  for (const i of Object.keys(next)) if (next[i].tier === SECOND_TIER) farm[slotPos(next[i])] = (farm[slotPos(next[i])] || 0) + 1;
   const taken = new Set(Object.values(next).map(p => p.name)), rookies = [];
   Object.keys(size).sort().forEach((team, ti) => {
     const have = Object.keys(next).filter(i => next[i].team === team && league(next, i)).length;
     for (let k = 0; k < size[team] - have; k++) {
-      const s = mix(seed, ti, k), pos = seats[Math.floor(rng(s)() * seats.length)];
+      const s = mix(seed, ti, k), pos = Object.keys(tpl).sort((a, b) => tpl[b] / (1 + (farm[b] || 0)) - tpl[a] / (1 + (farm[a] || 0)) || (a < b ? -1 : 1))[0];
+      farm[pos] = (farm[pos] || 0) + 1;
       let [id, row] = makeRookie(s, pos, team, taken);
       for (let bump = 1; next[id] || gone.has(id) || players[id]; bump++) [id, row] = makeRookie(mix(s, bump), pos, team, taken);
       next[id] = row; rookies.push(id);
     }
   });
-  return { players: next, retired, culled, called: d.called, waiting: d.waiting, rookies };
+  return { players: next, retired, culled, called: d.called, signed, released, waiting: d.waiting, rookies };
 }

@@ -2,7 +2,7 @@
  * from league/site/players.json and prints one row per season, then the steady-state band. Display model only (rule 10).
  *   node league/tools/turnover_sim.mjs [--seasons 30] [--seed 565] [--cull 1] [--out snapshot.json] [--json]
  * Per season: retired, culled, rookies in, 一軍 average age, 一軍 median overall, share of 一軍 aged 30+, call-up queue length,
- * 自由市場 count. Career = whole seasons a player spent in the 一軍 (players already there at the start are not counted).
+ * 自由市場 count. Career = all whole seasons a player spent in the 一軍 before he retired (all stints; players already there at the start are not counted).
  * --out writes the league after the last season (players.json format) so a later step can commit it as the day-1 snapshot. */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { mulberry32 } from '../../engine/rng.js';
@@ -33,15 +33,15 @@ export function trainSeason(players, season, seed) {
 
 export function simulate(start, { seasons = 30, seed = 565, cullPerPos = CULL_PER_POS } = {}) {
   let players = structuredClone(start);
-  const since = {}, careers = [], rows = [];
-  for (const [id, p] of Object.entries(players)) if (p.tier === FIRST_TIER) since[id] = null;     /* tenure unknown at the start */
+  const seen = {}, careers = [], rows = [];     /* seen: whole seasons in the 一軍 of players who entered in the sim (start players: tenure unknown) */
   for (let y = 1; y <= seasons; y++) {
     const r = seasonEnd(advanceYear(trainSeason(players, y, seed)), { seed: hash(`${seed}/${y}`), cullPerPos });
-    for (const id of [...r.retired, ...r.culled]) if (id in since) { if (since[id] !== null) careers.push({ season: y, years: y - since[id] }); delete since[id]; }
-    for (const c of r.called) since[c.id] = y;
+    for (const id of r.retired) if (seen[id]) careers.push({ season: y, years: seen[id] });
+    for (const c of [...r.called, ...r.signed]) seen[c.id] ??= 0;
     players = r.players;
+    for (const [id, p] of Object.entries(players)) if (p.tier === FIRST_TIER && id in seen) seen[id]++;
     const first = Object.values(players).filter(p => p.tier === FIRST_TIER), ovr = first.map(p => p.overall);
-    rows.push({ season: y, retired: r.retired.length, culled: r.culled.length, rookies: r.rookies.length, called: r.called.length,
+    rows.push({ season: y, retired: r.retired.length, culled: r.culled.length, rookies: r.rookies.length, called: r.called.length, signed: r.signed.length,
       avgAge: +mean(first.map(p => p.age)).toFixed(2), medOvr: median(ovr), over30: +(first.filter(p => p.age >= 30).length / (first.length || 1)).toFixed(3),
       queue: r.waiting.length, free: Object.values(players).filter(p => p.tier === 3).length, starters: first.length });
   }
@@ -56,10 +56,10 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop()
   const res = simulate(start, { seasons: +arg('seasons', 30), seed: +arg('seed', 565), cullPerPos: +arg('cull', CULL_PER_POS) });
   if (process.argv.includes('--json')) console.log(JSON.stringify({ rows: res.rows, band: res.band, career: res.career }));
   else {
-    console.log('season retired culled rookies called  avgAge medOvr over30 queue free starters');
-    for (const r of res.rows) console.log([r.season, r.retired, r.culled, r.rookies, r.called, r.avgAge, r.medOvr, r.over30, r.queue, r.free, r.starters].map(x => String(x).padStart(7)).join(' '));
+    console.log('season retired culled rookies called signed  avgAge medOvr over30 queue free starters');
+    for (const r of res.rows) console.log([r.season, r.retired, r.culled, r.rookies, r.called, r.signed, r.avgAge, r.medOvr, r.over30, r.queue, r.free, r.starters].map(x => String(x).padStart(7)).join(' '));
     console.log(`band from season ${BAND_FROM}: avgAge ${res.band.avgAge.join('..')}  medOvr ${res.band.medOvr.join('..')}  over30 ${res.band.over30.join('..')}`);
-    console.log(`一軍 career (left after season ${BAND_FROM}, entered in the sim): n=${res.career.n} mean=${res.career.mean} seasons`);
+    console.log(`一軍 career (retired after season ${BAND_FROM}, entered in the sim): n=${res.career.n} mean=${res.career.mean} seasons`);
   }
   if (arg('out', '')) writeFileSync(arg('out', ''), JSON.stringify(res.players, null, 1) + '\n');
 }

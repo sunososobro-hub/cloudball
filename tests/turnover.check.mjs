@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RETIRE_AGE, slotTemplate, slotPos } from '../league/callup.js';
-import { seasonEnd, advanceYear, CULL_PER_POS, FREE_TIER, SECOND_TIER, ROOKIE_AGE } from '../league/turnover.js';
+import { seasonEnd, advanceYear, CULL_PER_POS, FREE_TIER, SECOND_TIER, ROOKIE_AGE, FARM_MAX_AGE } from '../league/turnover.js';
 
 const read = f => readFileSync(new URL(f, import.meta.url), 'utf8');
 const players = JSON.parse(read('../league/site/players.json')), before = JSON.stringify(players);
@@ -66,4 +66,8 @@ assert.equal(new Set(names).size, names.length, 'names stay unique');
 /* purity */
 const src = read('../league/turnover.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\*.*?\*\//g, '');
 assert.ok(!/Math\.random|Date\b|document|window|fetch\(|from '\.\.\/engine/.test(src), 'pure: no clock, RNG, DOM, network or engine');
+/* market and farm release (#565 part 3): every seat the call-up left open is signed from the 自由市場 (nobody culled this season), old 二軍 go to the market */
+assert.ok(r.signed.every(c => r.players[c.id].tier === 1 && r.players[c.id].team === c.team && !r.culled.includes(c.id)), 'signed players are in the 一軍 and were not culled this season');
+for (const i of r.released) assert.ok(aged[i].tier === SECOND_TIER && aged[i].age >= FARM_MAX_AGE && r.players[i].tier === FREE_TIER && r.players[i].team === null, 'a released 二軍 player is on the market');
+assert.ok(Object.values(r.players).every(p => p.tier !== SECOND_TIER || p.age < FARM_MAX_AGE), 'nobody old is left in the 二軍');
 console.log(`turnover ok: retired ${r.retired.length}, culled ${r.culled.length}, called ${r.called.length}, rookies ${r.rookies.length}`);
