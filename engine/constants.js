@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.14';
+export const ENGINE_VERSION = '0.4.15';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -239,13 +239,13 @@ export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
 export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
 export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
-/* pinch hit (#436 part 2): off by default (factory games unchanged); simGame opts.pinchHit overrides */
-export const PINCH_HIT_ON = false;
+/* pinch hit (#436 part 2, on since part 5 / 0.4.15); simGame opts.pinchHit overrides */
+export const PINCH_HIT_ON = true;
 export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
 export const PH_EDGE = 0.3;               /* coach's own pick is the pinch hitter when his bat value (con x pow) is this much higher */
 export const PH_DUR = 10;                 /* seconds of the pinch-hit frame (walk from the dugout) */
-/* pinch run (#436 part 3): off by default (factory games unchanged); simGame opts.pinchRun overrides */
-export const PINCH_RUN_ON = false;
+/* pinch run (#436 part 3, on since part 5 / 0.4.15); simGame opts.pinchRun overrides */
+export const PINCH_RUN_ON = true;
 export const PR_MIN_INNING = 8;           /* asked only from this inning on, for the lead runner */
 export const PR_EDGE = 0.15;              /* asked only when the fastest bench man's spd is this much higher (bench x3 runners ~1.3 vs ~0.95) */
 export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runner only within this many runs */

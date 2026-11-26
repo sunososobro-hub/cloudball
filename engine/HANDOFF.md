@@ -18,7 +18,7 @@
 1. #23 catcher holds the ball on steals: needs a primary lead from `render/` first (see the issue).
 2. #38 rest (0.4.4 wild pitch `WP_P`, 0.4.5 passed ball `PB_P`, 0.4.6 balk `BK_P`, frame `r: 'bk'`, no pitch event; 0.4.7 steal of 3rd `STEAL3_*`, `st.steal` = the base; 0.4.8 pickoff at first `PO_*`, frame `r: 'po'`; 0.4.9 throw-over that misses `POF_*`, frame `r: 'pof'`, `e.po`+`e.pof`, max 2 per PA; 0.4.10 batter takes 2nd on the throw home `THROW_HOME_ON_SINGLE_P`, `plan.throwHome`, `tests/onthrow.check.mjs`; 0.4.11 runner from 2nd sent home on a single `SEND_FROM_2ND_ON_SINGLE_P`, the throw decides, `play.outHome`, `tests/outhome.check.mjs`; 0.4.12 batter stretching a single `STRETCH_1B_P`, the throw to second decides, `play.outStretch`, `tests/stretch.check.mjs`; 0.4.13 outfield bobble on a single `OF_BOBBLE_*`, everyone +1 base, single + error, `play.errAdvance`, stream how `'error'`, `tests/bobble.check.mjs`; 0.4.14 wild throw past first on a GB error `WILD_THROW_*`, batter 2nd, runners +2, `play.wildThrow`, `plan.wild`, `tests/wildthrow.check.mjs`); runs tolerance in `run.mjs` 0.7 -> 0.5 (8.69 on 25,000 games). Left: the 0.2 runs gap (SF/game 0.33 vs 0.54).
 3. Staffs have 4 relievers: 5.3 changes/game against about 6.6 in MLB. 4. Called third strikes: 19% of K, real ~25%.
-5. #436 rest: render and commentary for frame `SUB` (then switch `PINCH_HIT_ON` / `PINCH_RUN_ON` on), defensive replacement, bench season lines.
+5. #436 rest: defensive replacement, bench season lines (`PINCH_HIT_ON` / `PINCH_RUN_ON` on since 0.4.15, part 5).
 
 ## Known traps
 - Never judge tuning on 1000 games (runs/game moves +-0.3 by chance): 20,000+ on other seeds. K% and BB% follow the split by count, not the overall zone, swing and whiff rates.

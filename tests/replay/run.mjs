@@ -179,6 +179,9 @@ function checkGame(seed, g) {
       } else if (x.type === 'runner_placed') {
         if (half.inning <= REGULATION) bad('tiebreak runner in regulation');
         bases[x.base - 1] = x.runner; pre[x.base - 1] = x.runner;
+      } else if (x.type === 'substitution' && x.role === 'pinch_runner') {   /* #436: the pinch runner takes over a runner who is there */
+        if (bases[x.base - 1] !== x.out) bad(`pinch runner ${x.in} for ${x.out}, who is not on base ${x.base}`);
+        bases[x.base - 1] = x.in; pre[x.base - 1] = x.in;
       } else if (x.type === 'pitch') {
         if (x.lineup !== expectBatter[x.team]) bad(`batting order: lineup slot ${x.lineup} at bat, expected ${expectBatter[x.team]} (inning ${half.inning})`);
         if (outsInHalf >= 3) bad('pitch thrown after the third out');
