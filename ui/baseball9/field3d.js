@@ -8,7 +8,17 @@ import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
 import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S, PITCH_S } from './field.js';
 
-export const CAM = { fov: 50, pos: [0, 30, -36], look: [0, 0, 50] };   // behind home plate, high enough to see the fence
+export const CAM = { fov: 42, pos: [0, 9, -24], look: [0, 3, 30] };      // #563 part 3: broadcast angle, low behind home plate, pitcher and plate framed
+/** #563 part 3: the camera follows a ball in play like the broadcast: it widens and rises toward CAM_HIT and leans toward the ball (CAM_LEAN of its way, never
+ *  past CAM_REACH deep). Pure: `camShot(w, p)`, w 0..1 = how far into the ball-in-play shot (CAM_EASE_S after the pitch), p = ball {x, z} in world x or null.
+ *  Only the picture moves; no rule or result changes (rule 10). */
+export const CAM_HIT = { fov: 56, pos: [0, 17, -32], look: [0, 0, 40] }, CAM_EASE_S = .7, CAM_LEAN = .55, CAM_REACH = 120;
+const lerp = (a, b, u) => a + (b - a) * u;
+export function camShot(w, p) {
+  const u = Math.max(0, Math.min(1, w)), e = u * u * (3 - 2 * u), aim = p ? [p.x * CAM_LEAN, 0, Math.max(CAM.look[2], Math.min(CAM_REACH, p.z)) * CAM_LEAN + 12] : CAM_HIT.look;
+  const mix = (a, b) => a.map((v, i) => lerp(v, b[i], e));
+  return { fov: lerp(CAM.fov, CAM_HIT.fov, e), pos: mix(CAM.pos, CAM_HIT.pos), look: mix(CAM.look, aim) };
+}
 export const TRAIL_N = 24;                                            // ball trail points
 export const FENCE_ARC = Math.PI / 4;                                 // fence drawn from -45 to +45 degrees
 export const FENCE_SEGS = 24;
@@ -130,6 +140,7 @@ export async function createField3D(canvas, THREE, opts = {}) {
       r.fig.position.set(nx, 0, q.z); r.fig.visible = !(r.R.out && end); }
     batter.visible = !(runners.some(r => r.R.bat) && t > S.pitch.t1);
     acts(t);
+    { const w = S.hit ? (t - S.pitch.t1) / CAM_EASE_S : 0, c = camShot(w, p && w > 0 ? { x: wx(p.x), z: p.z } : null); cam.fov = c.fov; cam.position.set(...c.pos); cam.lookAt(...c.look); cam.updateProjectionMatrix(); }
     const b = S.beats.find(x => t >= x.t && t < x.t + BEAT_S); showBeat(b ? b.txt : '');
     draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; clearActs(); }
   }
@@ -137,7 +148,7 @@ export async function createField3D(canvas, THREE, opts = {}) {
     play(out) { api.skip(); S = buildBeats(out); S.swing = swings(out); S.hit = !!(out && out.play); trailN = 0; loadAct('pitch', PITCH_CLIP_URL); loadAct('swing', SWING_CLIP_URL);
       for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z }); }
       t0 = performance.now(); raf = requestAnimationFrame(frame); },
-    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); clearActs(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); draw(); },
+    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); clearActs(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); cam.fov = CAM.fov; cam.position.set(...CAM.pos); cam.lookAt(...CAM.look); cam.updateProjectionMatrix(); draw(); },
     setSpeed(n) { if (SPEEDS.includes(n)) { const now = performance.now(); if (S) t0 = now - (now - t0) * speed / n; speed = n; } },
     dispose() { api.skip(); if (renderer.dispose) renderer.dispose(); },
   };
