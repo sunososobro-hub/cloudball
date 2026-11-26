@@ -1,12 +1,10 @@
 # tools/gpu_shots (#444)
-Done (part 1): `lib.mjs`, the pure part: `scrub()` / `leaks()`, the dev-tip owner-merge + green `test` gate, run-folder
-retention (7) and the 20 MB cap, the manifest shape, the strict request schema (`shots` / `probe` / `ping`) and
-`requestRunnable()` (owner-authored on cloudball-shots main, no foreign open PR on `requests/`, once per id, 24 h).
-Checked by `node tests/gpu_shots.check.mjs` (static.mjs runs it).
-Next: `shots.mjs` on the PC (Chrome from registry App Paths, fresh temp profile, WebGPU flags, 127.0.0.1 static server
-for this repo only, frames of play.html ?q=max / agent.html / baseball9.html, manifest, push to cloudball-shots gpu/
-over the SSH deploy key, poll requests/ every 15 min); README.md in Traditional Chinese (setup PowerShell, deploy key,
-Task Scheduler, Windows Sandbox / separate user, how an agent writes a request and reads results/<id>/).
-Traps: every text that leaves the PC goes through `scrub()` with os.userInfo().username and os.hostname() in ctx;
-`scrub()` runs the fixed patterns before the ctx values (an e-mail with the user name must still go). No regex with
-nested quantifiers (long paths must not backtrack; the check times it). The browser part is never run in CI (no GPU).
+Done: `lib.mjs` (pure: `scrub()` / `leaks()`, dev-tip owner-merge + green `test` gate, retention 7, 20 MB cap, manifest
+shape, strict request schema `shots` / `probe` / `ping`, `requestRunnable()`, local-server `safeFile()`, `allowedUrl()`,
+`appPathFromReg()`, `runStamp()`, `captureDue()`); `shots.mjs` (the PC run: Chrome over DevTools with Node's WebSocket,
+fresh temp profile, 127.0.0.1 server, hourly frames + `gpu/latest/`, requests -> `results/<id>/`, push over the deploy
+key); `README.md` (Traditional Chinese, owner setup + agent how-to). `node tests/gpu_shots.check.mjs` (static.mjs runs it).
+Next: the owner's first real run; tune the act steps (tag scrub 70 %, settle times) from what the frames show.
+Traps: every text that leaves the PC goes through `scrub()` with the user name, host name and home path in ctx;
+`scrub()` runs the fixed patterns before the ctx values. No regex with nested quantifiers (the check times it).
+The browser part is never run in CI (no GPU): the check only proves `shots.mjs` parses. Never add a workflow (rule 19).
