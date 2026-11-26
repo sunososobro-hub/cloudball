@@ -8,6 +8,8 @@ import { slideDust, puffAt, dustEnd, SLIDE_D, DUST_PUFFS, DUST_LIFE, DUST_ALPHA,
 
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 if (SLIDE_D !== ENGINE_SLIDE_D) bad(`SLIDE_D ${SLIDE_D} != engine ${ENGINE_SLIDE_D}`);
+/* the renderer (game.js DUST_BASES) uses these bag spots: home, 1B, 2B, 3B, home */
+if (JSON.stringify(BASES) !== JSON.stringify([[0, 0], [19.4, -19.4], [0, -38.8], [-19.4, -19.4], [0, 0]])) bad('engine BASES differ from the renderer DUST_BASES: ' + JSON.stringify(BASES));
 let slides = 0, events = 0;
 for (let seed = 1; seed <= 60; seed++) {
   const g = simGame(seed);
@@ -19,6 +21,7 @@ for (let seed = 1; seed <= 60; seed++) {
     if (!hasSlide) { if (puffs.length) bad(`seed ${seed}: puffs without a slide`); if (dustEnd(e, BASES) !== 0) bad('dustEnd without a slide'); continue; }
     const n = e.moves.filter(([, to, , tl]) => tl && tl.slide && to >= 1 && to <= 4 && tl.slideTime > 0).length;
     slides += n;
+    if (puffs.length > 32) bad(`seed ${seed}: ${puffs.length} puffs > the renderer's 32 sprites`);
     if (puffs.length !== n * DUST_PUFFS) bad(`seed ${seed}: ${puffs.length} puffs for ${n} slides`);
     for (const p of puffs) {
       const [bx, bz] = BASES[p.to], d = Math.hypot(p.x - bx, p.z - bz);

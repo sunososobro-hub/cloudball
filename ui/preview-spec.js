@@ -10,17 +10,38 @@ export const snapBody = b => { const o = {}; for (const k in b || {}) { const v 
 
 const mid = ([a, b]) => Math.round((a + b) / 2 * 100) / 100;
 
+/* #441 part 2: the 外觀 chips on agent.html, exactly the look numbers the live preview draws: head shape (render/players.js HEAD_SHAPES,
+   same order) and hair colour (HAIR_TONES, same order). look.skin is not offered: on the normal tiers and in the preview every player has
+   the same skin colour (the skin maps load on max only), so a skin chip would draw nothing. tests/preview.check.mjs holds the counts to
+   players.js and the values inside CREATE.look. */
+export const LOOK_CHIPS = {
+  head: ['標準', '方臉', '長臉', '圓臉', '濃眉', '寬臉'],
+  hair: ['黑', '深棕', '棕', '栗色', '灰'],
+};
+export const LOOK_LEGEND = { head: '臉型', hair: '髮色' };
+const lookOf = L => ({ head: L && Number.isInteger(L.head) ? L.head : 0, hair: L && Number.isInteger(L.hair) ? L.hair : 0 });
+
 export function specOfChoice(c) {
   const bat = c.kind === 'bat', B = CREATE.builds[c.build] || CREATE.builds.normal;
   const body = c.body ? Object.fromEntries(Object.entries(c.body).map(([k, v]) => [k, v / 100])) : B.body;   /* #442: sliders (percent) or a preset */
-  return { kind: c.kind, hand: bat ? c.bats : c.throws, body: snapBody(body), ht: c.body ? c.ht : mid(B.ht), head: c.look ? c.look.head : 0, num: null };
+  return { kind: c.kind, hand: bat ? c.bats : c.throws, body: snapBody(body), ht: c.body ? c.ht : mid(B.ht), ...lookOf(c.look), num: null };
 }
 
 /* a row of /api/freeagents or /api/player: { kind, player, ratings } */
 export function specOfRow(row) {
   const p = row.player, bat = row.kind === 'bat';
-  return { kind: row.kind, hand: bat ? p.hand : p.throws, body: snapBody(p.body), ht: p.ht, head: p.look ? p.look.head : 0, num: p.num ?? null };
+  return { kind: row.kind, hand: bat ? p.hand : p.throws, body: snapBody(p.body), ht: p.ht, ...lookOf(p.look), num: p.num ?? null };
 }
+
+/* #441 part 3: the preview opens from the FRONT with a close-up of the head (face, hair colour and head shape read there); 轉身 flips
+   to the back (number), 全身 / 特寫 switches the frame. Pure, so tests/preview.check.mjs can hold it. render/players.js: +z is the front and
+   the camera stands on +z, so yaw 0 faces the viewer. */
+export const PREVIEW_OPEN = { side: 'front', zoom: 'close' };
+export const FRAME_CLOSE_H = 0.7, FRAME_CLOSE_W = 0.62, FRAME_FULL_H = 2.2, FRAME_FULL_W = 1.5, FULL_TARGET_Y = 0.98, HEAD_BELOW_TOP = 0.12;   /* metres; the head centre sits about 12 cm under the top of the body */
+export const yawOfSide = side => (side === 'back' ? Math.PI : 0);
+export const flipSide = side => (side === 'back' ? 'front' : 'back');
+export const flipZoom = zoom => (zoom === 'full' ? 'close' : 'full');
+export const frameOf = (zoom, ht) => (zoom === 'full' ? { h: FRAME_FULL_H, w: FRAME_FULL_W, y: FULL_TARGET_Y } : { h: FRAME_CLOSE_H, w: FRAME_CLOSE_W, y: ht - HEAD_BELOW_TOP });
 
 /* two specs that draw the same body (used to skip needless work) */
 export const sameSpec = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
