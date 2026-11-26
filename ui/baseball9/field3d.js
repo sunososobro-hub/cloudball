@@ -6,7 +6,7 @@
  * falls back to the canvas 2D field. `openField` does that fallback. Units as ball.js; world x is mirrored so first base is on the right. */
 import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
-import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S } from './field.js';
+import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S, PITCH_S } from './field.js';
 
 export const CAM = { fov: 50, pos: [0, 30, -36], look: [0, 0, 50] };   // behind home plate, high enough to see the fence
 export const TRAIL_N = 24;                                            // ball trail points
@@ -18,6 +18,28 @@ export const BATTER_X = -1.3;                                         // the bat
 export const FIELDER_PANTS = COL.white;
 /** #563 part 1: yaw that turns a render/ body (front = +z) from (x0, z0) toward (x1, z1). */
 export const faceYaw = (x0, z0, x1, z1) => Math.atan2(x1 - x0, z1 - z0);
+
+/** #563 part 2: the pitcher's windup and the batter's swing, from the recorded mocap clips render/ plays (assets/mocap, render/game.js PM_* / SW_*).
+ *  Pure: they only turn the scripted time into a clip time and a weight; the result and the ball stay the beats' (rule 10), no random numbers.
+ *  Scripted time t is 0 at ball release; the windup plays in the WINDUP_S before it. */
+export const WINDUP_S = 1;
+export const PITCH_CLIP_URL = 'assets/mocap/pitch_124_01.json', SWING_CLIP_URL = 'assets/mocap/swing_124_07.json';
+export const PM = { rel: 111 / 30, end: 4.6, start: 1.2, inS: .25, out: [.5, .9] };       // pitch clip: release frame 111 at 30 fps, hips travel measured from 1.2 s
+export const SW = { contact: 85 / 30, start: 1.6, end: 3.6, inS: .4, lead: .8, out: [.6, 1.1], outHit: [.2, .35] };   // swing clip: contact frame 85
+const sat = x => Math.max(0, Math.min(1, x)), ease = x => x * x * (3 - 2 * x);
+/** Pitcher: {ct, w} (clip time, weight 0..1) at scripted time t; w = 0 outside the windup. */
+export function pitchAct(t) {
+  const w = Math.min(ease(sat((t + WINDUP_S) / PM.inS)), 1 - ease(sat((t - PM.out[0]) / (PM.out[1] - PM.out[0]))));
+  return { ct: Math.max(PM.start, Math.min(PM.end, PM.rel + t)), w };
+}
+/** Batter: the result kinds that swing (whiff, foul, contact, popup, a ball in play); a take, a ball and a bunt do not use this clip. */
+export const swings = out => { const k = out && out.res && out.res.kind; return k === 'whiff' || k === 'foul' || k === 'contact' || k === 'popup' || (!!(out && out.play) && !out.play.bunt && k !== 'bunt' && k !== 'foulBunt'); };
+/** Batter: {ct, w} at scripted time t (ball reaches the plate at PITCH_S); `hit` = a ball in play (the swing lets go sooner). */
+export function swingAct(t, hit) {
+  const a = PITCH_S - SW.lead - SW.inS, o = hit ? SW.outHit : SW.out;
+  const w = Math.min(ease(sat((t - a) / SW.inS)), 1 - ease(sat((t - PITCH_S - o[0]) / (o[1] - o[0]))));
+  return { ct: Math.max(SW.start, Math.min(SW.end, SW.contact + (t - PITCH_S))), w };
+}
 
 /** Cached tiny materials + mesh helper bound to one THREE. */
 function kit(THREE) {
@@ -69,10 +91,12 @@ export async function createField3D(canvas, THREE, opts = {}) {
   scene.add(new THREE.HemisphereLight(0xd6e6ff, 0x2c4a2c, .9)); const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(-30, 70, -25); scene.add(sun);
   buildPark(THREE, scene, K);
   const wx = x => -x, PL = opts.PL && typeof opts.PL.makePlayer === 'function' ? opts.PL : null;   // core x -> world x (first base on the right)
+  const figs = new WeakMap();   // body group -> its render/ figure (has setMocap)
   const body = (color, o = {}) => { if (!PL) return figure(THREE, K, color);
-    try { const jm = K.mat(color); return PL.makePlayer({ jersey: jm, pants: K.mat(FIELDER_PANTS), sock: jm, glove: !!o.glove, head: o.head || 'cap', role: o.role, throws: 'R' }).g; } catch (e) { return figure(THREE, K, color); } };
+    try { const jm = K.mat(color); const f = PL.makePlayer({ jersey: jm, pants: K.mat(FIELDER_PANTS), sock: jm, glove: !!o.glove, head: o.head || 'cap', role: o.role, throws: 'R' }); figs.set(f.g, f); return f.g; } catch (e) { return figure(THREE, K, color); } };
   const place = (g, x, z, tx, tz) => { g.position.set(x, 0, z); if (PL && g.rotation) g.rotation.y = faceYaw(x, z, tx, tz); scene.add(g); return g; };
-  POS_N.forEach((p, i) => { if (i === 1) return; place(body(COL.foe, { glove: true }), wx(p[0]), p[1], 0, 0); });   // index 1 = catcher, stands behind the plate below; fielders face the plate
+  let pitcher = null;
+  POS_N.forEach((p, i) => { if (i === 1) return; const g = place(body(COL.foe, { glove: true }), wx(p[0]), p[1], 0, 0); if (i === 0) pitcher = g; });   // index 1 = catcher, stands behind the plate below; fielders face the plate
   const catcher = place(body(COL.foe, { glove: true, head: 'helmet' }), 0, -1.6, 0, POS_N[0][1]);
   const batter = place(body(COL.bat, { head: 'helmet', role: 'batter' }), wx(BATTER_X), .2, 0, .2);
   const ball = K.mesh(new THREE.SphereGeometry(.4, 10, 8), K.mat(0xffffff, { emissive: 0x444444 })), shadow = K.mesh(new THREE.CircleGeometry(.5, 12), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 }));
@@ -87,8 +111,17 @@ export async function createField3D(canvas, THREE, opts = {}) {
   const showBeat = txt => { if (beatEl && txt !== lastBeat) { beatEl.textContent = txt; lastBeat = txt; } };
   const clearRunners = () => { for (const r of runners) scene.remove(r.fig); runners = []; };
   const draw = () => renderer.render(scene, cam);
+  // #563 part 2: mocap acts (pitcher windup, batter swing); clips load once, without them the bodies just stand as in part 1
+  const clips = {}, loadAct = (k, url) => { if (!clips[k] && PL && PL.loadClip) { clips[k] = 0; PL.loadClip(url).then(c => { clips[k] = c; }).catch(() => { /* no clip: no act */ }); } };
+  const fp = pitcher && figs.get(pitcher), fb = figs.get(batter), setAct = (f, c, ct, w, t0, mir) => { if (f && f.setMocap && c) f.setMocap(c, ct, w, mir, t0, 0); };
+  const clearActs = () => { for (const f of [fp, fb]) if (f && f.setMocap) f.setMocap(null, 0, 0); };
+  const acts = t => {
+    if (!S) return;
+    if (fp && clips.pitch) { const a = pitchAct(t); setAct(fp, clips.pitch, a.ct, a.w, PM.start, !!fp.mirrored); }
+    if (fb && clips.swing && S.swing) { const a = swingAct(t, S.hit); setAct(fb, clips.swing, a.ct, a.w, SW.start, false); }
+  };
   function frame(now) {
-    const t = ((now - t0) / 1000) * speed, p = ballAt(S, t);
+    const t = ((now - t0) / 1000) * speed - WINDUP_S, p = ballAt(S, t);
     if (p) { ball.visible = shadow.visible = true; ball.position.set(wx(p.x), Math.max(p.y, .4), p.z); shadow.position.set(wx(p.x), .05, p.z); shadow.scale.setScalar(Math.max(.4, 1.4 - p.y / 40));
       if (trailN < TRAIL_N) trailN++; else tpos.copyWithin(0, 3); const o = (trailN - 1) * 3; tpos[o] = wx(p.x); tpos[o + 1] = Math.max(p.y, .4); tpos[o + 2] = p.z;
       tgeo.setDrawRange(0, trailN); tgeo.attributes.position.needsUpdate = true; } else ball.visible = shadow.visible = false;
@@ -96,14 +129,15 @@ export async function createField3D(canvas, THREE, opts = {}) {
       if (PL && r.fig.rotation && Math.hypot(nx - r.px, q.z - r.pz) > .02) { r.fig.rotation.y = faceYaw(r.px, r.pz, nx, q.z); r.px = nx; r.pz = q.z; }   // runners face where they run
       r.fig.position.set(nx, 0, q.z); r.fig.visible = !(r.R.out && end); }
     batter.visible = !(runners.some(r => r.R.bat) && t > S.pitch.t1);
+    acts(t);
     const b = S.beats.find(x => t >= x.t && t < x.t + BEAT_S); showBeat(b ? b.txt : '');
-    draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; }
+    draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; clearActs(); }
   }
   const api = {
-    play(out) { api.skip(); S = buildBeats(out); trailN = 0;
+    play(out) { api.skip(); S = buildBeats(out); S.swing = swings(out); S.hit = !!(out && out.play); trailN = 0; loadAct('pitch', PITCH_CLIP_URL); loadAct('swing', SWING_CLIP_URL);
       for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z }); }
       t0 = performance.now(); raf = requestAnimationFrame(frame); },
-    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); draw(); },
+    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); clearActs(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); draw(); },
     setSpeed(n) { if (SPEEDS.includes(n)) { const now = performance.now(); if (S) t0 = now - (now - t0) * speed / n; speed = n; } },
     dispose() { api.skip(); if (renderer.dispose) renderer.dispose(); },
   };
