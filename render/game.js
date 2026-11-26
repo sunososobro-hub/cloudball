@@ -1409,6 +1409,8 @@ function placeUmp(e,u){const lf=e.bat&&batOf(e).hand==='L',hx=lf?-UMP_X:UMP_X;le
 /* #42: jog ends from render/brkjog.js (off from where the last pitch left him, out to where the next pitch poses him); home until it is in */
 let bjM=null;import(new URL('brkjog.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{bjM=M}).catch(err=>console.warn('break jog ends off',err));
 const brkEndsOf=(ev,i,k)=>bjM&&ev&&ev[i]&&ev[i].k==='BRK'?bjM.brkEnds(ev,i,k,fielderStart):null;
+/* #42: the opening jog ends on the spot the first pitch poses each fielder on (the catcher's spot is .45 m in front of his home) */
+const preEndOf=(ev,i,k)=>bjM&&ev&&ev[i]&&ev[i].k==='PRE'&&ev[i+1]&&ev[i+1].s0?bjM.brkEnds(ev,i,k,fielderStart).to:null;
 function brkSwap(e,u,off,def,ei){const ev=game&&game.ev&&game.ev[ei]===e?game.ev:null;FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],be=brkEndsOf(ev,ei,k),on=u>=BRK_ON_AT,[dx,dz]=dugout(on?off:def),t0=(on?BRK_ON_AT:BRK_OFF_AT)+jogRank(k)*JOG_GAP,[ax,az]=on?[dx,dz]:be?be.from:f.pos,[bx,bz]=on?be?be.to:f.home:[dx,dz],tt=sat01((u-t0)/(Math.hypot(bx-ax,bz-az)/JOG_SPEED)),x=lerp(ax,bx,tt),z=lerp(az,bz,tt);
   f.g.visible=on?u>=t0:tt<1;f.g.position.set(x,tt>0&&tt<1?Math.abs(Math.sin(u*9+i))*.07:0,z);if(tt>0&&tt<1)face(f,bx-ax,bz-az);else face(f,-x,-z)})}
 const curPit=[0,0],numOf=(t,name)=>{const R=ROSTERS[t],b=R.bat.find(x=>x.name===name)||(R.bench||[]).find(x=>x.name===name);return b?b.num:undefined};
@@ -1549,6 +1551,9 @@ const RET_V=6.5,RET_GAP=.3,RET_SKIP=['P','C'];
 const RET_NEXT=['P','VOTE','CHG','VIS'];
 const retNext=(e,ei)=>{const nx=game&&game.ev&&game.ev[ei]===e?game.ev[ei+1]:null;return e.k==='P'&&nx&&RET_NEXT.includes(nx.k)&&nx.s0&&e.s0&&nx.s0.half===e.s0.half?nx:null};
 function retSpot(e,ei,k,pos){const nx=retNext(e,ei);return nx?fielderStart(k,nx.s0.b,nx.s0.outs):pos}
+/* #42: event-local time the last retDrift walk of a pitch not in play ends (0 = nobody moves); cpEvents must not cut it */
+const retEnd=(ev,i)=>{const e=ev[i],nx=ev[i+1];if(!(e.k==='P'&&nx&&RET_NEXT.includes(nx.k)&&nx.s0&&e.s0&&nx.s0.half===e.s0.half))return 0;const dur=Number.isFinite(nx.t-e.t)?nx.t-e.t:e.d;
+  return FIELDER_KEYS.some(k=>{if(RET_SKIP.includes(k))return false;const a=fielderStart(k,e.s0.b,e.s0.outs),b=fielderStart(k,nx.s0.b,nx.s0.outs);return Math.hypot(b[0]-a[0],b[1]-a[1])>=.01})?dur-RET_GAP:0};
 function retDrift(e,u,ei){const nx=retNext(e,ei);if(!nx)return;const dur=Number.isFinite(nx.t-e.t)?nx.t-e.t:e.d;
   for(const k of FIELDER_KEYS){const f=fielders[k];if(RET_SKIP.includes(k))continue;const D=Math.hypot(f.ret[0]-f.pos[0],f.ret[1]-f.pos[1]);if(D<.01)continue;
     const t0=e.r==='inplay'&&e.plan?ARRIVE+e.plan.rt:dur-RET_GAP-runTime(D,RET_V),w=clamp(runDist(u-t0,RET_V)/D,0,1);f.g.position.set(lerp(f.pos[0],f.ret[0],w),0,lerp(f.pos[1],f.ret[1],w))}}
@@ -1564,9 +1569,9 @@ function poseScene(e,u,dt,ei){
   if(e.k==='BRK')brkSwap(e,u,off,def,ei);
   const P=fielders.P;P.arms[1].rotation.x=0;PR.up.rotation.set(0,0,0);PR.hg.rotation.set(0,0,0);P.noAnim=e.k==='P';
   /* opening ceremony: defenders jog in from the 1B-side dugout one by one */
-  if(e.k==='PRE'){FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],d0=jogRank(k)*JOG_GAP,sx=dugout(def)[0],sz=INTRO_Z,tt=sat01((u-d0)/(Math.hypot(f.home[0]-sx,f.home[1]-sz)/JOG_SPEED));
-    f.g.visible=u>=d0;f.g.position.set(lerp(sx,f.home[0],tt),tt>0&&tt<1?Math.abs(Math.sin(u*9+i))*.07:0,lerp(sz,f.home[1],tt));
-    if(tt<1)face(f,f.home[0]-sx,f.home[1]-sz);else face(f,-f.home[0],-f.home[1])})}
+  if(e.k==='PRE'){const ev=game&&game.ev&&game.ev[ei]===e?game.ev:null;FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],h=preEndOf(ev,ei,k)||f.home,d0=jogRank(k)*JOG_GAP,sx=dugout(def)[0],sz=INTRO_Z,tt=sat01((u-d0)/(Math.hypot(h[0]-sx,h[1]-sz)/JOG_SPEED));
+    f.g.visible=u>=d0;f.g.position.set(lerp(sx,h[0],tt),tt>0&&tt<1?Math.abs(Math.sin(u*9+i))*.07:0,lerp(sz,h[1],tt));
+    if(tt<1)face(f,h[0]-sx,h[1]-sz);else face(f,-h[0],-h[1])})}
   batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;looseBat.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
   poseOnDeck(e,u,ei);poseStaff(e,u,ei);poseWelcome(e,u,ei);
@@ -1971,12 +1976,13 @@ function cpEvents(g){const ev=g.ev;
     if(e.k==='VOTE'){head=e.d;tail=0}
     else if(e.k==='CHG'||e.k==='VIS'){const vp=visitOf(e);if(vp){head=vp.go;tail=vp.end}else if(visitM){head=e.d;tail=0}}/* #81: the manager's walk to the mound and back; module not in yet -> keep it all */
     else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to}),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
-    else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),stJogEnd(off,0),odEnd(ev,i));
+    else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),jogEnd([dugout(1-off)[0],INTRO_Z],0,k=>preEndOf(ev,i,k)),stJogEnd(off,0),odEnd(ev,i));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):Math.max(CP_RUNNER_SETTLE,LEAD_WALK_WAIT+LEAD_WALK_DUR)));/* #23: walk-out to the lead */
       if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
+    if(e.k==='P'&&e.r!=='inplay')tail=Math.max(tail,retEnd(ev,i));/* #42: fielders walking to the next pitch's depth (retDrift) */
     if(e.k==='P')tail=Math.max(tail,u2End(ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
     return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'||e.k==='VIS'||e.k==='SUB'?'change':'pitch',jogEnd:e.k==='BRK'?Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to})):0}})}/* #144: jogEnd = new defence at its posts */
