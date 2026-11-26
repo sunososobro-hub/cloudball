@@ -37,6 +37,20 @@ if (html(fan.id).includes('系統')) bad('a fan card shows the 系統 tag');
 const evil = rosterCards([['x', { ...merged[sys.id], name: '<b>x</b>' }]], { base: '#fa', filter: 'all' });
 if (evil.includes('<b>x</b>')) bad('the name is not escaped next to the tag');
 
+/* a fan row removes one published 系統 二軍 player of his kind (#437 part 5), nothing else */
+{ const site = { teams: [], games: [], players: {
+    f1: { name: 'F', role: 'B', pos: 'SS', tier: 1, team: 't' }, s1: { name: 'S1', role: 'B', pos: 'LF', tier: 2, team: 't', system: true },
+    s2: { name: 'S2', role: 'B', pos: 'LF', tier: 2, team: 't', system: true }, sp: { name: 'SP', role: 'P', pos: 'SP', tier: 2, team: 't', system: true } } };
+  const m1 = mergeCreated(site, [fan]).players;
+  if ('s1' in m1 || !('s2' in m1) || !('sp' in m1) || !('f1' in m1)) bad('a batting fan must remove exactly the first 系統 二軍 batter');
+  if (!(fan.id in m1)) bad('the fan row must still be listed');
+  const m2 = mergeCreated(site, [fan, mk(15, 'bat'), mk(16, 'bat')]).players;
+  if (['s1', 's2'].some(k => k in m2) || !('f1' in m2) || !('sp' in m2)) bad('three fans: both 系統 batters go, the factory player and the pitcher stay');
+  if (!('sp' in mergeCreated(site, [sys]).players) || !('s1' in mergeCreated(site, [sys]).players)) bad('a 系統 row must not remove a published 系統 player');
+  const m3 = mergeCreated(site, [mk(17, 'pit')]).players;
+  if ('sp' in m3 || !('s1' in m3)) bad('a pitching fan removes the 系統 pitcher only');
+  if (!('s1' in site.players && 's2' in site.players && 'sp' in site.players)) bad('mergeCreated changed its input'); }
+
 /* placeFan */
 const pool = [fan, sys, sysP, { id: 'first', kind: 'bat', player: { name: '一軍' } }], frozen = JSON.stringify(pool);
 const r1 = placeFan(pool, mk(21, 'bat'));
