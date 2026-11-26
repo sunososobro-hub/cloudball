@@ -43,6 +43,15 @@ async function goLandscape(){const d=document,inFs=d.fullscreenElement||d.webkit
   let ok=false;try{const el=d.documentElement;await (el.requestFullscreen||el.webkitRequestFullscreen).call(el);await screen.orientation.lock('landscape');ok=true;$('land').textContent='⤢ 離開'}catch(e){}
   if(!ok)note('這台不能自動轉：關掉螢幕旋轉鎖定，把手機轉橫就好')}
 $('land').onclick=goLandscape;
-{const mq=matchMedia('(pointer:coarse) and (orientation:portrait)');let told=false;try{told=localStorage.getItem('zu_landHint')==='1'}catch(e){}
- if(mq.matches&&!told)setTimeout(()=>{note('手機轉橫看，畫面比較大（右上「⛶ 橫向」）');try{localStorage.setItem('zu_landHint','1')}catch(e){}},2500)}
+/* #299: hint on the entry screen (one line + 橫向) and a dismissible chip while playing; shown on every visit, gone in landscape or on desktop */
+{const mq=matchMedia('(pointer:coarse) and (orientation:portrait)'),LH=window.LANDHINT,line=$('landLine'),chip=$('landChip');let dismissed=false;
+ const ios=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ const inFs=()=>document.fullscreenElement||document.webkitFullscreenElement;
+ const show=()=>{if(!LH||!line||!chip)return;if(!mq.matches)dismissed=false;const h=LH.decide({coarse:matchMedia('(pointer:coarse)').matches,portrait:matchMedia('(orientation:portrait)').matches,ios,intro:!$('intro').hidden,dismissed});
+  line.hidden=!h.line;chip.hidden=!h.chip;line.firstChild.textContent=chip.firstChild.textContent=h.text;$('landGo').hidden=$('landChipGo').hidden=!h.button};
+ $('landGo').onclick=$('landChipGo').onclick=goLandscape;$('landX').onclick=()=>{dismissed=true;show()};
+ /* a tap that enters the game also asks for landscape fullscreen (only a tap may; Android Chrome) */
+ for(const id of ['enter','enterHl','enterMute'])$(id).addEventListener('click',()=>{if(!ios&&mq.matches&&!inFs())goLandscape()});
+ addEventListener('resize',show);addEventListener('orientationchange',show);mq.addEventListener&&mq.addEventListener('change',show);
+ new MutationObserver(show).observe($('intro'),{attributes:true,attributeFilter:['hidden']});show()}
 return {bugPlace,applyLayout,editing:()=>editing}};

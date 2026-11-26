@@ -300,6 +300,10 @@ function crowdBody(up){const W=CROWD_WHITE,T=CROWD_PANTS,P=[[new THREE.CylinderG
 const seatGeo=crowdGeo([[cBox(.46,.05,.42,0,.42,-.02),CROWD_WHITE],[cBox(.46,.42,.04,0,.64,-.24),CROWD_WHITE]]);
 for(const f of fans){v3.set(f.x,f.y,f.z+CROWD_HIP_BACK).applyMatrix4(f.g.matrixWorld);f.wx=v3.x;f.wy=v3.y;f.wz=v3.z;f.sy=f.g.rotation.y+Math.PI}
 for(let i=fans.length-1;i>=0;i--)if(SEATS.some(s=>!s.cam&&Math.hypot(fans[i].wx-s.x,fans[i].wz-s.z)<2.2))fans.splice(i,1);
+/* #150 (owner 11/22 「挪」): the centre-field block in front of the batter's eye (render/props/batterseye.js, EYE.HALF 7.5 deg) is closed: no seat or fan
+   within EYE_CLEAR_DEG of the CF line, so the batter's sightline to the release point lands on empty stand. Fans' geometry elsewhere untouched. */
+const EYE_CLEAR_DEG=7.5;
+for(let i=fans.length-1;i>=0;i--)if(fans[i].wz<0&&Math.abs(Math.atan2(fans[i].wx,-fans[i].wz))<EYE_CLEAR_DEG*Math.PI/180&&Math.hypot(fans[i].wx,fans[i].wz)>OF_R-1)fans.splice(i,1);
 const wrapPI=a=>Math.atan2(Math.sin(a),Math.cos(a)),people=fans.filter(f=>!f.empty);
 for(let i=people.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[people[i],people[j]]=[people[j],people[i]]}/* random order: a lower quality tier draws a prefix, i.e. a random subset */
 people.forEach((f,i)=>f.pi=i);const cheerers=people.filter(()=>Math.random()<CROWD_CHEER_SHARE);
