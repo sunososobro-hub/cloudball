@@ -187,13 +187,22 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch =
  * Times are seconds into the pitch frame. */
 export function resolveSteal(ctx, wantOut, base = 2) {
   /* base 2: steal of second, SS covers beside the lane from first; base 3 (#38): steal of third, 3B covers inside the diamond */
-  const tl = runnerTimeline(base - 1, base, { kind: 'steal', slide: true }), runner = ctx.bases[base - 2];
+  const runner = ctx.bases[base - 2];
   const key = base === 3 ? '3B' : 'SS', spot = base === 3 ? THIRD_TAG : SECOND_TAG, from = FIELD_HOME.C;
   const coverAt = K.RELEASE + coverArrival(fielderStart(key, ctx.bases, ctx.outs), spot, K.FIELD_REACT, K.COVER_SPEED);
   const TD = dist(from, spot), th = throwPlan(ctx.arm('C'), 'C', TD, null);
   const catchAt = K.ARRIVE + K.CATCH_SNAP, soonest = Math.max(catchAt + K.CATCHER_POP + th.flight, coverAt);
+  /* #23 part 2: the catcher throws right after his pop; the runner's jump comes from the draw. A good jump (safe) has him
+   * in STEAL_SAFE_BY before that throw, a bad one (out) STEAL_OUT_BY after it. The break stays between the pitcher's first move
+   * and STEAL_BREAK_LAST; only when that range cannot fit does the throw wait (hold) or the out turn safe, as before. */
+  const target = wantOut ? soonest + K.STEAL_OUT_BY : soonest - K.STEAL_SAFE_BY, first = base === 3 ? K.STEAL3_FIRST_MOVE : K.STEAL_FIRST_MOVE;
+  let start = first, tl = runnerTimeline(base - 1, base, { kind: 'steal', slide: true, start });
+  for (let i = 0; i < K.STEAL_FIT_ITER; i++) {
+    start = clamp(start + target - tl.arriveT, first, K.STEAL_BREAK_LAST);
+    tl = runnerTimeline(base - 1, base, { kind: 'steal', slide: true, start });
+  }
   const out = wantOut && soonest < tl.arriveT - K.TAG_EARLY;
-  const arrive = Math.max(soonest, out ? tl.arriveT - K.TAG_EARLY : tl.arriveT + K.TAG_LATE);
+  const arrive = Math.max(soonest, out ? tl.arriveT - K.TAG_EARLY : tl.arriveT + K.STEAL_SAFE_BY);
   const plan = { steal: true, CV: { key, spot, base, at: coverAt }, from, TD, v: th.v, TT: th.flight, t0: arrive - th.flight, arrive, runnerAt: tl.arriveT,
     actions: [{ t: arrive - th.flight, a: 'throw', f: 'C', to: key }, { t: coverAt, a: 'cover', f: key, base }, { t: arrive, a: 'receive', f: key, base }] };
   if (!out) return { ok: true, plan, outs: [], tl };

@@ -72,10 +72,10 @@ export function tagLeadAt(u, tagUpAt) {
 }
 
 /* When a base runner starts and arrives (seconds into the pitch frame).
- * kind: 'inplay' | 'steal' | 'walk' | 'wp' | 'bk' | 'trot' (home run: 'inplay' start, HR_TROT_SPEED). tagUpAt: earliest legal start on a caught fly (or null). */
-export function runnerTimeline(from, to, { kind, tagUpAt = null, slide = false }) {
-  const startRun = kind === 'inplay' || kind === 'trot' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : kind === 'wp' ? K.ARRIVE + K.WP_BREAK : kind === 'bk' ? K.BK_CALL_AT + K.WALK_DELAY : K.ARRIVE + K.WALK_DELAY;
-  const spd = kind === 'walk' ? K.WALK_SPEED : kind === 'trot' ? K.HR_TROT_SPEED : K.RUN_SPEED;   /* 'wp' (wild pitch) runs at full speed */
+ * start: break time override (#23: a steal's jump). kind: 'inplay' | 'steal' | 'walk' | 'wp' | 'bk' | 'trot' (home run: 'inplay' start, HR_TROT_SPEED). tagUpAt: earliest legal start on a caught fly (or null). */
+export function runnerTimeline(from, to, { kind, tagUpAt = null, slide = false, start = null }) {
+  const startRun = start != null ? start : kind === 'inplay' || kind === 'trot' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : kind === 'wp' ? K.ARRIVE + K.WP_BREAK : kind === 'bk' ? K.BK_CALL_AT + K.WALK_DELAY : K.ARRIVE + K.WALK_DELAY;
+  const spd = kind === 'walk' ? K.WALK_SPEED : kind === 'trot' ? K.HR_TROT_SPEED : kind === 'steal' ? K.STEAL_SPEED : K.RUN_SPEED;   /* 'wp' (wild pitch) runs at full speed */
   const st0 = from > 0 && tagUpAt != null ? tagUpAt : startRun;
   const tag = from > 0 && tagUpAt != null, lead = from > 0 ? (tag ? K.LEAD_STAND : leadAt(st0)) : 0;
   const total = (to - from) * BASE_PATH;
