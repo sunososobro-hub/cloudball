@@ -5,6 +5,7 @@
  * Units as ball.js: metres, seconds, home (0,0), +z toward centre field, +x toward first base. Runners (part 2) come from `out.play.runners` (play.js `sc.runners`). */
 import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
+import { HIT_Q } from './practice.js';
 
 export const PITCH_S = .55;                 // pitch flight, mound to plate
 export const MOUND = POS_N[0];              // [0, 18.4]
@@ -26,7 +27,8 @@ export function buildBeats(out) {
       const pts = r.pts.map(p => ({ t: PITCH_S + p.t, x: p.x, z: p.z })); runners.push({ bat: !!r.bat, out: !!r.out, pts });
       dur = Math.max(dur, pts[pts.length - 1].t + .3); }
   } else {
-    const k = res.kind, txt = k === 'whiff' ? '揮空' : k === 'called' ? '好球' : k === 'ball' ? '壞球' : k === 'foul' || k === 'foulBunt' ? '界外' : '';
+    const k = res.kind, txt = k === 'whiff' ? '揮空' : k === 'called' ? '好球' : k === 'ball' ? '壞球' : k === 'foul' || k === 'foulBunt' ? '界外'
+      : k === 'contact' ? (res.q >= HIT_Q ? '安打！' : '被接住') : k === 'bunt' ? '觸擊' : k === 'popup' ? '小飛球' : '';   // contact / bunt / popup: practice only (no ball points)
     if (txt) beats.push({ t: PITCH_S, txt });
     if (out && out.paEnd && !(play)) { const w = /保送/.test(out.txt || ''), kk = /三振/.test(out.txt || ''); if (w || kk) beats.push({ t: PITCH_S + .35, txt: w ? '保送' : '三振！' }); }
     if (out && out.steal) beats.push({ t: PITCH_S + .5, txt: out.steal.ok ? '盜壘成功' : '盜壘失敗' });
