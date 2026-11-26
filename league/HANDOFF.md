@@ -10,6 +10,7 @@
 
 - #436 part 1: `bench` list of 4 per team in `players.js` (`tools/bench.mjs`, ids `<team>-x1..x4`); `bat` stays the lineup, the engine ignores the bench (`tests/bench.check.mjs`).
 - #437 part 1: `tools/season_sim.mjs` + `tests/season_sim.check.mjs` (model of who plays and the audition are the tool's own rules, not the product's).
+- #500 part 1: `callup.js` (pure: ready by ability at the weakest 一軍 starter of the position; a slot opens only on retirement at `RETIRE_AGE` or a new team; queue by overall then days waited) + `tests/callup.check.mjs`; `train_sim` prints days to ready and ready -> called up. Real numbers: ready at day 0 for 962/1000, then 720/720/1260 days (p25/median/p75) to a slot.
 
 ## Next
 0. #437 part 2: `system: true` in the roster format shown as a 系統 tag on the data site; a real fan replaces a 系統 player of the same kind in the store.
