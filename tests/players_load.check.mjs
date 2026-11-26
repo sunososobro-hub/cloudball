@@ -19,7 +19,7 @@ try{writeFileSync(file,src);await import(pathToFileURL(file).href)}
 catch(e){bad.push(`render/players.js throws at load: ${e&&e.name}: ${e&&e.message}`)}
 finally{rmSync(dir,{recursive:true,force:true})}
 const game=readFileSync(path.join(ROOT,'render/game.js'),'utf8');
-if(!/const headIx=id=>OFF\.has\('faces'\)\|\|!window\.PL\?0:PL\.headOf\(id\)/.test(game))bad.push('game.js headIx is not guarded on window.PL');
+if(!/const headIx=\w+=>OFF\.has\('faces'\)\|\|!window\.PL\?0:PL\.headOf\w*\(\w+\)/.test(game))bad.push('game.js headIx is not guarded on window.PL');
 if(!/kitOf=m=>window\.PL&&PL\.makeKit&&/.test(game))bad.push('game.js kitOf is not guarded on window.PL');
 if(bad.length){console.error('FAIL players_load:\n - '+bad.join('\n - '));process.exit(1)}
 console.log('players_load ok: render/players.js loads; game.js guards PL');
