@@ -1003,7 +1003,7 @@ const luOf=()=>{if(game&&(luG!==game||(!luF&&lineM))){luG=game;luF=lineM?lineM.l
 const lineupNow=(e,t)=>{const L=luOf();return L?L.lineupAt(e,t):undefined};
 function batOf(e,k=0){const L=luOf(),b=L&&L.batterOf(e,k);if(b)return b;const R=ROSTERS[e.bat[0]].bat;return R[(e.bat[1]+k)%R.length]}
 /* a pinch-hit SUB frame (no `base`; a pinch runner has one) between pitch i and pitch j: the new man comes from the dugout in it */
-const odPhBetween=(ev,i,j)=>{for(let k=i+1;k<j;k++)if(ev[k].k==='SUB'&&ev[k].base===undefined)return true;return false};
+const odPhBetween=(ev,i,j)=>{for(let k=i+1;k<j;k++)if(ev[k].k==='SUB'&&ev[k].base===undefined&&ev[k].role!=='defensive')return true;return false};
 function odNextP(ev,i){let j=i+1;while(ev[j]&&odGap(ev[j].k))j++;return ev[j]&&ev[j].k==='P'&&ev[j].bat?j:-1}
 /* The walk to the plate of the batter of pitch n (team t): `from` = the circle (he was on deck) or the dugout (leadoff, slice 3), the
    batter after him jogs dugout -> circle. Both start at `go` (event-local s) and are done by OD_HOLD before the event ends. */
@@ -1031,7 +1031,7 @@ function poseOnDeck(e,u,ei){odNext.g.visible=odDeck.g.visible=false;if(!game)ret
     if(k1<1)put(odNext,pl.nb,ax,az,adx,adz);else put(odNext,pl.nb,ax,az,pl.box[0]-ax,pl.box[1]-az);
     if(k2<1)put(odDeck,pl.nn,bx,bz,bdx,bdz);else put(odDeck,pl.nn,bx,bz,-bx,-bz)};
   if(e.k==='P'){if(!e.bat)return;const pl=odPlan(ev,ei);if(!pl||u<pl.go){deck(e.bat[0],batOf(e,1),u,pl?pl.go:undefined);return}walkUp(pl,u);return}
-  if(e.k==='SUB'&&e.base===undefined){const j=odNextP(ev,ei);if(j>=0){walkUp(odMake(e,ev[j],'dugout',OD_SUB_GO,OD_WALK_V),u);return}}/* #436: the pinch hitter walks up from the dugout, the next man jogs to the circle */
+  if(e.k==='SUB'&&e.base===undefined&&e.role!=='defensive'){const j=odNextP(ev,ei);if(j>=0){walkUp(odMake(e,ev[j],'dugout',OD_SUB_GO,OD_WALK_V),u);return}}/* #436: the pinch hitter walks up from the dugout, the next man jogs to the circle */
   if(odGap(e.k)){/* a vote or a pitching change: everyone holds where the frame before left him */
     let b=ei-1;while(ev[b]&&odGap(ev[b].k))b--;const q=ev[b];if(!q)return;
     if(q.k==='BRK'||q.k==='PRE'){const pl=odLead(ev,b);if(pl)walkUp(pl,Infinity);return}

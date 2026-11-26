@@ -35,12 +35,13 @@ export function simGame(seed, decisions, opts) {
   });
   const pinchHit = opts.pinchHit ?? K.PINCH_HIT_ON;   /* #436 part 2: off = factory games byte for byte */
   const pinchRun = opts.pinchRun ?? K.PINCH_RUN_ON;   /* #436 part 3: off = factory games byte for byte */
+  const defSub = opts.defSub ?? K.DEF_SUB_ON;         /* #436 part 7: off = factory games byte for byte */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
   const st = { inn: 1, half: 0, outs: 0, b: [null, null, null], sc: [0, 0], ls: [[], []], H: [0, 0], E: [0, 0],
-    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false, phAsked: false, prAsked: false };
+    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false, phAsked: false, prAsked: false, dsAsked: false };
   const newLine = () => ({ ab: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0 });
   /* stats: one row per player who batted; the first LINEUP_SIZE rows are the starting lineup in order, a pinch hitter
    * gets a new row (batters[k][row] = his name) and row[k][slot] points at the row of whoever holds that slot now */
@@ -141,6 +142,7 @@ export function simGame(seed, decisions, opts) {
     const off = st.half, def = 1 - off;
     st.ls[off][st.inn - 1] = st.ls[off][st.inn - 1] || 0;
     emit('half_start', t, { inning: st.inn, half: off, team: off });
+    st.dsAsked = false;
     if (st.inn > K.REGULATION_INNINGS && !st.b[K.TIEBREAK_RUNNER_BASE - 1]) {
       const name = RR[off].bat[(st.lu[off] + K.LINEUP_SIZE - 1) % K.LINEUP_SIZE].name;
       st.b[K.TIEBREAK_RUNNER_BASE - 1] = name;
@@ -172,6 +174,36 @@ export function simGame(seed, decisions, opts) {
         emit('substitution', t, { team: def, role: 'pitcher', out: cur.name, in: nx.name });
         pushFrame({ t, d: K.CHANGE_DUR, k: 'CHG', desc: COPY.change(TT[def], nx), s0, s1: snap(), def });
         continue;
+      }
+      /* ---- defence: defensive replacement (#436 part 7)? Late, before the first pitch of a half the leading team fields:
+       * the bench man with the best glove gain over the fielder at his own position (a man playing out of his own
+       * position, a pinch hitter or runner, counts DS_OFF_POS of his glove). The new man takes the slot and the position
+       * and stays in; the replaced player is out of the game. Asked once per half. ---- */
+      if (defSub && !st.dsAsked) st.dsAsked = st.inn < K.DS_MIN_INNING || st.sc[def] <= st.sc[off] || !RR[def].bench.length ? true : 'ask';
+      if (st.dsAsked === 'ask') {
+        st.dsAsked = true;
+        const own = allRosters[TI[def]], natPos = b => ([...own.bat, ...(own.bench || [])].find(p => p.name === b.name) || b).pos;
+        const glove = b => (b.def || 1) * (b.arm || 1), held = b => glove(b) * (natPos(b) === b.pos ? 1 : K.DS_OFF_POS);
+        let best = null;
+        for (const ds of RR[def].bench) {
+          const slot = RR[def].bat.findIndex(b => b.pos === ds.pos);
+          if (slot < 0) continue;
+          const gain = glove(ds) - held(RR[def].bat[slot]);
+          if (gain >= K.DS_EDGE && (!best || gain > best.gain)) best = { ds, slot, gain };
+        }
+        if (best) {
+          const { ds, slot } = best, cur = RR[def].bat[slot];
+          const coach = st.sc[def] - st.sc[off] <= K.DS_CLOSE_RUNS ? 'ds' : 'stay';
+          const pick = vote(def, 'D', COPY.askDef(cur, ds, cur.pos), [['ds', COPY.optDef(ds)], ['stay', COPY.optLetField(cur)]], coach);
+          if (pick === 'ds') {
+            const s0 = snap(), inPlayer = { ...ds, pos: cur.pos };
+            RR[def].bench = RR[def].bench.filter(b => b !== ds); RR[def].bat[slot] = inPlayer;
+            row[def][slot] = stats[def].length; stats[def].push(newLine()); batters[def].push(ds.name);
+            emit('substitution', t, { team: def, role: 'defensive', out: cur.name, in: ds.name, lineup: slot, pos: cur.pos });
+            pushFrame({ t, d: K.DS_DUR, k: 'SUB', desc: COPY.defSub(TT[def], ds, cur, cur.pos), s0, s1: snap(), team: def, lineup: slot, role: 'defensive' });
+          }
+          continue;
+        }
       }
       /* ---- offence: pinch hit (#436 part 2)? Late, a runner in scoring position, a better bat on the bench. The new man
        * takes the slot and the position of the one he replaces and stays in; the replaced player is out of the game. ---- */
