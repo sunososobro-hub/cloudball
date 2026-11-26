@@ -18,6 +18,9 @@
  *   - learning a pitch (#378 part 5): learnPitch accepts a batter, an unknown or already held pitch or an illegal split;
  *     the new pitch is thrown (knownPitches) before LEARN_AT, does not reach it, moves the overall, stops at the potential,
  *     or a wider share does not learn it sooner (train_sim);
+ *   - decline (#433): an ability drops at 30 or younger; a 0 % ability of a hands-off or active player does not drop
+ *     after DECLINE_CURVE starts, or drops by a different amount in the two modes; it goes below DECLINE_FLOOR; spd, stuff
+ *     or arm decline no faster than eye and ctrl; declineFactor falls with age; a pitch still being learned declines;
  *   - league/training.js uses Math.random or Date.
  * static.mjs runs this file.
  * Usage: node tests/training.check.mjs */
@@ -27,6 +30,7 @@ import path from 'node:path';
 import { CREATE, validateCreate, makePlayer, potShareAtLeast } from '../league/freeagents.js';
 import { RATING_TOP } from '../league/ratings.js';
 import { PITCH_TYPES } from '../engine/constants.js';
+import { declineFactor, declineDay, DECLINE_CURVE, DECLINE_FLOOR, ageOn } from '../league/training.js';
 import { validateSplit, evenSplit, defaultSplit, ROLE_SPLIT, PITCH_SHARE, trainKeys, learnPitch, learnSplit, knownPitches, LEARN_AT, LEARN_SHARE, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
 import { targets, daysTo, choiceOf, withPitches, pitchRun, learnDays, LEARN_WIDE } from '../league/tools/train_sim.mjs';
 
@@ -152,6 +156,36 @@ for (let d = 1; d < POT_SLOW_BAND; d++) if (!(roomFactor(60 - d, 60) < roomFacto
 const old = { pit: true, age0: last[0], day: 0, pot: 99, split: { stuff: 50, ctrl: 50, arm: 0 }, abil: { stuff: 50, ctrl: 50, arm: 50 } };
 for (let d = 0; d < DAYS_PER_SEASON; d++) if (trainDay(old, r, 0) > 0) { bad(`a ${last[0]}-year-old grew hands-off`); break; }
 if (overallOf({ pit: false, pot: 50, abil: { con: 61, pow: 61, eye: 61, spd: 61, arm: 61 } }) !== makePlayer(9, { ...BAT, points: { con: 61, pow: 61, eye: 61, spd: 61, arm: 61 } }).ratings.ovr) bad('overallOf disagrees with ratingsOf of a created player');
+
+/* decline after the peak (#433) */
+{
+  const d0 = DECLINE_CURVE[0][0];
+  if (declineFactor(d0) !== 0 || !(declineFactor(d0 + 1) > 0)) bad(`declineFactor: ${declineFactor(d0)} at ${d0}, ${declineFactor(d0 + 1)} at ${d0 + 1}`);
+  for (let a = 18; a < 45; a++) if (declineFactor(a + 1) < declineFactor(a) - EPS) bad(`declineFactor falls with age at ${a}`);
+  const season = (pit, age0, abil, split, bonus) => { const s = { pit, age0, day: 0, pot: 99, split, abil: { ...abil } }, rr = rng(age0);
+    for (let d = 0; d < DAYS_PER_SEASON; d++) trainDay(s, rr, bonus); return s.abil; };
+  const bAbil = { con: 70, pow: 70, eye: 70, spd: 70, arm: 70 }, bSplit = { con: 100, pow: 0, eye: 0, spd: 0, arm: 0 };
+  const young = season(false, d0, bAbil, bSplit, 0);
+  for (const k of kb) if (young[k] < bAbil[k] - EPS) bad(`${k} dropped at ${d0}`);
+  for (const age of [d0 + 1, 34, 38, 42]) {
+    const h = season(false, age, bAbil, bSplit, 0), a = season(false, age, bAbil, bSplit, ACTIVE_BONUS);
+    for (const k of ['pow', 'eye', 'spd', 'arm']) {
+      if (!(h[k] < bAbil[k] - EPS)) bad(`age ${age}: 0 % ${k} did not decline hands-off (${h[k]})`);
+      if (Math.abs((bAbil[k] - h[k]) - (bAbil[k] - a[k])) > EPS) bad(`age ${age}: ${k} declines ${bAbil[k] - h[k]} hands-off, ${bAbil[k] - a[k]} active`);
+    }
+    if (!(bAbil.spd - h.spd > bAbil.eye - h.eye) || !(bAbil.arm - h.arm > bAbil.eye - h.eye)) bad(`age ${age}: spd/arm do not decline faster than eye`);
+    const p = season(true, age, { stuff: 70, ctrl: 70, arm: 70 }, { stuff: 0, ctrl: 0, arm: 0, [PITCH_TYPES[0][0]]: 100 }, 0);
+    if (!(70 - p.stuff > 70 - p.ctrl) || !(70 - p.arm > 70 - p.ctrl)) bad(`age ${age}: stuff/arm do not decline faster than ctrl`);
+  }
+  const floor = season(false, 45, { con: DECLINE_FLOOR + 0.5, pow: DECLINE_FLOOR, eye: DECLINE_FLOOR - 5, spd: 41, arm: 90 }, { ...bSplit, con: 0, pow: 100 }, 0);
+  if (floor.con !== DECLINE_FLOOR || floor.spd !== DECLINE_FLOOR || floor.pow < DECLINE_FLOOR || floor.eye !== DECLINE_FLOOR - 5) bad(`decline floor ${DECLINE_FLOOR}: ${JSON.stringify(floor)}`);
+  const [FB, SL] = PITCH_TYPES.map(t => t[0]);
+  const ls = { pit: true, age0: 40, day: 0, pot: 99, split: { stuff: 0, ctrl: 0, arm: 0, [FB]: 100 }, abil: { stuff: 70, ctrl: 70, arm: 70, [FB]: 70 } };
+  learnPitch(ls, SL, { stuff: 0, ctrl: 0, arm: 0, [FB]: 0, [SL]: 100 });
+  let prev = ls.abil[SL];
+  for (let d = 0; d < 20; d++) { trainDay(ls, rng(d), 0); if (ls.abil[SL] < prev) bad(`${SL} declined while being learned`); prev = ls.abil[SL]; }
+  if (!(declineDay(ageOn(ls), FB) > 0) || !(ls.abil[FB] < 70)) bad(`${FB} did not decline at 40`);
+}
 
 /* determinism and bonus */
 const sr = rng(11);
