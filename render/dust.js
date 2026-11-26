@@ -60,7 +60,23 @@ export function ballDust(e) {
   }
   return out;
 }
-/* Every puff of one event: slides, then the ball on dirt. */
-export function eventDust(e, bases) { return slideDust(e, bases).concat(ballDust(e)); }
+/* #208 item 4 part 6: a hard foot plant. A runner who reaches 1B, 2B or 3B on his feet (no slide) kicks a small puff off the bag when he
+ * arrives (the engine's arriveT, event time). Fewer, smaller and lower than a slide. */
+export const FOOT_PUFFS = 2, FOOT_SPREAD = .3, FOOT_RISE = .25, FOOT_SCALE = .6;
+export function footDust(e, bases) {
+  const out = [];
+  if (!e || !e.moves || !bases) return out;
+  e.moves.forEach(([from, to, name, tl], mi) => {
+    if (!tl || tl.slide || !(to >= 1 && to <= 3) || !(tl.arriveT > 0)) return;
+    const [bx, bz] = bases[to];
+    for (let i = 0; i < FOOT_PUFFS; i++) {
+      const h = hash(to * 41 + mi * 13 + i * 3), a = hash(to * 23 + mi * 5 + i * 7) * 2 * Math.PI, r = FOOT_SPREAD * (.3 + .7 * h);
+      out.push({ name, to, t0: tl.arriveT + i * .05, x: bx + Math.cos(a) * r, z: bz + Math.sin(a) * r, rise: FOOT_RISE * (.6 + .8 * h), r0: DUST_R0 * FOOT_SCALE, r1: DUST_R1 * FOOT_SCALE * (.8 + .4 * h) });
+    }
+  });
+  return out;
+}
+/* Every puff of one event: slides, then the ball on dirt, then foot plants. */
+export function eventDust(e, bases) { return slideDust(e, bases).concat(ballDust(e), footDust(e, bases)); }
 /* Event time when the last puff of this event is gone (0 = no dust): cpEvents must treat the event as moving until then. */
 export function dustEnd(e, bases) { let m = 0; for (const p of eventDust(e, bases)) m = Math.max(m, p.t0 + DUST_LIFE); return m; }
