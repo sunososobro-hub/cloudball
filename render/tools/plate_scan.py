@@ -4,14 +4,18 @@
 # Loads play.html (the root index.html is the data site since #335).
 # MODE=hands (#128 item 6): instead, the closest approach of the ball and the catcher's two hands to the plate umpire's trunk (the
 # segment from his `rig.up` pivot to his `rig.hg` neck pivot, world space), every P event, reported under THRESH m (try .3).
-# THREE_DIR=.../three/ [MODE=hands] python3 plate_scan.py REPO 'seed,seed' [STEP=.1] [THRESH=.5]
+# MODE=bat (#128 items 1-2, #105 item 4): the closest approach of the batter's bat (handle-to-tip segment, world space) to the
+# catcher's and the plate umpire's heads (a point HEAD_UP above the neck socket) and to the catcher's mitt, every P event, reported under
+# THRESH m (try .3 = about a head radius plus the bat's); `mins` per target, `lo` = the same for pitches crossing the plate under LOW_Y .6 m (game.js `plate` height .45 + zy*.75).
+# THREE_DIR=.../three/ [MODE=hands|bat] python3 plate_scan.py REPO 'seed,seed' [STEP=.1] [THRESH=.5]
 import sys,os,asyncio,mimetypes,json
 from playwright.async_api import async_playwright
 REPO,seeds=sys.argv[1],[int(x) for x in sys.argv[2].split(',')]
 STEP=float(sys.argv[3]) if len(sys.argv)>3 else .1
 TH_=float(sys.argv[4]) if len(sys.argv)>4 else .5
 TH=os.environ.get('THREE_DIR','node_modules/three/')
-HOOK=(';window.__X={poseScene,staffGiveWay,fielders,runners,batter,ump,ball,stop(){renderer.setAnimationLoop(null)},'
+HOOK=(';window.__X={poseScene,staffGiveWay,fielders,runners,batter,ump,ball,'
+      'bat,stop(){renderer.setAnimationLoop(null)},'
       'setSeed(s){seedCur=s;decisions={};mode="replay";regen()},get game(){return game},get odNext(){return odNext},get odDeck(){return odDeck}};')
 SCAN=r"""([seeds,STEP,TH])=>{const X=window.__X;X.stop();const out=[];const t0=performance.now();
 for(const sd of seeds){X.setSeed(sd);const ev=X.game.ev;const best={};
@@ -34,6 +38,19 @@ for(const sd of seeds){X.setSeed(sd);const ev=X.game.ev;const best={};
    for(const [n,p] of P){const dd=segD(p);if(!(mins[n]<=dd))mins[n]=+dd.toFixed(2);if(dd<TH){const k=sd+':'+i+':'+n;if(!best[k]||dd<best[k].d)best[k]={seed:sd,i,t:+(e.t+u).toFixed(1),u:+u.toFixed(2),r:e.r,key:n,d:+dd.toFixed(2),p:[+p.x.toFixed(2),+p.y.toFixed(2),+p.z.toFixed(2)],ump:[+a.x.toFixed(2),+a.z.toFixed(2)]}}}}}
  out.push(...Object.values(best))}
 return JSON.stringify({ms:Math.round(performance.now()-t0),hits:out,mins,seen})}"""
+BAT=r"""([seeds,STEP,TH])=>{const X=window.__X;X.stop();const out=[];const t0=performance.now(),V=()=>new X.ball.position.constructor();
+const LOW_Y=.6,HEAD_UP=.1,BAT_LO=-.03,BAT_HI=.825,a=V(),b=V(),ab=V(),aq=V(),p=V(),mins={},lo={},seen={frames:0,swings:0,low:0};
+const segD=(q)=>{ab.subVectors(b,a);aq.subVectors(q,a);const k=Math.max(0,Math.min(1,aq.dot(ab)/ab.lengthSq()));return aq.sub(ab.multiplyScalar(k)).length()};
+const head=(f,o)=>{if(f.sockets&&f.sockets.head)return f.sockets.head.localToWorld(o.set(0,HEAD_UP,0));return f.rig.hg.localToWorld(o.set(0,.1,0))};
+for(const sd of seeds){X.setSeed(sd);const ev=X.game.ev;const best={};
+ for(let i=0;i<ev.length;i++){const e=ev[i];if(e.k!=='P')continue;const d=e.d||(ev[i+1]?ev[i+1].t-e.t:6);const low=e.zy!=null&&.45+e.zy*.75<LOW_Y;seen.swings+=e.swing?1:0;seen.low+=low?1:0;
+  for(let u=0;u<=d+1e-6;u+=STEP){X.poseScene(e,u,STEP,i);X.staffGiveWay();seen.frames++;const B=X.batter,C=X.fielders.C,U=X.ump;if(!B.g.visible||!X.bat.visible)continue;
+   B.g.updateMatrixWorld(true);X.bat.localToWorld(a.set(0,BAT_LO,0));X.bat.localToWorld(b.set(0,BAT_HI,0));const T=[];
+   if(C.g.visible){C.g.updateMatrixWorld(true);T.push(['Chead',head(C,V())],['Cmitt',C.handWorld(0,V())])}if(U.g.visible){U.g.updateMatrixWorld(true);T.push(['Uhead',head(U,V())])}
+   for(const [n,q] of T){const dd=segD(q);if(!(mins[n]<=dd))mins[n]=+dd.toFixed(2);if(low&&!(lo[n]<=dd))lo[n]=+dd.toFixed(2);
+    if(dd<TH){const k=sd+':'+i+':'+n;if(!best[k]||dd<best[k].d)best[k]={seed:sd,i,t:+(e.t+u).toFixed(1),u:+u.toFixed(2),r:e.r,swing:!!e.swing,low,key:n,d:+dd.toFixed(2),q:[+q.x.toFixed(2),+q.y.toFixed(2),+q.z.toFixed(2)]}}}}}
+ out.push(...Object.values(best))}
+return JSON.stringify({ms:Math.round(performance.now()-t0),hits:out,mins,lo,seen})}"""
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch(executable_path='/usr/bin/google-chrome',args=['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'])
@@ -56,8 +73,8 @@ async def main():
     await pg.add_init_script("try{localStorage.setItem('zu_gl','1');localStorage.setItem('zu_tier','3')}catch(e){}")
     await pg.goto('http://local/play.html'); await pg.wait_for_function("()=>!!window.__X",timeout=600000,polling=500)
     await pg.evaluate("()=>window.__X.stop()")
-    r=json.loads(await pg.evaluate(HANDS if os.environ.get('MODE')=='hands' else SCAN,[seeds,STEP,TH_]))
-    print('ms',r['ms'],'hits',len(r['hits']),'min',r.get('mins',''),r.get('seen',''))
+    r=json.loads(await pg.evaluate({'hands':HANDS,'bat':BAT}.get(os.environ.get('MODE'),SCAN),[seeds,STEP,TH_]))
+    print('ms',r['ms'],'hits',len(r['hits']),'min',r.get('mins',''),'low',r.get('lo',''),r.get('seen',''))
     from collections import Counter
     print(Counter(h['key'] for h in r['hits']))
     for h in sorted(r['hits'],key=lambda h:(h['key'],h['d'])): print(json.dumps(h,ensure_ascii=False))
