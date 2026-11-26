@@ -111,6 +111,21 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
       if (JSON.stringify(A) !== JSON.stringify(B)) bad('practice beats are not deterministic'); if (A.ball.length || A.runners.length) bad('practice outcome has a ball flight');
       if (!A.beats.length) bad('practice outcome ' + o.kind + ' has no beat'); if (!(A.dur > F.PITCH_S)) bad('practice beat duration'); } }
   for (const k of ['whiff', 'called', 'ball', 'foul', 'contact']) if (!kinds.has(k)) bad('practice never showed ' + k); }
+/* #543: the 3D field loads with a fake THREE, builds the scene, plays real game results on the same beats, falls back to 2D when there is no 3D */
+{ const F3 = await import('../ui/baseball9/field3d.js'), F = await import('../ui/baseball9/field.js'), Gm = await import('../ui/baseball9/game.js');
+  const made = { meshes: 0, adds: 0, renders: 0 };
+  const fake = n => { const t = function () {}; const o = new Proxy(t, { get(_, k) { if (k === 'then' || k === Symbol.toPrimitive) return undefined; if (!(k in t)) t[k] = k === 'x' || k === 'y' || k === 'z' ? 0 : fake(k); return t[k]; }, set(_, k, v) { t[k] = v; return true; }, apply() { return fake('r'); }, construct() { return fake('c'); } }); return o; };
+  const THREE = new Proxy({}, { get: (_, k) => k === 'WebGPURenderer' ? class { async init() {} setPixelRatio() {} setSize() {} render() { made.renders++; } dispose() {} }
+    : class { constructor() { made.meshes++; return fake(String(k)); } } });
+  const canvas = { width: 360, height: 270 }; globalThis.requestAnimationFrame = globalThis.requestAnimationFrame || (() => 1); globalThis.cancelAnimationFrame = globalThis.cancelAnimationFrame || (() => {});
+  const f = await F3.createField3D(canvas, THREE); if (!f || typeof f.play !== 'function' || typeof f.skip !== 'function' || typeof f.setSpeed !== 'function') bad('createField3D must return {play, skip, setSpeed}');
+  if (!made.meshes || !made.renders) bad('3D scene was not built / drawn');
+  if (await F3.createField3D(canvas, null) !== null || await F3.createField3D(canvas, {}) !== null) bad('createField3D must return null without a THREE renderer');
+  if (await F3.createField3D(canvas, { WebGPURenderer: class { async init() { throw new Error('no gpu'); } } }) !== null) bad('a failing renderer must return null (2D fallback)');
+  let g = Gm.createGame({ rnd: seeded(5) }), n = 0, played = 0; while (!g.S.over && n++ < 60) { const o = g.pitch(g.userBats() ? { mode: 'one', r: 1 + n % 3, c: 1 + (n >> 1) % 3, steal: false, app: 'mid' } : { pt: 'fb', r: n % 5, c: (n >> 1) % 5, shift: 'N' }); f.play(o); played++; f.setSpeed(F.SPEEDS[n % 2]); f.skip(); }
+  if (!played) bad('3D field played nothing');
+  const fb = await F3.openField({ width: 360, height: 270 }, () => { throw new Error('no three'); }); if (fb !== null) bad('openField with no 3D and no 2D context must return null');
+  if (F3.CAM.pos[2] >= 0 || F3.TRAIL_N < 2) bad('3D camera must sit behind home plate'); }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');
