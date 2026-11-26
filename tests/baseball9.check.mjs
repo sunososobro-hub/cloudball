@@ -173,6 +173,10 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
       f5.setMe(sp, 'bat'); if (bat.buildArgs[2] !== 77 || bat.buildArgs[1] !== 1.9 || pit.buildArgs[2] !== 0) bad('setMe bat: the batter must wear his look, the pitcher stays stock');
       f5.setMe(sp, 'pitch'); if (pit.buildArgs[2] !== 77 || bat.buildArgs[2] !== 0 || bat.buildArgs[0] !== 'normal') bad('setMe pitch: the pitcher wears his look, the batter goes back to stock');
       if (built.some(([x]) => x !== bat && x !== pit)) bad('setMe must only touch the batter and the pitcher');
+      { const M = await import('../ui/baseball9/me.js'), asked = [], pages = [{ players: [{ id: 'a', player: { id: 'a' } }], more: true }, { players: [row], more: false }];
+        const get = async u => { asked.push(u); const pg = Number(new URL(u, 'http://x').searchParams.get('page')); return { ok: true, json: async () => pages[pg] }; };
+        const got = await M.findMe('fa9', get); if (!got || got.head !== 3 || asked.length !== 2) bad('findMe must page /api/freeagents until his row: ' + asked.join());
+        if (await M.findMe('zz', get) !== null || await M.findMe('fa9', async () => { throw new Error('offline'); }) !== null || await M.findMe('fa9', async () => ({ ok: false })) !== null) bad('findMe: no row / offline / error -> null'); }
       f5.setMe(null, 'bat'); if (pit.buildArgs[2] !== 0 || bat.buildArgs[2] !== 0) bad('setMe(null) must leave both stock'); }
     const f3 = await F3.createField3D(canvas, THREE, { PL: { makePlayer() { throw new Error('no body'); } } }); if (!f3) bad('a throwing makePlayer must fall back to the low-poly figures'); } }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }

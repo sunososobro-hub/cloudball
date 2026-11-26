@@ -1,12 +1,13 @@
 /* 九宮格棒球 practice screen (#332 part 2). Plain DOM over practice.js: no three.js, no engine/, no network.
  * Bat: pick a guess mode, tap a zone cell (3x3), the computer pitches. Pitch: pick a pitch type, tap a cell of the 5x5 grid
  * (the outer ring is outside the zone), the computer swings. The result stays on this page (local only).
- * Network: only the public GET /api/freeagents, to dress the fan's own player (#563 part 4); no answer = his id look. */
+ * #563 part 4: me.js reads the fan's own player (public GET) to dress him on the field; no answer = his id look. */
 import { createPractice, PRACTICE_PITCHES, HIT_Q, MODE, PT, STAMINA, inZ } from './practice.js';
 import { describeOutcome, describeResult } from './text.js';
 import { startGame } from './gamescreen.js';
 import { SPEEDS } from './field.js';
-import { openField, meSpecOf } from './field3d.js';
+import { openField } from './field3d.js';
+import { findMe } from './me.js';
 
 const $ = id => document.getElementById(id);
 let opening = false, sess = null, side = null, mode = 'one', ptk = 'fb', field = null, speedI = 0;
@@ -42,17 +43,9 @@ const PLAYER = typeof location === 'undefined' ? null : new URLSearchParams(loca
 function keepResult(result) { if (PLAYER) try { localStorage.setItem('cloudball.trainResult', JSON.stringify({ id: PLAYER, result })); } catch (e) { /* storage blocked: the result stays on this page */ } }
 if (PLAYER) { const back = $('me-link'); if (back) { back.href = 'index.html#me/train'; back.hidden = false; } }
 /* #563 part 4: his body and look (create page) on the field: the batter in bat practice, the pitcher in pitch practice. Same pages as index.html reads. */
-const FA_PAGES = 5;
 let me = PLAYER ? { id: PLAYER } : null;
 const showMe = () => { if (field && field.setMe && me) field.setMe(me, side); };
-async function findMe(id) {
-  for (let pg = 0; pg < FA_PAGES; pg++) {
-    let r = null; try { const res = await fetch(`/api/freeagents?sort=new&page=${pg}`, { cache: 'no-store' }); r = res.ok ? await res.json() : null; } catch (e) { r = null; }
-    if (!r || !Array.isArray(r.players)) return null; const s = meSpecOf(r.players, id); if (s) return s; if (!r.more) return null;
-  }
-  return null;
-}
-if (PLAYER && typeof fetch === 'function') findMe(PLAYER).then(s => { if (s) { me = s; showMe(); } });
+if (PLAYER) findMe(PLAYER).then(s => { if (s) { me = s; showMe(); } });
 
 function status() {
   const S = sess.S; $('count').textContent = `第 ${Math.min(S.pitches + 1, PRACTICE_PITCHES)} / ${PRACTICE_PITCHES} 球`;
