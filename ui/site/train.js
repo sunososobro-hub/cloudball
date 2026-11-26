@@ -5,6 +5,7 @@
  * changes, no weekly cap, no server credit (season-1 design). The practice score never converts to ability: it becomes the
  * plain bonus number of league/training.js (#369), shown here and nowhere else. Pure helpers first, `mountTrain` last. */
 import { esc, ABILITY_LABEL } from './shared.js';
+import { decide, slotPos, STATUS, FIRST_TIER } from '../../league/callup.js';
 import { SPLIT_TOTAL, ACTIVE_BONUS, validateSplit, defaultSplit, trainKeys } from '../../league/training.js';
 
 export const TRAIN_FILE = 'league/site/train_days.json';
@@ -48,6 +49,24 @@ export function handsOffText(table, p) {
 }
 export const resultText = r => (r && r.result ? `最近一次練習：${r.result.side === 'bat' ? '打擊' : '投球'} ${r.result.pitches} 球 ${r.result.hits} ${r.result.side === 'bat' ? '安打' : '成功'}，訓練加成 +${bonusOf(r.result)}。` : '還沒有練習紀錄。');
 
+/* #558: the call-up state of player `id`, from league/callup.js `decide` over the site data (no rule here). Local display only (rule 10).
+ * The queue is the 二軍 pool (tier 2) plus him; days waited are not on the site, so ties fall to id. null when he is not in the data. */
+export function callupOf(players, id) {
+  const me = players && players[id]; if (!me) return null;
+  if (me.tier === FIRST_TIER) return { status: STATUS.up, pos: slotPos(me) };
+  const waiting = Object.entries(players).filter(([k, p]) => k === String(id) || p.tier === 2).map(([k, p]) => ({ id: k, pos: slotPos(p), overall: p.overall, waited: 0 }));
+  const r = decide(players, waiting), key = String(id);
+  const up = r.called.find(w => w.id === key); if (up) return { status: STATUS.up, pos: up.pos };
+  const w = r.waiting.find(x => x.id === key); if (w) return { status: STATUS.wait, pos: w.pos, queue: w.queue };
+  const f = r.farm.find(x => x.id === key); return { status: STATUS.farm, pos: f ? f.pos : slotPos(me) };
+}
+export function callupText(players, id) {
+  const c = callupOf(players, id); if (!c) return '';
+  if (c.status === STATUS.up) return STATUS.up;
+  if (c.status === STATUS.wait) return `ready，但${STATUS.wait} #${c.queue}（${c.pos}）`;
+  return `${STATUS.farm}：綜合還沒到一軍該位置最弱先發`;
+}
+
 /* the placeholder the 我的球員 tab draws for `#me/train`; mountTrain fills it */
 export const trainShell = '<section id="train-root" class="train"></section>';
 
@@ -69,11 +88,11 @@ export function mountTrain(root, ctx) {
     for (const k of keys) { rows[k].range.value = split[k]; rows[k].pct.textContent = `${split[k]}%`; }
     total.textContent = `合計 ${keys.reduce((t, k) => t + split[k], 0)}%`;
   }
-  const hands = el('button', 'big', '放養：讓他自己練'), play = el('button', 'big', '認真玩：打九宮格');
+  const callup = el('p', 'train-callup', callupText(ctx.players, id)), hands = el('button', 'big', '放養：讓他自己練'), play = el('button', 'big', '認真玩：打九宮格');
   hands.type = play.type = 'button'; hands.dataset.mode = 'hands'; play.dataset.mode = 'play';
   hands.onclick = () => { note.textContent = handsOffText(ctx.table, p); };
   play.onclick = () => ctx.go(gameUrl(id, sideOf(p)));
   const last = read(RESULT_KEY); out.textContent = resultText(last && String(last.id) === String(id) ? last : null);
-  root.append(total, hands, note, play, out);
+  root.append(total, callup, hands, note, play, out);
   sync();
 }
