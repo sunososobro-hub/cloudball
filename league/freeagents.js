@@ -221,3 +221,12 @@ export function makePlayer(seed, c) {
   Object.assign(p, { body: custom ? Object.fromEntries(CREATE.bodyKeys.map(k => [k, c.body[k] / 100])) : { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(tk.map(k => [k, split[k]])) });
   return { player: p, ratings: ratingsOf(p) };
 }
+
+/* #437 part 2: a real fan takes the place of a 系統 filler of the same kind (bat / pit), never a 一軍 player and never another fan.
+ * pool: [{ id, kind, player }] (a 系統 player has `player.system === true`); fan: { id, kind, player }. Pure: returns a new pool and the replaced id
+ * (null when no 系統 player of that kind is left, then the fan is just added). The oldest 系統 filler (first in the pool) goes first. */
+export function placeFan(pool, fan) {
+  const at = pool.findIndex(x => x.kind === fan.kind && x.player && x.player.system === true);
+  if (at < 0) return { pool: [...pool, fan], replaced: null };
+  return { pool: pool.map((x, i) => (i === at ? fan : x)), replaced: pool[at].id };
+}
