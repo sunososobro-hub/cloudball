@@ -134,6 +134,21 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
     const o = Gm.createGame({ rnd: seeded(9) }); let k = 0, last = null; while (!o.S.over && k++ < 12) last = o.pitch(o.userBats() ? { mode: 'one', r: 1, c: 1, steal: false, app: 'mid' } : { pt: 'fb', r: 2, c: 2, shift: 'N' }), f2.play(last), f2.skip();
     if (Math.abs(F3.faceYaw(0, 18, 0, 0)) !== Math.PI || F3.faceYaw(0, 0, 0, 5) !== 0 || F3.faceYaw(1.3, .2, 0, .2) >= 0) bad('faceYaw must turn a +z-front body toward the target');
     const f3 = await F3.createField3D(canvas, THREE, { PL: { makePlayer() { throw new Error('no body'); } } }); if (!f3) bad('a throwing makePlayer must fall back to the low-poly figures'); } }
+/* #563 part 2: pitch / swing acts. Pure timing: a swing reaches the clip's contact frame on the pitch's arrival, a take leaves the batter alone, the pitcher winds up before the release */
+{ const A = await import('../ui/baseball9/acts.js'), F = await import('../ui/baseball9/field.js');
+  const k = (kind, o = {}) => A.actOf({ res: { kind }, ...o });
+  if (k('whiff') !== 'swing' || k('foul') !== 'swing' || k('contact') !== 'swing' || k('popup') !== 'swing') bad('acts: whiff / foul / contact / popup must swing');
+  if (k('called') !== 'take' || k('ball') !== 'take' || k('bunt') !== 'bunt' || A.actOf({ res: {}, play: { bunt: true, ball: [{}] } }) !== 'bunt' || A.actOf({ res: {}, play: { ball: [{ t: 0 }] } }) !== 'swing') bad('acts: take / bunt / batted-ball mapping');
+  const C = A.SWING_CLIP, P = A.PITCH_CLIP, c = A.batterAt('swing', F.PITCH_S);
+  if (Math.abs(c.t - C.contact) > 1e-9 || c.w < .99) bad('acts: swing must be at the contact frame, full weight, when the pitch arrives');
+  if (A.batterAt('take', F.PITCH_S).w !== 0 || A.batterAt('bunt', F.PITCH_S).w !== 0) bad('acts: take and bunt must not play the swing clip');
+  if (A.batterAt('swing', -A.LEAD_S).w !== 0 || A.batterAt('swing', F.PITCH_S + 2).w !== 0) bad('acts: swing weight must be 0 before it starts and after it ends');
+  const p0 = A.pitcherAt(0), pm = A.pitcherAt(-A.LEAD_S + .4);
+  if (Math.abs(p0.t - P.release) > 1e-9 || p0.w < .99) bad('acts: the pitcher must be at the release frame when the ball leaves');
+  if (!(pm.t > P.start && pm.t < P.release && pm.w > 0)) bad('acts: the pitcher must wind up before the release');
+  if (A.pitcherAt(-A.LEAD_S - 1).w !== 0 || A.pitcherAt(P.outS[1] + 1).w !== 0) bad('acts: pitcher weight must be 0 outside the act');
+  let prev = -1; for (let t = -A.LEAD_S; t <= 3; t += .05) { const q = A.pitcherAt(t).t; if (q < prev - 1e-9) bad('acts: pitcher clip time must not run backwards'); prev = q; }
+  prev = -1; for (let t = F.PITCH_S - C.preS; t <= 3; t += .05) { const q = A.batterAt('swing', t).t; if (q < prev - 1e-9) bad('acts: swing clip time must not run backwards'); prev = q; } }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');

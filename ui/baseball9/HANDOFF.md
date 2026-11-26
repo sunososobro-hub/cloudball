@@ -17,3 +17,4 @@
 ## Traps
 - Local only: no backend, no ability change; a created player's result may only feed #369's training bonus number.
 - In bat practice a "hit" is contact with q >= HIT_Q (or a bunt); the ball physics decide base hits only in part 3.
+- #563 part 2: `acts.js` (pure) = which mocap act (pitch / swing) and its clip time + weight; `field3d.js` drives the pitcher and batter with them (script time starts at -LEAD_S for the wind-up), bat follows the hands. Not seen on a real GPU; bunt and take keep the still stance; camera and practice modes = part 3.

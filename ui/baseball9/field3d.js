@@ -7,6 +7,7 @@
 import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
 import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S } from './field.js';
+import { actOf, pitcherAt, batterAt, LEAD_S, PITCH_CLIP, SWING_CLIP } from './acts.js';
 
 export const CAM = { fov: 50, pos: [0, 30, -36], look: [0, 0, 50] };   // behind home plate, high enough to see the fence
 export const TRAIL_N = 24;                                            // ball trail points
@@ -72,9 +73,20 @@ export async function createField3D(canvas, THREE, opts = {}) {
   const body = (color, o = {}) => { if (!PL) return figure(THREE, K, color);
     try { const jm = K.mat(color); return PL.makePlayer({ jersey: jm, pants: K.mat(FIELDER_PANTS), sock: jm, glove: !!o.glove, head: o.head || 'cap', role: o.role, throws: 'R' }).g; } catch (e) { return figure(THREE, K, color); } };
   const place = (g, x, z, tx, tz) => { g.position.set(x, 0, z); if (PL && g.rotation) g.rotation.y = faceYaw(x, z, tx, tz); scene.add(g); return g; };
-  POS_N.forEach((p, i) => { if (i === 1) return; place(body(COL.foe, { glove: true }), wx(p[0]), p[1], 0, 0); });   // index 1 = catcher, stands behind the plate below; fielders face the plate
+  let pitcher = null; POS_N.forEach((p, i) => { if (i === 1) return; const m = place(body(COL.foe, { glove: true }), wx(p[0]), p[1], 0, 0); if (i === 0) pitcher = m; });   // index 1 = catcher, stands behind the plate below; fielders face the plate
   const catcher = place(body(COL.foe, { glove: true, head: 'helmet' }), 0, -1.6, 0, POS_N[0][1]);
   const batter = place(body(COL.bat, { head: 'helmet', role: 'batter' }), wx(BATTER_X), .2, 0, .2);
+  /* #563 part 2: the recorded pitch and swing acts (render/ mocap clips) drive the pitcher and the batter; a bat follows the batter's hands. Clips load once, lazily; no clip -> the still pose. */
+  const clips = { pitch: null, swing: null }; let clipsP = null; const bat = PL && PL.makeBat ? (() => { try { return PL.makeBat(0xc9a06a); } catch (e) { return null; } })() : null; if (bat) scene.add(bat);
+  const loadClips = () => clipsP || (clipsP = PL && PL.loadClip ? Promise.all([PL.loadClip(PITCH_CLIP.url).then(c => { clips.pitch = c; }), PL.loadClip(SWING_CLIP.url).then(c => { clips.swing = c; })]).catch(() => {}) : Promise.resolve());
+  const hands = [null, null], up = bat && new THREE.Vector3(0, 1, 0);
+  const actPose = (t, act) => {
+    if (!PL || !pitcher || !pitcher.setMocap) return;
+    const p = pitcherAt(t); pitcher.setMocap(clips.pitch, p.t, clips.pitch ? p.w : 0, false, PITCH_CLIP.start, 0);
+    const b = batterAt(act, t); batter.setMocap && batter.setMocap(clips.swing, b.t, clips.swing && batter.visible ? b.w : 0, false, SWING_CLIP.start, 0);
+    if (bat && batter.handWorld && b.w > 0 && batter.visible) { try { hands[0] = batter.handWorld(1, hands[0] || new THREE.Vector3()); hands[1] = batter.handWorld(0, hands[1] || new THREE.Vector3());
+      bat.position.copy(hands[0]); const d = hands[1].clone().sub(hands[0]); if (d.length() > .03) bat.quaternion.setFromUnitVectors(up, d.normalize()); bat.visible = true; } catch (e) { bat.visible = false; } } else if (bat) bat.visible = false;
+  };
   const ball = K.mesh(new THREE.SphereGeometry(.4, 10, 8), K.mat(0xffffff, { emissive: 0x444444 })), shadow = K.mesh(new THREE.CircleGeometry(.5, 12), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 }));
   shadow.rotation.x = -Math.PI / 2; ball.visible = shadow.visible = false; scene.add(ball, shadow);
   const tpos = new Float32Array(TRAIL_N * 3), tgeo = new THREE.BufferGeometry(); tgeo.setAttribute('position', new THREE.BufferAttribute(tpos, 3));
@@ -83,12 +95,13 @@ export async function createField3D(canvas, THREE, opts = {}) {
   if (typeof document !== 'undefined' && canvas.parentNode && canvas.replaceWith) {            // the beat text is a DOM overlay (a canvas can't have both)
     wrap = document.createElement('div'); wrap.className = 'fwrap'; canvas.replaceWith(wrap); wrap.append(canvas);
     beatEl = document.createElement('div'); beatEl.className = 'fbeat'; beatEl.setAttribute('role', 'status'); wrap.append(beatEl); }
-  let S = null, runners = [], t0 = 0, speed = SPEEDS[0], raf = 0, trailN = 0, lastBeat = '';
+  let S = null, act = 'take', runners = [], t0 = 0, speed = SPEEDS[0], raf = 0, trailN = 0, lastBeat = '';
   const showBeat = txt => { if (beatEl && txt !== lastBeat) { beatEl.textContent = txt; lastBeat = txt; } };
   const clearRunners = () => { for (const r of runners) scene.remove(r.fig); runners = []; };
   const draw = () => renderer.render(scene, cam);
   function frame(now) {
-    const t = ((now - t0) / 1000) * speed, p = ballAt(S, t);
+    const t = ((now - t0) / 1000) * speed - LEAD_S, p = ballAt(S, t);   // script time starts at -LEAD_S: the pitcher's wind-up first
+    actPose(t, act);
     if (p) { ball.visible = shadow.visible = true; ball.position.set(wx(p.x), Math.max(p.y, .4), p.z); shadow.position.set(wx(p.x), .05, p.z); shadow.scale.setScalar(Math.max(.4, 1.4 - p.y / 40));
       if (trailN < TRAIL_N) trailN++; else tpos.copyWithin(0, 3); const o = (trailN - 1) * 3; tpos[o] = wx(p.x); tpos[o + 1] = Math.max(p.y, .4); tpos[o + 2] = p.z;
       tgeo.setDrawRange(0, trailN); tgeo.attributes.position.needsUpdate = true; } else ball.visible = shadow.visible = false;
@@ -100,10 +113,10 @@ export async function createField3D(canvas, THREE, opts = {}) {
     draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; }
   }
   const api = {
-    play(out) { api.skip(); S = buildBeats(out); trailN = 0;
+    play(out) { api.skip(); S = buildBeats(out); act = actOf(out); trailN = 0; loadClips();
       for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z }); }
       t0 = performance.now(); raf = requestAnimationFrame(frame); },
-    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); draw(); },
+    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); if (PL && pitcher && pitcher.setMocap) { pitcher.setMocap(null, 0, 0, false, 0, 0); batter.setMocap && batter.setMocap(null, 0, 0, false, 0, 0); } if (bat) bat.visible = false; ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); draw(); },
     setSpeed(n) { if (SPEEDS.includes(n)) { const now = performance.now(); if (S) t0 = now - (now - t0) * speed / n; speed = n; } },
     dispose() { api.skip(); if (renderer.dispose) renderer.dispose(); },
   };
