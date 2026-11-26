@@ -27,6 +27,7 @@ for (let s = 1; s <= GAMES; s++) {
   const errMoves = g.stream.filter(x => x.type === 'runner_advance' && x.how === 'error').length;
   let evMoves = 0;
   for (const e of g.ev) {
+    if (e.k === 'P' && e.play && e.play.wildThrow) evMoves += e.moves.length;   /* wild throws (tests/wildthrow.check.mjs) are 'error' moves too */
     if (e.k !== 'P' || !e.play || !e.play.errAdvance) continue;
     n++; evMoves += e.moves.length;
     const at = `seed ${s} t ${e.t.toFixed(1)}`, p = e.play, def = 1 - e.s0.half;

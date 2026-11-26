@@ -1605,7 +1605,7 @@ function poseScene(e,u,dt,ei){
     const gbAt=t=>bunt&&BCL?BCL.buntRoll(hit0,land,T,t):arc(hit0,land,p.peak,t/T),rollPk=bunt&&BCL?0:.3;
     const CV=PL.CV,tagPlay=PL.tagPlay,tagA=PL.actions.find(a=>a.a==='tag'&&a.f===CV.key),tg=tagA?{t:tagA.t,out:true}:tagPlay?{t:PL.arrive+TAG_LATE_SWEEP,out:false}:null,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer;
     const catchT=PL.catchT,D=PL.D,cx=PL.stand[0],cz=PL.stand[1];
-    const tgt=[CV.spot[0],1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
+    const tgt=[CV.spot[0],PL.wild?.15:1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
     const BAG=[BASES[1][0],BASES[1][1]],DB=Math.hypot(BAG[0]-cx,BAG[1]-cz),soloAt=PL.soloAt;
     const crowd=!!CV.key&&CV.key!==p.fielder&&Math.hypot(f.pos[0]-CV.spot[0],f.pos[1]-CV.spot[1])<BAG_CROWD_R;
     const t0=solo?Infinity:PL.t0,TT=PL.TT,rt=PL.rt,a1=dp?PL.a1:t0+TT,t1=dp?PL.t1:a1,arrive=PL.arrive;
@@ -2021,6 +2021,7 @@ const STUDIO_ACTS=[
   ['跑壘','outhome','一壘安打・二壘跑者衝本壘遭捕手觸殺（#38）',e=>pl(e,p=>!!p.outHome),STUDIO_SEEDS_RARE],
   ['跑壘','stretch','一壘安打・打者硬闖二壘遭觸殺（#38）',e=>pl(e,p=>!!p.outStretch),STUDIO_SEEDS_RARE],
   ['跑壘','bobble','一壘安打・外野漏接、跑者多推進（#38）',e=>pl(e,p=>!!p.errAdvance),STUDIO_SEEDS_RARE],
+  ['跑壘','wildthrow','滾地球・內野暴傳一壘、跑者多推進（#38）',e=>pl(e,p=>!!p.wildThrow),STUDIO_SEEDS_RARE],/* the ball ends on the ground past first (plan.wild) */
   ['跑壘','score','跑壘・跑者回本壘得分',e=>e.k==='P'&&e.play&&e.play.res!=='HR'&&e.runs>0],
   ['跑壘','HR','跑壘・全壘打繞壘',e=>pl(e,p=>p.res==='HR')],
   ['跑壘','sb','盜壘',e=>e.k==='P'&&e.sbGo],
