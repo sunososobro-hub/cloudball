@@ -4,10 +4,11 @@
 import { createPractice, PRACTICE_PITCHES, HIT_Q, MODE, PT, STAMINA, inZ } from './practice.js';
 import { describeOutcome, describeResult } from './text.js';
 import { startGame } from './gamescreen.js';
-import { createField, SPEEDS } from './field.js';
+import { SPEEDS } from './field.js';
+import { openField } from './field3d.js';
 
 const $ = id => document.getElementById(id);
-let sess = null, side = null, mode = 'one', ptk = 'fb', field = null, speedI = 0;
+let opening = false, sess = null, side = null, mode = 'one', ptk = 'fb', field = null, speedI = 0;
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
@@ -59,7 +60,7 @@ function play(r, c) {
 
 function start(s) {
   side = s; sess = createPractice(s); window.baseball9Result = null;
-  if (!field) { field = createField($('pfield')); $('pfbar').hidden = !field; $('pfield').hidden = !field; }
+  if (!field && !opening) { opening = true; openField($('pfield')).then(f => { field = f; opening = false; $('pfbar').hidden = !field; $('pfield').hidden = !field; if (field) field.skip(); }); }
   if (field) field.skip();
   $('menu').hidden = true; $('stage').hidden = false; $('end').hidden = true; $('log').textContent = ''; $('line').textContent = '';
   $('title').textContent = s === 'bat' ? '打擊練習：猜投手會投哪一格' : '投球練習：選球種，投進哪一格';
