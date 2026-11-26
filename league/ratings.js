@@ -1,7 +1,7 @@
 /* 1 to 100 ratings for display (#169 item 8, shown by the guide page, #170). Data format: CC0.
  * Display only: the engine keeps using the raw 1.0-centred values and never imports this file (rule 10).
  *
- * ratingsOf(player) -> { ovr, con, pow, eye, spd, arm, pot } for a batter, { ovr, stuff, ctrl, arm, pot } for a pitcher,
+ * ratingsOf(player) -> { ovr, con, pow, eye, spd, arm, pot } for a batter (plus def when he carries one), { ovr, stuff, ctrl, arm, pot } for a pitcher,
  * whole numbers from 1 to 100. Each number is placed among the factory players of his group (batters or pitchers,
  * league/players.js), piecewise linear: the group mean reads RATING_MID, the TOP_Q quantile reads RATING_TOP, the
  * LOW_Q quantile reads RATING_LOW. So the few clearly best (the stars) read 90 or more and the obvious holes under 45.
@@ -11,6 +11,7 @@
  * still a star).
  * The scale comes from the factory values only, so it stays fixed once official games change abilities (ledger). */
 import { ROSTERS } from './players.js';
+import { DEF_MIN, DEF_MAX } from '../engine/constants.js';
 
 export const RATING_MID = 62, RATING_TOP = 90, RATING_LOW = 42, TOP_Q = 0.92, LOW_Q = 0.08, RATING_MIN = 1, RATING_MAX = 100;
 /* the knees: asymptotes that round to 99 and 2; KNEE_SOFT is how slowly the top bends (larger = the stars spread
@@ -19,6 +20,16 @@ export const RATING_CEIL = 99.4, KNEE_SOFT = 25, KNEE_LOW = 20, RATING_FLOOR = 1
 export const BAT_WEIGHTS = { con: 0.3, pow: 0.3, eye: 0.15, spd: 0.15, arm: 0.1 };
 export const PIT_WEIGHTS = { stuff: 0.5, ctrl: 0.4, arm: 0.1 };
 export const BEST_WEIGHT = 1;
+/* Fielder defence `def` (#378 part 6, range and glove): the factory players carry none (engine: missing = 1.0), so it
+ * has no factory spread to place it among. A straight line each side instead: raw 1.0 (the factory fielder) reads
+ * RATING_MID, RATING_MAX reads the engine's DEF_MAX, RATING_MIN its DEF_MIN. Not in the overall (BAT_WEIGHTS), which
+ * keeps the factory scale and every factory overall unchanged. */
+export const DEF_RAW_MID = 1;
+export const defRaw = d => (d >= RATING_MID ? DEF_RAW_MID + (DEF_MAX - DEF_RAW_MID) * (d - RATING_MID) / (RATING_MAX - RATING_MID)
+  : DEF_RAW_MID - (DEF_RAW_MID - DEF_MIN) * (RATING_MID - d) / (RATING_MID - RATING_MIN));
+export const defRating = x => Math.max(RATING_MIN, Math.min(RATING_MAX, Math.round(x >= DEF_RAW_MID
+  ? RATING_MID + (RATING_MAX - RATING_MID) * (x - DEF_RAW_MID) / (DEF_MAX - DEF_RAW_MID)
+  : RATING_MID - (RATING_MID - RATING_MIN) * (DEF_RAW_MID - x) / (DEF_RAW_MID - DEF_MIN))));
 
 const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
 const sd = a => { const m = mean(a); return Math.sqrt(mean(a.map(x => (x - m) ** 2))) || 1; };
@@ -54,9 +65,10 @@ export function ratingScale(rosters) {
   const rate = p => {
     const S = p.role ? PIT : BAT, out = { ovr: S.ovr(S.sum(p)) };
     for (const k of S.keys) out[k] = S.map[k](p[k]);
+    if (!p.role && p.def !== undefined) out.def = defRating(p.def);   /* only a player who carries one (created fielders) */
     return out;
   };
-  rate.raw = (isPitcher, key, d) => (isPitcher ? PIT : BAT).map[key].raw(d);
+  rate.raw = (isPitcher, key, d) => (!isPitcher && key === 'def' ? defRaw(d) : (isPitcher ? PIT : BAT).map[key].raw(d));
   return rate;
 }
 export const ratingsOf = ratingScale(ROSTERS);
