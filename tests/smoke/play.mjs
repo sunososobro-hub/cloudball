@@ -13,6 +13,7 @@ const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const PORT=Number(process.env.PORT||8123),PAGE=process.env.SMOKE_URL||'play.html';
 const READY_MS=90000;      /* the start button wakes after the park compiles; software GL on a CI runner is slow */
 const PLAY_MS=8000;        /* how long the game runs before the frame is read */
+const SHOT_MS=60000,SHOT_TRIES=3;   /* one screenshot wait, and how many tries */
 const DARK=12;             /* a centre pixel with every channel <= this is black */
 const BLACK_SHARE=0.98;    /* the centre counts as all black when at least this share of its pixels is black */
 const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.txt':'text/plain','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.glb':'model/gltf-binary','.bin':'application/octet-stream','.ktx2':'image/ktx2','.hdr':'application/octet-stream','.ogg':'audio/ogg','.mp3':'audio/mpeg','.wav':'audio/wav','.woff2':'font/woff2'};
@@ -25,7 +26,10 @@ const server=createServer(async(req,res)=>{
 });
 await new Promise(r=>server.listen(PORT,'127.0.0.1',r));
 const bad=[];
-const browser=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--autoplay-policy=no-user-gesture-required']});
+const ARGS=['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--autoplay-policy=no-user-gesture-required'];
+/* #534: the old headless shell never returned from page.screenshot on the CI runner (30 s timeout) while WebGL kept every frame busy;
+ * the full Chromium in new headless mode composites with software GL, so try it first and fall back to the default build. */
+const browser=await chromium.launch({channel:'chromium',args:ARGS}).catch(()=>chromium.launch({args:ARGS}));
 try{
   const page=await browser.newPage({viewport:{width:960,height:540}});
   const local=process.env.OFFLINE_THREE;
@@ -45,12 +49,16 @@ try{
     await page.waitForTimeout(PLAY_MS);
     if(await page.evaluate(()=>{const i=document.getElementById('intro');return !!i&&!i.hidden}))bad.push('the entry card is still up after 開始');
     const vp=page.viewportSize(),w=Math.round(vp.width/3),h=Math.round(vp.height/3);
-    const shot=await page.screenshot({clip:{x:w,y:h,width:w,height:h}});
+    let shot;   /* #534: a software-GL frame can take long; retry, and let each try wait for it */
+    for(let k=1;;k++){try{shot=await page.screenshot({clip:{x:w,y:h,width:w,height:h},timeout:SHOT_MS});break}
+      catch(e){if(k>=SHOT_TRIES){bad.push(`page.screenshot failed ${k} times: ${e.message.split('\n')[0]}`);break}console.log(`screenshot try ${k} failed, retrying`)}}
+    if(shot){
     const share=await page.evaluate(async b64=>{const im=new Image();im.src='data:image/png;base64,'+b64;await im.decode();
       const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const x=c.getContext('2d');x.drawImage(im,0,0);
       const d=x.getImageData(0,0,c.width,c.height).data;let k=0;for(let i=0;i<d.length;i+=4)if(d[i]<=12&&d[i+1]<=12&&d[i+2]<=12)k++;return k/(d.length/4)},shot.toString('base64'));
     console.log(`centre of the frame: ${(share*100).toFixed(1)}% black pixels`);
     if(share>=BLACK_SHARE)bad.push(`the centre of the frame is all black (${(share*100).toFixed(1)}% of pixels <= ${DARK})`);
+    }
   }
 }finally{await browser.close();server.close()}
 if(bad.length){console.error('FAIL play smoke:\n - '+bad.join('\n - '));process.exit(1)}
