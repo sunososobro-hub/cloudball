@@ -41,6 +41,9 @@ const SCHEMA = [
      ovr INTEGER NOT NULL, player TEXT NOT NULL, ratings TEXT NOT NULL, created_at INTEGER NOT NULL)`,
   'CREATE INDEX IF NOT EXISTS players_ovr ON players (ovr DESC, created_at DESC)',
   'CREATE INDEX IF NOT EXISTS players_new ON players (created_at DESC)',
+  /* #435: a released player keeps his row (name, ratings, history); players.agent_id becomes 'free:<pid>' (never a 64-hex agent id)
+   and this table remembers the former agent, who alone may take him back while nobody else has */
+  'CREATE TABLE IF NOT EXISTS releases (pid TEXT PRIMARY KEY, former TEXT NOT NULL, released_at INTEGER NOT NULL)',
   /* abuse counters: the day only, never next to an agent; both tables lose every row of an older day on the next sign-up */
   'CREATE TABLE IF NOT EXISTS reg_salt (day TEXT PRIMARY KEY, salt TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS reg_seen (day TEXT NOT NULL, h TEXT NOT NULL)',
@@ -105,7 +108,8 @@ export const draw = guarded(async ({ request, db, agent }) => {
 
 /* sort keys of the free-agent list: overall, newest, and the ability keys of league/ratings.js (display numbers) */
 const SORTS = new Set(['ovr', 'new', 'con', 'pow', 'eye', 'spd', 'arm', 'stuff', 'ctrl', 'pot']);
-const publicRow = r => ({ id: r.pid, name: r.name, kind: r.kind, ovr: r.ovr, player: JSON.parse(r.player), ratings: JSON.parse(r.ratings), created: r.created_at });
+const FREE = pid => 'free:' + pid;        /* players.agent_id of a released player nobody has picked up */
+const publicRow = r => ({ id: r.pid, name: r.name, kind: r.kind, ovr: r.ovr, player: JSON.parse(r.player), ratings: JSON.parse(r.ratings), created: r.created_at, free: !!r.free });
 
 /* GET /api/player: the player of this agent, or null */
 export const mine = guarded(async ({ db, agent }) => {
@@ -142,8 +146,42 @@ export const list = guarded(async ({ request, db }) => {
    a player without that ability (a batter has no stuff) sorts last */
   const order = sort === 'ovr' ? 'ovr DESC, created_at DESC, pid' : sort === 'new' ? 'created_at DESC, pid'
     : `json_extract(ratings, '$.${sort}') DESC, ovr DESC, created_at DESC, pid`;
-  const rows = (await db.prepare(`SELECT pid, name, kind, ovr, player, ratings, created_at FROM players ORDER BY ${order} LIMIT ?1 OFFSET ?2`)
+  const rows = (await db.prepare(`SELECT pid, name, kind, ovr, player, ratings, created_at, (agent_id LIKE 'free:%') AS free FROM players ORDER BY ${order} LIMIT ?1 OFFSET ?2`)
     .bind(PAGE_SIZE + 1, page * PAGE_SIZE).all()).results;
   return json(200, { ok: true, page, sort, more: rows.length > PAGE_SIZE, players: rows.slice(0, PAGE_SIZE).map(publicRow) },
     { 'cache-control': 'public, max-age=10' });
 });
+
+/* POST /api/player/release: this agent lets his player go (解約). The row stays (records are append-only); he loses his agent,
+ * shows in the free list (free:true) and the former agent may take him back until another agent has him. */
+export const release = guarded(async ({ db, agent }) => {
+  const r = await db.prepare('SELECT pid FROM players WHERE agent_id = ?1').bind(agent.id).first();
+  if (!r) return fail(404, 'none');
+  /* the update is the gate: two rapid taps, the second finds no player of this agent */
+  const done = await db.prepare('UPDATE players SET agent_id = ?2 WHERE agent_id = ?1').bind(agent.id, FREE(r.pid)).run();
+  if (!done.meta.changes) return fail(404, 'none');
+  /* a new seed for the next player: his id, names and luck must not repeat the released one (nothing is copied over) */
+  await db.batch([db.prepare('INSERT OR REPLACE INTO releases (pid, former, released_at) VALUES (?1, ?2, ?3)').bind(r.pid, agent.id, Date.now()),
+    db.prepare('UPDATE agents SET seed = ?2 WHERE id = ?1').bind(agent.id, randomSeed())]);
+  return json(200, { ok: true, released: r.pid });
+}, { needKey: true });
+
+/* POST /api/player/reclaim {id}: the former agent takes his released player back while nobody else has him. One player at a
+ * time: the player he controls now is released by the same rule first. */
+export const reclaim = guarded(async ({ request, db, agent }) => {
+  const body = await readBody(request), pid = body && typeof body.id === 'string' && body.id.length <= 64 ? body.id : null;
+  if (!pid) return fail(400, 'invalid', { reasons: ['id must be a player id'] });
+  const rel = await db.prepare('SELECT former FROM releases WHERE pid = ?1').bind(pid).first();
+  if (!rel || rel.former !== agent.id) return fail(403, 'notyours');
+  const cur = await db.prepare('SELECT pid FROM players WHERE agent_id = ?1').bind(agent.id).first();
+  if (!(await db.prepare('SELECT 1 AS x FROM players WHERE pid = ?1 AND agent_id = ?2').bind(pid, FREE(pid)).first())) return fail(409, 'taken');
+  /* one batch: release the current player (if any), take the old one back, drop the release note */
+  const steps = [];
+  if (cur) steps.push(db.prepare('UPDATE players SET agent_id = ?2 WHERE agent_id = ?1').bind(agent.id, FREE(cur.pid)),
+    db.prepare('INSERT OR REPLACE INTO releases (pid, former, released_at) VALUES (?1, ?2, ?3)').bind(cur.pid, agent.id, Date.now()),
+    db.prepare('UPDATE agents SET seed = ?2 WHERE id = ?1').bind(agent.id, randomSeed()));
+  steps.push(db.prepare('UPDATE players SET agent_id = ?1 WHERE pid = ?2 AND agent_id = ?3').bind(agent.id, pid, FREE(pid)),
+    db.prepare('DELETE FROM releases WHERE pid = ?1').bind(pid));
+  await db.batch(steps);
+  return json(200, { ok: true, reclaimed: pid, released: cur ? cur.pid : null });
+}, { needKey: true });
