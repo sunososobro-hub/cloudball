@@ -668,8 +668,8 @@ function applyLinks(P){const want=OFF.has('links')?null:(P.shape||{}).links;if(w
 let skyCur=SKIES.night;
 /* #208 item 5: colour mood per park (render/grade.js, pure): light colours graded, exposure scaled. Loaded once; applySky reruns when it arrives (without it the sky's own values stand). */
 for(const k in SKIES)SKIES[k].mood=k;
-let GRADE=null;
-function applySky(S){skyCur=S;const mood=GRADE?GRADE.moodOf(S.mood):null,gr=h=>mood?GRADE.grade(h,mood):h;renderer.toneMappingExposure=S.exposure*(mood?mood.exp:1);key.intensity=S.key*Math.PI;key.color.set(gr(S.keyC));fill.intensity=S.fill*Math.PI;fill.color.set(gr(S.fillC));
+let GRADE=null,csSoft={r:1,a:1};/* #209 item 4: contact-shadow widen/soften per sky, from grade.js softOf */
+function applySky(S){skyCur=S;csSoft=GRADE?GRADE.softOf(S.mood):csSoft;const mood=GRADE?GRADE.moodOf(S.mood):null,gr=h=>mood?GRADE.grade(h,mood):h;renderer.toneMappingExposure=S.exposure*(mood?mood.exp:1);key.intensity=S.key*Math.PI;key.color.set(gr(S.keyC));fill.intensity=S.fill*Math.PI;fill.color.set(gr(S.fillC));
   hemi.intensity=S.hemi*Math.PI;hemi.color.set(gr(S.hemiC));hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
   skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
   for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
@@ -1917,9 +1917,9 @@ const csFan=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.P
   let gr=g.createLinearGradient(0,n,0,0);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n);
   g.globalCompositeOperation='destination-in';gr=g.createLinearGradient(0,0,n,0);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.5,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)}),CS_FAN_OP),csFigs.length*LAMPS.length);
 const CS_ON=!OFF.has('shadows');if(CS_ON)[csPatch,csFan].forEach(m=>{m.frustumCulled=false;m.renderOrder=1;scene.add(m)});
-function updateContactShadows(){csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
+function updateContactShadows(){csPatch.material.opacity=csSoft.a;csFan.material.opacity=CS_FAN_OP*csSoft.a;csFigs.forEach((f,i)=>{const g=f.g,p=g.position;
   if(!g.visible){csPatch.setMatrixAt(i,HIDE);for(let j=0;j<LAMPS.length;j++)csFan.setMatrixAt(i*LAMPS.length+j,HIDE);return}
-  const r=2*(csBig.has(f)?CS_R_CROUCH:CS_R);dummy.position.set(p.x,p.y+CS_Y,p.z);dummy.rotation.set(0,0,0);dummy.scale.set(r,1,r);dummy.updateMatrix();csPatch.setMatrixAt(i,dummy.matrix);
+  const r=2*csSoft.r*(csBig.has(f)?CS_R_CROUCH:CS_R);dummy.position.set(p.x,p.y+CS_Y,p.z);dummy.rotation.set(0,0,0);dummy.scale.set(r,1,r);dummy.updateMatrix();csPatch.setMatrixAt(i,dummy.matrix);
   LAMPS.forEach(([lx,lz],j)=>{const dx=p.x-lx,dz=p.z-lz,d=Math.hypot(dx,dz)||1;dummy.rotation.set(0,Math.atan2(-dx/d,-dz/d),0);
     dummy.scale.set(CS_FAN_W,1,clamp(CS_BODY_H*d/(LAMP_H-CS_BODY_H),CS_FAN_MIN,CS_FAN_MAX));dummy.updateMatrix();csFan.setMatrixAt(i*LAMPS.length+j,dummy.matrix)})});
   csPatch.instanceMatrix.needsUpdate=true;csFan.instanceMatrix.needsUpdate=true}
