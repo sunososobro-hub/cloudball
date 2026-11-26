@@ -9,6 +9,7 @@ import { sameSpec } from './preview-spec.js';
 const JERSEY = 0x7d8794, PANTS = 0xe6e6e6, SKIN = 0xc99572;   /* neutral free-agent uniform; skin is the game's default until #151 decides the look numbers */
 const FOV = 28, FRAME_H = 2.2, FRAME_W = 1.5, TARGET_Y = 0.98, YAW0 = 0.5, TURN = 0.55, RESUME_MS = 2200, MAX_DPR = 2;
 const BAT_COLOR = 0xc9a06a, LEATHER = 0x8a5a2b;
+const BAT_ARM_X = -0.45, BAT_GRIP_X = 1.4;   /* batter pose (#439): right arm swings forward by ARM_X; the bat turns by GRIP_X inside the hand (the hand bone is already tipped back by the arm and elbow), so the barrel stands up, leaning a little toward the pitcher. Measured: tip 0.8 m above the hand, 0.2 m forward of it */
 const SAY = { loading: '3D 預覽載入中…', off: '這台裝置畫不出 3D 預覽，用數字一樣可以建立球員。', fail: '3D 預覽讀不到，用數字一樣可以建立球員。' };
 
 export function makePreview(host) {
@@ -57,8 +58,8 @@ export function makePreview(host) {
         const batter = s.kind === 'bat';
         f = PL.makePlayer({ jersey: JERSEY, pants: PANTS, sock: JERSEY, skin: SKIN, head: 'cap', role: batter ? 'batter' : undefined, throws: 'R', glove: !batter, parent: pivot });
         if (f.glove) f.glove.traverse(m => { if (m.isMesh) m.material = new THREE.MeshStandardMaterial({ color: LEATHER, roughness: 0.6 }); });
-        if (batter) {   /* bat held low in the right hand, barrel up and forward: the one pose */
-          bat = PL.makeBat(BAT_COLOR); f.sockets.handR.add(bat); bat.rotation.x = -0.35; f.arms[1].rotation.x = -0.45;
+        if (batter) {   /* bat held in the right hand, barrel up and a little forward: the one pose (was rotation.x -0.35, which laid the barrel flat behind the hip) */
+          bat = PL.makeBat(BAT_COLOR); f.sockets.handR.add(bat); bat.rotation.x = BAT_GRIP_X; f.arms[1].rotation.x = BAT_ARM_X;
         }
       }
       f.setBuild(s.body, s.ht, headOf(s.head));
