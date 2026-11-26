@@ -1352,16 +1352,23 @@ const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher 
    Passed ball (e.pb too, how 'passed_ball'): a catchable pitch glances off the mitt instead of the dirt, then rolls the same way.
    Runners are drawn from e.moves like every other advance. Pure function of (event, time). */
 const WP_DIRT_Z=-.3,WP_SKIP=.25,WP_ROLL=1.7,WP_REST_X=4,WP_REST_Z=NET_Z-2.5,WP_C_REACT=.35,WP_C_SPEED=6.5,WP_PICK=.5,WP_BACK_V=4;
-function wpPlan(e){const sx=e.zx<0?-1:1,rest=[sx*WP_REST_X,.04,WP_REST_Z],c0=[0,MITT_Z+.6],D=Math.hypot(rest[0]-c0[0],rest[2]-c0[1]),
-  reach=ARRIVE+WP_C_REACT+runTime(Math.max(0,D-.6),WP_C_SPEED),back=reach+WP_PICK;return{rest,c0,D,reach,back,end:back+D/WP_BACK_V}}
+/* #128: the straight line spot -> ball passes over the plate umpire (UMP_X, UMP_Z) when the ball rolls to his side: 12 walk-throughs on
+   31 seeds (plate_scan.py, C-U .01 m). The catcher now goes round a corner WP_ROUND_X out at the umpire's depth, both ways. */
+const WP_ROUND_X=UMP_X+.9,WP_STOP=.6;
+function wpPlan(e){const sx=e.zx<0?-1:1,rest=[sx*WP_REST_X,.04,WP_REST_Z],c0=[0,MITT_Z+.6],M=[sx*WP_ROUND_X,UMP_Z],L1=Math.hypot(M[0]-c0[0],M[1]-c0[1]),
+  D2=Math.hypot(rest[0]-M[0],rest[2]-M[1]),E=[M[0]+(rest[0]-M[0])*(1-WP_STOP/D2),M[1]+(rest[2]-M[1])*(1-WP_STOP/D2)],L=L1+D2-WP_STOP,
+  reach=ARRIVE+WP_C_REACT+runTime(L,WP_C_SPEED),back=reach+WP_PICK;return{rest,c0,M,E,L1,L,reach,back,end:back+L/WP_BACK_V}}
+/* point and heading at distance d along c0 -> M -> E */
+function wpAt(W,d){const [a,b,k]=d<W.L1?[W.c0,W.M,d/W.L1]:[W.M,W.E,(d-W.L1)/Math.max(1e-6,W.L-W.L1)],dx=b[0]-a[0],dz=b[1]-a[1],n=Math.hypot(dx,dz)||1;
+  return[a[0]+dx*k,a[1]+dz*k,dx/n,dz/n]}
 function wpBall(e,u,plate){const W=wpPlan(e),dirt=e.pb?[plate[0],plate[1],MITT_Z]:[plate[0]*.8,.03,WP_DIRT_Z+.6];/* PB: off the mitt where it was set */
   if(u<ARRIVE)return null;if(u<ARRIVE+WP_SKIP)return arc(plate,dirt,0,(u-ARRIVE)/WP_SKIP);
   if(u<ARRIVE+WP_SKIP+WP_ROLL){const k=(u-ARRIVE-WP_SKIP)/WP_ROLL;return arc(dirt,W.rest,(e.pb?.3:.5)*(1-k),1-(1-k)*(1-k))}
   if(u<W.reach)return W.rest;const q=fielders.C.handWorld(1);return[q.x,q.y,q.z]}
 function wpCatcher(e,u){const C=fielders.C,W=wpPlan(e),t=u-ARRIVE-WP_C_REACT;if(t<=0)return;
-  const [rx,,rz]=W.rest,[hx,hz]=W.c0,dx=(rx-hx)/W.D,dz=(rz-hz)/W.D;let d;
-  if(u<W.reach)d=Math.min(W.D-.6,runDist(t,WP_C_SPEED));else if(u<W.back)d=W.D-.6;else d=Math.max(0,W.D-.6-(u-W.back)*WP_BACK_V);
-  C.g.position.set(hx+dx*d,0,hz+dz*d);C.noAnim=false;if(u<W.back)face(C,dx,dz);else if(d>0)face(C,-dx,-dz);else face(C,-hx,-hz)}
+  const [hx,hz]=W.c0;let d;
+  if(u<W.reach)d=Math.min(W.L,runDist(t,WP_C_SPEED));else if(u<W.back)d=W.L;else d=Math.max(0,W.L-(u-W.back)*WP_BACK_V);
+  const [x,z,dx,dz]=wpAt(W,d);C.g.position.set(x,0,z);C.noAnim=false;if(u<W.back)face(C,dx,dz);else if(d>0)face(C,-dx,-dz);else face(C,-hx,-hz)}
 function poseScene(e,u,dt,ei){
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
   paintKit(matDef,defT);paintKit(matOff,e.k==='BRK'&&u>=BRK_ON_AT?def:off);/* #42: after the change the walkers out of the dugout are the new batting side */
@@ -2050,6 +2057,12 @@ setTier(gfxMax?0:gfxTier);
 
 /* ---------- loop ---------- */
 applyLayout();let lastNow=performance.now(),stKey='',outFixed=null,introVis=null;prewarmBodies();
+/* #73: while the entry card is up the camera drifts over the empty park (render/intro_cam.js) and every figure is hidden, so nobody stands behind the card. Poses run as usual underneath; the first shot after the card closes is the normal one. */
+let introM=null;import(new URL('intro_cam.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{introM=M}).catch(err=>console.warn('intro camera off',err));
+function introScene(now){if($('intro').hidden||!introM||renderer.xr&&renderer.xr.isPresenting)return;
+  for(const f of [...Object.values(fielders),...runners,batter,ump,odNext,odDeck,...umpB,...coaches])f.g.visible=false;
+  const c=introM.introShot(now/1000),[y,p]=look(c.x,c.y,c.z,c.tx,c.ty,c.tz);rig.position.set(c.x,c.y,c.z);camera.rotation.set(p,y,0);
+  const fov=fitFov(c.fov);if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}
 renderer.setAnimationLoop(()=>{
   const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);if(!bootReady&&warmStarted)bootGaps.push(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
@@ -2069,7 +2082,7 @@ renderer.setAnimationLoop(()=>{
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
+  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);introScene(now);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
   if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyNow()}
