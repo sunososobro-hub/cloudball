@@ -26,6 +26,13 @@ for (const c of [base, ...Object.keys(CREATE.builds).map(b => ({ ...base, build:
 }
 if (JSON.stringify(snapBody({ slim: .6, power: .7 })) !== JSON.stringify({ slim: .5, power: .75 })) bad('snapBody must snap to quarter steps like render/game.js');
 
+/* #442: sliders draw their own body and height, and the saved row agrees */
+const sl = { ...base, build: undefined, body: { slim: 25, power: 50, heavy: 0 }, ht: 1.9 }; delete sl.build;
+const slm = makePlayer(7, sl), slSpec = specOfChoice(sl), slRow = specOfRow({ kind: 'bat', player: slm.player, ratings: slm.ratings });
+if (slSpec.ht !== 1.9 || JSON.stringify(slSpec.body) !== JSON.stringify({ slim: .25, power: .5 }) || JSON.stringify(slSpec.body) !== JSON.stringify(slRow.body) || slRow.ht !== 1.9) bad('slider choice: preview and saved row differ');
+if (sameSpec(slSpec, specOfChoice({ ...sl, body: { slim: 0, power: 25, heavy: 50 } }))) bad('two body mixes give the same preview spec');
+if (sameSpec(slSpec, specOfChoice({ ...sl, ht: 1.75 }))) bad('height does not change the preview spec');
+
 /* page: import map before the module script, no render/ change needed, preview module loads three after first paint */
 const html = readFileSync('agent.html', 'utf8'), js = readFileSync('ui/agent-preview.js', 'utf8');
 if (!(html.indexOf('type="importmap"') > 0 && html.indexOf('type="importmap"') < html.indexOf('type="module"'))) bad('agent.html: the import map must come before the module script');

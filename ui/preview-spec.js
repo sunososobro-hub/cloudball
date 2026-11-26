@@ -12,7 +12,8 @@ const mid = ([a, b]) => Math.round((a + b) / 2 * 100) / 100;
 
 export function specOfChoice(c) {
   const bat = c.kind === 'bat', B = CREATE.builds[c.build] || CREATE.builds.normal;
-  return { kind: c.kind, hand: bat ? c.bats : c.throws, body: snapBody(B.body), ht: mid(B.ht), head: c.look ? c.look.head : 0, num: null };
+  const body = c.body ? Object.fromEntries(Object.entries(c.body).map(([k, v]) => [k, v / 100])) : B.body;   /* #442: sliders (percent) or a preset */
+  return { kind: c.kind, hand: bat ? c.bats : c.throws, body: snapBody(body), ht: c.body ? c.ht : mid(B.ht), head: c.look ? c.look.head : 0, num: null };
 }
 
 /* a row of /api/freeagents or /api/player: { kind, player, ratings } */
