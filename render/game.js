@@ -2121,7 +2121,7 @@ renderer.setAnimationLoop(()=>{
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);introScene(now);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
+  if(gfxMax&&window.PL&&PL.setEyeClock)PL.setEyeClock(curT());updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);introScene(now);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
   if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyNow()}
