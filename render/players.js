@@ -642,6 +642,16 @@ function eachLive(fn) { for (const r of LIVE) { const f = r.deref(); if (!f) { L
 /* #541: a fixed tone step per head index (the index already carries his id hash, shape, map, face and gear), so one man keeps his tone in every game
    and page. TONE_STEPS multiply the map colour after the small shift: lightest .. deepest, TONE_MID = no change. No Math.random. */
 export const TONE_STEPS = [1.22, 1.11, 1, .88, .76], TONE_MID = 2;
+/* #541: skin colour off max. The skin maps load on max only, so every player had one plain colour. A plain material is the base colour times his map's
+   factor (light / dark / old) times his tone step, cached per base material (the game shares one skin material, so it is never edited in place). */
+export const PLAIN_MAP_K = { light: 1, dark: .62, old: .94 };
+const PLAIN_TINTS = new WeakMap();
+function plainTint(base, key, step) {
+  if (!base || !base.isMaterial) return base;
+  let m = PLAIN_TINTS.get(base); if (!m) PLAIN_TINTS.set(base, m = new Map());
+  const id = key + step; if (m.has(id)) return m.get(id);
+  const t = base.clone(), k = (PLAIN_MAP_K[key] ?? 1) * (TONE_STEPS[step] ?? 1); t.color.multiplyScalar(k); t.color.r = Math.min(1, t.color.r); t.color.g = Math.min(1, t.color.g); t.color.b = Math.min(1, t.color.b); m.set(id, t); return t;
+}
 export const toneStepOf = head => { let h = 2166136261 ^ ((((head | 0) >>> 0) % (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS * GEAR_SPAN)) >>> 0);   /* #559: the hair-style digit on top does not move the tone */ h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 16)) >>> 0) % TONE_STEPS.length };
 const skinKeyOf = head => SKIN_KEYS[Math.floor((head | 0) / HEAD_SHAPES.length) % SKIN_KEYS.length];
 const buildKey = b => typeof b === 'string' ? b : JSON.stringify(b || {});
@@ -741,8 +751,9 @@ export function headOf(id) {
    legs) stay his hashed ones: the owner wants no gear chips. A field missing or not a whole number >= 0 keeps the hashed digit.
    Factory players have no `look`: unchanged, byte for byte. */
 const lookDigit = n => Number.isInteger(n) && n >= 0 ? n : -1;
+export const lookIsDefault = L => !L || !(L.head > 0 || L.skin > 0 || L.hair > 0);   /* #541: the create page starts every fan at {0,0,0}; a created player who tapped no chip gets his id's look, not one shared face */
 export function headOfPlayer(p) {
-  const h = headOf(p && p.id), L = p && p.look; if (!L) return h;
+  const h = headOf(p && p.id), L = p && p.look; if (!L || lookIsDefault(L)) return h;   /* #541: untouched chips (all 0) = the look hashed from his id */
   const HS = HEAD_SHAPES.length, SK = SKIN_KEYS.length, HT = HAIR_TONES.length, GH = GEAR_SHARES.hair.length;
   const shape = h % HS, map = Math.floor(h / HS) % SK, upper = Math.floor(h / (HS * SK));   /* upper = facial look + gear digits */
   const hd = lookDigit(L.head), sk = lookDigit(L.skin), hr = lookDigit(L.hair);
@@ -1232,7 +1243,7 @@ function makeRealPlayer(opts, A) {
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
   const plainEye = [mesh.material[6], mesh.material[7]];   /* #207 round 3: eye materials follow SKIN.full like the skin */
-  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2]), toneStepOf(f.buildArgs[2])) || plainSkin, bp = (f.buildArgs[2] | 0), ew = eyeMat('white', bp) || plainEye[0], ei = eyeMat('iris', bp) || plainEye[1];
+  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2]), toneStepOf(f.buildArgs[2])) || plainTint(plainSkin, skinKeyOf(f.buildArgs[2]), toneStepOf(f.buildArgs[2])), bp = (f.buildArgs[2] | 0), ew = eyeMat('white', bp) || plainEye[0], ei = eyeMat('iris', bp) || plainEye[1];
     if (mesh.material[MAT.skin] !== m || mesh.material[6] !== ew || mesh.material[7] !== ei) { mesh.material[MAT.skin] = m; mesh.material[6] = ew; mesh.material[7] = ei; mesh.material = mesh.material.slice() } };
   f.rebuild = () => { f.buildKey = null; f.setBuild(...f.buildArgs) };
   LIVE.add(new WeakRef(f));

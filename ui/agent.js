@@ -136,7 +136,7 @@ function buildMaker(key, state) {
     cmp.textContent = compareLine(data.players, state); cmp.hidden = false;
   };
   const choice = () => ({ ...state, nameDraw: draw.n });
-  const look = () => showPreview(specOfChoice(choice()), draw.name ? `${draw.name}（還沒建立）` : '你正在捏的球員');   /* the same object that is posted */
+  const look = () => showPreview({ ...specOfChoice(choice()), seed: draw.name }, draw.name ? `${draw.name}（還沒建立）` : '你正在捏的球員');   /* the same object that is posted */
   const refresh = () => {
     const keys = pointKeys(state), free = budgetOf(state) - keys.reduce((t, k) => t + state.points[k], 0);
     left.textContent = free ? `還有 ${free} 點沒分配。分完才能建立。` : '點數分配完了。'; left.classList.toggle('ok', !free);
