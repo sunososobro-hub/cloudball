@@ -1044,6 +1044,14 @@ const ball=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,14,10),new THREE.MeshB
 const ballSh=new THREE.Mesh(GEO.shadow,shadowMat);ballSh.rotation.x=-Math.PI/2;ballSh.scale.setScalar(.35);scene.add(ballSh);
 function pathPos(from,to,dist){let d=dist;for(let b=from;b<to;b++){const [x1,z1]=BASES[b],[x2,z2]=BASES[b+1],L=27.43;if(d<=L){const t=d/L;return[lerp(x1,x2,t),lerp(z1,z2,t),false]}d-=L}const [x,z]=BASES[to];return[x,z,true]}
 function face(f,x,z){f.g.rotation.y=Math.atan2(x,z)}
+/* #268 lead: a runner off the bag (engine leadAt: on the bag in the set, out over the delivery, back after the pitch) shuffles sideways
+   facing the pitcher, feet apart, knees bent (render/lead.js, loaded below; until it is in he stands as before). st0 = his break
+   (Infinity = he stays): from there the stance and the turn fade into the run over LEAD_TURN while animate() swings the legs.
+   Pure in (event, time): the step phase comes from the lead metres, not from a clock. Position stays the caller's (rule 12). */
+function leadPose(r,u,ld,st0){const M=leadM;if(!M||!r)return;const b=M.breakW(u,st0),w=M.leadW(u)*b;if(w<=0)return;
+  const x=r.g.position.x,z=r.g.position.z,P=fielders.P.home,cw=M.LEAD_CROUCH*w,sp=M.leadSplay(ld,w);
+  r.g.rotation.y=M.yawMix(r.g.rotation.y,M.leadYaw(x,z,P[0],P[1]),w);crouch(r,r.rig,cw,CROUCH_FWD,sp/cw,CROUCH_LEAN,CROUCH_SHRINK);
+  if(b>=1){r.noAnim=true;r.px=x;r.pz=z}}
 function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.px,z-f.pz)/Math.max(dt,1e-3);f.px=x;f.pz=z;
   const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;if(!f.armsHeld){f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8}
   /* f.mix: limb angles of the motion this run grows out of (the pitcher's follow-through), faded out by f.mix.k */
@@ -1419,7 +1427,7 @@ function poseScene(e,u,dt,ei){
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
   poseOnDeck(e,u,ei);poseStaff(e,u,ei);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
-  const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm)};
+  const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);leadPose(runners[ri-1],uu,ld,Infinity)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
@@ -1473,6 +1481,7 @@ function poseScene(e,u,dt,ei){
     showRunner(x,z,undefined,undefined,name);
     const r=runners[ri-1];if(!r)continue;const [b0x,b0z]=BASES[to-1],[b1x,b1z]=BASES[to];
     if(!done){const [nx,nz]=pathPos(from,to,prog+1);face(r,nx-x,nz-z)}else if(slide)face(r,b1x-b0x,b1z-b0z);
+    if(from>0)leadPose(r,u,lead,st0);/* #268: shuffle stance until the break, turned into the run over LEAD_TURN */
     if(from===0&&bunt&&buntDrop>0){const rk=1-ease(sat01((u-st0)/BUNT_RISE));if(rk>0){r.rig.l0.scale.y=r.rig.l1.scale.y=1-buntDrop/((r.k||1)*LEG_LEN)*rk;r.g.position.y=-buntDrop*rk}}/* Bunter comes up out of his crouch as he breaks for first */
     if(slide&&u>=ts){const k=ease(sat01((u-ts)/(ST*.35)))*(1-ease(sat01((u-arriveT-SLIDE_HOLD)/SLIDE_UP)));if(k>0)slidePose(r,k)}
   }
@@ -1656,6 +1665,7 @@ const TIGHT_FOV=2.4,TIGHT_OUT_AT=RELEASE-.6,TIGHT_OUT_DUR=.45,TIGHT_AIM_Y=1.45;
 const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||e.r==='bk'||e.po||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
 /* #209 item 1 (render/platecam.js): the play at the plate, auto seat only. A high home camera behind the net on a narrow lens while a runner is tagged
    or tags up at home; weight = pure function of (event, time), camera only. Loaded by dynamic import: until it is in, the weight is 0. */
+let leadM=null;import(new URL('lead.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{leadM=M}).catch(err=>console.warn('runner lead stance off',err));/* #268 */
 let platecamM=null;import(new URL('platecam.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{platecamM=M}).catch(err=>console.warn('plate camera off',err));
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
