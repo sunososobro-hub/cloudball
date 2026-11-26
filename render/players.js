@@ -514,19 +514,36 @@ function skinMat(hex, key = 'light') {
  * corners, a soft upper-lid shadow on both, and a clearcoat that gives the cornea a wet highlight from the park lamps. Shared by every player. */
 export const EYE = { white: 0xf2f0ea, corner: 0xd9a99a, cornerK: .45, pupil: 0x060403, irisIn: 0x7d5532, irisOut: 0x3b2415, rim: .5, rimEnd: .66, pupilR: .915, ring: .62,
   lid: .5, lidFrom: .12, lidTo: .8, coat: 1, coatRough: .04, whiteRough: .28, irisRough: .22 };
+/* Blink (#207 round 3): a pure function of game time and a per-player phase, so a jump equals playing there. Every BLINK.period s the lids
+ * close over BLINK.dur s (triangle, smoothed); players are spread over BLINK.phases offsets, one shared eye material per phase (no per-player material). */
+export const BLINK = { period: 4.3, dur: .17, phases: 8, lidSkin: 0xb98a6c };
+export function blinkAmt(t, phase = 0) {
+  const P = BLINK.period, u = (((t + (phase % BLINK.phases) / BLINK.phases * P) % P) + P) % P;
+  if (u >= BLINK.dur) return 0;
+  const x = u / BLINK.dur, y = 1 - Math.abs(2 * x - 1);
+  return y * y * (3 - 2 * y);
+}
+let eyeClock = null;
+export function setEyeClock(t) { if (eyeClock) eyeClock.value = t }
 let eyeMats = null;
-function eyeMat(kind) {
+function eyeMat(kind, phase = 0) {
   if (!SKIN.full) return null;
-  if (!eyeMats) {
+  const ph = ((phase | 0) % BLINK.phases + BLINK.phases) % BLINK.phases;
+  if (!eyeMats) eyeMats = {};
+  if (!eyeMats[ph]) {
     const T = THREE.TSL, n = T.normalLocal, col = h => T.color(new THREE.Color().setHex(h, THREE.SRGBColorSpace)), c = n.z.saturate();
+    if (!eyeClock) eyeClock = T.uniform(0);
     const lid = T.float(1).sub(T.smoothstep(EYE.lidFrom, EYE.lidTo, n.y).mul(EYE.lid));
-    const mk = (colorNode, rough) => { const m = new THREE.MeshPhysicalNodeMaterial({ roughness: rough, metalness: 0, clearcoat: EYE.coat, clearcoatRoughness: EYE.coatRough }); m.colorNode = colorNode.mul(lid); return m };
+    const P = BLINK.period, u = eyeClock.add(ph / BLINK.phases * P).mod(P), x = u.div(BLINK.dur).saturate(), y = T.float(1).sub(x.mul(2).sub(1).abs()),
+      blink = T.select(u.lessThan(BLINK.dur), y.mul(y).mul(T.float(3).sub(y.mul(2))), T.float(0));
+    const mk = (colorNode, rough) => { const m = new THREE.MeshPhysicalNodeMaterial({ roughness: rough, metalness: 0, clearcoat: EYE.coat, clearcoatRoughness: EYE.coatRough });
+      m.colorNode = T.mix(colorNode.mul(lid), col(BLINK.lidSkin), blink); m.clearcoatNode = T.float(EYE.coat).mul(T.float(1).sub(blink)); return m };
     const white = T.mix(col(EYE.white), col(EYE.corner), T.smoothstep(.55, .95, n.x.abs()).mul(EYE.cornerK));
     const body = T.mix(col(EYE.irisOut), col(EYE.irisIn), T.smoothstep(EYE.ring, EYE.pupilR, c)), rim = T.smoothstep(EYE.rim, EYE.rimEnd, c).mul(.75).add(.25);
     const iris = T.mix(body.mul(rim), col(EYE.pupil), T.smoothstep(EYE.pupilR - .015, EYE.pupilR + .015, c));
-    eyeMats = { white: mk(white, EYE.whiteRough), iris: mk(iris, EYE.irisRough) };
+    eyeMats[ph] = { white: mk(white, EYE.whiteRough), iris: mk(iris, EYE.irisRough) };
   }
-  return eyeMats[kind];
+  return eyeMats[ph][kind];
 }
 /* Join skin_uv.b64.txt to the pack (format in assets/tools/skin_uv.py): seam vertices get copies (same position, weights, offsets)
  * carrying their other UV, and the listed corners point at the copies. Returns the grown arrays, or null if the files do not match. */
@@ -1170,7 +1187,7 @@ function makeRealPlayer(opts, A) {
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */
   const plainEye = [mesh.material[6], mesh.material[7]];   /* #207 round 3: eye materials follow SKIN.full like the skin */
-  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2])) || plainSkin, ew = eyeMat('white') || plainEye[0], ei = eyeMat('iris') || plainEye[1];
+  f.applySkin = () => { const m = skinMat(tone, skinKeyOf(f.buildArgs[2])) || plainSkin, bp = (f.buildArgs[2] | 0), ew = eyeMat('white', bp) || plainEye[0], ei = eyeMat('iris', bp) || plainEye[1];
     if (mesh.material[MAT.skin] !== m || mesh.material[6] !== ew || mesh.material[7] !== ei) { mesh.material[MAT.skin] = m; mesh.material[6] = ew; mesh.material[7] = ei; mesh.material = mesh.material.slice() } };
   f.rebuild = () => { f.buildKey = null; f.setBuild(...f.buildArgs) };
   LIVE.add(new WeakRef(f));
