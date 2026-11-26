@@ -3,7 +3,7 @@
  *   - the slope at the knee is 1 (no visible kink), bad input gives 0
  *   - grainFrame() is a pure function of game time: same time, same frame; steps at GRAIN_FPS; bad time gives 0
  *   - the constants are in sane ranges. static.mjs runs this file. Usage: node tests/finish.check.mjs */
-import { roll, grainFrame, GRAIN_AMT, GRAIN_FPS, ROLL_KNEE, ROLL_MAX } from '../render/finish.js';
+import { roll, lift, SOFT_LIFT, grainFrame, GRAIN_AMT, GRAIN_FPS, ROLL_KNEE, ROLL_MAX } from '../render/finish.js';
 const problems = [], bad = m => problems.push(m);
 for (const x of [0, .1, .5, ROLL_KNEE]) if (roll(x) !== x) bad(`roll(${x}) should be the identity`);
 let prev = -1;
@@ -19,6 +19,11 @@ if (grainFrame(.5 / GRAIN_FPS) !== 0 || grainFrame(1.5 / GRAIN_FPS) !== 1) bad('
 if (!(GRAIN_AMT > 0 && GRAIN_AMT <= .08)) bad('GRAIN_AMT out of range');
 if (!(GRAIN_FPS >= 12 && GRAIN_FPS <= 30)) bad('GRAIN_FPS out of range');
 if (!(ROLL_KNEE > .5 && ROLL_KNEE < 1 && ROLL_MAX > ROLL_KNEE && ROLL_MAX <= 1.5)) bad('roll constants out of range');
+if (lift(0) !== SOFT_LIFT || Math.abs(lift(1) - 1) > 1e-12) bad('lift must map 0 to SOFT_LIFT and 1 to 1');
+let lp = -1;
+for (let x = 0; x <= 2; x += .05) { const y = lift(x); if (y <= lp) bad(`lift not increasing at ${x}`); lp = y; }
+for (const b of [NaN, Infinity, undefined]) if (lift(b) !== 0) bad(`lift(${b}) should be 0`);
+if (!(SOFT_LIFT > 0 && SOFT_LIFT <= .03)) bad('SOFT_LIFT out of range');
 console.log(`finish: grain ${GRAIN_AMT} at ${GRAIN_FPS}/s, knee ${ROLL_KNEE}, max ${ROLL_MAX}`);
 if (problems.length) { console.error('finish.check FAILED:\n' + problems.join('\n')); process.exit(1); }
 console.log('finish.check OK');
