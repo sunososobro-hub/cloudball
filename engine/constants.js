@@ -312,6 +312,9 @@ export const STEAL_JUMP = 0.3;            /* a stealing runner breaks this long 
 export const WALK_DELAY = 0.8;
 export const SLIDE_D = 3;
 export const LEAD_STAND = 0;
+/* #23 part 1: primary lead a runner keeps between pitches (before the first move and after the pitch); same as the lead a
+ * held runner takes on a pickoff (PO_LEAD). A runner who tags up on a caught fly goes back to the bag (LEAD_STAND). */
+export const LEAD_PRIMARY = 3.4;
 export const LEAD_PITCH = 3.8;
 export const LEAD_OPEN = 0.6;
 export const LEAD_GROW = 0.9;

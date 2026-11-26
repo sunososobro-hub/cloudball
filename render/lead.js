@@ -1,12 +1,10 @@
 /* Runner's lead off the bag (#268). Pure: no three.js, no DOM, no clock. render/game.js loads it by dynamic import.
- * Where the runner stands is the engine's (leadAt(u): on the bag in the set, out to LEAD_PITCH m over the delivery, back after the
- * pitch). This module only says how he looks while he does it: a side shuffle (crab steps, facing the pitcher, feet apart, knees bent)
+ * Where the runner stands is the engine's (leadAt(u): at the primary lead in the set, out to LEAD_PITCH m over the delivery, back to
+ * the primary lead after the pitch, #23; tagLeadAt: back to the bag for a tag-up). This module only says how he looks while he does it: a side shuffle (crab steps, facing the pitcher, feet apart, knees bent)
  * instead of a forward jog sideways. Picture only (rules 10 and 12): no event timing, no position, no engine input.
  * Every value is a pure function of (time into the pitch frame, lead metres), so a bar jump lands on the same pose. */
-import { RELEASE, ARRIVE, LEAD_OPEN, LEAD_BACK_AT, LEAD_BACK_DUR } from '../engine/constants.js';
 
-export const LEAD_POSE_IN = .5;     /* s: he settles into the crouch this long before the shuffle starts (the pitcher is in the set) */
-export const LEAD_POSE_OUT = .4;    /* s: he stands up this long after he is back on the bag */
+export const LEAD_POSE_D = 1;      /* m off the bag where the stance is full; nearer the bag he stands up (a tag-up walking back) */
 export const LEAD_STEP = .9;        /* m covered by one shuffle step (push with the lead foot, close with the trail foot) */
 export const LEAD_SPLAY = .2;       /* rad each leg is out from the hip in the ready stance (feet apart) */
 export const LEAD_STEP_SPLAY = .2;  /* rad of extra spread at the middle of a step (feet widest), back to LEAD_SPLAY as they close */
@@ -14,13 +12,10 @@ export const LEAD_CROUCH = .3;      /* crouch weight at full pose (knees, lean),
 export const LEAD_TURN = .3;        /* s: on the break he turns from the pitcher to the base path and comes out of the crouch */
 
 const sat = x => Math.max(0, Math.min(1, x)), ease = x => x * x * (3 - 2 * x);
-export const LEAD_FROM = RELEASE - LEAD_OPEN;                          /* engine: the lead starts to grow */
-export const LEAD_HOME = ARRIVE + LEAD_BACK_AT + LEAD_BACK_DUR;        /* engine: back on the bag */
 
-/* weight of the lead pose at u s into a pitch frame: 0 standing on the bag, 1 in the shuffle stance */
-export function leadW(u) {
-  return ease(sat((u - (LEAD_FROM - LEAD_POSE_IN)) / LEAD_POSE_IN)) * (1 - ease(sat((u - LEAD_HOME) / LEAD_POSE_OUT)));
-}
+/* weight of the lead pose for a runner ld m off his bag: 0 standing on the bag, 1 in the shuffle stance from LEAD_POSE_D out.
+ * Distance, not time: since #23 part 1 a held runner stays at the primary lead between pitches, so the stance stays on. */
+export function leadW(ld) { return ease(sat(ld / LEAD_POSE_D)); }
 /* spread of each leg (rad from the hip) for lead ld m at pose weight w: wide mid-step, closed to the stance at each step's end */
 export function leadSplay(ld, w) {
   const s = Math.sin(Math.PI * Math.max(0, ld) / LEAD_STEP);
