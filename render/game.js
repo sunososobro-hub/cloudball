@@ -690,6 +690,16 @@ import(new URL('cloud.js',document.currentScript&&document.currentScript.src||lo
   const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,fog:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   m.colorNode=vec3(0,0,0);m.opacityNode=smoothstep(float(M.CLOUD_COVER-M.CLOUD_SOFT),float(M.CLOUD_COVER+M.CLOUD_SOFT),n).mul(M.CLOUD_MAX).mul(cloudU.k);
   cloudMesh=new THREE.Mesh(new THREE.PlaneGeometry(260,190),m);cloudMesh.name='old:cloud';cloudMesh.rotation.x=-Math.PI/2;cloudMesh.position.set(0,.02,-55);cloudMesh.renderOrder=1;cloudMesh.visible=false;scene.add(cloudMesh);cloudSet()}).catch(err=>console.warn('cloud shadows off',err));
+/* #208 item 3 (part 6): damp sheen on the grass at night (render/sheen.js constants; loaded once). One flat additive overlay over the field: no extra pass, no download. Tiers 0-1 and max (envOn); strength by the sky's lamp value (night only); time = curT(); `?off=sheen`. */
+let SHEEN=null;const sheenU={t:TSL.uniform(0),k:TSL.uniform(0)};let sheenMesh=null;
+function sheenSet(){if(!sheenMesh||!SHEEN)return;const k=OFF.has('sheen')?0:SHEEN.sheenStrength(skyCur.lamp);sheenU.k.value=k;sheenMesh.visible=envOn&&k>0}
+import(new URL('sheen.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{SHEEN=M;
+  const {positionWorld,mx_noise_float:nz,vec2,vec3,float,smoothstep}=TSL,x=positionWorld.xz,s=sheenU.t.mul(M.SHEEN_DRIFT);
+  const q=v=>nz(vec3(v,0)).mul(.5).add(.5);
+  const n=q(x.div(M.SHEEN_SCALE).add(vec2(s,s.mul(-.6)))).mul(.7).add(q(x.div(M.SHEEN_SCALE*.4).add(vec2(s.mul(-1.3).add(7.1),3.9))).mul(.3));
+  const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
+  m.colorNode=vec3(...M.SHEEN_RGB);m.opacityNode=smoothstep(float(M.SHEEN_COVER-M.SHEEN_SOFT),float(M.SHEEN_COVER+M.SHEEN_SOFT),n).mul(M.SHEEN_MAX).mul(sheenU.k);
+  sheenMesh=new THREE.Mesh(new THREE.PlaneGeometry(260,190),m);sheenMesh.name='old:sheen';sheenMesh.rotation.x=-Math.PI/2;sheenMesh.position.set(0,.025,-55);sheenMesh.renderOrder=1;sheenMesh.visible=false;scene.add(sheenMesh);sheenSet()}).catch(err=>console.warn('damp sheen off',err));
 /* #208 item 4 (part 4): slide dust drawn; part 5: plus a puff where a batted ball comes down on dirt (DUST.eventDust). render/dust.js is pure (event + time -> puffs); here DUST_MAX soft sprites show the current event's puffs at curU, so a seek shows what playing shows.
    Tiers 0-1 and max (envOn), no new pass; `?off=dust`. Colour = the dirt dabs (DIRT_RGB). */
 let DUST=null;const DUST_MAX=32,DUST_BASES=[[0,0],[19.4,-19.4],[0,-38.8],[-19.4,-19.4],[0,0]],dustCache=new WeakMap(),dustSprites=[];
@@ -705,7 +715,7 @@ function applySky(S){skyCur=S;csSoft=GRADE?GRADE.softOf(S.mood):csSoft;const moo
   skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
   for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
   stars.visible=S.stars;bugs.pts.material.visible=S.bugs;/* material switch: the tier code keeps owning bugs.pts.visible */
-  cloudSet();if(scene.environment)skyEnv()}/* #211 max: the image-based light follows the new sky; only once setTier has turned it on (renderer ready), same shaders, new texture */
+  cloudSet();sheenSet();if(scene.environment)skyEnv()}/* #211 max: the image-based light follows the new sky; only once setTier has turned it on (renderer ready), same shaders, new texture */
 const PARK_Q=(()=>{try{return new URLSearchParams(location.search).get('park')||''}catch(e){return''}})();
 const PROP_Q=(()=>{try{return new URLSearchParams(location.search).get('prop')}catch(e){return null}})();if(PROP_Q!==null)import(new URL('props/viewer.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>M.startViewer({name:PROP_Q,renderer,scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('prop viewer off',err));/* #215: ?prop=<object> = one polished prop alone on a neutral floor (render/props/viewer.js, imported only with the switch) */
 let parkCur=null;
@@ -2118,7 +2128,7 @@ function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)g
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
   PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.fx===fxKey()?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
   const sh=gfxTier<3&&!OFF.has('shadowmap');renderer.shadowMap.enabled=sh;key.castShadow=sh;
-  envOn=gfxTier<2;cloudSet();bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
+  envOn=gfxTier<2;cloudSet();sheenSet();bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
   tierHudText();/* #258: before the no-rebuild return below, so every tier change shows */
@@ -2256,7 +2266,7 @@ renderer.setAnimationLoop(()=>{
   if(mode==='studio')studioTick(dt);
   else if(mode!=='live'&&!(mode==='opening'&&(paused||scrubbing))){const vv=findVote(Math.max(0,replayT));const prev=replayT;replayT=Math.min(game.dur+5,replayT+dt*(vv&&replayT<vv.t?1:speed));if(cpOn()){replayT=cpClock.step(prev,replayT);if(replayT-prev>dt*speed+.5)plFresh=true}}/* #144: a covered cut moves the figures: not a stride */
   hlTick();
-  cloudU.t.value=curT();
+  cloudU.t.value=sheenU.t.value=curT();
   {const k=cpOn()&&mode==='opening'?cpClock.dip(replayT):0;if(k!==cutDipK){cutDipK=k;cutDip.style.opacity=String(k)}}
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
