@@ -38,12 +38,12 @@ export function setShare(split, key, pct) {
   for (const i of others.map((k, i) => i).sort((a, b) => (exact[b] % 1) - (exact[a] % 1) || a - b)) { if (left <= 0) break; out[others[i]]++; left--; }
   return Object.fromEntries(keys.map(k => [k, out[k]]));
 }
-/* the 放養 line: expected days to the 一軍 median from the table, or why there is none */
+/* the 放養 line: expected days until he is "ready" (ability at the 一軍 median) from the table, or why there is none. Ready is not a call-up (#500): no call-up date is promised. */
 export function handsOffText(table, p) {
   const h = table && table.hands;
   if (!h || !Number.isFinite(h.median)) return '目前沒有可用的預估天數。';
-  if (p && p.overall >= table.target) return `他的綜合已經到 ${table.target}（一軍中位數）。`;
-  return `放養：${Math.round(100 * h.share)}% 的球員在 ${table.horizon} 天內追上一軍中位數 ${table.target}，這些人要 ${h.median} 天（中間一半在 ${h.p25}–${h.p75} 天）。` +
+  if (p && p.overall >= table.target) return `他的綜合已經到 ${table.target}（一軍中位數），能力上 ready 了；要等一軍有空位才會被叫上去。`;
+  return `放養：${Math.round(100 * h.share)}% 的球員在 ${table.horizon} 天內練到 ready（綜合 ${table.target}，一軍中位數），這些人要 ${h.median} 天（中間一半在 ${h.p25}–${h.p75} 天）。ready 不等於上一軍，還要等位置。` +
     (table.active ? `認真練的話約 ${table.active.median} 天。` : '');
 }
 export const resultText = r => (r && r.result ? `最近一次練習：${r.result.side === 'bat' ? '打擊' : '投球'} ${r.result.pitches} 球 ${r.result.hits} ${r.result.side === 'bat' ? '安打' : '成功'}，訓練加成 +${bonusOf(r.result)}。` : '還沒有練習紀錄。');
