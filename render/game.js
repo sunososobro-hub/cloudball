@@ -1000,6 +1000,23 @@ const umpB=stUmpAt.map(()=>{const f=figure(matUmp,matUmp,false);f.g.scale.y=.95;
    (STAFF `<team>-pitching`). Until that module is in he stays in the dugout and cpEvents keeps the
    whole frame. */
 const mgr=figure(matMgr,pants,false);mgr.g.visible=false;let visitM=null;
+/* #266 item 2: on a home run WELCOME_N teammates come out of the batting team's dugout, line up along the scorers' path (peelPath) and
+   hop with their arms up as the runners come through, then walk back behind the batter: render/welcome.js plans it (pure). The walk back
+   runs into the next frames of the same half, so the pose looks back up to WEL_LOOK s for the latest home run. Who: lineup men not
+   scoring on the play and not the next two hitters (on deck), then the bench arms. Module not in yet -> nobody comes out. */
+let welM=null;const WEL_LOOK=60,welCache=new WeakMap(),welF=[0,1,2,3,4].map(()=>figure(matOff,pants,false));welF.forEach(f=>f.g.visible=false);
+import(new URL('welcome.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{welM=M}).catch(err=>console.warn('home-run welcome off',err));
+function welPlanOf(q){if(!welM||!q||q.k!=='P'||!q.play||q.play.res!=='HR'||!q.moves||!q.bat)return null;if(welCache.has(q))return welCache.get(q);
+  const off=q.s0.half,arr=q.moves.filter(m=>m[1]===4).map(m=>m[3].arriveT),pl=arr.length?welM.welcomePlan(dugout(off),peelPath(off,false),Math.min(...arr),Math.max(...arr)):null;
+  if(pl){const R=ROSTERS[off],skip=new Set(q.moves.map(m=>m[2]));for(const k of [1,2]){const b=R.bat[(q.bat[1]+k)%R.bat.length];if(b)skip.add(b.name)}
+    pl.who=R.bat.filter(b=>!skip.has(b.name)).concat(R.pit.filter(p=>!skip.has(p.name))).slice(0,pl.members.length)}
+  welCache.set(q,pl);return pl}
+/* the latest home run of this half whose party is still out at T (game s) -> [plan, frame-local s] or null */
+function welNow(ev,ei,T,off){for(let j=ei;j>=0&&T-ev[j].t<WEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;const pl=welPlanOf(q);if(pl)return T-q.t<pl.end?[pl,T-q.t]:null}return null}
+function poseWelcome(e,u,ei){welF.forEach(f=>f.g.visible=false);if(!game||!welM||!e.s0)return;const off=e.s0.half,w=welNow(game.ev,ei,e.t+u,off);if(!w)return;const [pl,uq]=w;
+  pl.members.forEach((m,i)=>{const f=welF[i],a=welM.welcomeAt(pl,i,uq);if(!a.visible)return;const p=pl.who[i];resetPose(f);f.noAnim=!a.moving;f.g.visible=true;f.g.position.set(a.x,a.hop,a.z);
+    setNum(f,p?p.num:undefined);dress(f,p);face(f,a.fx,a.fz);if(a.arms>0){const R=f.rig;R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1;R.a0.rotation.set(-2.8*a.arms,0,-.35*a.arms);R.a1.rotation.set(-2.8*a.arms,0,.35*a.arms)}})}
+
 import(new URL('visit.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{visitM=M}).catch(err=>console.warn('mound visit off',err));
 const visitOf=e=>visitM&&e&&(e.k==='CHG'||e.k==='VIS')?visitM.visitPlan(dugout(e.def!==undefined?e.def:1-e.s0.half),fielders.P.home,e.d):null;
 let staffM=null;const stHere=document.currentScript&&document.currentScript.src;
@@ -1478,7 +1495,7 @@ function poseScene(e,u,dt,ei){
     if(tt<1)face(f,f.home[0]-sx,f.home[1]-sz);else face(f,-f.home[0],-f.home[1])})}
   batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;looseBat.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
-  poseOnDeck(e,u,ei);poseStaff(e,u,ei);
+  poseOnDeck(e,u,ei);poseStaff(e,u,ei);poseWelcome(e,u,ei);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
   const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);leadPose(runners[ri-1],uu,ld,Infinity)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
@@ -1863,6 +1880,7 @@ function cpEvents(g){const ev=g.ev;
   return ev.map((e,i)=>{const off=e.s0?e.s0.half:0;let pe=0,head=0,tail=e.d;
     for(let j=i-1;j>=0&&e.t-ev[j].t<PEEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
       for(const [,to,,tl] of q.moves||[])if(to===4)pe=Math.max(pe,Math.min(q.t+PEEL_LOOK,q.t+tl.arriveT+peelLen(off,tl))-e.t)}
+    {const w=welNow(ev,i,e.t,off);if(w)pe=Math.max(pe,w[0].end-w[1])}/* #266: teammates of a home run still walking back */
     if(e.k==='VOTE'){head=e.d;tail=0}
     else if(e.k==='CHG'||e.k==='VIS'){const vp=visitOf(e);if(vp){head=vp.go;tail=vp.end}else if(visitM){head=e.d;tail=0}}/* #81: the manager's walk to the mound and back; module not in yet -> keep it all */
     else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
@@ -2204,7 +2222,7 @@ renderer.setAnimationLoop(()=>{
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
   const s=poseScene(e,u,dt,i);staffGiveWay();/* #42: staff step off their posts for runners and fielders */
   if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump,...umpB,...coaches,mgr]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
-  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck,...umpB,...coaches,mgr].forEach(f=>{if(f.g.visible)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);pmFieldApply();/* #274: after animate, so its key holds */
+  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck,...umpB,...coaches,mgr].forEach(f=>{if(f.g.visible)animate(f,dt)});welF.forEach(f=>{if(f.g.visible&&!f.noAnim)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);pmFieldApply();/* #274: after animate, so its key holds */
   hud(e,u,s);if(mode!=='studio'&&!scrubbing)commentary(T);renderVote(voteEv,T);plUpdate();
   {const iv=!$('intro').hidden;if(iv!==introVis){introVis=iv;$('bug').style.visibility=iv?'hidden':''}}/* Hide the scorebug on the intro screen */
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
