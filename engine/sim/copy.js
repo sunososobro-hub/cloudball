@@ -33,6 +33,7 @@ export const COPY = {
   groundAdvance: (n, f) => `${n} ${FIELDER_NAME[f]}前滾地球出局，跑者推進`,
   sacFly: (n, runner) => `${n} 高飛犧牲打，${runner} 回來得分`,
   tagToThird: runner => `，${runner} 回壘起跑上三壘`,
+  onThrow: batter => `，${batter} 趁傳本壘上二壘`,
   groundOut: (n, f) => `${n} ${FIELDER_NAME[f]}前滾地球出局`,
   lineOut: (n, f) => `${n} 平飛球被${FIELDER_NAME[f]}接殺出局`,
   popOut: n => `${n} 內野高飛球出局`,
