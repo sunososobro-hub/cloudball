@@ -9,9 +9,10 @@
 - #332 part 3c-2: `gamescreen.js` + `#gstage` in `baseball9.html`: the 3-inning game screen (approach / shift / mode / pitch type, 3x3 or 5x5 grid, steal / hold, count, bases, line score, log, result in `window.baseball9GameResult`). Check drives the real screen on a fake DOM through whole games.
 - #430 part 1: `field.js` = canvas 2D field in the 三局比賽 screen: pitch leg, then the batted ball along `out.play.ball`; text beats (strikeout, walk, steal, HR); skip + 1x/3x buttons. `buildBeats` / `ballAt` pure and tested; no canvas = no picture. Reads results only.
 - #430 part 2: `runnerAt` + runner dots in `field.js` from `out.play.runners` (batter gold, runners blue, out = red at the end); pure part tested.
+- #430 part 3: the two practice screens (`screen.js`, `#pfield` / `#pfbar` in baseball9.html) show the same canvas: pitch leg + a text beat (揮空 / 好球 / 壞球 / 界外 / 擊中 / 觸擊 / 內野高飛); no batted-ball path in practice, so no ball flight there.
 ## Next
 - Link the page from the player/agent pages once the owner says where (not linked yet; only `guide.html` links back).
-- #430 part 3: the two practice screens (screen.js) still have no picture.
+- #430 part 4 (optional): 390px headless Chromium frame of the field picture, never taken (no browser check here yet).
 ## Traps
 - Local only: no backend, no ability change; a created player's result may only feed #369's training bonus number.
 - In bat practice a "hit" is contact with q >= HIT_Q (or a bunt); the ball physics decide base hits only in part 3.

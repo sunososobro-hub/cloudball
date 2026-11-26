@@ -103,6 +103,24 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
       for (let t = 0; t <= A.dur; t += .1) { const q = F.ballAt(A, t); if (q && !Number.isFinite(q.x + q.y + q.z)) bad('non-finite ball position'); } } }
   for (const k of ['hit', 'hr', 'k', 'bb', 'steal', 'run']) if (!seen[k]) bad('30 games never showed a ' + k + ' beat');
   if (F.createField({}) !== null || F.createField({ getContext: () => null }) !== null) bad('createField must return null without a 2D context'); }
+/* #430 part 3: practice screens get the same picture: every practice outcome kind has a pitch leg + a text beat; screen.js still runs whole sessions with no canvas */
+{ const F = await import('../ui/baseball9/field.js'), Pr = await import('../ui/baseball9/practice.js'), kinds = new Set();
+  for (const side of ['bat', 'pitch']) for (let s = 1; s <= 40; s++) { const p = Pr.createPractice(side, { rnd: seeded(s * 7) }); let n = 0, r;
+    do { r = side === 'bat' ? p.swing({ mode: ['one', 'row', 'col', 'box', 'take', 'bunt'][n % 6], r: 1 + n % 3, c: 1 + (n >> 1) % 3 }) : p.pitch({ pt: ['fb', 'heat', 'curve', 'change'][n % 4], r: n % 5, c: (n * 2) % 5 });
+      const A = F.buildBeats({ res: r.out }), B = F.buildBeats({ res: r.out }); if (JSON.stringify(A) !== JSON.stringify(B)) bad('practice beats not deterministic');
+      if (A.ball.length || A.runners.length) bad('practice outcome must have no batted-ball script'); if (!(A.dur > F.PITCH_S)) bad('practice beat duration');
+      if (r.out.kind) { kinds.add(r.out.kind); if (!A.beats.length) bad('no text beat for practice kind ' + r.out.kind); } } while (!r.done && n++ < 50); }
+  if (kinds.size < 5) bad('practice never produced enough outcome kinds: ' + [...kinds]);
+  const mk = () => ({ children: [], style: { setProperty() {} }, _t: '', hidden: false, checked: false, disabled: false, dataset: {}, setAttribute() {}, append(...k) { this.children.push(...k); }, prepend(k) { this.children.unshift(k); },
+      set textContent(v) { this._t = v; if (v === '') this.children = []; }, get textContent() { return this._t; } });
+  const els = {}, ids = [...readFileSync(new URL('../baseball9.html', import.meta.url), 'utf8').matchAll(/id="([a-zA-Z]+)"/g)].map(m => m[1]); for (const i of ids) els[i] = mk();
+  for (const i of ['pfield', 'pfbar', 'pskip', 'pspeed']) if (!els[i]) bad('baseball9.html lacks #' + i);
+  globalThis.document = { getElementById: i => els[i] || bad('screen reads missing #' + i) || mk(), createElement: () => mk() }; globalThis.window = globalThis;
+  await import('../ui/baseball9/screen.js');
+  for (const side of ['bat', 'pitch']) { els[side].onclick(); if (els.stage.hidden !== false) bad('practice stage not open'); if (els.pfield.hidden !== true) bad('no canvas context: the picture must stay hidden');
+    let n = 0; while (!globalThis.baseball9Result && n++ < 60) { const cells = els.grid.children.filter(b => !b.disabled); if (cells.length) cells[n % cells.length].onclick(); else els.go.onclick(); }
+    if (!globalThis.baseball9Result || globalThis.baseball9Result.side !== side) bad('practice ' + side + ' did not finish with the field picture wired'); }
+  els.pskip.onclick(); els.pspeed.onclick(); }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');

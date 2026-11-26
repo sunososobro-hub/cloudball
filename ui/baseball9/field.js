@@ -26,7 +26,7 @@ export function buildBeats(out) {
       const pts = r.pts.map(p => ({ t: PITCH_S + p.t, x: p.x, z: p.z })); runners.push({ bat: !!r.bat, out: !!r.out, pts });
       dur = Math.max(dur, pts[pts.length - 1].t + .3); }
   } else {
-    const k = res.kind, txt = k === 'whiff' ? '揮空' : k === 'called' ? '好球' : k === 'ball' ? '壞球' : k === 'foul' || k === 'foulBunt' ? '界外' : '';
+    const k = res.kind, txt = k === 'whiff' ? '揮空' : k === 'called' ? '好球' : k === 'ball' ? '壞球' : k === 'foul' || k === 'foulBunt' ? '界外' : k === 'contact' ? '擊中' : k === 'bunt' ? '觸擊' : k === 'popup' ? '內野高飛' : '';
     if (txt) beats.push({ t: PITCH_S, txt });
     if (out && out.paEnd && !(play)) { const w = /保送/.test(out.txt || ''), kk = /三振/.test(out.txt || ''); if (w || kk) beats.push({ t: PITCH_S + .35, txt: w ? '保送' : '三振！' }); }
     if (out && out.steal) beats.push({ t: PITCH_S + .5, txt: out.steal.ok ? '盜壘成功' : '盜壘失敗' });
