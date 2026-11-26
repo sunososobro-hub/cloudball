@@ -15,7 +15,6 @@
 - #563 part 4: the fan's own player (`?player=<id>`): `me.js` `findMe` reads his `/api/freeagents` row (read-only), `field3d.js` `meSpecOf` / `meBuild` -> `setMe(spec, side)` dresses the batter (bat practice) or pitcher (pitch practice) with his body, height and look (headOfPlayer); the other body back to stock. Runners and the 三局比賽 screen still stock. Not seen on a real GPU.
 ## Next
 - Link the page from the player/agent pages once the owner says where (not linked yet; only `guide.html` links back).
-- #430 part 3: the two practice screens (screen.js) still have no picture.
 ## Traps
 - Local only: no backend, no ability change; a created player's result may only feed #369's training bonus number.
 - In bat practice a "hit" is contact with q >= HIT_Q (or a bunt); the ball physics decide base hits only in part 3.
