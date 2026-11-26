@@ -1,9 +1,9 @@
 /* Runner leads (#23 part 1, plain Node), on the engine's real streams (seeds 1..300):
  *   - leadAt starts and ends a pitch frame at LEAD_PRIMARY, so a runner standing through consecutive pitches never jumps;
  *   - a runner who tags up on a caught fly leaves from the bag (timeline lead LEAD_STAND, tagLeadAt reaches it by st0);
- *   - every other base runner starts from leadAt(st0) and a stealing runner leaves with more than the primary lead;
+ *   - every other base runner starts from leadAt(st0) and a stealing runner leaves with at least the primary lead;
  *   - the catcher's hold on a steal (release after catch + CATCHER_POP) is under HOLD_MAX s on safe and out steals
- *     (600 games: median 1.94 / 1.30 s before this part, 1.62 / 0.98 s after; part 2 of #23 brings it under 0.3 s).
+ *     (600 games: median 1.94 / 1.30 s before this part, 1.62 / 0.98 s after part 1, 0.17 / 0.10 s after part 2).
  * static.mjs runs this file. Usage: node tests/lead.check.mjs */
 import { simGame, leadAt, tagLeadAt, LEAD_PRIMARY, LEAD_STAND, PITCH_DUR, ARRIVE, CATCH_SNAP, CATCHER_POP } from '../engine/index.js';
 
