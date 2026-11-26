@@ -2,7 +2,7 @@
  * free-agent list. No free text anywhere: every choice is a button, a chip or a slider, and the server judges it again.
  * The account is a random 32-byte key kept in localStorage; the server stores only its SHA-256 (functions/lib/agents.js).
  * Every call that is not answered ok (no binding, production, offline, a static server) reads as 「還沒開放」. */
-import { CREATE, validateCreate } from '../league/freeagents.js';
+import { CREATE, validateCreate, pointKeys, budgetOf, positionFit } from '../league/freeagents.js';
 import { makePreview } from './agent-preview.js';
 import { ratingRow } from './bars.js';
 import { attachCompare } from './compare.js';
@@ -13,7 +13,7 @@ const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘�
 const ROLE = { SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
 const HAND = { L: '左', R: '右' };
 const BUILD = { normal: '標準', slim: '精瘦', power: '力量型', heavy: '壯碩' };
-const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球' };
+const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球', def: '守備' };
 const PIT_RATINGS = { stuff: '球威', ctrl: '控球', arm: '臂力' };
 const KIND = { bat: '打者', pit: '投手' };
 const WHY = { limit: '今天的新帳號名額滿了，明天再來。', already: '你已經有一位球員了。', name: '這個名字剛被別人用掉，換一個。', invalid: '選項有誤，請重新選。', key: '帳號資料不對。', unknown: '伺服器找不到這個帳號。' };
@@ -47,7 +47,8 @@ function playerRow(row) {
   const meta = pit ? `${ROLE[p.role] || p.role}・${HAND[p.throws] || ''}投` : `${POS[p.pos] || p.pos}・${HAND[p.hand] || ''}打`;
   who.append(el('b', null, p.name), el('span', 'no num', `#${p.num}`), el('span', null, meta), el('span', null, `${p.age} 歲`));
   r.appendChild(ratingRow('綜合', R.ovr, 'ovr'));
-  for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) r.appendChild(ratingRow(label, R[k]));
+  for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) if (R[k] !== undefined) r.appendChild(ratingRow(label, R[k]));
+  if (!pit) who.appendChild(el('span', 'fit', `守位適性：${positionFit(p.pos, R)}`));
   const see = el('button', 'see', '看他'); see.type = 'button'; see.setAttribute('aria-label', `看 ${p.name} 的樣子`); who.appendChild(see);
   li.onclick = () => { for (const o of document.querySelectorAll('li.p[aria-current]')) o.removeAttribute('aria-current'); li.setAttribute('aria-current', 'true'); showPreview(specOfRow(row), `${p.name} #${p.num}`); };
   li.append(who, r);
@@ -90,7 +91,9 @@ function chipGroup(legend, options, current, onPick, cls) {
   for (const [v, label] of options) { const b = el('button', 'chip', label); b.type = 'button'; b.dataset.v = String(v); b.onclick = () => { set(v); onPick(v); }; box.appendChild(b); }
   set(current); f.appendChild(box); return f;
 }
-const evenPoints = kind => Object.fromEntries(CREATE.keys[kind].map(k => [k, CREATE.budget[kind] / CREATE.keys[kind].length]));
+/* a batter always gets the defence slider (#378 part 6): his points hold def, so the pool is budget + defBudget */
+const evenPoints = kind => { const c = { kind, points: kind === 'bat' ? { [CREATE.defKey]: 0 } : {} }, keys = pointKeys(c);
+  return Object.fromEntries(keys.map(k => [k, budgetOf(c) / keys.length])); };
 const defaults = kind => ({ kind, [kind === 'bat' ? 'pos' : 'role']: kind === 'bat' ? 'SS' : 'SP', [kind === 'bat' ? 'bats' : 'throws']: 'R', build: 'normal',
   look: { head: 0, skin: 0, hair: 0 }, points: evenPoints(kind) });
 
@@ -102,11 +105,13 @@ function buildMaker(key, state) {
   const nameField = el('fieldset', 'field'); nameField.append(el('legend', null, '名字（抽的，不能自己取）'), nameBox);
   const left = el('p', 'left'), make = el('button', 'btn', '建立球員'); make.type = 'button';
   const msg = el('p', 'status'); msg.setAttribute('role', 'status');
+  const fit = el('p', 'left fit');
   const choice = () => ({ ...state, nameDraw: draw.n });
   const look = () => showPreview(specOfChoice(choice()), draw.name ? `${draw.name}（還沒建立）` : '你正在捏的球員');   /* the same object that is posted */
   const refresh = () => {
-    const keys = CREATE.keys[state.kind], free = CREATE.budget[state.kind] - keys.reduce((t, k) => t + state.points[k], 0);
+    const keys = pointKeys(state), free = budgetOf(state) - keys.reduce((t, k) => t + state.points[k], 0);
     left.textContent = free ? `還有 ${free} 點沒分配。分完才能建立。` : '點數分配完了。'; left.classList.toggle('ok', !free);
+    if (state.kind === 'bat') fit.textContent = `守位適性：${positionFit(state.pos, { def: state.points.def, arm: state.points.arm })}`;   /* display points = his ratings (freeagents.check) */
     make.disabled = !!validateCreate(choice()).length || !draw.name || draw.busy;
   };
   const edit = fn => v => { fn(v); look(); };   /* every pick that can change the body redraws it at once */
@@ -130,22 +135,22 @@ function buildMaker(key, state) {
     const bat = state.kind === 'bat'; fields.replaceChildren();
     kindRow.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.kind)));
     fields.append(
-      chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; })),
+      chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; refresh(); })),
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
       chipGroup('體型', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), state.build, edit(v => { state.build = v; })));
     /* 外觀 chips (head, skin, hair) are hidden until #151 lands a real look mapping: they draw nothing yet. `state.look` keeps its defaults (0) so the posted choice is unchanged. */
-    const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = CREATE.budget[state.kind];
+    const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = budgetOf(state), keys = pointKeys(state);
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));
-    for (const k of CREATE.keys[state.kind]) {
+    for (const k of keys) {
       const row = el('div', 'pt'), input = el('input'), out = el('output', 'num', state.points[k]);
       input.type = 'range'; input.min = CREATE.floor; input.max = cap; input.step = 1; input.value = state.points[k]; input.setAttribute('aria-label', (bat ? BAT_RATINGS : PIT_RATINGS)[k]);
       input.oninput = () => {   /* cannot go over the budget: it stops where the other abilities leave room */
-        const others = CREATE.keys[state.kind].reduce((t, o) => t + (o === k ? 0 : state.points[o]), 0);
+        const others = keys.reduce((t, o) => t + (o === k ? 0 : state.points[o]), 0);
         const v = Math.min(Number(input.value), cap, budget - others); input.value = v; state.points[k] = v; out.textContent = v; refresh();
       };
       row.append(el('span', null, (bat ? BAT_RATINGS : PIT_RATINGS)[k]), input, out); grid.appendChild(row);
     }
-    pts.append(grid, left); fields.appendChild(pts);
+    pts.append(grid, left); if (bat) pts.appendChild(fit); fields.appendChild(pts);
   }
   buildFields();
   make.onclick = async () => {

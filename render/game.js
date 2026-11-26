@@ -2027,8 +2027,10 @@ async function warmUp(){warmStarted=warming=true;const run=++warmRun,off=[],w0=p
     if(failed.length){B.t.pf=failed.length;[...new Set(failed)].slice(0,WARM_FAIL_N).forEach((n,i)=>B.t[`pf${i+1}`]=nm(n));console.warn('#236 pipelines refused by the GPU:',failed)}
     if(stalled){B.t.stall=[...t0.keys()].slice(0,WARM_FAIL_N).map(ro=>nm(roName(ro))).join('+')||'?';console.warn('#236 warm-up let go after',WARM_STALL_MS,'ms; still building:',B.t.stall)}}}
   if(run!==warmRun)return;warming=false;if(run===1){BOOT_MARK(`w1/${nObj}`);bootCompiled()}entryNote(`w${Math.round(performance.now()-w0)}`);fpsAcc=fpsN=0;tierT0=performance.now()/* the compile is not a slow frame */}
-function fpsTick(dtMs){fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
-  if(gfxMax){const B=window.BOOT;if(B&&B.t&&!warming)B.t.ftmax=Math.round(avg*10)/10;return}/* #211: max never drops; its frame time (ms, last FPS_WIN frames) goes to boot= */
+let ftWin=null;/* #211 item 5: max-tier frame window (avg, worst, p95 ms), render/frametime.js */
+import(new URL('frametime.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{ftWin=M.frameWindow(FPS_WIN)}).catch(err=>console.warn('frame time off',err));
+function fpsTick(dtMs){const ftR=gfxMax&&ftWin?ftWin.push(dtMs):null;fpsAcc+=dtMs;fpsN++;if(fpsN<FPS_WIN)return;fpsAvg=1000/(fpsAcc/fpsN);const avg=fpsAcc/fpsN;fpsAcc=fpsN=0;
+  if(gfxMax){const B=window.BOOT;if(B&&B.t&&!warming){B.t.ftmax=Math.round(avg*10)/10;if(ftR)B.t.ftw=ftR.worst+'/'+ftR.p95}return}/* #211: max never drops; its frame time (ms, last FPS_WIN frames) goes to boot= */
   if(performance.now()-tierT0>FPS_WARMUP_MS&&$('intro').hidden&&!document.hidden&&avg>FPS_BUDGET_MS&&gfxTier<TIER_MAX){setTier(gfxTier+1);tierT0=performance.now();note(`有點卡，自動降畫質（${gfxTier}/${TIER_MAX}）`)}}
 setTier(gfxMax?0:gfxTier);
 
