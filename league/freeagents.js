@@ -7,7 +7,7 @@
  *   makePlayer(seed, choice) { player, ratings }: the player in the roster format of league/players.js, and
  *                            ratingsOf(player) on the factory scale (league/ratings.js).
  *
- * A choice: { kind: 'bat', pos, bats, build, look, points: {con, pow, eye, spd, arm}, nameDraw, train }
+ * A choice: { kind: 'bat', pos, bats, build | (body, ht), look, points: {con, pow, eye, spd, arm}, nameDraw, train }
  *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw, train, pitches }.
  * pitches (#378 part 2, optional): the pitcher's starter list, names from CREATE.pitches (the engine's PITCH_TYPES),
  * 1 to CREATE.starterPitches of them, no repeats, always with the fastball CREATE.pitches[0]. Each starts at his stuff
@@ -22,6 +22,10 @@
  * role (#378): SP 先發, MR 中繼, RP 後援, CL 終結. The engine starts an SP and puts every other role in the bullpen.
  * train (#369, optional): the daily training split, whole percents over the same ability keys, sum 100
  * (league/training.js); left out = defaultSplit (by pitcher role, even for batters). It is stored on the player as `train`.
+ * body + ht (#442, instead of build): the body mix as whole percents { slim, power, heavy } (each 0 to 100, sum at most
+ * 100, so the mix stays the one MakeHuman blends) and the height in whole centimetres, as metres, inside CREATE.htRange.
+ * Stored on the player as weights (percent / 100) and ht. Exactly one of `build` (a preset, drawn height) or `body` + `ht`.
+ * Nothing here reads the body: display points and games do not depend on it (rule 10).
  * The points are spent in full (sum = the budget of the kind), each between FLOOR and CAP. Potential, age, height
  * and shirt number are not chosen: they are drawn from the seed (potential is the luck people talk about).
  * Nothing here touches ROSTERS: a created player reaches a game only through a roster given to the engine (rule 10). */
@@ -56,6 +60,10 @@ export const CREATE = {
     power: { body: { slim: 0, power: 0.7, heavy: 0 }, ht: [1.78, 1.90] },
     heavy: { body: { slim: 0, power: 0.5, heavy: 0.7 }, ht: [1.78, 1.92] },
   },
+  /* #442 body sliders: the height range of the builds above (min to max), the most a body mix may add up to */
+  htRange: [1.72, 1.92],
+  bodyKeys: ['slim', 'power', 'heavy'],
+  bodyMax: 100,
   /* look: whole numbers, checked by range only; the render window decides what each number draws */
   look: { head: [0, 7], skin: [0, 5], hair: [0, 9] },
   keys: { bat: Object.keys(BAT_WEIGHTS), pit: Object.keys(PIT_WEIGHTS) },
@@ -128,6 +136,14 @@ export function drawName(seed, n) {
   throw new Error(`no free name for seed ${seed}, draw ${n}`);
 }
 
+/* a preset build as slider percents (a mix over bodyMax is scaled down to it): what the sliders show for that preset */
+export function presetBody(build) {
+  const B = CREATE.builds[build] || CREATE.builds.normal, raw = Object.fromEntries(CREATE.bodyKeys.map(k => [k, Math.round((B.body[k] || 0) * 100)]));
+  const sum = CREATE.bodyKeys.reduce((t, k) => t + raw[k], 0), f = sum > CREATE.bodyMax ? CREATE.bodyMax / sum : 1;
+  return Object.fromEntries(CREATE.bodyKeys.map(k => [k, Math.floor(raw[k] * f)]));
+}
+export const presetHt = build => { const [a, b] = (CREATE.builds[build] || CREATE.builds.normal).ht; return Math.round((a + b) / 2 * 100) / 100; };
+
 const isWhole = x => Number.isInteger(x);
 const inRange = (x, [a, b]) => isWhole(x) && x >= a && x <= b;
 const sameKeys = (o, keys) => o && typeof o === 'object' && Object.keys(o).length === keys.length && keys.every(k => k in o);
@@ -136,12 +152,20 @@ export function validateCreate(c) {
   const out = [], C = CREATE;
   if (!c || typeof c !== 'object') return ['no choice given'];
   if (!C.kinds.includes(c.kind)) return [`kind must be one of ${C.kinds.join(', ')}`];
-  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'look', 'points', 'nameDraw', 'train', ...(bat ? [] : ['pitches'])];
+  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'body', 'ht', 'look', 'points', 'nameDraw', 'train', ...(bat ? [] : ['pitches'])];
   for (const k of Object.keys(c)) if (!allowed.includes(k)) out.push(`unknown field ${k}`);
   if (bat && !C.positions.includes(c.pos)) out.push(`position must be one of ${C.positions.join(', ')}`);
   if (!bat && !C.roles.includes(c.role)) out.push(`role must be one of ${C.roles.join(', ')}`);
   if (!C.hands.includes(bat ? c.bats : c.throws)) out.push(`${bat ? 'bats' : 'throws'} must be L or R`);
-  if (!(c.build in C.builds)) out.push(`build must be one of ${Object.keys(C.builds).join(', ')}`);
+  const custom = c.body !== undefined || c.ht !== undefined;
+  if (custom) {
+    if (c.build !== undefined) out.push('give a build or a body with a height, not both');
+    const bk = C.bodyKeys, bodyOk = sameKeys(c.body, bk) && bk.every(k => inRange(c.body[k], [0, C.bodyMax]));
+    if (!bodyOk) out.push(`body must hold exactly ${bk.join(', ')}, each a whole percent from 0 to ${C.bodyMax}`);
+    else if (bk.reduce((t, k) => t + c.body[k], 0) > C.bodyMax) out.push(`body adds up to more than ${C.bodyMax} percent`);
+    const cm = [C.htRange[0] * HT_STEP, C.htRange[1] * HT_STEP].map(Math.round);
+    if (!(typeof c.ht === 'number' && isWhole(Math.round(c.ht * HT_STEP)) && Math.abs(c.ht * HT_STEP - Math.round(c.ht * HT_STEP)) < 1e-6 && Math.round(c.ht * HT_STEP) >= cm[0] && Math.round(c.ht * HT_STEP) <= cm[1])) out.push(`ht must be whole centimetres from ${C.htRange[0]} to ${C.htRange[1]} m`);
+  } else if (!(c.build in C.builds)) out.push(`build must be one of ${Object.keys(C.builds).join(', ')}`);
   const lk = Object.keys(C.look);
   if (!sameKeys(c.look, lk)) out.push(`look must hold exactly ${lk.join(', ')}`);
   else for (const k of lk) if (!inRange(c.look[k], C.look[k])) out.push(`look.${k} must be a whole number from ${C.look[k][0]} to ${C.look[k][1]}`);
@@ -179,9 +203,10 @@ export function makePlayer(seed, c) {
   const why = validateCreate(c);
   if (why.length) throw new Error(`invalid choice: ${why.join('; ')}`);
   seed >>>= 0;
-  const r = rng(seed), pit = c.kind === 'pit', B = CREATE.builds[c.build];
+  const r = rng(seed), pit = c.kind === 'pit', B = CREATE.builds[c.build] || CREATE.builds.normal;
   const age = between(r, AGE), num = between(r, NUM);
-  const ht = between(r, B.ht.map(h => Math.round(h * HT_STEP))) / HT_STEP;
+  const drawn = between(r, B.ht.map(h => Math.round(h * HT_STEP))) / HT_STEP;   /* always drawn, so a chosen height leaves the other draws (potential) as they were */
+  const custom = !c.build, ht = custom ? Math.round(c.ht * HT_STEP) / HT_STEP : drawn;
   const pot = potDraw(r(), r());
   const raw = (k, d) => ratingsOf.raw(pit, k, d);
   const p = { id: `fa-${seed.toString(36)}`, name: drawName(seed, c.nameDraw || 0), num };
@@ -193,6 +218,6 @@ export function makePlayer(seed, c) {
   }
   if (pit && c.pitches) p.pitches = Object.fromEntries(CREATE.pitches.filter(n => c.pitches.includes(n)).map(n => [n, c.points.stuff]));
   const tk = trainKeys(c.kind, pit && c.pitches ? Object.keys(p.pitches) : null), split = c.train || defaultSplit(c.kind, c.role, pit && c.pitches ? Object.keys(p.pitches) : null);
-  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(tk.map(k => [k, split[k]])) });
+  Object.assign(p, { body: custom ? Object.fromEntries(CREATE.bodyKeys.map(k => [k, c.body[k] / 100])) : { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(tk.map(k => [k, split[k]])) });
   return { player: p, ratings: ratingsOf(p) };
 }
