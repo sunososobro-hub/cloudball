@@ -864,17 +864,17 @@ export function buildHeight(build) {
 }
 
 /* Cap / batting helmet fitted to the head. Coordinates = neck-bone local (at rest = model coordinates - J.neck) */
-/* #559: hair under the cap for one head index: an open ring around the back and sides from the cap band down `depth`, sideburns, a puff or a tail.
+/* #559: hair under the cap for one head index (neck-local like the cap: model coordinates minus J.neck): an open ring around the back and sides from the cap band down `depth`, sideburns, a puff or a tail.
    Model coordinates like the cap; the shared unit shapes are scaled per mesh, so a style costs a few draw calls and no new geometry. */
 const HAIR_ARC = [Math.PI / 3, Math.PI * 4 / 3];   /* theta from straight ahead: back and sides only, the face stays clear */
 let HAIR_RING = null, HAIR_BALL = null;
 function hairMeshes(A, style, mat) {
   const S = HAIR_STYLES[style] || HAIR_STYLES[0], out = []; if (!S.depth && !S.side) return out;
   HAIR_RING = HAIR_RING || new THREE.CylinderGeometry(1, 1, 1, 24, 1, true, HAIR_ARC[0], HAIR_ARC[1]); HAIR_BALL = HAIR_BALL || new THREE.SphereGeometry(1, 12, 8);
-  const hb = A.head, eyeY = A.J.eyeL[1], cx = (hb.x0 + hb.x1) / 2, cz = (hb.z0 + hb.z1) / 2, ra = (hb.x1 - hb.x0) / 2, rz = (hb.z1 - hb.z0) / 2, top = eyeY + .012;
-  const ring = (depth, k = 1) => { const m = new THREE.Mesh(HAIR_RING, mat); m.scale.set(ra + S.pad * k, depth, rz + S.pad * k); m.position.set(cx, top - depth / 2, cz); out.push(m) };
+  const hb = A.head, N = A.J.neck, eyeY = A.J.eyeL[1], cx = (hb.x0 + hb.x1) / 2, cz = (hb.z0 + hb.z1) / 2, ra = (hb.x1 - hb.x0) / 2, rz = (hb.z1 - hb.z0) / 2, top = eyeY + .012;
+  const ring = (depth, k = 1) => { const m = new THREE.Mesh(HAIR_RING, mat); m.scale.set(ra + S.pad * k, depth, rz + S.pad * k); m.position.set(cx - N[0], top - depth / 2 - N[1], cz - N[2]); out.push(m) };
   if (S.depth) ring(S.depth);
-  const ball = (r, x, y, z) => { const m = new THREE.Mesh(HAIR_BALL, mat); m.scale.set(r[0], r[1], r[2]); m.position.set(x, y, z); out.push(m) };
+  const ball = (r, x, y, z) => { const m = new THREE.Mesh(HAIR_BALL, mat); m.scale.set(r[0], r[1], r[2]); m.position.set(x - N[0], y - N[1], z - N[2]); out.push(m) };
   for (const sx of [-1, 1]) if (S.side) ball([.014 + S.pad * .4, S.side / 2, .03], cx + sx * (ra + S.pad * .5), eyeY + .012 - S.side / 2, cz + .004);   /* Sideburn in front of the ear */
   if (S.name === 'curly') ball([ra + S.pad, .05, rz + S.pad], cx, top - .01, cz - .004);
   if (S.tail) ball([.028, S.tail / 2, .028], cx, eyeY + .01 - S.tail / 2, hb.z0 - .012);

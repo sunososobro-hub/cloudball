@@ -43,7 +43,7 @@ const rows = nine.map((p, i) => { const f = makePlayer({ jersey: 0x2f7fc4, head:
   f.setBuild('normal', undefined, h); f.g.position.set(X0 + i * SPACING, 0, 0); 
   const d = document.createElement('div'); d.className = 'lbl'; d.innerHTML = `<b>${p.id.split('-').pop()}</b>${HAIR_STYLES[hairStyleOf(h)].name ?? hairStyleOf(h)}`; document.body.appendChild(d);
   return { f, d, x: X0 + i * SPACING, style: HAIR_STYLES[hairStyleOf(h)].name ?? String(hairStyleOf(h)) } });
-window.SHEET = nine.map((p, i) => ({ id: p.id, name: p.name, style: rows[i].style }));
+window.ROWS = rows; window.SHEET = nine.map((p, i) => ({ id: p.id, name: p.name, style: rows[i].style }));
 $('info').textContent = `${team}: ${window.SHEET.map(r => r.id.split('-').pop() + ' ' + r.style).join(' · ')}`;
 const v = new THREE.Vector3();
 function resize() { renderer.setSize(innerWidth, innerHeight, false); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix() }
