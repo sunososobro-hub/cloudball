@@ -19,7 +19,8 @@ for(let i=0;i<200;i++){
   const id='p'+i, h=headOf(id);
   if(headOfPlayer({id})!==h)bad.push(`${id}: a factory row (no look) changed`);
   if(headOfPlayer({id,look:{}})!==h)bad.push(`${id}: an empty look changed the head index`);
-  for(const [head,skin,hair] of [[0,0,0],[HS-1,1,HAIR_TONES.length-1],[3,2,2],[HS+2,SK+1,HAIR_TONES.length+1]]){
+  if(headOfPlayer({id,look:{head:0,skin:0,hair:0}})!==h)bad.push(`${id}: an untouched look {0,0,0} must keep his id-derived head index (#541)`);
+  for(const [head,skin,hair] of [[0,1,0],[HS-1,1,HAIR_TONES.length-1],[3,2,2],[HS+2,SK+1,HAIR_TONES.length+1]]){
     const g=headOfPlayer({id,look:{head,skin,hair}}), a=gearOf(h), b=gearOf(g); n++;
     if(shapeOf(g)!==head%HS)bad.push(`${id}: shape ${shapeOf(g)} for look.head ${head}`);
     if(mapOf(g)!==skin%SK)bad.push(`${id}: skin map ${mapOf(g)} for look.skin ${skin}`);
@@ -30,7 +31,7 @@ for(let i=0;i<200;i++){
 }
 /* two different values of each option give different head indexes */
 for(const [k,max] of [['head',HS],['skin',SK],['hair',HAIR_TONES.length]]){
-  const seen=new Set();for(let v=0;v<max;v++)seen.add(headOfPlayer({id:'x',look:{head:0,skin:0,hair:0,[k]:v}}));
+  const seen=new Set();for(let v=0;v<max;v++)seen.add(headOfPlayer({id:'x',look:{head:1,skin:1,hair:1,[k]:v}}));
   if(seen.size!==max)bad.push(`look.${k}: ${max} values give ${seen.size} head indexes`);
 }
 if(bad.length){console.error('FAIL look_map:\n - '+[...new Set(bad)].slice(0,15).join('\n - '));process.exit(1)}

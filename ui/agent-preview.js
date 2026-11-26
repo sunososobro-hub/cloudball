@@ -53,9 +53,10 @@ export function makePreview(host) {
     const draw = () => { pivot.rotation.y = yaw; renderer.render(scene, camera); };
 
     const dress = s => {
-      if (!f || kind !== s.kind || hairIx !== hairOf(s.hair)) {   /* #441: the hair colour is a material of the figure, so a new pick builds it again (geometry is cached) */
+      const hx = PL.headOfPlayer({ id: s.id ?? 'draw:' + (s.seed ?? ''), look: { head: s.head, skin: 0, hair: s.hair } }), hIx = PL.gearOf(hx).hair;   /* #541: chips untouched = the look hashed from his id, as in the game */
+      if (!f || kind !== s.kind || hairIx !== hIx) {   /* #441: the hair colour is a material of the figure, so a new pick builds it again (geometry is cached) */
         if (f) { pivot.remove(f.g); bat = null; }   /* body geometry is cached in players.js, so nothing to free */
-        kind = s.kind; hairIx = hairOf(s.hair);
+        kind = s.kind; hairIx = hIx;
         const batter = s.kind === 'bat';
         f = PL.makePlayer({ jersey: JERSEY, pants: PANTS, sock: JERSEY, skin: SKIN, hair: PL.HAIR_TONES[hairIx], head: 'cap', role: batter ? 'batter' : undefined, throws: 'R', glove: !batter, parent: pivot });
         if (f.glove) f.glove.traverse(m => { if (m.isMesh) m.material = new THREE.MeshStandardMaterial({ color: LEATHER, roughness: 0.6 }); });
@@ -63,7 +64,7 @@ export function makePreview(host) {
           bat = PL.makeBat(BAT_COLOR); f.sockets.handR.add(bat); bat.rotation.x = BAT_GRIP_X; f.arms[1].rotation.x = BAT_ARM_X;
         }
       }
-      f.setBuild(s.body, s.ht, headOf(s.head));
+      f.setBuild(s.body, s.ht, hx);
       if (s.kind === 'bat') f.g.scale.x = s.hand === 'L' ? -1 : 1; else f.setThrows(s.hand === 'L' ? 'L' : 'R');
       f.setNum(s.num); ht = s.ht; fit();
     };
