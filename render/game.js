@@ -413,16 +413,19 @@ function updateBlades(){const cp=camera.getWorldPosition(_cw),dir=camera.getWorl
 /* ---------- Post-processing: AO (contact shadows) + bloom + vignette + FXAA; lightweight version for the WebGL fallback or phones ---------- */
 const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend))&&!/Mobi|Android/i.test(navigator.userAgent);
 let PP=null;
+let MB_SAMPLES=8;/* from render/mblur.js once loaded */
 const dofU={};/* uniforms of the depth-of-field pass (#211 item 4); filled by dofInit once TSL is there, driven by dofFrame */
 try{const {uniform}=TSL;dofU.focus=uniform(1);dofU.len=uniform(1);dofU.scale=uniform(0)}catch(e){console.warn('dof uniforms',e)}
+const mbU={};/* uniforms of the motion-blur pass (#211 item 4, render/mblur.js); driven by mbFrame */
+try{const {uniform}=TSL;mbU.scale=uniform(0);mbU.cap=uniform(.02)}catch(e){console.warn('mb uniforms',e)}
 /* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
    fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
-const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r'],['dof','d']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgrd' = all four, '-' = not loaded or ?off= */
+const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r'],['dof','d'],['motionBlur','m']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgrdm' = all five, '-' = not loaded or ?off= */
 /* #267: side targets blend like the material (opaque: no blending, as before), so a see-through overlay can leave the ground's normal, albedo
    and velocity under it by writing alpha 0 there (contact shadows, csMrt). Outputs with alpha 1 (normalView, velocity) still replace. */
 const MRT_KEEP=['normal','diffuse','velocity'];
-function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4,diffuseColor,metalness,roughness,step,blendColor}=TSL;
-  const key=fxKey(),mx=key[0]==='t',gi=key[1]==='g',sr=key[2]==='r',df=key[3]==='d',pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx||HQ?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass. #236 A1: so do GTAO and SSGI (their textureGather needs a single-sample depth; on a real GPU a multisampled one failed renderPipeline_GTAO every frame); FXAA covers the edges */
+function setupPost(){try{const {int,pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4,diffuseColor,metalness,roughness,step,blendColor}=TSL;
+  const key=fxKey(),mx=key[0]==='t',gi=key[1]==='g',sr=key[2]==='r',df=key[3]==='d',mb=mx&&key[4]==='m',pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx||HQ?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass. #236 A1: so do GTAO and SSGI (their textureGather needs a single-sample depth; on a real GPU a multisampled one failed renderPipeline_GTAO every frame); FXAA covers the edges */
   if(HQ){/* WebGPU allows 32 colour bytes per pixel (four 8-byte targets), so the SSR inputs ride in spare channels: normal.a = gloss mask
       (SSR's metalness input: 0, skipped, unless the surface is smoother than MAX_SSR_ROUGH: helmets, wet or polished props), diffuse.a = roughness */
     const ch={output,normal:sr?vec4(normalView,step(roughness,float(MAX_SSR_ROUGH)).mul(metalness.max(MAX_SSR_F0))):normalView};if(mx)ch.velocity=velocity;
@@ -437,6 +440,7 @@ function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,len
     if(sr){const r=FX.ssr(sp.getTextureNode('output'),dep,nor,{metalnessNode:nor.a,roughnessNode:sp.getTextureNode('diffuse').a,camera});
       r.resolutionScale=MAX_SSR_RES;r.maxDistance.value=MAX_SSR_DIST;r.thickness.value=MAX_SSR_THICK;r.quality.value=MAX_SSR_Q;c=blendColor(c,r)}
     if(df)c=FX.dof(c,sp.getViewZNode('depth'),dofU.focus,dofU.len,dofU.scale);/* #211 item 4: scale 0 outside the tight and plate shots = pass-through */
+    if(mb){const v=sp.getTextureNode('velocity').xy.mul(mbU.scale);c=FX.motionBlur(c,v.mul(mbU.cap.div(length(v).max(mbU.cap))),int(MB_SAMPLES))}/* #211 item 4: scale 0 outside the shots = pass-through; streak capped */
     if(mx)c=FX.traa(c,dep,sp.getTextureNode('velocity'),camera)}
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
@@ -458,7 +462,7 @@ let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
 if(window.PL&&PL.SKIN)PL.SKIN.on=()=>gfxMax;/* #207: the real skin maps follow max (players.js polls it; nothing extra loads while max is off) */
 const maxSave=v=>{maxWish=v;try{localStorage.setItem('zu_max',v?'1':'0')}catch(e){}};
 /* the max modules are fetched only when max is on; each one may fail alone (max then keeps FXAA / GTAO / no reflections). ?off=traa,ssgi,ssr skips one on dev; a skipped one is not fetched */
-const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode'],['dof','DepthOfFieldNode']];
+const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode'],['dof','DepthOfFieldNode'],['motionBlur','MotionBlur']];
 const maxLoad=()=>Promise.all(MAX_MODS.map(([k,f])=>FX[k]||OFF.has(k)?0:import(`three/addons/tsl/display/${f}.js`).then(m=>{FX[k]=m[k]}).catch(e=>console.warn(`${f} failed to load; max goes on without it`,e))));
 /* image-based light: the sky mesh is drawn alone into a PMREM. One entry point: applySky (#203 park skies) calls skyEnv() again after it changes the sky. */
 let skyEnvRT=null;
@@ -1777,6 +1781,9 @@ let dofM=null;import(new URL('dof.js',document.currentScript&&document.currentSc
 function dofFrame(tw,pw){if(!dofM||!dofU.scale)return;let d=0;if(gfxMax){const t=pw>=dofM.DOF_MIN_W&&platecamM?_dofT.set(...platecamM.PLATE_AIM):tw>0?batter.g.position:null;if(t)d=rig.position.distanceTo(t)}
   const p=dofM.dofParams(gfxMax?tw:0,gfxMax?pw:0,d);dofU.focus.value=p.focus;dofU.len.value=p.length;dofU.scale.value=p.scale}
 const _dofT=new THREE.Vector3();
+/* #211 item 4: per-object motion blur (bat, arm, ball) on the same two shots, max only; render/mblur.js is pure, a frame over MB_MAX_DT is a jump and gets none */
+let mbM=null;import(new URL('mblur.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{mbM=M;MB_SAMPLES=M.MB_SAMPLES}).catch(err=>console.warn('motion blur off',err));
+function mbFrame(tw,pw,dt){if(!mbM||!mbU.scale)return;const p=mbM.mbParams(gfxMax?tw:0,gfxMax?pw:0,dt);mbU.scale.value=p.scale;mbU.cap.value=p.cap}
 function fitKey(on){if(!keyfitM)return;on=on&&gfxMax;if(!on&&!keyTight)return;const f=keyfitM.keyFit(on?batter.g.position:null),c=key.shadow.camera;keyTight=on;key.target.position.set(...f.target);key.position.set(...f.position);Object.assign(c,{left:-f.half,right:f.half,top:f.half,bottom:-f.half});c.updateProjectionMatrix();key.target.updateMatrixWorld()}
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
@@ -1801,7 +1808,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
   const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
   if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
-  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw)}
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw);mbFrame(tw,pw,dt)}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(isEditing())return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
@@ -2103,7 +2110,7 @@ function tierHudInit(){if(!IS_DEV||tierHud!==null)return;tierHud=false;let on=tr
   ($('tag')||document.body).appendChild(el);tierHud=el}
 function tierHudText(){if(tierHud===null)tierHudInit();if(!tierHud)return;
   const t=gfxMax?'畫質 max':`畫質 ${gfxTier}/${TIER_MAX}${maxWish&&!gfxTier?'（最高沒開）':''}`;tierHud.textContent=t;
-  tierHud.title=`${gfxMax?`max: ${PP?PP.fx||'-':'no post'} (t TRAA, g SSGI, r SSR; - = off)`:`0 = 最好、${TIER_MAX} = 最省`}・點一下收起來`}
+  tierHud.title=`${gfxMax?`max: ${PP?PP.fx||'-':'no post'} (t TRAA, g SSGI, r SSR, d DoF, m motion blur; - = off)`:`0 = 最好、${TIER_MAX} = 最省`}・點一下收起來`}
 function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',`${gfxTier}@${Date.now()}`)}catch(e){}
   renderer.setPixelRatio(gfxMax?devicePixelRatio:Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
