@@ -253,6 +253,13 @@ export const PR_MIN_INNING = 8;           /* asked only from this inning on, for
 export const PR_EDGE = 0.15;              /* asked only when the fastest bench man's spd is this much higher (bench x3 runners ~1.3 vs ~0.95) */
 export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runner only within this many runs */
 export const PR_DUR = 8;                  /* seconds of the pinch-run frame (jog out from the dugout) */
+/* defensive replacement (#436 part 7, off: factory games byte for byte); simGame opts.defSub overrides */
+export const DEF_SUB_ON = false;
+export const DS_MIN_INNING = 8;           /* asked only from this inning on, at the start of the half the leading team fields */
+export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
+export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
+export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */
+export const DS_DUR = 8;                  /* seconds of the defensive-replacement frame (jog out to the position) */
 export const BUNT_POW_MAX = 1.0;
 export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;
