@@ -782,6 +782,8 @@ export const HAIR_STYLES = [
   { name: 'ponytail', share: .07, depth: .035, side: .03, pad: .012, tail: .15 },
 ];
 const GEAR_SPAN = Object.values(GEAR_SHARES).reduce((n, a) => n * a.length, 1);   /* wrist x elbow x eye x glove x hair x leg */
+/* #559 part 4: the hair material colour of one head index (the same on every pack; the style meshes and the max pack's facial hair read it) */
+export const hairColorOf = head => HAIR_TONES[gearOf(head).hair];
 export const hairStyleOf = head => Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS * GEAR_SPAN)) % HAIR_STYLES.length;
 export const gearOf = head => { let g = Math.floor((head | 0) / (HEAD_SHAPES.length * SKIN_KEYS.length * FACE_LOOKS)); const W = GEAR_SHARES.wrist.length, E = GEAR_SHARES.elbow.length;
   const Y = GEAR_SHARES.eye.length, L = GEAR_SHARES.glove.length;
@@ -1240,7 +1242,7 @@ function makeRealPlayer(opts, A) {
     setThrows(t) { if (opts.role === 'batter' || t === f.throws) return; f.throws = throws = t; f.mirrored = mirrored = t === 'R'; mir.scale.x = mirrored ? -1 : 1 },
     /* Change build: same skeleton (joint points are identical across builds), swap the geometry (cached), rebuild the cap for the new head, scale to that build's height */
     setBuild(build, height, head = 0) { const k = buildKey(build) + ':' + (height || '') + ':' + head; f.buildArgs = [build, height, head]; if (f.buildKey === k) return; f.buildKey = k;
-      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); gearHead = head; putHair(head); placeArmGear(); placeLegStyle(); if (ownHair) hair.color.setHex(HAIR_TONES[gearOf(head).hair]); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
+      f.applySkin(); A = realAsset(build, head); mesh.geometry = A.geo; putHead(headKind); placeDeco(); placeGear(); gearHead = head; putHair(head); placeArmGear(); placeLegStyle(); if (ownHair) hair.color.setHex(hairColorOf(head)); bd.h = height || buildHeight(build); f.k = bd.h / REF_H; body.scale.setScalar(f.k) },
   };
   f.buildKey = buildKey(opts.build || 'normal') + ':' + (opts.height || '') + ':0'; f.buildArgs = [opts.build || 'normal', opts.height, 0];
   /* #207: the skin slot follows SKIN.full and the map of this head index; rebuild = same build again on the new (UV) pack */

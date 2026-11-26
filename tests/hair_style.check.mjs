@@ -11,7 +11,7 @@ const src=readFileSync(path.join(ROOT,'render/players.js'),'utf8')
   .replace(/from '\.\.\/league\/players\.js'/,`from '${pathToFileURL(path.join(ROOT,'league/players.js')).href}'`);
 const dir=mkdtempSync(path.join(tmpdir(),'hairstyle-')),file=path.join(dir,'players_stub.mjs');
 let M; try{writeFileSync(file,src);M=await import(pathToFileURL(file).href)}finally{rmSync(dir,{recursive:true,force:true})}
-const {hairParts,headOf,headOfPlayer,gearOf,hairStyleOf,HAIR_STYLES,HAIR_TONES,HEAD_SHAPES}=M, HS=HEAD_SHAPES.length;
+const {hairColorOf,hairParts,headOf,headOfPlayer,gearOf,hairStyleOf,HAIR_STYLES,HAIR_TONES,HEAD_SHAPES}=M, HS=HEAD_SHAPES.length;
 const {ROSTERS}=await import(pathToFileURL(path.join(ROOT,'league/players.js')).href);
 if(HAIR_STYLES.length<4)bad.push('only '+HAIR_STYLES.length+' hair styles (need >= 4)');
 const share=HAIR_STYLES.reduce((n,s)=>n+s.share,0);if(Math.abs(share-1)>1e-9)bad.push('style shares sum to '+share);
@@ -34,6 +34,10 @@ const q={id:'x1'},q2={id:'x1',look:{hair:2}};if(hairStyleOf(headOfPlayer(q))!==h
   if(!S.depth&&!S.side){if(P.length)bad.push(S.name+': bald draws '+P.length+' parts');continue}
   if(!P.length)bad.push(S.name+': no parts');
   for(const q of P){const [x,y,z]=q.p;if(Math.abs(x)>.12||y<.0||y>.2||z<-.2||z>.12)bad.push(`${S.name}: part at ${q.p.map(v=>v.toFixed(3))} is off the head (neck-local)`)}}}
+/* Part 4: hair colour per player: every team shows >= 3 colours, each from HAIR_TONES, stable */
+for(const R of ROSTERS){const cols=new Set();for(const p of [...(R.bat||[]),...(R.pit||[])].filter(p=>p&&p.id!=null)){const h=headOfPlayer(p),c=hairColorOf(h);
+  if(!HAIR_TONES.includes(c))bad.push(p.id+': hair colour not from HAIR_TONES');if(hairColorOf(headOfPlayer(p))!==c)bad.push(p.id+': hair colour not stable');cols.add(c)}
+  if(cols.size<3)bad.push(`${R.id||R.name||'team'}: only ${cols.size} hair colours on the roster (need >= 3)`)}
 if(process.argv.includes('--table')){const R=ROSTERS[0];for(const p of (R.bat||[]).slice(0,9))console.log(p.id,p.name,HAIR_STYLES[hairStyleOf(headOfPlayer(p))].name)}
 if(bad.length){console.error('FAIL hair_style:\n - '+[...new Set(bad)].slice(0,15).join('\n - '));process.exit(1)}
 console.log(`hair_style ok: ${HAIR_STYLES.length} styles, ${n} players each with one, every team shows >= 4`);
