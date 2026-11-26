@@ -161,6 +161,12 @@ export const STRETCH_1B_P = 0.03;
  * a game between both teams; only some of those are bobbles on a single). */
 export const OF_BOBBLE_1B_P = 0.012;
 export const OF_BOBBLE_TIME = 1.6;
+/* Advancing on an error (#38): a reached-on-error ground ball to an infielder other than the first baseman is a wild
+ * throw past first with this chance: the ball ends WILD_THROW_PAST metres (x, z) beyond the bag in foul territory, the
+ * batter takes second and every runner two bases. First guess, not tuned (MLB infield errors split roughly evenly
+ * between fielding and throwing errors; not every bad throw gets past the first baseman). */
+export const WILD_THROW_SHARE = 0.4;
+export const WILD_THROW_PAST = [6, 6];
 export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */

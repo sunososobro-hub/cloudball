@@ -16,6 +16,7 @@ import path from 'node:path';
 import { TEAMS } from '../teams.js';
 import { ROSTERS } from '../players.js';
 import { ratingsOf } from '../ratings.js';
+import { CREATE, makePlayer } from '../freeagents.js';
 import { parseRecording } from '../recording.js';
 
 const LEAGUE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,6 +30,30 @@ export const CITY_CHARS = 2;
 export const RECORDED_GAMES = [
   { id: 'preseason-opening', file: 'league/preseason/opening.json', date: '2026-11-21' },
 ];
+
+/* #437 part 4: the 二軍 of the static data site is filled with 系統 players until real fans replace them (the store's
+ * fillers are the free market; the site cannot read the store). SYSTEM_SECOND_PER_KIND per team and kind, an even spread of
+ * the creation budget, positions / roles cycled, names unique in the whole league. No clock, no RNG outside makePlayer's seed. */
+export const SYSTEM_SECOND_PER_KIND = 3, SYSTEM_SECOND_SEED = 437;
+const mixSeed = (...n) => n.reduce((h, x) => Math.imul(h ^ (x >>> 0), 0x9e3779b1) >>> 0, 0x811c9dc5);
+export function systemSecond(teams = TEAMS, rosters = ROSTERS) {
+  const taken = new Set(rosters.flatMap(r => [...r.bat, ...r.pit].map(p => p.name))), out = {};
+  teams.forEach((t, ti) => {
+    out[t.id] = [];
+    for (const kind of CREATE.kinds) for (let i = 0; i < SYSTEM_SECOND_PER_KIND; i++) {
+      const keys = CREATE.keys[kind], per = CREATE.budget[kind] / keys.length, look = { head: 0, skin: 0, hair: 0 };
+      const points = Object.fromEntries(keys.map(k => [k, per]));
+      const c = kind === 'bat' ? { kind, pos: CREATE.positions[i % CREATE.positions.length], bats: 'R', build: 'normal', look, points }
+        : { kind, role: CREATE.roles[i % CREATE.roles.length], throws: 'R', build: 'normal', look, points };
+      const seed = mixSeed(SYSTEM_SECOND_SEED, ti, kind === 'bat' ? 2 : 3, i);
+      let made;
+      for (let n = 0; ; n++) { made = makePlayer(seed, { ...c, nameDraw: n }); if (!taken.has(made.player.name)) break; }
+      taken.add(made.player.name);
+      out[t.id].push({ ...made.player, system: true });
+    }
+  });
+  return out;
+}
 
 /* buildSite({ teams, rosters, rate, games, second, free }) -> { teams, players, games } (plain objects, ready for JSON).
  * second: { teamId: [player in the roster format of league/players.js] } (二軍); free: [player] (free agents).
@@ -99,7 +124,7 @@ export function validateSite({ teams, players, games }) {
 /* The three files as text, exactly as written. */
 export function siteFiles(root = path.resolve(LEAGUE, '..')) {
   const games = RECORDED_GAMES.map(g => ({ ...g, rec: parseRecording(readFileSync(path.join(root, g.file), 'utf8')) }));
-  const site = buildSite({ games });
+  const site = buildSite({ games, second: systemSecond() });
   return Object.fromEntries(Object.entries(site).map(([k, v]) => [`${k}.json`, JSON.stringify(v, null, 2) + '\n']));
 }
 
