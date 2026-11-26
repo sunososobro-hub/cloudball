@@ -110,6 +110,13 @@ const rig=new THREE.Group();rig.add(camera);scene.add(rig);
 const hemi=new THREE.HemisphereLight(LC(0x9fb4e6),LC(HEMI_GROUND),HEMI_I);scene.add(hemi);
 const key=new THREE.DirectionalLight(LC(0xfff1dc),KEY_I);key.position.set(-45,85,35);key.target.position.set(0,0,-38);scene.add(key,key.target);
 key.castShadow=true;Object.assign(key.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:10,far:260});key.shadow.mapSize.set(2048,2048);key.shadow.bias=-.0004;key.shadow.normalBias=.03;key.shadow.intensity=KEY_SHADOW_I;
+/* #211 item 2: the tight key shadow, max only (render/shadowtight.js): same direction as the key, a 28 m shadow box that follows the shot's aim point */
+const keyT=new THREE.DirectionalLight(LC(0xfff1dc),0);keyT.visible=false;keyT.castShadow=false;scene.add(keyT,keyT.target);
+Object.assign(keyT.shadow.camera,{left:-14,right:14,top:14,bottom:-14,near:10,far:260});keyT.shadow.bias=-.0004;keyT.shadow.normalBias=.015;keyT.shadow.intensity=KEY_SHADOW_I;
+let TIGHT=null,tightOn=false,skyKeyI=KEY_I,tightAim=[0,-38];
+function keySplit(){const [w,t]=TIGHT?TIGHT.splitKey(skyKeyI,tightOn):[skyKeyI,0];key.intensity=w;keyT.intensity=t;keyT.color.copy(key.color)}
+function tightApply(sh){tightOn=sh&&gfxMax&&!!TIGHT&&!OFF.has('tight');keyT.visible=tightOn;keyT.castShadow=tightOn;keyT.shadow.mapSize.set(MAX_SHADOW_MAP,MAX_SHADOW_MAP);keyT.shadow.radius=MAX_SHADOW_RADIUS;keySplit();tightPlace()}
+function tightPlace(){if(!tightOn||!TIGHT)return;const [cx,cz]=TIGHT.tightCenter(tightAim[0],tightAim[1]);keyT.target.position.set(cx,0,cz);keyT.position.set(cx+key.position.x-key.target.position.x,key.position.y-key.target.position.y,cz+key.position.z-key.target.position.z)}
 const fill=new THREE.DirectionalLight(LC(0xd6e2ff),FILL_I);fill.position.set(60,55,-110);scene.add(fill);
 /* sky dome */
 const skyU={horizon:TSL.uniform(new THREE.Vector3(...SKY_HORIZON)),zenith:TSL.uniform(new THREE.Vector3(...SKY_ZENITH)),glow:TSL.uniform(new THREE.Vector3(...SKY_GLOW)),beam:TSL.uniform(BEAM_DEFAULT)};
@@ -670,6 +677,8 @@ let skyCur=SKIES.night;
 for(const k in SKIES)SKIES[k].mood=k;
 let GRADE=null,csSoft={r:1,a:1};/* #209 item 4: contact-shadow widen/soften per sky, from grade.js softOf */
 /* #208 item 3: cloud shadows (render/cloud.js constants; loaded once). One flat dark overlay over the field: no extra pass, no download. Tiers 0-1 and max (envOn); strength by the sky's lamp value; time = curT() so a seek matches playing. */
+/* #211 item 2: the tight key shadow module loads only on the dev site with max wished (no download otherwise); setTier(0) again turns it on once it is here */
+if(maxWish)import(new URL('shadowtight.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{TIGHT=M;if(gfxMax&&tierSig!==null){tightApply(renderer.shadowMap.enabled);if(tightOn){tierSig=tierSig.replace(/\|false$/,'|true');scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});if(warmStarted)warmUp()}}}).catch(err=>console.warn('tight shadow off',err));
 let CLOUD=null;const cloudU={t:TSL.uniform(0),k:TSL.uniform(0)};let cloudMesh=null;
 function cloudSet(){if(!cloudMesh||!CLOUD)return;const k=OFF.has('cloud')?0:CLOUD.strengthOf(skyCur.lamp);cloudU.k.value=k;cloudMesh.visible=envOn&&k>0}
 import(new URL('cloud.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{CLOUD=M;
@@ -678,7 +687,7 @@ import(new URL('cloud.js',document.currentScript&&document.currentScript.src||lo
   const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,fog:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   m.colorNode=vec3(0,0,0);m.opacityNode=smoothstep(float(M.CLOUD_COVER-M.CLOUD_SOFT),float(M.CLOUD_COVER+M.CLOUD_SOFT),n).mul(M.CLOUD_MAX).mul(cloudU.k);
   cloudMesh=new THREE.Mesh(new THREE.PlaneGeometry(260,190),m);cloudMesh.name='old:cloud';cloudMesh.rotation.x=-Math.PI/2;cloudMesh.position.set(0,.02,-55);cloudMesh.renderOrder=1;cloudMesh.visible=false;scene.add(cloudMesh);cloudSet()}).catch(err=>console.warn('cloud shadows off',err));
-function applySky(S){skyCur=S;csSoft=GRADE?GRADE.softOf(S.mood):csSoft;const mood=GRADE?GRADE.moodOf(S.mood):null,gr=h=>mood?GRADE.grade(h,mood):h;renderer.toneMappingExposure=S.exposure*(mood?mood.exp:1);key.intensity=S.key*Math.PI;key.color.set(gr(S.keyC));fill.intensity=S.fill*Math.PI;fill.color.set(gr(S.fillC));
+function applySky(S){skyCur=S;csSoft=GRADE?GRADE.softOf(S.mood):csSoft;const mood=GRADE?GRADE.moodOf(S.mood):null,gr=h=>mood?GRADE.grade(h,mood):h;renderer.toneMappingExposure=S.exposure*(mood?mood.exp:1);skyKeyI=S.key*Math.PI;key.color.set(gr(S.keyC));keySplit();fill.intensity=S.fill*Math.PI;fill.color.set(gr(S.fillC));
   hemi.intensity=S.hemi*Math.PI;hemi.color.set(gr(S.hemiC));hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
   skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
   for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
@@ -1661,7 +1670,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   if(tw>0){const bp=batter.g.position;tx=lerp(tx,bp.x,tw);ty=lerp(ty,TIGHT_AIM_Y*(batter.k||1),tw);tz=lerp(tz,bp.z,tw)}
   const pw=s.auto&&!zoomed&&platecamM?platecamM.plateW(curEvent,curU,ARRIVE):0;
   if(pw>0){rig.position.set(lerp(cs.x,0,pw),lerp(py,platecamM.PLATE_CAM_Y,pw),lerp(cs.z,platecamM.PLATE_CAM_Z,pw));const A=platecamM.PLATE_AIM;tx=lerp(tx,A[0],pw);ty=lerp(ty,A[1],pw);tz=lerp(tz,A[2],pw)}
-  const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
+  tightAim[0]=tx;tightAim[1]=tz;tightPlace();const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
   const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
   if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
   else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0}
@@ -1968,12 +1977,13 @@ function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)g
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
   PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.fx===fxKey()?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
   const sh=gfxTier<3&&!OFF.has('shadowmap');renderer.shadowMap.enabled=sh;key.castShadow=sh;
+  tightApply(sh);
   envOn=gfxTier<2;cloudSet();bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
   tierHudText();/* #258: before the no-rebuild return below, so every tier change shows */
-  const sig=`${sh}|${!!PP}|${gfxMax}|${PP?PP.fx:''}`;/* max: environment map + velocity/diffuse MRT change every shader */entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
-  if(!first&&key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}
+  const sig=`${sh}|${!!PP}|${gfxMax}|${PP?PP.fx:''}|${tightOn}`;/* max: environment map + velocity/diffuse MRT change every shader */entryNote(`t${was}>${gfxTier}${sig===tierSig?'':'r'}`);if(sig===tierSig)return;const first=tierSig===null;tierSig=sig;
+  if(!first&&key.shadow.map){key.shadow.map.dispose();key.shadow.map=null}if(!first&&!tightOn&&keyT.shadow.map){keyT.shadow.map.dispose();keyT.shadow.map=null}
   scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
   if(warmStarted)warmUp()}/* a drop in play rebuilds every material: compile it off the frame instead of freezing the tab (#125) */
 let tierSig=null;
