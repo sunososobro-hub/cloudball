@@ -161,13 +161,24 @@ export function resolveSteal(ctx, wantOut, base = 2) {
   return { ok: false, plan, tl, outs: [tagOut({ runner, from: base - 1, base, fielder: key, ballAt: arrive, fielderAt: coverAt, runnerAt: tl.arriveT })] };
 }
 
-/* Pickoff at first (#38): the pitcher throws to the first baseman holding the runner on; the runner dives back and is tagged.
- * Only successful pickoffs are drawn, so the tag must beat him (tagOut checks it). Times are seconds into the frame. */
-export function resolvePickoff(ctx) {
+/* Pickoff at first (#38): the pitcher throws to the first baseman holding the runner on.
+ * safe false: the runner dives back and is tagged (tagOut checks the tag beats him).
+ * safe true (a throw-over that does not get him): shorter lead, he reads the step-off and is back before the ball;
+ * the first baseman lobs it back to the pitcher. Times are seconds into the frame. */
+export function resolvePickoff(ctx, safe = false) {
   const runner = ctx.bases[0], from = FIELD_HOME.P, key = '1B', spot = fielderStart(key, ctx.bases, ctx.outs);
   const TD = dist(from, spot), TT = Math.max(K.THROW_MIN, TD / K.PO_THROW_V), t0 = K.PO_THROW_AT, arrive = t0 + TT;
-  const runnerAt = t0 + K.PO_REACT + runTime(K.PO_LEAD, K.RUN_SPEED);
-  const plan = { po: true, CV: { key, spot, base: 1, at: 0 }, from, TD, v: K.PO_THROW_V, TT, t0, arrive, runnerAt, lead: K.PO_LEAD,
-    actions: [{ t: t0, a: 'throw', f: 'P', to: key }, { t: arrive, a: 'receive', f: key, base: 1 }, { t: runnerAt, a: 'tag', f: key, base: 1 }] };
-  return { plan, outs: [tagOut({ runner, from: 1, base: 1, fielder: key, ballAt: arrive, fielderAt: 0, runnerAt })] };
+  const lead = safe ? K.POF_LEAD : K.PO_LEAD, react = safe ? -K.POF_READ : K.PO_REACT;
+  const runnerAt = t0 + react + runTime(lead, K.RUN_SPEED);
+  const plan = { po: true, CV: { key, spot, base: 1, at: 0 }, from, TD, v: K.PO_THROW_V, TT, t0, arrive, runnerAt, lead, react,
+    actions: [{ t: t0, a: 'throw', f: 'P', to: key }, { t: arrive, a: 'receive', f: key, base: 1 }] };
+  if (!safe) {
+    plan.actions.push({ t: runnerAt, a: 'tag', f: key, base: 1 });
+    return { plan, outs: [tagOut({ runner, from: 1, base: 1, fielder: key, ballAt: arrive, fielderAt: 0, runnerAt })] };
+  }
+  if (beats(arrive, 0, runnerAt)) throw new Error(`throw-over beats the runner back to first (${arrive.toFixed(3)} < ${runnerAt.toFixed(3)})`);
+  const BT = Math.max(K.THROW_MIN, TD / K.POF_BACK_V), b0 = arrive + K.POF_BACK_AFTER;
+  Object.assign(plan, { safe: true, back: { t0: b0, TT: BT, arrive: b0 + BT, v: K.POF_BACK_V } });
+  plan.actions.push({ t: b0, a: 'throw', f: key, to: 'P' }, { t: b0 + BT, a: 'receive', f: 'P', base: null });
+  return { plan, outs: [] };
 }
