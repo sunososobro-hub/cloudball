@@ -147,6 +147,10 @@ export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
  * with this chance (he is safe: the throw arrives after him) and the batter, with second open, takes it on the throw.
  * First guess, not tuned: about one try in three; it only moves a runner, never adds an out. */
 export const THROW_HOME_ON_SINGLE_P = 0.35;
+/* Out on the bases (#38): on an outfield single with fewer than two outs, a runner from second who would be held at
+ * third is sent home anyway with this chance; the outfielder's throw to the catcher decides (rules/fielding.js): out
+ * when the ball beats him, else he scores. First guess, not tuned (MLB sends about 60% and loses a few percent of them). */
+export const SEND_FROM_2ND_ON_SINGLE_P = 0.12;
 export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
@@ -219,6 +223,11 @@ export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
 export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
 export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
+/* pinch hit (#436 part 2): off by default (factory games unchanged); simGame opts.pinchHit overrides */
+export const PINCH_HIT_ON = false;
+export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
+export const PH_EDGE = 0.3;               /* coach's own pick is the pinch hitter when his bat value (con x pow) is this much higher */
+export const PH_DUR = 10;                 /* seconds of the pinch-hit frame (walk from the dugout) */
 export const BUNT_POW_MAX = 1.0;
 export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;

@@ -7,6 +7,7 @@ import { makePreview } from './agent-preview.js';
 import { ratingRow } from './bars.js';
 import { attachCompare } from './compare.js';
 import { specOfChoice, specOfRow } from './preview-spec.js';
+import { needsOf, slotLine, abilityTag, compareLine, RBI_NOTE, WORD } from '../league/needs.js';
 
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊' };
@@ -41,6 +42,11 @@ const isClosed = r => !r.body || r.status === 0 || r.status === 404 || r.status 
 const preview = makePreview($('stage'));
 const showPreview = (spec, caption) => { $('stage').hidden = false; $('stageCap').textContent = caption; preview.show(spec); };
 const say = (text, err) => { const s = $('status'); s.textContent = text; s.hidden = !text; s.classList.toggle('err', !!err); };
+
+/* ---- team needs (#431): display only, read once from the data site's roster file; no answer = no needs lines ---- */
+const rosterData = (async () => {
+  try { const r = await fetch('league/site/players.json'), j = await r.json(), needs = needsOf(j); return needs.teams.length ? { players: j, needs } : null; } catch (e) { return null; }
+})();
 
 /* ---- player rows (same look as the guide page) ---- */
 function playerRow(row) {
@@ -106,7 +112,15 @@ function buildMaker(key, state) {
   const nameField = el('fieldset', 'field'); nameField.append(el('legend', null, '名字（抽的，不能自己取）'), nameBox);
   const left = el('p', 'left'), make = el('button', 'btn', '建立球員'); make.type = 'button';
   const msg = el('p', 'status'); msg.setAttribute('role', 'status');
-  const fit = el('p', 'left fit');
+  const fit = el('p', 'left fit'), slotNeed = el('p', 'left need'), cmp = $('stageNeed') || el('p', 'left need'), tags = {};
+  let data = null; rosterData.then(d => { data = d; showNeeds(); });
+  const showNeeds = () => {   /* the same state the form posts; nothing here is sent anywhere */
+    if (!data) return;
+    const slot = state.kind === 'bat' ? state.pos : state.role;
+    slotNeed.textContent = slotLine(data.needs, slot);
+    for (const [k, t] of Object.entries(tags)) t.textContent = abilityTag(data.needs, k);
+    cmp.textContent = compareLine(data.players, state); cmp.hidden = false;
+  };
   const choice = () => ({ ...state, nameDraw: draw.n });
   const look = () => showPreview(specOfChoice(choice()), draw.name ? `${draw.name}（還沒建立）` : '你正在捏的球員');   /* the same object that is posted */
   const refresh = () => {
@@ -114,6 +128,7 @@ function buildMaker(key, state) {
     left.textContent = free ? `還有 ${free} 點沒分配。分完才能建立。` : '點數分配完了。'; left.classList.toggle('ok', !free);
     if (state.kind === 'bat') fit.textContent = `守位適性：${positionFit(state.pos, { def: state.points.def, arm: state.points.arm })}`;   /* display points = his ratings (freeagents.check) */
     make.disabled = !!validateCreate(choice()).length || !draw.name || draw.busy;
+    showNeeds();
   };
   const edit = fn => v => { fn(v); look(); };   /* every pick that can change the body redraws it at once */
   /* the draw: the server knows the seed; a name already taken is skipped by drawing on, up to the cap */
@@ -148,10 +163,11 @@ function buildMaker(key, state) {
     box.appendChild(grid); return box;
   }
   function buildFields() {
-    const bat = state.kind === 'bat'; fields.replaceChildren();
+    const bat = state.kind === 'bat'; fields.replaceChildren(); for (const k of Object.keys(tags)) delete tags[k];
     kindRow.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.kind)));
     fields.append(
       chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; refresh(); })),
+      slotNeed,
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
       chipGroup('體型預設', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), null, v => { state.body = presetBody(v); state.ht = presetHt(v); buildFields(); refresh(); look(); }),
       bodyFields());
@@ -166,7 +182,9 @@ function buildMaker(key, state) {
         const v = Math.min(Number(input.value), cap, budget - others); input.value = v; state.points[k] = v; out.textContent = v; refresh();
       };
       row.append(el('span', null, (bat ? BAT_RATINGS : PIT_RATINGS)[k]), input, out); grid.appendChild(row);
+      if (WORD[k]) { const tag = el('span', 'left need'); tags[k] = tag; grid.appendChild(tag); }
     }
+    if (bat) pts.appendChild(el('p', 'left', RBI_NOTE));
     pts.append(grid, left); if (bat) pts.appendChild(fit); fields.appendChild(pts);
   }
   buildFields();
