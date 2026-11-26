@@ -1,6 +1,6 @@
 /* Static site check (plain Node): every local file the page, the modules and the stylesheets
  * refer to exists, every script parses, and the workflow folder holds only the two allowed files.
- * It also runs tests/names.check.mjs (league name rules), tests/bench.check.mjs (一軍 bench, #436), tests/staff.check.mjs (league staff
+ * It also runs every tests/*.check.mjs (sorted; skip list: tests/_skip.txt, #471) as child processes, so CI covers them; formerly listed one by one: tests/names.check.mjs (league name rules), tests/bench.check.mjs (一軍 bench, #436), tests/staff.check.mjs (league staff
  * rules), tests/bios.check.mjs (player bio rules), tests/ratings.check.mjs (1 to 100 display
  * ratings), tests/freeagents.check.mjs (created free agents) and tests/leaguesite.check.mjs (site data, #336) and tests/training.check.mjs (training model, #369) and tests/defence.check.mjs (fielder def, #378) and tests/pitchmix.check.mjs (pitch list, #378), tests/players_load.check.mjs and tests/render_load.check.mjs (render modules load, #293), tests/gpu_shots.check.mjs (real-GPU mailbox, #444) as child processes, so CI covers them.
  * Usage: node tests/replay/static.mjs */
@@ -56,7 +56,10 @@ if (existsSync(wf)) for (const f of readdirSync(wf)) if (!['ci.yml', 'merge-gate
 const rules = readFileSync(path.join(ROOT, '.agent/rules.md'), 'utf8').split('\n').length - 1;
 if (rules > 50) problems.push(`.agent/rules.md has ${rules} lines (cap is 50)`);
 if (readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8').trimEnd().split('\n').length !== 3) problems.push('CLAUDE.md must be exactly 3 lines');
-for (const check of ['tests/names.check.mjs', 'tests/bench.check.mjs', 'tests/dugout_lite.check.mjs', 'tests/ondeck_lite.check.mjs', 'tests/staff.check.mjs', 'tests/bios.check.mjs', 'tests/ratings.check.mjs', 'tests/freeagents.check.mjs', 'tests/opening.check.mjs', 'tests/site.check.mjs', 'tests/agent.check.mjs', 'tests/agentpage.check.mjs', 'tests/leaguesite.check.mjs', 'tests/training.check.mjs', 'tests/defence.check.mjs', 'tests/baseball9.check.mjs', 'tests/barcurve.check.mjs', 'tests/roof_rule.check.mjs', 'tests/compact_cover.check.mjs', 'tests/pitchmix.check.mjs', 'tests/landhint.check.mjs', 'tests/players_load.check.mjs', 'tests/render_load.check.mjs', 'tests/grade.check.mjs', 'tests/intro_cam.check.mjs', 'tests/gpu_shots.check.mjs', 'tests/platecam.check.mjs', 'tests/visit.check.mjs']) {
+const skipFile = path.join(ROOT, 'tests/_skip.txt');
+const skip = new Set(existsSync(skipFile) ? readFileSync(skipFile, 'utf8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')) : []);
+const checks = readdirSync(path.join(ROOT, 'tests')).filter(f => f.endsWith('.check.mjs') && !skip.has(f)).sort().map(f => 'tests/' + f);
+for (const check of checks) {
   const res = spawnSync(process.execPath, [path.join(ROOT, check)], { encoding: 'utf8' });
   process.stdout.write(res.stdout || ''); process.stderr.write(res.stderr || '');
   if (res.status !== 0) problems.push(`${check} failed (exit ${res.status === null ? 'killed by ' + res.signal : res.status})`);
