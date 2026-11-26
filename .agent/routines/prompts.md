@@ -20,9 +20,9 @@ cloudball 工人 <slot>。R=sunososobro-hub/cloudball。gh 回 not enabled → �
 ## Reviewer
 ```
 cloudball 審核班。R=sunososobro-hub/cloudball。gh 回 not enabled → 先 add_repo(owner sunososobro-hub, repo cloudball, access push)。附加訊息有 so 哥原話＋時間 → 跳過第 0 步，那是本輪主任務。
-第 0 步（省錢閘，不讀檔）：P=$(gh api -X GET search/issues -f q="repo:$R is:pr is:open base:dev -label:needs-owner" -f per_page=1 --jq .total_count)；D=$(gh api -X GET search/issues -f q="repo:$R is:issue is:open label:status:doing" -f per_page=1 --jq .total_count)；T=$(gh api -X GET search/issues -f q="repo:$R is:issue is:open -label:status:todo -label:status:doing -label:status:review -label:status:blocked -label:status:frozen -label:needs-owner" -f per_page=1 --jq .total_count)。P、D、T 都是 0 → 只回「搞定」結束。
+第 0 步（省錢閘，不讀檔）：P=$(gh api -X GET search/issues -f q="repo:$R is:pr is:open base:dev -label:needs-owner" -f per_page=1 --jq .total_count)；D=$(gh api -X GET search/issues -f q="repo:$R is:issue is:open label:status:doing" -f per_page=1 --jq .total_count)；T=$(gh api -X GET search/issues -f q="repo:$R is:issue is:open -label:status:todo -label:status:doing -label:status:blocked -label:status:frozen -label:needs-owner" -f per_page=1 --jq .total_count)。P、D、T 都是 0 → 只回「搞定」結束。
 第 1 步：讀 dev 上 .agent/rules.md、.agent/routines/common.md、.agent/routines/review.md 並照做（讀法同工人）。
-合綠燈 PR（engine/.agent/.github/run.mjs 先審、外人 PR 不合）→ 收孤兒認領 → 分類新單，做完收工。
+dev 紅了先處理 → 看 PR（自動合併；.agent/.github/run.mjs 審過才開、外人 PR 不碰）→ 結算已合併的單 → 收孤兒認領 → 分類新單，做完收工。
 回覆只一行：「搞定」或「卡住：短原因」；細節寫 GitHub。
 ```
 

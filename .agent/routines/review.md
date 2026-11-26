@@ -1,11 +1,13 @@
-# Reviewer routine (Opus, hourly): merge, review protected paths, sweep orphans, triage
+# Reviewer routine (Opus, hourly): watch auto-merge, review protected paths, revert, sweep orphans, triage
 
-Read after `common.md`. Writes no product code except a merge of `dev` into a PR branch (rules W9 b). Order: A, B, C, D.
-First read the level: `gh api repos/$R/issues/275 --jq .body | head -1`. Level 0 -> only A (merge green PRs), skip B and C.
+Read after `common.md`. Writes no product code except a merge of `dev` into a PR branch and a revert (E). Order: E, A, S, B, C, D.
+First read the level: `gh api repos/$R/issues/275 --jq .body | head -1`. Level 0 -> only E, A and S, skip B and C.
+Merging is automatic (rules W9): the dev ruleset merges a PR once the check runs `test` and `gate` pass
+(`gate` = the `merge-gate.yml` job; the `merge-gate` commit status it also posts is not required). You keep PRs moving.
 
 ## A. Pull requests (every open PR, oldest first)
 - List: `gh api "repos/$R/pulls?state=open&per_page=100"`. Base `main` or a release PR -> never touch.
-- Outside PR (head repo is a fork, or `user.login` is not `sunososobro-hub`): rules W9 d. Label `needs-owner` once,
+- Outside PR (head repo is a fork, or `user.login` is not `sunososobro-hub`): rules W9 (outside PRs). Label `needs-owner` once,
   comment once `outside PR: left for the owner`, then never again. Do not review, push, merge or close it.
 - Paperwork only (missing `Closes/Refs`, head `fix/N` names the issue, missing `cb-usage` line): fix the body yourself
   (`gh api -X PATCH repos/$R/pulls/N -f body=...`) and go on. Head not `fix/N*` / `feat/N`: still mergeable when the
@@ -19,21 +21,46 @@ First read the level: `gh api repos/$R/issues/275 --jq .body | head -1`. Level 0
   `.github/`, or `tests/replay/run.mjs`: read the whole diff against rules 9-24 (determinism, no `Math.random`/`Date`
   in `engine/`, named constants, `run.mjs` never loosened, two workflow files at most, no new network call, no secret).
   Sound -> comment whose first line is exactly `Opus review: PASS <full 40-char head sha>` (the sha ends the line, as
-  `merge-gate.yml` matches it) and the reason on the next line. Not sound -> `Opus review: CHANGES <sha>`, the fix on
+  `merge-gate.yml` matches it) and the reason on the next line. A comment-triggered run attaches its `gate` check to
+  the `main` sha, so the head's `gate` stays red: re-run it on the head (common.md `gate re-run`), then turn auto-merge on
+  (common.md); it merges once that run is green. Not sound -> `Opus review: CHANGES <sha>`, the fix on
   the next line, and requeue. Pre-season (`PRESEASON = true` in `merge-gate.yml`): (c) is suspended for `engine/` only. A PR
-  touching `.agent/`, `.github/` or `tests/replay/run.mjs` always needs the PASS, whatever `PRESEASON` says (the
-  `merge-gate` status may show green; this routine is the gate). A PASS on an older head counts only when nothing under
+  touching `.agent/`, `.github/` or `tests/replay/run.mjs` always needs the PASS. Trap: comment-triggered `merge-gate`
+  runs use the `main` copy (they only update the `merge-gate` status, never the head's `gate`), which passes every protected path pre-season until the next release; so such a PR must not
+  have auto-merge on before your PASS (found on without one -> turn it off). A PASS on an older head counts only when nothing under
   those paths changed since.
-- Hard stops (rules W9): linked issue `needs-owner` / `status:frozen`, an open `needs owner` / `blocking` comment.
-- Merge: `gh api -X PUT repos/$R/pulls/N/merge -f merge_method=merge -f sha=<head sha>`. Then the issue (rules W10):
-  `Closes` -> remove `status:review`, comment `merged into dev, PR #N`, close. `Refs` -> back to `status:todo`, comment
-  what is left; then `gh api repos/$R/issues/<N> --jq .state`: `closed` (a `fix/closes #N` in a title or commit) ->
-  `gh api -X PATCH repos/$R/issues/<N> -f state=open` and comment `reopened: part PR #N only`. Copy any 「沒驗到」 / owner-look list from the PR top into that comment.
+- Hard stops (rules W9): linked issue `needs-owner` / `status:frozen`, an open `needs owner` / `blocking` comment. When
+  you post `needs owner` / `blocking`, turn auto-merge off in the same step.
+- No protected path (or `engine/` only), `test` green, `clean`, auto-merge off (the worker missed it): turn it on.
+  Never merge by hand, except when turning auto-merge on answers that the PR is already `clean` (common.md).
 - Owner question: a PR body that starts with `請 so 哥看` or `owner:` -> once per PR (search open `needs-owner` issues
   for `PR #N` first) open an issue `[owner] <question in plain Traditional Chinese>`, body `From PR #N.` + the question
   and a recommendation, label `needs-owner`; comment `owner question: #<issue>` on the PR. The PR still merges when ready.
 - Requeue: issue `status:review` -> `status:todo`, comment `requeue: <red test | conflict | CHANGES> PR #N`. After the
   third requeue of the same PR add `model:opus`.
+
+## S. Merged sweep (rules W10: dev is not the default branch, so GitHub closes nothing)
+- `gh api "repos/$R/pulls?state=closed&base=dev&sort=updated&direction=desc&per_page=100"`, keep `merged_at` in the
+  last 3 h. For each linked issue still open: `Closes` -> remove `status:review`, comment `merged into dev, PR #N`,
+  close. `Refs` -> `status:todo`, comment what is left; if it got closed anyway (a `fix/closes #N` in a title or
+  commit), reopen and comment `reopened: part PR #N only`. Copy any 「沒驗到」 / owner-look list from the PR top into
+  that comment. An issue already closed with a `merged into dev` comment, or a `Refs` one already in `status:todo` with
+  a later comment: done, skip.
+
+## E. dev red (rules W15)
+- `gh api "repos/$R/commits?sha=dev&per_page=20" --jq '.[].sha'`; for each, `full` from
+  `gh api repos/$R/commits/<sha>/check-runs --jq '.check_runs[]|select(.name=="full")|.conclusion'`. The newest
+  finished `full` is `success` -> nothing to do. Running -> skip E this run.
+- Red: find the oldest red merge whose first parent's `full` is `success`. The failed step:
+  `gh api repos/$R/actions/jobs/<check run id>/logs | tail -80`.
+  - Playability (browser smoke, or a `run.mjs` rule / determinism check): claim the next free `fix/N-rK` of that PR's
+    issue on the dev tip, `git revert -m 1 --no-edit <merge sha>`, the three checks, push, open PR `revert PR #P (#N):
+    <failed step>` with `Refs #N` and the `cb-usage:` line (window=reviewer); auto-merge on (protected path: review the
+    revert yourself, PASS, then on). Requeue the issue (reopen it if closed): `status:todo`, comment `requeue: reverted PR #P, full red: <step>`.
+  - Rates only (league-rate tolerance): open `[P1] dev full: <rate> out of band since PR #P`, `area:engine`, `P1`,
+    `status:todo`, body with the numbers from the log. No revert.
+  - No single merge to blame (every parent red, flaky step) or the dev tip red > 2 h: open (once; search first)
+    `[P0] dev red: <step>`, `P0`, `status:todo`. Workers take P0 first.
 
 ## B. Orphan sweep (rules W13)
 - Issues with `status:doing`: no open PR and the `fix/N*` branch tip (`git ls-remote origin 'refs/heads/fix/N*'`, then
