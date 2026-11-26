@@ -8,7 +8,9 @@
  *   - requestProblems() / requestRunnable(): the three jobs pass; unknown job, extra field, a path or a URL, a non-owner
  *     commit, a foreign open PR on requests/, a done id or a request older than 24 h are refused
  * static.mjs runs this file. The browser part needs a real GPU and is not run in CI. Usage: node tests/gpu_shots.check.mjs */
-import { scrub, leaks, devTipOk, keepRuns, underCap, manifestProblems, requestProblems, requestRunnable, OWNER, KEEP_RUNS, RUN_CAP_BYTES } from '../tools/gpu_shots/lib.mjs';
+import { scrub, leaks, devTipOk, keepRuns, underCap, manifestProblems, requestProblems, requestRunnable, allowedUrl, safeFile, appPathFromReg, runStamp, captureDue, OWNER, KEEP_RUNS, RUN_CAP_BYTES } from '../tools/gpu_shots/lib.mjs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 const ctx = { user: 'alice', host: 'DESKTOP-7Q2K9ZB', extra: ['s3cr3t-value'] };
@@ -110,5 +112,29 @@ for (const [why, args] of [
   ['bad schema', [{ ...good[2], job: 'exec' }, ownerCommit, [], []]],
 ]) { const v = requestRunnable(...args, NOW); if (v.ok || !v.why) bad(`requestRunnable must refuse ${why}`); }
 
+/* part 2 helpers used by shots.mjs: local server paths, allowed origins, Chrome from App Paths, run stamps, hourly due */
+const O = 'http://127.0.0.1:8123';
+for (const [u, want] of [[`${O}/play.html?q=max`, true], [`${O}/render/game.js`, true], ['https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js', true],
+  ['https://fonts.gstatic.com/s/x.woff2', true], ['data:image/png;base64,AA', true], ['https://cdn.jsdelivr.net/npm/evil@1/x.js', false],
+  ['http://127.0.0.1:9999/play.html', false], [`${O}.evil.com/x`, false], ['https://example.com/', false], ['file:///C:/x', false]]) {
+  if (allowedUrl(u, O) !== want) bad(`allowedUrl(${u}) should be ${want}`);
+}
+for (const [u, want] of [['/', 'index.html'], ['/play.html?q=max', 'play.html'], ['/render/game.js', 'render/game.js'], ['/ui/', 'ui/index.html'],
+  ['/.git/config', null], ['/.agent/rules.md', null], ['/a/../b', null], ['/%2e%2e/secret', null], ['/..%2fx', null], ['/a\\b', null], ['/C:/x', null], ['/%E0%A4%A', null], ['x', null]]) {
+  if (safeFile(u) !== want) bad(`safeFile(${u}) = ${safeFile(u)}, want ${want}`);
+}
+const reg = '\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe\r\n    (Default)    REG_SZ    C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\r\n\r\n';
+if (appPathFromReg(reg) !== 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') bad(`appPathFromReg: ${appPathFromReg(reg)}`);
+if (appPathFromReg('ERROR: The system was unable to find the specified registry key or value.') !== '') bad('appPathFromReg must give "" without a value');
+const stamp = runStamp(new Date('2026-11-26T05:15:07.123Z'));
+if (stamp !== '20261126T051507Z' || keepRuns([stamp], 0)[0] !== stamp) bad(`runStamp gives a run folder name keepRuns knows: ${stamp}`);
+const T = Date.parse('2026-11-26T06:00:00Z');
+if (!captureDue([], T) || !captureDue(['latest'], T)) bad('captureDue: no run yet -> due');
+if (captureDue(['20261126T053000Z', 'latest'], T)) bad('captureDue: a run 30 min ago -> not due');
+if (!captureDue(['20261126T040000Z', '20261126T045000Z'], T)) bad('captureDue: newest run 70 min ago -> due');
+/* the PC script itself needs Chrome and a GPU; CI only proves it parses */
+const chk = spawnSync(process.execPath, ['--check', fileURLToPath(new URL('../tools/gpu_shots/shots.mjs', import.meta.url))], { encoding: 'utf8' });
+if (chk.status !== 0) bad(`tools/gpu_shots/shots.mjs does not parse: ${chk.stderr.split('\n').slice(0, 3).join(' ')}`);
+
 if (problems.length) { console.log('gpu_shots check FAILED:\n  ' + problems.join('\n  ')); process.exit(1); }
-console.log(`gpu_shots check passed (${dirty.length} leak cases, dev-tip gate, retention, manifest, request schema)`);
+console.log(`gpu_shots check passed (${dirty.length} leak cases, dev-tip gate, retention, manifest, request schema, server paths, origins, App Paths, hourly due, shots.mjs parses)`);
