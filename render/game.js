@@ -415,6 +415,8 @@ const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend
 let PP=null;
 const dofU={};/* uniforms of the depth-of-field pass (#211 item 4); filled by dofInit once TSL is there, driven by dofFrame */
 try{const {uniform}=TSL;dofU.focus=uniform(1);dofU.len=uniform(1);dofU.scale=uniform(0)}catch(e){console.warn('dof uniforms',e)}
+const finU={};/* #209 item 3: video finish uniforms (render/finish.js); knee 99 / grain 0 = pass-through until finFrame runs */
+try{const {uniform}=TSL;finU.grain=uniform(0);finU.knee=uniform(99);finU.ceil=uniform(100);finU.seed=uniform(0)}catch(e){console.warn('finish uniforms',e)}
 /* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
    fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
 const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r'],['dof','d']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgrd' = all four, '-' = not loaded or ?off= */
@@ -440,6 +442,10 @@ function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,len
     if(mx)c=FX.traa(c,dep,sp.getTextureNode('velocity'),camera)}
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
+  if(mx&&finU.grain){/* #209 item 3, max only: highlights roll off instead of clipping, then fine film grain (one node, uniforms from finFrame; same curve as finish.js rollOff) */
+    const {exp,fract,sin,dot,vec2,screenCoordinate,max:mxx,min:mnn}=TSL,sp2=finU.ceil.sub(finU.knee),x=c.rgb,y=mnn(x,finU.knee).add(sp2.mul(float(1).sub(exp(mxx(x.sub(finU.knee),float(0)).negate().div(sp2)))));
+    const n=fract(sin(dot(screenCoordinate.xy.add(finU.seed.mul(17.31)),vec2(12.9898,78.233))).mul(43758.5453)).sub(.5);
+    c=vec4(y.mul(float(1).add(n.mul(finU.grain.mul(2)))),c.a)}
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
   pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.fx=key;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
@@ -1725,6 +1731,9 @@ let platecamM=null;import(new URL('platecam.js',document.currentScript&&document
 let keyfitM=null,keyTight=false;import(new URL('keyfit.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{keyfitM=M}).catch(err=>console.warn('key fit off',err));
 /* #211 item 4: depth of field on the tight batter shot and the plate camera, max only (render/dof.js, pure). Focus = distance to the batter / the plate aim. */
 let dofM=null;import(new URL('dof.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{dofM=M}).catch(err=>console.warn('dof off',err));
+/* #209 item 3: video finish on max (render/finish.js, pure): grain per park sky, seed from the event time so a seek equals playing there. */
+let finM=null;import(new URL('finish.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{finM=M}).catch(err=>console.warn('finish off',err));
+function finFrame(){if(!finM||!finU.grain)return;const p=finM.finishParams(skyCur&&skyCur.mood,curU,gfxMax);finU.grain.value=p.grain;finU.knee.value=p.knee;finU.ceil.value=p.ceil;finU.seed.value=p.seed}
 function dofFrame(tw,pw){if(!dofM||!dofU.scale)return;let d=0;if(gfxMax){const t=pw>=dofM.DOF_MIN_W&&platecamM?_dofT.set(...platecamM.PLATE_AIM):tw>0?batter.g.position:null;if(t)d=rig.position.distanceTo(t)}
   const p=dofM.dofParams(gfxMax?tw:0,gfxMax?pw:0,d);dofU.focus.value=p.focus;dofU.len.value=p.length;dofU.scale.value=p.scale}
 const _dofT=new THREE.Vector3();
@@ -1752,7 +1761,7 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
   const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
   if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
-  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw)}
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw);finFrame()}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(isEditing())return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
