@@ -24,6 +24,8 @@ main h2{margin:0 0 10px;font-size:20px}
 .pt output{text-align:right;font-weight:600}
 .left{margin:4px 0 0;color:var(--muted);font-size:13px}
 .left.ok{color:var(--gold)}
+.need{margin:2px 0 6px}
+.need:empty{display:none}
 .me{margin-bottom:8px}
 /* the live preview (#189): sticky at the top, about 40 % of the screen height, so it stays in view while the sliders are used */
 .stage{position:sticky;top:8px;z-index:5;margin:10px 0 0;height:40vh;height:40svh;min-height:200px;max-height:380px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#232b3a,#0c0f16 75%)}

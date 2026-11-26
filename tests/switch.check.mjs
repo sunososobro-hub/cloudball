@@ -12,7 +12,7 @@ t(html.includes(SWITCH_WARN.slice(0, 8)), 'no warning'); t(!view(d, '').includes
 const store = { 'cloudball.agentKey': 'KEY', 'cloudball.myPlayerId': 'p1' }, calls = []; let handler = null, loc = { hash: '', href: '' };
 const els = {}; const elOf = id => els[id] || (els[id] = { innerHTML: '', textContent: '', hidden: true, addEventListener(ev, f) { if (ev === 'click') handler = f; }, querySelector: () => msg });
 const msg = { textContent: '', hidden: true };
-const src = readFileSync(new URL('../ui/site-page.js', import.meta.url), 'utf8').replace(/^import .*$/m, "const DATA_FILES = {}, MY_PLAYER_KEY = 'cloudball.myPlayerId', TABS = [['me', 'x']], combine = () => ({}), mergeCreated = d => d, render = () => '', seasonLabel = () => '';");
+const src = readFileSync(new URL('../ui/site-page.js', import.meta.url), 'utf8').replace(/^import .*$/gm, '').replace(/^/, "const TRAIN_FILE = '', mountTrain = () => {}, DATA_FILES = {}, MY_PLAYER_KEY = 'cloudball.myPlayerId', TABS = [['me', 'x']], combine = () => ({ players: {} }), mergeCreated = d => d, render = () => '', seasonLabel = () => '';");
 const ctx = { document: { getElementById: elOf }, localStorage: { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v; }, removeItem: k => { delete store[k]; } },
   location: loc, addEventListener() {}, JSON, Promise, Object, Array, console,
   fetch: async (u, o = {}) => { calls.push([u, o.method, o.headers && o.headers.authorization]); return u.startsWith('/api/player/release') ? { status: 200, json: async () => ({ ok: true, released: 'p1' }) } : { ok: false, json: async () => null }; } };
