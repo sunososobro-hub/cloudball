@@ -7,8 +7,6 @@
 - #436 part 2: pinch hit behind `PINCH_HIT_ON` (off; `opts.pinchHit`), vote kind `H`, event `substitution` role `pinch_hitter`, frame `SUB`; `stats` gets a row per pinch hitter (`batters` names the rows); `tests/pinchhit.check.mjs`.
 - #436 part 3: pinch run behind `PINCH_RUN_ON` (off; `opts.pinchRun`), lead runner from `PR_MIN_INNING`, vote kind `R`, event `substitution` role `pinch_runner` (+ `base`), frame `SUB`; `tests/pinchrun.check.mjs`.
 - #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`); a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
-- #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`).
-- #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 - #81 (0.4.10): a "stay" pick on the pitching vote brings the pitching coach out (`VIS` frame, `MOUND_VISIT_DUR`, stream `mound_visit`), once per pitcher; no draw, outcomes unchanged, only later times move.
 
 ## Next
@@ -18,7 +16,5 @@
 5. #436 rest: render and commentary for frame `SUB` (then switch `PINCH_HIT_ON` / `PINCH_RUN_ON` on), defensive replacement, bench season lines.
 
 ## Known traps
-- Never judge tuning on 1000 games (runs/game moves +-0.3 by chance): 20,000+ on other seeds.
-- K% and BB% follow the split by count, not the overall zone, swing and whiff rates.
-- Any change to results or times changes every stream: bump `ENGINE_VERSION`.
-- Steals: the draw decides, the throw is timed to fit. The runner needs 4.2 s, the defence 1.8 s.
+- Never judge tuning on 1000 games (runs/game moves +-0.3 by chance): 20,000+ on other seeds. K% and BB% follow the split by count, not the overall zone, swing and whiff rates.
+- Any change to results or times changes every stream: bump `ENGINE_VERSION`. Steals: the draw decides, the throw is timed to fit. The runner needs 4.2 s, the defence 1.8 s.
