@@ -20,7 +20,7 @@ const blocked = new Set(readFileSync(path.join(ROOT, 'league/tools/blocklist.txt
   .split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('#')));
 const people = [];
 const { ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'league/players.js')));
-for (const t of ROSTERS) for (const p of [...t.bat, ...t.pit]) people.push({ id: p.id, name: p.name, team: p.id.split('-')[0], player: true });
+for (const t of ROSTERS) for (const p of [...t.bat, ...(t.bench || []), ...t.pit]) people.push({ id: p.id, name: p.name, team: p.id.split('-')[0], player: true });
 const staffFile = path.join(ROOT, 'league/staff.js');
 if (existsSync(staffFile)) {
   const S = await import(pathToFileURL(staffFile));
