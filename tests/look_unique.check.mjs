@@ -23,5 +23,13 @@ for(const R of ROSTERS){const rows=[...(R.bat||[]),...(R.pit||[])].filter(p=>p&&
   per.push(seen.size)}
 if(steps.size!==TONE_STEPS.length)bad.push(`tone steps used ${steps.size} of ${TONE_STEPS.length}`);
 for(let i=0;i<50;i++)if(toneStepOf(i*7919)!==toneStepOf(i*7919))bad.push('toneStepOf not pure');
+/* #541 part 2: the whole look incl. his build (body blend weights as game.js qBody rounds them, height in cm) is unique per team, and each team shows real build spread */
+const qBody=b=>{const o={};for(const k in b||{}){const v=Math.round(b[k]*4)/4;if(v)o[k]=v}return JSON.stringify(o)};
+const full=p=>look(p).join()+'|'+qBody(p.body)+'|'+Math.round((p.ht||0)*100);
+const HT_SPREAD_MIN=.08;   /* m: tallest minus shortest of a team, a floor from today's data (1.74-1.93 m), not a target */
+for(const R of ROSTERS){const rows=[...(R.bat||[]),...(R.pit||[])].filter(p=>p&&p.id!=null),ks=new Set(rows.map(full));
+  if(ks.size!==rows.length)bad.push(`${R.id||R.name||'team'}: ${rows.length-ks.size} players share the whole look incl. build`);
+  const hs=rows.map(p=>p.ht||0),sp=Math.max(...hs)-Math.min(...hs);if(!(sp>=HT_SPREAD_MIN))bad.push(`${R.id||R.name||'team'}: height spread ${sp.toFixed(2)} m < ${HT_SPREAD_MIN}`)}
+if(process.argv.includes('--table')){const R=ROSTERS[0];for(const p of (R.bat||[]).slice(0,9)){const h=headOfPlayer(p);console.log([p.id,p.name,'head '+h%HS,'skin '+Math.floor(h/HS)%SK,'hair '+gearOf(h).hair,'tone '+toneStepOf(h),'build '+qBody(p.body),'ht '+p.ht].join(' | '))}}
 if(bad.length){console.error('FAIL look_unique:\n - '+[...new Set(bad)].slice(0,15).join('\n - '));process.exit(1)}
 console.log(`look_unique ok: ${n} players in ${ROSTERS.length} teams, no two of a team share head, skin, hair and tone; ${steps.size} tone steps used`);
