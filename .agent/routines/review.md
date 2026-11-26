@@ -2,7 +2,8 @@
 
 Read after `common.md`. Writes no product code except a merge of `dev` into a PR branch and a revert (E). Order: E, A, S, B, C, D.
 First read the level: `gh api repos/$R/issues/275 --jq .body | head -1`. Level 0 -> only E, A and S, skip B and C.
-Merging is automatic (rules W9): the dev ruleset merges a PR once `test` and `merge-gate` pass. You keep PRs moving.
+Merging is automatic (rules W9): the dev ruleset merges a PR once the check runs `test` and `gate` pass
+(`gate` = the `merge-gate.yml` job; the `merge-gate` commit status it also posts is not required). You keep PRs moving.
 
 ## A. Pull requests (every open PR, oldest first)
 - List: `gh api "repos/$R/pulls?state=open&per_page=100"`. Base `main` or a release PR -> never touch.
@@ -20,10 +21,12 @@ Merging is automatic (rules W9): the dev ruleset merges a PR once `test` and `me
   `.github/`, or `tests/replay/run.mjs`: read the whole diff against rules 9-24 (determinism, no `Math.random`/`Date`
   in `engine/`, named constants, `run.mjs` never loosened, two workflow files at most, no new network call, no secret).
   Sound -> comment whose first line is exactly `Opus review: PASS <full 40-char head sha>` (the sha ends the line, as
-  `merge-gate.yml` matches it) and the reason on the next line, then turn auto-merge on (common.md). Not sound -> `Opus review: CHANGES <sha>`, the fix on
+  `merge-gate.yml` matches it) and the reason on the next line. A comment-triggered run attaches its `gate` check to
+  the `main` sha, so the head's `gate` stays red: re-run it on the head (common.md `gate re-run`), then turn auto-merge on
+  (common.md); it merges once that run is green. Not sound -> `Opus review: CHANGES <sha>`, the fix on
   the next line, and requeue. Pre-season (`PRESEASON = true` in `merge-gate.yml`): (c) is suspended for `engine/` only. A PR
   touching `.agent/`, `.github/` or `tests/replay/run.mjs` always needs the PASS. Trap: comment-triggered `merge-gate`
-  runs use the `main` copy, which passes every protected path pre-season until the next release; so such a PR must not
+  runs use the `main` copy (they only update the `merge-gate` status, never the head's `gate`), which passes every protected path pre-season until the next release; so such a PR must not
   have auto-merge on before your PASS (found on without one -> turn it off). A PASS on an older head counts only when nothing under
   those paths changed since.
 - Hard stops (rules W9): linked issue `needs-owner` / `status:frozen`, an open `needs owner` / `blocking` comment. When

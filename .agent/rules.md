@@ -16,11 +16,11 @@ W7. Small pieces: ~25 min, <= 400 changed lines. Bigger -> a `Refs #N` part, res
     say `#N part K: ...`, never `fix`/`closes #N` (GitHub would close the issue). Reviewer reopens it if closed anyway.
 W8. Fix round (reviewer `CHANGES`, red `test`, conflict): the issue goes back to `status:todo` with a `requeue:` comment;
     claim `claim/N-<head sha7>` on the PR head, push the fix to the SAME PR branch, back to `status:review`.
-W9. Auto-merge (owner 2026-11-26, #472): the dev ruleset requires `test` + `merge-gate` (behind dev is fine). `merge-gate` fails an outside PR,
+W9. Auto-merge (owner 2026-11-26, #472): the dev ruleset requires checks `test` + `gate` (merge-gate.yml job; behind dev is fine). `gate` fails an outside PR,
     a linked `needs-owner` / `status:frozen` issue, an open `needs owner` / `blocking` comment, and a protected path (`engine/`, `.agent/`, `.github/`,
     `tests/replay/run.mjs`) with no owner line `Opus review: PASS <full head sha>` (sha ends the line); `PRESEASON` (2026-11-21) exempts `engine/` only.
     The worker turns auto-merge on when its PR touches no protected path but `engine/`; otherwise the reviewer reads the whole diff against rules 9-24
-    and turns it on with its PASS. Posting `needs owner` / `blocking` turns it off. Outside PRs (head not here or author not the owner): never merged,
+    and turns it on with its PASS, after re-running the PR's `gate`. Posting `needs owner` / `blocking` turns it off. Outside PRs (head not here or author not the owner): never merged,
     pushed to or closed by an agent; label `needs-owner`. Base not `dev` never merges. An owner question in a PR -> its own `needs-owner` issue.
 W10. dev is not the default branch (no auto-close): the reviewer sweeps PRs merged since its last run; `Closes` -> close, `Refs` -> `status:todo` + what is left.
 W11. Never wait or poll for CI inside a session. Never touch `main`, release PRs, tags or scheduled tasks.

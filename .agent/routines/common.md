@@ -30,6 +30,8 @@ idle run costs almost nothing. Change the procedure here, never in the prompts. 
 - auto-merge on: `gh api -X PUT repos/$R/pulls/N/ccr/auto_merge -f merge_method=merge` (rules W9; `gh pr merge --auto`
   is GraphQL, blocked); off: `gh api -X DELETE repos/$R/pulls/N/ccr/auto_merge`. An error that the PR is already
   `clean` means every required check is green: merge it with the merge command above instead.
+- gate re-run (after a PASS): `RID=$(gh api "repos/$R/actions/workflows/merge-gate.yml/runs?event=pull_request&head_sha=<head sha>&per_page=1" --jq '.workflow_runs[0].id')`,
+  then `gh api -X POST repos/$R/actions/runs/$RID/rerun-failed-jobs`. No such run -> PATCH the PR body (any real change) to fire `edited`.
 - close issue: `gh api -X PATCH repos/$R/issues/N -f state=closed`; delete branch: `git push origin --delete <branch>`
 - A write that is really blocked: do not work around it; report `卡住：沒權限 <the blocked command>`.
 

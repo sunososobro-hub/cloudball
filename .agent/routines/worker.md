@@ -39,7 +39,7 @@ Read after `common.md`. One worker kind for every area: render, ui, engine, leag
   anything the owner must look at, in plain Traditional Chinese at the top; `Closes #N` or `Refs #N`;
   last line `cb-usage: window=<worker A|B|C> model=<sonnet|opus> minutes=<claim to PR>`.
 - Auto-merge (rules W9): PR files touch no protected path, or only `engine/` -> turn auto-merge on (common.md) right
-  after opening; it merges itself when `test` and `merge-gate` pass. A PR touching `.agent/`, `.github/` or
+  after opening; it merges itself when the checks `test` and `gate` pass. A PR touching `.agent/`, `.github/` or
   `tests/replay/run.mjs` never gets it from the worker: the reviewer turns it on with its PASS. (Trap: comment-triggered
   `merge-gate` runs use the copy on `main`, which until the next release passes every protected path pre-season.)
 - Issue: `status:doing` -> `status:review`. End the run (never wait for CI or the merge). Fix round: PR comment
