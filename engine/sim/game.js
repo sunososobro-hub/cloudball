@@ -62,6 +62,20 @@ export function simGame(seed, decisions, opts) {
   /* hit / error chance factor of a defence for a ball type (constants.js DEF_HIT_WEIGHT): 1 exactly when nobody has `def` */
   const defGroup = (def, type) => { const ks = type === 'GB' ? INFIELD_KEYS : type === 'PU' ? GLOVE_KEYS : OUTFIELD_KEYS; return ks.reduce((t, k) => t + defOf(def, k), 0) / ks.length; };
   const defFactor = (def, type, w) => 1 / (1 + (defGroup(def, type) - 1) * w);
+  /* pitch mix of a pitcher (#378): a `pitches` list ({ name: rating } as league/freeagents.js stores it, or plain names) keeps only his own PITCH_TYPES,
+   * each with its factory share, rescaled to sum 1; no list (every factory pitcher), or no known name in it = all of
+   * PITCH_TYPES, the same table as before. Drawn with `look`, so it changes the pitch name and km/h, never an outcome. */
+  const mixes = new Map();
+  const mixOf = p => {
+    if (!p.pitches) return K.PITCH_TYPES;
+    if (!mixes.has(p)) {
+      const has = n => Array.isArray(p.pitches) ? p.pitches.includes(n) : Object.prototype.hasOwnProperty.call(p.pitches, n);
+      const own = K.PITCH_TYPES.map((t, i) => [t, t[1] - (i ? K.PITCH_TYPES[i - 1][1] : 0)]).filter(([t]) => has(t[0]));
+      const total = own.reduce((s, [, w]) => s + w, 0); let cum = 0;
+      mixes.set(p, own.length ? own.map(([t, w], i) => [t[0], i === own.length - 1 ? 1 : (cum += w / total), t[2]]) : K.PITCH_TYPES);
+    }
+    return mixes.get(p);
+  };
   const addRun = n => { const o = st.half; st.sc[o] += n; st.ls[o][st.inn - 1] = (st.ls[o][st.inn - 1] || 0) + n; };
 
   /* A decision the fans (or anyone outside the engine) may make. Without an entry in
@@ -87,7 +101,7 @@ export function simGame(seed, decisions, opts) {
     const [off, bi] = e.bat, bat = RR[off].bat[bi], out = [], add = (type, time, data) => out.push({ type, time, data });
     const who = { batter: bat.name, team: off, lineup: bi };
     if (e.r === 'ibb') add('intentional_walk', e.t + e.showAt, { ...who, pitcher: x.pitcher });
-    else if (e.r === 'po') add('pickoff', e.t + K.PO_THROW_AT, { ...who, pitcher: x.pitcher, runner: e.s0.b[0], base: 1, count: e.c0 });
+    else if (e.po) add('pickoff', e.t + K.PO_THROW_AT, { ...who, pitcher: x.pitcher, runner: e.s0.b[0], base: 1, count: e.c0, safe: e.pof ? true : undefined, runnerAt: e.pof ? round3(e.t + e.plan.runnerAt) : undefined });
     else if (e.r === 'bk') add('balk', e.t + e.showAt, { ...who, pitcher: x.pitcher, count: e.c0 });
     else {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
@@ -175,14 +189,14 @@ export function simGame(seed, decisions, opts) {
         bunt = st.inn >= K.BUNT_MIN_INNING && margin <= 0 && margin >= -K.BUNT_MAX_DEFICIT;
       }
 
-      let balls = 0, strikes = 0, paDone = false;
+      let balls = 0, strikes = 0, paDone = false, pofN = 0;
       while (!paDone) {
         const s0 = snap(), c0 = [balls, strikes]; st.pc[def]++;
         const going = st.steal && st.steal === stealBase() ? st.steal : 0; st.steal = false;
         const inZ = bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX);
         const zx = inZ ? (R() - K.HALF) * 2 * K.ZONE_HALF_WIDTH : (R() < K.HALF ? -1 : 1) * (K.MISS_X_MIN + R() * K.MISS_X_SPAN);
         const zy = inZ ? K.ZONE_Y_MIN + R() * K.ZONE_Y_SPAN : (R() < K.HALF ? K.MISS_LOW_Y - R() * K.MISS_LOW_SPAN : K.MISS_HIGH_Y + R() * K.MISS_HIGH_SPAN);
-        const pq = look(), PT = K.PITCH_TYPES.find(p => pq < p[1]);
+        const pq = look(), PT = mixOf(pit0).find(p => pq < p[1]);
         const kmh = Math.round(K.KMH_BASE + (pit.stuff - K.KMH_STUFF_REF) * K.KMH_PER_STUFF + PT[2] + (look() - K.HALF) * K.KMH_JITTER);
         const e = { t, k: 'P', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0, inZ, zx, zy, line, pline, pt: PT[0], kmh, s0, swing: false };
 
@@ -193,6 +207,9 @@ export function simGame(seed, decisions, opts) {
         } else if (!going && st.b[0] && !st.b[1] && R() < K.PO_P) {
           /* pickoff (#38): the pitcher throws over to first before the pitch and the runner is tagged diving back; no pitch counts */
           e.r = 'po'; st.pc[def]--; e.pc = st.pc[def];
+        } else if (!going && st.b[0] && !st.b[1] && pofN < K.POF_MAX_PA && R() < K.POF_P) {
+          /* throw-over that does not get him (#38): the runner is back in time, the ball goes back to the pitcher; no pitch counts */
+          e.r = 'pof'; pofN++; st.pc[def]--; e.pc = st.pc[def];
         } else if (bunt) { e.swing = true; e.r = 'inplay'; }
         else {
           const sw = inZ ? K.SWING_ZONE_BY_COUNT[balls][strikes] : K.SWING_CHASE_BY_COUNT[balls][strikes] / bat.eye;
@@ -336,6 +353,10 @@ export function simGame(seed, decisions, opts) {
           const runner = B[0], p = resolvePickoff(ctxOf(null));
           plan = p.plan; outs = p.outs; st.b = [null, null, B[2]]; e.po = true; e.big = K.BIG.NOTABLE;
           desc = COPY.pickoff(runner);
+        } else if (e.r === 'pof') {
+          /* e.po marks every pickoff-throw frame, e.pof the ones where the runner is safe */
+          plan = resolvePickoff(ctxOf(null), true).plan; e.po = true; e.pof = true; e.big = K.BIG.NONE;
+          desc = COPY.pickoffSafe(B[0]);
         } else if (e.r === 'bk') {
           const nb = [null, B[0], B[1]];
           if (B[2]) { moves.push([3, HOME, B[2]]); runs++; }
@@ -405,6 +426,9 @@ export function simGame(seed, decisions, opts) {
         } else if (sbGo) {
           showAt = moves[0][3].arriveT + K.OUT_CALL_LAG;
           d = Math.max(d, plan.arrive + K.POST_PLAY_HOLD, showAt + K.POST_PLAY_HOLD);
+        } else if (e.pof) {
+          showAt = plan.arrive + K.OUT_CALL_LAG;
+          d = Math.max(K.PITCH_DUR.pof, plan.back.arrive + K.POST_PLAY_HOLD);
         } else if (e.po) {
           showAt = lastOut + K.OUT_CALL_LAG;
           d = Math.max(K.PITCH_DUR.po, showAt + K.POST_PLAY_HOLD);

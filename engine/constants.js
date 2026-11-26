@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.8';
+export const ENGINE_VERSION = '0.4.9';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -25,7 +25,7 @@ export const BREAK_DUR = 34;
 export const CHANGE_DUR = 14;
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
-export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10, po: 10 };
+export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10, po: 10, pof: 8 };
 export const PITCH_DUR_DEFAULT = 10;
 export const PA_END_HOLD = 3;             /* extra pause after a plate appearance ends */
 export const WALK_FRAME_DUR = 12;
@@ -180,6 +180,18 @@ export const PO_LEAD_AT = 1.0;
 export const PO_THROW_AT = 1.3;
 export const PO_THROW_V = 30;
 export const PO_REACT = 0.3;
+/* Throw-over that does not get him (#38): same set-up, drawn with POF_P after the pickoff draw, at most POF_MAX_PA times
+ * in one plate appearance (MLB rule since 2023: two disengagements per plate appearance; a third that does not get the
+ * runner is a balk, so pitchers stop at two). The runner keeps a shorter lead (POF_LEAD m), reads the step-off and breaks
+ * back POF_READ s before the throw leaves, so he is back before the ball (resolvePickoff checks it). The first baseman's
+ * swipe tag comes too late, he lobs the ball back to the pitcher POF_BACK_AFTER s after the catch at POF_BACK_V.
+ * Tuned so pickoff throws/game (PO + POF) match tests/replay/run.mjs REFERENCE (CBS Sports 2023, see there). */
+export const POF_P = 0.062;
+export const POF_MAX_PA = 2;
+export const POF_LEAD = 2.8;
+export const POF_READ = 0.35;
+export const POF_BACK_AFTER = 1.2;
+export const POF_BACK_V = 14;
 export const WP_BREAK = 0.35;             /* runners break this long after the ball reaches the plate (it gets past the mitt): WP and PB */
 
 /* ---- manager decisions ---- */

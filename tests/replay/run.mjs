@@ -52,6 +52,9 @@ const IP_PER_START = 5.2, IP_PER_START_TOL = 0.15;
  * then 38 fewer tries and 44 fewer steals in 2024) -> 0.19 SB3 and 0.04 CS3 per game. They are part of SB/game and CS/game.
  * Pickoffs: 185 runners picked off before the 2023 All-Star break, on pace for 346 in 2,430 games (FanGraphs, 2023-07-07,
  *   "pickoffs are still very much on"; no full 2024/2025 count found) -> 0.14 per game.
+ * Pickoff throws (successful or not, by pitchers): 3.94 per game in 2023, the first season with the two-disengagement
+ *   limit (CBS Sports, 2023-05-11, "Four under-the-radar effects of MLB's new rules": 6.07 in 2022). The engine throws
+ *   to first only; the real count includes the few throws to second. No 2024/2025 count found.
  * Balks: 181 in 2,430 games in 2025 (Baseball-Reference league pitching totals, 0.04 per team game) -> 0.074 per game.
  * Per-game numbers count both teams. The default sample has to stay within the tolerance, which is about
  * three standard errors of a 1000-game sample plus a little room for the model. Tighten, never loosen. */
@@ -60,7 +63,7 @@ const REFERENCE = [   /* [aggregate() key, label, reference, tolerance, decimals
   ['runsPerGame', 'runs/game', 8.89, 0.7, 2], ['kPct', 'K%', 0.222, 0.01, 1, true], ['bbPct', 'BB%', 0.084, 0.008, 1, true], ['hbpPct', 'HBP%', 0.0105, 0.003, 2, true],
   ['avg', 'AVG', 0.245, 0.008, 3], ['obp', 'OBP', 0.315, 0.009, 3], ['slg', 'SLG', 0.404, 0.014, 3], ['babip', 'BABIP', 0.29, 0.009, 3],
   ['hrPerGame', 'HR/game', 2.33, 0.25, 2], ['doublesPerGame', '2B/game', 3.19, 0.35, 2], ['triplesPerGame', '3B/game', 0.26, 0.12, 2],
-  ['gidpPerGame', 'GIDP/game', 1.29, 0.25, 2], ['ibbPerGame', 'IBB/game', 0.23, 0.12, 2], ['sbPerGame', 'SB/game', 1.36, 0.3, 2], ['csPerGame', 'CS/game', 0.41, 0.15, 2], ['wpPerGame', 'WP/game', 0.58, 0.12, 2], ['pbPerGame', 'PB/game', 0.10, 0.05, 2], ['bkPerGame', 'BK/game', 0.074, 0.03, 3], ['poPerGame', 'PO/game', 0.14, 0.05, 2], ['sb3PerGame', 'SB3/game', 0.19, 0.06, 2], ['cs3PerGame', 'CS3/game', 0.04, 0.03, 2],
+  ['gidpPerGame', 'GIDP/game', 1.29, 0.25, 2], ['ibbPerGame', 'IBB/game', 0.23, 0.12, 2], ['sbPerGame', 'SB/game', 1.36, 0.3, 2], ['csPerGame', 'CS/game', 0.41, 0.15, 2], ['wpPerGame', 'WP/game', 0.58, 0.12, 2], ['pbPerGame', 'PB/game', 0.10, 0.05, 2], ['bkPerGame', 'BK/game', 0.074, 0.03, 3], ['poPerGame', 'PO/game', 0.14, 0.05, 2], ['pickoffThrowsPerGame', 'PO throws/game', 3.94, 0.4, 2], ['sb3PerGame', 'SB3/game', 0.19, 0.06, 2], ['cs3PerGame', 'CS3/game', 0.04, 0.03, 2],
   ['pitchesPerPa', 'pitches/PA', 3.88, 0.12, 2], ['zonePct', 'zone', 0.507, 0.015, 1, true], ['swingPct', 'swing', 0.478, 0.015, 1, true],
   ['zoneSwingPct', 'zone swing', 0.668, 0.015, 1, true], ['chasePct', 'chase', 0.282, 0.015, 1, true], ['whiffPct', 'whiff', 0.253, 0.015, 1, true],
 ];
@@ -126,7 +129,7 @@ function checkGame(seed, g) {
 
   let bases = [null, null, null], half = null, outsInHalf = 0, halfClosed = true, lastT = -1;
   const expectBatter = [0, 0], halves = [];
-  let strikes = 0, balls = 0;
+  let strikes = 0, balls = 0, pofPA = 0;   /* pofPA: throw-overs that missed in this plate appearance (two disengagements, MLB 2023) */
 
   /* group by frame so that everything that happens on one pitch is judged together */
   const frames = new Map();
@@ -169,7 +172,7 @@ function checkGame(seed, g) {
     for (const x of F) {
       if (x.type === 'half_start') {
         if (!halfClosed && half) bad(`inning ${half.inning} half ${half.half} never ended`);
-        half = { inning: x.inning, half: x.half, outs: 0 }; halves.push(half); halfClosed = false; outsInHalf = 0; bases = [null, null, null]; pre.fill(null); strikes = balls = 0;
+        half = { inning: x.inning, half: x.half, outs: 0 }; halves.push(half); halfClosed = false; outsInHalf = 0; bases = [null, null, null]; pre.fill(null); strikes = balls = pofPA = 0;
         if (x.team !== x.half) bad('wrong team batting');
       } else if (x.type === 'runner_placed') {
         if (half.inning <= REGULATION) bad('tiebreak runner in regulation');
@@ -191,7 +194,7 @@ function checkGame(seed, g) {
       } else if (x.type === 'pa_end') {
         if (x.lineup !== expectBatter[x.team]) bad(`batting order: plate appearance by slot ${x.lineup}, expected ${expectBatter[x.team]}`);
         if (x.result === 'walk' && balls !== 4) bad(`walk on ${balls} balls`);
-        expectBatter[x.team] = (expectBatter[x.team] + 1) % LINEUP; strikes = balls = 0;
+        expectBatter[x.team] = (expectBatter[x.team] + 1) % LINEUP; strikes = balls = pofPA = 0;
       } else if (x.type === 'half_end') {
         if (x.outs !== 3 || outsInHalf !== 3) bad(`inning ${x.inning} half ${x.half} ended with ${outsInHalf} outs`);
         halfClosed = true;
@@ -248,6 +251,19 @@ function checkGame(seed, g) {
         return null;
       }
       return `unknown reason "${x.reason}"`;
+    }
+
+    /* a throw-over that does not get him (#38): nobody out or moving, the runner back before the ball, the ball ends with the pitcher */
+    const pof = F.find(x => x.type === 'pickoff' && x.safe);
+    if (pof) {
+      if (F.some(x => x.type === 'out' || x.type === 'runner_advance' || x.type === 'pitch')) bad('throw-over frame with an out, an advance or a pitch');
+      if (pre[0] !== pof.runner) bad(`throw-over to first, but ${pof.runner} is not on first`);
+      const got = actions.find(a => a.action === 'receive' && a.base === 1);
+      if (!got || !(pof.runnerAt < got.t - EPS)) bad('throw-over: the ball beats the runner back, but he is safe');
+      const last = actions[actions.length - 1];
+      if (!last || last.action !== 'receive' || last.fielder !== 'P') bad('throw-over: the ball does not end with the pitcher');
+      if (++pofPA > 2) bad('more than two throw-overs that miss in one plate appearance');
+      if (F.filter(x => x.type === 'pickoff').length !== 1) bad('more than one pickoff throw in a frame');
     }
 
     /* base runners after this frame */
@@ -345,7 +361,7 @@ console.log(`engine ${ENGINE_VERSION}: ${GAMES} games (seeds ${FIRST_SEED}..${FI
 console.log(`stream digest ${digest.digest('hex').slice(0, 16)}`);
 console.log(`runs/game ${A.runsPerGame.toFixed(2)}   K% ${pct(A.kPct)}   BB% ${pct(A.bbPct)}   AVG ${f3(A.avg)}   OBP ${f3(A.obp)}   SLG ${f3(A.slg)}   BABIP ${f3(A.babip)}`);
 console.log(`HR/game ${A.hrPerGame.toFixed(2)}   2B/game ${A.doublesPerGame.toFixed(2)}   3B/game ${A.triplesPerGame.toFixed(2)}   GIDP/game ${A.gidpPerGame.toFixed(2)}   HBP% ${pct(A.hbpPct)}   PA/game ${A.paPerGame.toFixed(1)}   pitches/game ${A.pitchesPerGame.toFixed(0)}   innings/game ${A.inningsPerGame.toFixed(2)}`);
-console.log(`SF/game ${A.sfPerGame.toFixed(2)}   SH/game ${A.shPerGame.toFixed(2)}   IBB/game ${A.ibbPerGame.toFixed(2)}   SB/game ${A.sbPerGame.toFixed(2)}   CS/game ${A.csPerGame.toFixed(2)}   SB% ${pct(A.sbPct)}   SB3/game ${A.sb3PerGame.toFixed(2)}   CS3/game ${A.cs3PerGame.toFixed(2)}   WP/game ${A.wpPerGame.toFixed(2)}   PB/game ${A.pbPerGame.toFixed(2)}   BK/game ${A.bkPerGame.toFixed(3)}   PO/game ${A.poPerGame.toFixed(2)}   ROE/game ${A.roePerGame.toFixed(2)}   H/game ${A.hitsPerGame.toFixed(2)}`);
+console.log(`SF/game ${A.sfPerGame.toFixed(2)}   SH/game ${A.shPerGame.toFixed(2)}   IBB/game ${A.ibbPerGame.toFixed(2)}   SB/game ${A.sbPerGame.toFixed(2)}   CS/game ${A.csPerGame.toFixed(2)}   SB% ${pct(A.sbPct)}   SB3/game ${A.sb3PerGame.toFixed(2)}   CS3/game ${A.cs3PerGame.toFixed(2)}   WP/game ${A.wpPerGame.toFixed(2)}   PB/game ${A.pbPerGame.toFixed(2)}   BK/game ${A.bkPerGame.toFixed(3)}   PO/game ${A.poPerGame.toFixed(2)}   PO throws/game ${A.pickoffThrowsPerGame.toFixed(2)}   ROE/game ${A.roePerGame.toFixed(2)}   H/game ${A.hitsPerGame.toFixed(2)}`);
 console.log(`pitches/PA ${A.pitchesPerPa.toFixed(2)}   zone ${pct(A.zonePct)}   swing ${pct(A.swingPct)}   zone swing ${pct(A.zoneSwingPct)}   chase ${pct(A.chasePct)}   whiff ${pct(A.whiffPct)}   zone contact ${pct(A.zoneContactPct)}   chase contact ${pct(A.chaseContactPct)}`);
 const ipPerStart = hook.outs / 3 / (hook.starts || 1);
 console.log(`IP/start ${ipPerStart.toFixed(2)}   pitches/start ${(hook.pitches / (hook.starts || 1)).toFixed(1)}   pitching changes/game ${(hook.changes / (boxes.length || 1)).toFixed(2)}   coach's own pick when asked about a change: change ${pct(hook.coachChange / (hook.asked || 1))}`);

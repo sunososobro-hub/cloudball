@@ -9,7 +9,7 @@ const $=id=>document.getElementById(id);
    par = the serial compile (no WARM_PARALLEL phase),
    shadows = #152 contact shadows, faces = #157 head shapes (every player on head 0), warm = no compileAsync (the frames compile it), prog = the old
    PassNode.compileAsync path without the #149 progress callback, post = no post pass, shadowmap = no key-light shadow map, park = #150 shaders off.
-   Production ignores the URL. BOOT_MARK writes a stage time into window.BOOT.t (index.html), read back by the 🐞 report's boot= field. */
+   Production ignores the URL. BOOT_MARK writes a stage time into window.BOOT.t (play.html), read back by the 🐞 report's boot= field. */
 const OFF=new Set((()=>{try{return window.SITE&&window.SITE.dev?(new URLSearchParams(location.search).get('off')||'').split(',').map(x=>x.trim()).filter(Boolean):[]}catch(e){return[]}})());
 /* #256 interim: SSR is off by default on max until its reflected radiance is clamped (owner's GPU: white blobs on the plate, ?off=ssr clean).
    ?on=ssr (dev only) turns it back on for tests. */
@@ -1305,22 +1305,30 @@ const bkU=u=>u<BK_STOP?u:u<BK_CALL_AT+.3?BK_STOP:Math.max(0,BK_STOP*(1-(u-BK_CAL
    his lead (plan.lead m, from PO_LEAD_FROM over PO_LEAD_GROW s); the pitcher stays in the set, turns to first over PO_TURN s and throws
    at plan.t0 (throwPose, PO_XFER s of arm action); the first baseman holding him on takes it at plan.arrive and tags the runner, who
    breaks back PO_REACT s after the throw and slides into the bag at plan.runnerAt. He gets up and is gone PO_OFF s later.
-   Pure function of (event, time). */
-const PO_LEAD_FROM=.2,PO_LEAD_GROW=.8,PO_TURN=.3,PO_XFER=.35,PO_REACT=.3,PO_SLIDE_D=1.6,PO_OFF=1.6;
-function poRunner(e,u,nm,show){const S=e.plan,[x,z]=BASES[1],[nx,nz]=BASES[2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),b0=S.t0+PO_REACT;
-  if(u>S.runnerAt+PO_OFF)return;
+   Throw-over that misses (e.pof, plan.safe): shorter lead, he breaks back plan.react s from the throw (before it) and is on the bag
+   before the ball; the swipe tag comes POF_TAG_LATE s after the catch (no call), he stays on the bag (LEAD_STAND 0) and the first baseman
+   lobs the ball back to the pitcher (plan.back: throwPose over POF_BACK_XFER s, the pitcher's glove up POF_GLOVE_UP s before it lands),
+   who turns back to the plate over PO_TURN s. Pure function of (event, time). */
+const PO_LEAD_FROM=.2,PO_LEAD_GROW=.8,PO_TURN=.3,PO_XFER=.35,PO_REACT=.3,PO_SLIDE_D=1.6,PO_OFF=1.6,POF_TAG_LATE=.05,POF_BACK_XFER=.45,POF_GLOVE_UP=.4,POF_CATCH_Y=1.4;
+function poRunner(e,u,nm,show){const S=e.plan,[x,z]=BASES[1],[nx,nz]=BASES[2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),b0=S.t0+(S.react??PO_REACT);
+  if(!S.safe&&u>S.runnerAt+PO_OFF)return;
   const out=S.lead*ease(sat01((u-PO_LEAD_FROM)/PO_LEAD_GROW)),k=sat01((u-b0)/(S.runnerAt-b0)),ld=u<b0?out:S.lead*(1-k*k);
   const r=show(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);if(!r||u<b0)return;
   face(r,-dx,-dz);const sl=ld<PO_SLIDE_D?ease(sat01((PO_SLIDE_D-ld)/(PO_SLIDE_D*.5)))*(1-ease(sat01((u-S.runnerAt-SLIDE_HOLD)/SLIDE_UP))):0;if(sl>0)slidePose(r,sl)}
 function poField(e,u){const S=e.plan,P=fielders.P,c=fielders[S.CV.key],sp=S.CV.spot,tgt=[sp[0],1.2,sp[1]],px=P.g.position.x,pz=P.g.position.z;
   c.g.position.set(sp[0],0,sp[1]);face(c,px-sp[0],pz-sp[1]);c.noAnim=true;
-  const tagA=S.actions.find(a=>a.a==='tag');if(u>=S.t0-.2){if(u<S.arrive)gloveTo(c,lerp(.45,1,ease(sat01((u-(S.arrive-.45))/.3))),null);else tagPose(c,u,S.arrive,tagA.t,1,true,2)}
-  const ts=S.t0-PO_XFER,y0=P.g.rotation.y,y1=Math.atan2(sp[0]-px,sp[1]-pz),w=ease(sat01((u-(ts-PO_TURN))/PO_TURN));
+  const B=S.safe?S.back:null,bs=B?B.t0-POF_BACK_XFER:Infinity,ptgt=[px,POF_CATCH_Y,pz];
+  const tagA=S.actions.find(a=>a.a==='tag');if(u>=S.t0-.2){if(u<S.arrive)gloveTo(c,lerp(.45,1,ease(sat01((u-(S.arrive-.45))/.3))),null);
+    else if(!B)tagPose(c,u,S.arrive,tagA.t,1,true,2);else if(u<bs)tagPose(c,u,S.arrive,S.arrive+POF_TAG_LATE,1,false,2);else throwPose(c,u-bs,POF_BACK_XFER,ptgt)}
+  const ts=S.t0-PO_XFER,y0=P.g.rotation.y,y1=Math.atan2(sp[0]-px,sp[1]-pz),w=ease(sat01((u-(ts-PO_TURN))/PO_TURN))*(B?1-ease(sat01((u-B.arrive)/PO_TURN)):1);
   P.g.rotation.y=y0+Math.atan2(Math.sin(y1-y0),Math.cos(y1-y0))*w;
-  if(u>=ts){P.noAnim=true;throwPose(P,u-ts,PO_XFER,tgt)}
+  if(B&&u>=B.arrive-POF_GLOVE_UP){P.noAnim=true;gloveTo(P,1-ease(sat01((u-B.arrive-.3)/.4)),null)}
+  else if(u>=ts){P.noAnim=true;throwPose(P,u-ts,PO_XFER,tgt)}
   let bp;if(u<S.t0){const q=P.handWorld(1);bp=[q.x,q.y,q.z]}
   else if(u<S.arrive){const rel=throwRelease(e,P,[px,pz],PO_XFER,tgt);bp=arc(rel,tgt,.2,(u-S.t0)/S.TT)}
-  else if(u<S.arrive+2.5){const q=c.handWorld(0);bp=[q.x,q.y,q.z]}else bp=null;
+  else if(B&&u>=B.t0&&u<B.arrive){const rel=throwRelease(e,c,sp,POF_BACK_XFER,ptgt);bp=arc(rel,ptgt,.6,(u-B.t0)/B.TT)}
+  else if(B&&u>=B.arrive){const q=P.handWorld(0);bp=[q.x,q.y,q.z]}
+  else if(B||u<S.arrive+2.5){const q=c.handWorld(0);bp=[q.x,q.y,q.z]}else bp=null;
   return bp}
 const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 /* #38 wild pitch (engine: e.wp, runners' runner_advance how 'wild_pitch'): the ball hits the dirt in front of the plate, skips under the mitt
@@ -1485,7 +1493,7 @@ const dotRows=document.querySelectorAll('.sit .dots');
 const {bugPlace,applyLayout,editing:isEditing}=window.UILAYOUT({$,clamp,note});/* #4: ui/layout.js */
 
 let bugKey='';
-function hudBug(e,u,s,c){const P=e.k==='P'&&e.r!=='ibb'&&e.r!=='bk'&&e.r!=='po',np=P?(u>=ARRIVE?e.pc:e.pc-1):'',sh=P&&u>=RELEASE+.05&&u<ARRIVE+4,k=[s.sc,s.inn,s.half,s.outs,s.b.map(Boolean),c,P?e.t:'',np,sh,e.k==='END'].join('|');if(k===bugKey)return;bugKey=k;
+function hudBug(e,u,s,c){const P=e.k==='P'&&e.r!=='ibb'&&e.r!=='bk'&&!e.po,np=P?(u>=ARRIVE?e.pc:e.pc-1):'',sh=P&&u>=RELEASE+.05&&u<ARRIVE+4,k=[s.sc,s.inn,s.half,s.outs,s.b.map(Boolean),c,P?e.t:'',np,sh,e.k==='END'].join('|');if(k===bugKey)return;bugKey=k;
   const dot=(n,t,cl)=>{let h='';for(let i=0;i<t;i++)h+=`<span style="color:${i<n?cl:'rgba(255,255,255,.28)'}">●</span>`;return h};
   let bp='',bb='';
   if(P){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]];
@@ -1512,7 +1520,7 @@ function hud(e,u,s){
   let m='';
   if(e.k==='P'){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]];m=`打者 <b>${B.num} ${B.name}</b>（${B.pos}）<br><small>${e.line}</small>投手 ${Pp.num} ${Pp.name}<small>本場用球數 ${e.pc}</small>`}
   {const pi=$('pinfo');let h='';
-    if(e.k==='P'&&e.r!=='ibb'&&e.r!=='bk'&&e.r!=='po'){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]],sh=u>=RELEASE+.05&&u<ARRIVE+4,rt=x=>Math.round(x*70-12);
+    if(e.k==='P'&&e.r!=='ibb'&&e.r!=='bk'&&!e.po){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]],sh=u>=RELEASE+.05&&u<ARRIVE+4,rt=x=>Math.round(x*70-12);
       h=`<b>投</b> ${Pp.num} ${Pp.name} <small>${e.pline}・${e.pc} 球</small><br><small>球威 ${rt(Pp.stuff)}　控球 ${rt(Pp.ctrl)}</small><br>`+(sh?`<span class="spd">${e.kmh}</span> km/h <small>${e.pt}</small>`:'<small>&nbsp;</small>')+`<br><b>打</b> ${B.num} ${B.name} <small>${e.line}</small><br><small>擊球 ${rt(B.con)}　長打 ${rt(B.pow)}　選球 ${rt(B.eye)}</small>`}
     if(pi.dataset.k!==h){pi.dataset.k=h;pi.innerHTML=h;pi.hidden=!h}}
   if($('matchup').dataset.k!==m){$('matchup').dataset.k=m;$('matchup').innerHTML=m}
@@ -1589,7 +1597,7 @@ const HITCAM={x:0,y:8,z:11,fov:62,mid:[0,0,-26]};
    event timing. Weight and aim are a pure function of (event, time, batter pose), so a bar jump lands on the same framing. Off with
    the 望遠鏡 toggle (already tighter). Aim: TIGHT_AIM_Y m up the batter (scaled by his build), head in the upper part of the frame. */
 const TIGHT_FOV=2.4,TIGHT_OUT_AT=RELEASE-.6,TIGHT_OUT_DUR=.45,TIGHT_AIM_Y=1.45;
-const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||e.r==='bk'||e.r==='po'||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
+const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||e.r==='bk'||e.po||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
   if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
@@ -1645,7 +1653,7 @@ $('mode').onclick=()=>{stopTalk();if(mode==='live'){mode='replay';const T=(Date.
 const LIVE_ENABLED=false;
 function startPractice(){stopTalk();mode='practice';gameStart=Date.now();seedCur=(Math.random()*4294967296)>>>0;decisions={};myVotes={};resolving.clear();regen();lastIdx=-1;cues.clear();replayT=0;voteKey='';subscribeGame();
   $('seedTag').textContent=`開發版・種子 #${seedCur.toString(16)}`;$('spd').hidden=false;if(LIVE_ENABLED)$('mode').hidden=false;$('mode').textContent='回到直播'}
-/* The frozen first game (league/preseason/opening.json, loaded by index.html): the recorded stream is played from the top, nothing is simulated. */
+/* The frozen first game (league/preseason/opening.json, loaded by play.html): the recorded stream is played from the top, nothing is simulated. */
 function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();cpLoad(game);
   $('seedTag').textContent=`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
 $('practice').onclick=()=>{startPractice();note('新的一場：兩隊都由你調度，暫停時速度會自動回到 1×')};
@@ -1653,7 +1661,7 @@ $('spd').onclick=e=>{speed=speed===1?4:speed===4?16:1;e.currentTarget.textConten
 /* ---------- player bar (#47): play / pause, elapsed / total, a mark at every half inning, click or drag to move. Frozen game only (mode 'opening').
  * A jump lands on the start of the nearest play. Pictures are posed from (event, time), so nothing is replayed: the scorebug, feed and
  * cue keys are reset, the voice is stopped and the booth re-primed, and only lines bound at or after the landing frame are said (seekFloor).
- * Every jump fires a 'cloudball:seek' event on window ({from, to} seconds; a drag also fires one when it starts, {drag: true, to: null}) for ui/stats.js (#117). Markup in index.html, styles in ui/player.css. */
+ * Every jump fires a 'cloudball:seek' event on window ({from, to} seconds; a drag also fires one when it starts, {drag: true, to: null}) for ui/stats.js (#117). Markup in play.html, styles in ui/player.css. */
 const SEEK_EPS=1e-3,PL_KEY_STEP=1;/* SEEK_EPS s: re-prime the booth just before the landing time, so a line due exactly there is said; PL_KEY_STEP: plays per arrow key */
 let paused=false,scrubbing=false,plFresh=false,seekFloor=0,seekGame=null,plFor=null,plStarts=[0],plLast='';
 const plEl=$('player'),plTrack=$('plTrack'),plTip=$('plTip'),plPlay=$('plPlay');
@@ -1728,7 +1736,7 @@ function cpEvents(g){const ev=g.ev;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE));
-      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
+      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?e.plan.back.arrive+PO_TURN:e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P')tail=Math.max(tail,u2End(ev,i));/* #42 slice 9: U2 jogs between his inside spot and his post */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
     return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch',jogEnd:e.k==='BRK'?jogEnd(dugout(off),BRK_ON_AT):0}})}/* #144: jogEnd = new defence at its posts */
@@ -1828,7 +1836,8 @@ const STUDIO_ACTS=[
   ['跑壘','wp','暴投・跑者推進（捕手追球）',e=>e.k==='P'&&e.wp&&!e.pb],
   ['跑壘','pb','捕逸・球彈出手套（捕手追球）',e=>e.k==='P'&&e.pb,STUDIO_SEEDS_RARE],
   ['跑壘','bk','投手犯規・投球動作中止，跑者推進',e=>e.k==='P'&&e.bk,STUDIO_SEEDS_RARE],
-  ['跑壘','po','牽制出局・投手傳一壘，跑者回壘被觸殺',e=>e.k==='P'&&e.po,STUDIO_SEEDS_RARE],
+  ['跑壘','po','牽制出局・投手傳一壘，跑者回壘被觸殺',e=>e.k==='P'&&e.po&&!e.pof,STUDIO_SEEDS_RARE],
+  ['跑壘','pof','牽制球・跑者撲回壘包安全，一壘手回傳投手',e=>e.k==='P'&&e.pof],
   ['上壘','bb','四壞保送',e=>e.k==='P'&&/保送/.test(e.desc||'')&&e.r!=='ibb'],
   ['上壘','hbp','觸身球',e=>e.k==='P'&&e.r==='hbp'],
   ['上壘','ibb','故意四壞',e=>e.k==='P'&&e.r==='ibb'],
@@ -1926,7 +1935,7 @@ let envOn=true;
    On a first visit the first frame built and compiled every material in one go: a frozen tab for seconds, right when the visitor presses enter.
    Now the loop runs without drawing while compileAsync builds the whole park (it yields between objects; frustum culling is off for that call so
    what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
-   then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
+   then window.READY resolves and play.html enables the entry buttons. A quality drop in play goes through the same path. */
 const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk,bootReady=false;window.READY=new Promise(ok=>readyOk=ok);
 /* #162: boot must not depend on the frame rate. A throttled tab (1 frame a second) or a hidden one (no frames) would make the READY_FRAMES
    wait seconds or forever. When the compile ends and frames come slower than READY_SLOW_GAP_MS (median gap since w0), or the tab is hidden,
@@ -1943,11 +1952,11 @@ function bootCompiled(){if(bootReady)return;if(document.hidden||rafMedian()>READ
    compile the shadow and post passes. It shows only once the wait passes WARM_BAR_DELAY_MS, so a warm visit does not flash it. */
 const BOOT_COMPILE_Q=[.25,.5,.75,.9,1];/* compile progress points timed in BOOT.t (c25 .. c100) */
 const WARM_BAR_DELAY_MS=700,WARM_BAR_FRAME_SHARE=.15,WARM_FRAMES=READY_FRAMES;let warmT0=0,warmLoaded=0,warmTotal=0,warmFramesLeft=0;
-/* the bar element is static markup in index.html (on screen from the first paint, BOOT fills its loading share); the first warm-up continues it from BOOT.share */
+/* the bar element is static markup in play.html (on screen from the first paint, BOOT fills its loading share); the first warm-up continues it from BOOT.share */
 const BOOT=window.BOOT||{share:0};let wbar=document.getElementById('warmBar');if(!wbar){wbar=document.createElement('div');wbar.id='warmBar';wbar.setAttribute('role','progressbar');wbar.innerHTML='<div><i></i></div><p>球場準備中…</p>';document.body.appendChild(wbar)}
 const wbarFill=wbar.querySelector('i');BOOT.own=true;
 function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wbar.hidden)wbar.hidden=true;return}
-  const first=warmRun===1;if(!first&&now-warmT0<WARM_BAR_DELAY_MS)return;/* the first one is already on screen (index.html) */
+  const first=warmRun===1;if(!first&&now-warmT0<WARM_BAR_DELAY_MS)return;/* the first one is already on screen (play.html) */
   const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,base=first?BOOT.share:0,pc=Math.round(100*(base+(1-base)*f));
   wbarFill.style.width=pc+'%';wbar.setAttribute('aria-valuenow',String(pc));if(wbar.hidden)wbar.hidden=false}
 /* #162: on the owner's throttled Chrome the compile moved in whole frames. three 0.186.1 (read): its yields are scheduler.yield when present
