@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.9';
+export const ENGINE_VERSION = '0.4.10';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -23,6 +23,9 @@ export const COSMETIC_SALT = 0x5ca1ab1e;  /* seed offset of the RNG used for loo
 export const PRE_DUR = 18;
 export const BREAK_DUR = 34;
 export const CHANGE_DUR = 14;
+/* #81: the pitching coach's mound visit after a "stay" pick, once per pitcher (frame `VIS`). render/visit.js needs about 13.2 s for the
+ * walk out and back from either dugout; the rest is the talk at the mound. Timing only: no draw, no outcome reads it. */
+export const MOUND_VISIT_DUR = 16;
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
 export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10, po: 10, pof: 8 };

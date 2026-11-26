@@ -38,7 +38,7 @@ export function simGame(seed, decisions, opts) {
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
   const st = { inn: 1, half: 0, outs: 0, b: [null, null, null], sc: [0, 0], ls: [[], []], H: [0, 0], E: [0, 0],
-    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], steal: false, sbAsked: false, ibbAsked: false };
+    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false };
   const stats = [0, 1].map(k => RR[k].bat.map(() => ({ ab: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0 })));
   const pst = [0, 1].map(k => RR[k].pit.map(() => ({ outs: 0, r: 0, h: 0, bb: 0, k: 0, hr: 0, bf: 0 })));
 
@@ -150,7 +150,17 @@ export function simGame(seed, decisions, opts) {
         const cur = RR[def].pit[st.pi[def]], nx = RR[def].pit[st.pi[def] + 1];
         const coach = st.pi[def] > 0 || st.pc[def] >= spBudget || st.ra[def] >= K.SP_MAX_RUNS ? 'change' : 'stay';
         const pick = vote(def, 'P', COPY.askChange(cur, st.pc[def]), [['change', COPY.optChange(nx)], ['stay', COPY.optStay(cur)]], coach);
-        if (pick === 'stay') { st.hold[def] = K.STAY_HOLD_BATTERS; continue; }
+        if (pick === 'stay') {
+          st.hold[def] = K.STAY_HOLD_BATTERS;
+          /* #81: the pitching coach goes out to talk to him, once per pitcher (a second visit to the same pitcher would take him out).
+           * Timing only: no draw, so every outcome stays as it was; only later times move. */
+          if (st.vis[def] !== st.pi[def]) {
+            st.vis[def] = st.pi[def];
+            emit('mound_visit', t, { team: def, pitcher: cur.name, staff: 'pitching' });
+            pushFrame({ t, d: K.MOUND_VISIT_DUR, k: 'VIS', desc: COPY.visit(TT[def], cur), s0: snap(), s1: snap(), def });
+          }
+          continue;
+        }
         const s0 = snap(); st.pi[def]++; st.pc[def] = 0; st.ra[def] = 0;
         emit('substitution', t, { team: def, role: 'pitcher', out: cur.name, in: nx.name });
         pushFrame({ t, d: K.CHANGE_DUR, k: 'CHG', desc: COPY.change(TT[def], nx), s0, s1: snap(), def });

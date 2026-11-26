@@ -11,6 +11,7 @@ export const COPY = {
   askChange: (cur, pitches) => `${cur.name} 用球數 ${pitches}，要換投嗎？`,
   optChange: nx => `換上 ${nx.name}`,
   optStay: cur => `${cur.name} 繼續投`,
+  visit: (team, cur) => `${team.short}投手教練上投手丘，和 ${cur.name} 談話`,
   change: (team, np) => `${team.short}換投：${np.num} 號 ${np.name}`,
   askIbb: bat => `得點圈有人，打者是強打 ${bat.name}，要敬遠嗎？`,
   optIbb: () => '敬遠保送',
