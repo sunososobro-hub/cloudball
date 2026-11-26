@@ -21,6 +21,7 @@ Hand-run tools for league data. Nothing here runs at game time.
 - `train_sim.mjs` (#369): 1000 seeded created players train day by day with `../training.js`, hands-off and active
   (a full-tier mini-game bonus every day); prints days to reach the 一軍 median and bottom quartile of `../site/players.json`,
   plus what-if rows without the potential stop. `node league/tools/train_sim.mjs`. Deterministic (`SIM_SEED`).
+- `season_sim.mjs` (#437): 20 seeded #165 seasons (12 games + best-of-three final) with a 二軍 of created players (fans first, then `system: true` 系統 players), promotion rule and an audition per created player; prints runs per game, created batting / pitching lines per group against the 一軍 median, and the share who reach the 一軍 with 5 / 20 / 60 real fans. `node league/tools/season_sim.mjs [--fans fans.json] [--seasons N]`. Deterministic (`SEASON_SEED`); the 系統 tag on the data site is part 2.
 - `blocklist.txt`: full names of real athletes, one per line; `#` lines are section headers.
   No league person may carry one of these names. `tests/names.check.mjs` enforces it.
 

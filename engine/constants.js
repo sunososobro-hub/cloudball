@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.10';
+export const ENGINE_VERSION = '0.4.13';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -147,6 +147,20 @@ export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
  * with this chance (he is safe: the throw arrives after him) and the batter, with second open, takes it on the throw.
  * First guess, not tuned: about one try in three; it only moves a runner, never adds an out. */
 export const THROW_HOME_ON_SINGLE_P = 0.35;
+/* Out on the bases (#38): on an outfield single with fewer than two outs, a runner from second who would be held at
+ * third is sent home anyway with this chance; the outfielder's throw to the catcher decides (rules/fielding.js): out
+ * when the ball beats him, else he scores. First guess, not tuned (MLB sends about 60% and loses a few percent of them). */
+export const SEND_FROM_2ND_ON_SINGLE_P = 0.12;
+/* Out on the bases (#38): on an outfield single with fewer than two outs and second open, the batter tries to stretch it
+ * into a double with this chance; the throw to second decides: tagged out when the ball beats him, else a double.
+ * First guess, not tuned (MLB: a few hundred batters a season are thrown out stretching, about 0.1 a game). */
+export const STRETCH_1B_P = 0.03;
+/* Advancing on an error (#38): on an outfield single the outfielder bobbles the ball with this chance, loses
+ * OF_BOBBLE_TIME seconds securing it, and the batter and every runner take one base more than the single gives them.
+ * Scored a single plus an error on that fielder. First guess, not tuned (MLB outfielders make roughly 0.1-0.15 errors
+ * a game between both teams; only some of those are bobbles on a single). */
+export const OF_BOBBLE_1B_P = 0.012;
+export const OF_BOBBLE_TIME = 1.6;
 export const DP_TRY_P = 0.44;
 export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
@@ -219,6 +233,17 @@ export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
 export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
 export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
+/* pinch hit (#436 part 2): off by default (factory games unchanged); simGame opts.pinchHit overrides */
+export const PINCH_HIT_ON = false;
+export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
+export const PH_EDGE = 0.3;               /* coach's own pick is the pinch hitter when his bat value (con x pow) is this much higher */
+export const PH_DUR = 10;                 /* seconds of the pinch-hit frame (walk from the dugout) */
+/* pinch run (#436 part 3): off by default (factory games unchanged); simGame opts.pinchRun overrides */
+export const PINCH_RUN_ON = false;
+export const PR_MIN_INNING = 8;           /* asked only from this inning on, for the lead runner */
+export const PR_EDGE = 0.15;              /* asked only when the fastest bench man's spd is this much higher (bench x3 runners ~1.3 vs ~0.95) */
+export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runner only within this many runs */
+export const PR_DUR = 8;                  /* seconds of the pinch-run frame (jog out from the dugout) */
 export const BUNT_POW_MAX = 1.0;
 export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;
@@ -290,12 +315,18 @@ export const RETURN_AFTER_THROW = 0.7;
 /* ---- running ---- */
 export const RUN_SPEED = 7.8;
 export const WALK_SPEED = 4.5;            /* trot on a walk */
+/* #266: home-run trot. MLB trots run about 22-23 s home to home (Statcast / Tater Trot Tracker averages, 2015-2024);
+ * 4 x 27.43 m at 5.0 m/s with RUN_ACCEL is 22.4 s. Every runner of a home run trots at this pace. */
+export const HR_TROT_SPEED = 5.0;
 export const RUN_ACCEL = 0.9;             /* seconds to reach full speed */
 export const BAT_RUN_DELAY = 0.1;         /* batter leaves the box this long after contact */
 export const STEAL_JUMP = 0.3;            /* a stealing runner breaks this long before release */
 export const WALK_DELAY = 0.8;
 export const SLIDE_D = 3;
 export const LEAD_STAND = 0;
+/* #23 part 1: primary lead a runner keeps between pitches (before the first move and after the pitch); same as the lead a
+ * held runner takes on a pickoff (PO_LEAD). A runner who tags up on a caught fly goes back to the bag (LEAD_STAND). */
+export const LEAD_PRIMARY = 3.4;
 export const LEAD_PITCH = 3.8;
 export const LEAD_OPEN = 0.6;
 export const LEAD_GROW = 0.9;

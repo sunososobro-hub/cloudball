@@ -1,15 +1,17 @@
-# A pull request that touches a protected path (engine/, .agent/, .github/) may only merge
-# after the repository owner has commented, on that pull request:
-#
-#     Opus review: PASS <full sha of the PR head>
-#
-# The result is published as the commit status "merge-gate" on the PR head, so it is updated
-# both when commits are pushed and when the comment is posted. Comment-triggered runs use the
-# copy of this file on the default branch.
+# The machine gate for dev PRs (#472), published as the commit status "merge-gate" on the PR head.
+# It fails when any of these hold, so the dev ruleset (required: test + merge-gate) blocks auto-merge:
+#   - the PR head is not in this repo, or its author is not the owner (outside PRs never merge, rules W9 d);
+#   - a linked issue (`Closes/Refs #N` in the body) has `needs-owner` or `status:frozen`;
+#   - a comment line starts with `needs owner` or `blocking` and no later owner `Opus review: PASS` resolved it;
+#   - a protected path (engine/, .agent/, .github/, tests/replay/run.mjs) is touched and the owner has not commented
+#         Opus review: PASS <full sha of the PR head>
+#     While PRESEASON (owner 2026-11-21) engine/ alone needs no PASS; the other protected paths always do.
+# It runs when commits are pushed, the body is edited and comments change. Comment-triggered runs use the
+# copy of this file on the default branch. tests/merge_gate.check.mjs runs this script against fake PRs.
 name: merge-gate
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   issue_comment:
     types: [created, edited, deleted]
 permissions:
@@ -26,29 +28,51 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const PROTECTED = ['engine/', '.agent/', '.github/'];
-            // Owner decision 2026-11-21: no review round before opening day. Set to false on opening day.
+            const PROTECTED = ['engine/', '.agent/', '.github/', 'tests/replay/run.mjs'];
+            // Owner decision 2026-11-21: no review round for engine/ before opening day. Set to false on opening day.
             const PRESEASON = true;
+            const PRESEASON_EXEMPT = ['engine/'];
+            const STOP_LABELS = ['needs-owner', 'status:frozen'];
             const { owner, repo } = context.repo;
             const number = context.eventName === 'pull_request' ? context.payload.pull_request.number : context.payload.issue.number;
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
             const sha = pr.head.sha;
+            const byOwner = c => !!c.user && (c.user.login === owner || c.author_association === 'OWNER');
+            const pass = /^\s*Opus review: PASS ([0-9a-f]{40})\s*$/m;
+            const stop = /^\s*(needs owner|blocking)\b/im;
+            const fails = [];
+            const headRepo = pr.head.repo && pr.head.repo.full_name;
+            if (headRepo !== `${owner}/${repo}` || !pr.user || pr.user.login !== owner) {
+              fails.push(`outside PR (head ${headRepo || 'deleted'}, author ${pr.user ? pr.user.login : '?'})`);
+            }
+            const linked = [...new Set([...(pr.body || '').matchAll(/\b(?:closes|refs)\s+#(\d+)/gi)].map(m => Number(m[1])))];
+            for (const n of linked) {
+              try {
+                const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: n });
+                const hit = (issue.labels || []).map(l => typeof l === 'string' ? l : l.name).filter(l => STOP_LABELS.includes(l));
+                if (hit.length) fails.push(`issue #${n} has ${hit.join(', ')}`);
+              } catch (err) {
+                core.warning(`could not read issue #${n}: ${err.message}`);
+              }
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
+            let openStop = null;
+            for (const c of comments) {
+              if (stop.test(c.body || '')) openStop = c;
+              else if (openStop && byOwner(c) && pass.test(c.body || '')) openStop = null;
+            }
+            if (openStop) fails.push(`open "${stop.exec(openStop.body)[1].toLowerCase()}" comment by ${openStop.user ? openStop.user.login : '?'}`);
             const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number, per_page: 100 });
-            const touched = files.flatMap(f => [f.filename, f.previous_filename || '']).filter(n => PROTECTED.some(p => n.startsWith(p)));
-            let ok = touched.length === 0, why = 'no protected path touched';
-            if (!ok && PRESEASON) {
-              ok = true; why = `pre-season: review suspended by owner (${touched[0]})`;
+            const touched = [...new Set(files.flatMap(f => [f.filename, f.previous_filename || '']).filter(n => PROTECTED.some(p => n.startsWith(p))))];
+            const needPass = touched.filter(n => !(PRESEASON && PRESEASON_EXEMPT.some(p => n.startsWith(p))));
+            let note = touched.length === 0 ? 'no protected path touched' : needPass.length === 0 ? `pre-season: engine/ review suspended by owner (${touched[0]})` : '';
+            if (needPass.length) {
+              const ok = comments.some(c => { const m = pass.exec(c.body || ''); return byOwner(c) && m && m[1] === sha; });
+              if (ok) note = `owner review PASS for ${sha.slice(0, 12)}`;
+              else fails.push(`protected path touched (${needPass[0]}); needs owner comment "Opus review: PASS ${sha}"`);
             }
-            if (!ok) {
-              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
-              const pass = /^\s*Opus review: PASS ([0-9a-f]{40})\s*$/m;
-              ok = comments.some(c => {
-                const byOwner = c.user && (c.user.login === owner || c.author_association === 'OWNER');
-                const m = pass.exec(c.body || '');
-                return byOwner && m && m[1] === sha;
-              });
-              why = ok ? `owner review PASS for ${sha.slice(0, 12)}` : `protected path touched (${touched[0]}); needs owner comment "Opus review: PASS ${sha}"`;
-            }
+            const ok = fails.length === 0;
+            const why = ok ? note : fails.join('; ');
             core.info(why);
             try {
               await github.rest.repos.createCommitStatus({ owner, repo, sha, state: ok ? 'success' : 'failure', context: 'merge-gate', description: why.slice(0, 140) });

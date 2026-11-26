@@ -1,8 +1,11 @@
 /* Guard for the live player preview on agent.html (#189). The preview spec comes from the same choice object that is posted,
  * so every pick that changes the body must change the spec; the page must load three.js only through the import map, after paint. */
-import { readFileSync } from 'node:fs';
-import { CREATE, makePlayer } from '../league/freeagents.js';
-import { specOfChoice, specOfRow, sameSpec, snapBody } from '../ui/preview-spec.js';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { CREATE, makePlayer, validateCreate } from '../league/freeagents.js';
+import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf } from '../ui/preview-spec.js';
 
 const problems = [], bad = m => problems.push(m);
 /* points come from CREATE, so a change of the budget or the ability list never breaks this guard */
@@ -33,12 +36,51 @@ if (slSpec.ht !== 1.9 || JSON.stringify(slSpec.body) !== JSON.stringify({ slim: 
 if (sameSpec(slSpec, specOfChoice({ ...sl, body: { slim: 0, power: 25, heavy: 50 } }))) bad('two body mixes give the same preview spec');
 if (sameSpec(slSpec, specOfChoice({ ...sl, ht: 1.75 }))) bad('height does not change the preview spec');
 
+/* #441 part 2: the 外觀 chips. Every shown value is legal, posts, previews differently from every other value of its row, and the
+   saved row previews the same look; the rows match what render/players.js draws (loaded with three.js stubbed, as players_load does) */
+const stub = () => { const f = function () {}; const p = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? () => 0 : k === 'then' ? undefined : p, apply: () => p, construct: () => p, set: () => true }); return p; };
+globalThis.__THREE_STUB = stub();
+const ROOT = process.cwd(), tmp = mkdtempSync(path.join(tmpdir(), 'pvlook-'));
+let PL = null;
+try {
+  const src = readFileSync('render/players.js', 'utf8').replace(/^import \* as THREE from 'three\/webgpu';.*$/m, 'const THREE=globalThis.__THREE_STUB;')
+    .replace(/from '\.\.\/league\/players\.js'/, `from '${pathToFileURL(path.join(ROOT, 'league/players.js')).href}'`);
+  const file = path.join(tmp, 'players_stub.mjs'); writeFileSync(file, src); PL = await import(pathToFileURL(file).href);
+} catch (e) { bad(`render/players.js did not load with three stubbed: ${e && e.message}`); } finally { rmSync(tmp, { recursive: true, force: true }); }
+const DRAWN = PL && { head: PL.HEAD_SHAPES.length, hair: PL.HAIR_TONES.length };
+if (Object.keys(LOOK_CHIPS).join() !== 'head,hair') bad(`look chips must be exactly head and hair (skin draws nothing off max): ${Object.keys(LOOK_CHIPS)}`);
+for (const [k, labels] of Object.entries(LOOK_CHIPS)) {
+  if (!LOOK_LEGEND[k]) bad(`look.${k}: no legend`);
+  if (DRAWN && labels.length !== DRAWN[k]) bad(`look.${k}: ${labels.length} chips but render/players.js draws ${DRAWN[k]}`);
+  if (new Set(labels).size !== labels.length) bad(`look.${k}: two chips share a label`);
+  const specs = labels.map((_, v) => {
+    const c = { ...base, look: { ...base.look, [k]: v } }, why = validateCreate(c);
+    if (v < CREATE.look[k][0] || v > CREATE.look[k][1] || why.length) bad(`look.${k} ${v}: not a legal choice (${why.join('; ')})`);
+    const made = makePlayer(7, c), row = specOfRow({ kind: c.kind, player: made.player, ratings: made.ratings }), a = specOfChoice(c);
+    if (a[k] !== v || row[k] !== v) bad(`look.${k} ${v}: preview ${a[k]}, saved row ${row[k]}`);
+    return a;
+  });
+  for (let i = 0; i < specs.length; i++) for (let j = i + 1; j < specs.length; j++) if (sameSpec(specs[i], specs[j])) bad(`look.${k} ${i} and ${j} give the same preview spec`);
+}
+if (PL) for (const v of LOOK_CHIPS.hair.keys()) if (PL.gearOf(PL.headOfPlayer({ id: 'X1', look: { head: 0, skin: 0, hair: v } })).hair !== v) bad(`hair chip ${v}: the game draws another hair colour`);
+
+/* #441 part 3: opens from the front with a close-up of the head; the turn button flips front/back; the head frame follows the height */
+if (PREVIEW_OPEN.side !== 'front' || PREVIEW_OPEN.zoom !== 'close' || yawOfSide(PREVIEW_OPEN.side) !== 0) bad('the preview must open from the front (yaw 0) with a head close-up');
+if (flipSide('front') !== 'back' || flipSide(flipSide('front')) !== 'front' || yawOfSide('back') !== Math.PI) bad('turn button: front -> back -> front, back is half a turn');
+if (flipZoom('close') !== 'full' || flipZoom('full') !== 'close') bad('zoom button must switch between close-up and full body');
+const cl = frameOf('close', 1.8), fu = frameOf('full', 1.8);
+if (!(cl.h < fu.h / 2) || !(cl.y > 1.5 && cl.y < 1.8)) bad(`close-up frame is not on the head: ${JSON.stringify(cl)}`);
+if (frameOf('close', 1.92).y <= frameOf('close', 1.72).y) bad('the head close-up must follow the height');
+if (frameOf('full', 1.72).y !== frameOf('full', 1.92).y) bad('the full-body frame must not depend on the height');
+
 /* page: import map before the module script, no render/ change needed, preview module loads three after first paint */
 const html = readFileSync('agent.html', 'utf8'), js = readFileSync('ui/agent-preview.js', 'utf8');
 if (!(html.indexOf('type="importmap"') > 0 && html.indexOf('type="importmap"') < html.indexOf('type="module"'))) bad('agent.html: the import map must come before the module script');
 if (/^import .*three/m.test(js)) bad('ui/agent-preview.js must import three.js dynamically (after first paint), not at load');
 if (!/requestIdleCallback/.test(js)) bad('ui/agent-preview.js must start loading when the browser is idle');
+if (/requestAnimationFrame|TURN\b/.test(js)) bad('the preview must not turn by itself any more (front view stays still)');
 for (const id of ['stage', 'stageCap']) if (!html.includes(`id="${id}"`)) bad(`agent.html lost #${id}`);
+for (const c of ['stage-turn', 'stage-zoom']) if (!html.includes(`class="${c}"`) || !js.includes(c)) bad(`agent.html / agent-preview.js lost the ${c} button`);
 
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
-console.log(`OK: preview spec follows build, side, head and height for ${Object.keys(CREATE.builds).length} builds; page loads three after first paint.`);
+console.log(`OK: preview spec follows build, side, head and height for ${Object.keys(CREATE.builds).length} builds; look chips ${LOOK_CHIPS.head.length} heads, ${LOOK_CHIPS.hair.length} hair colours; page loads three after first paint.`);
