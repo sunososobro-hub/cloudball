@@ -1,6 +1,6 @@
 /* Turnover simulation of #565: runs the league through SEASONS seasons (train a season, age a year, league/turnover.js seasonEnd)
  * from league/site/players.json and prints one row per season, then the steady-state band. Display model only (rule 10).
- *   node league/tools/turnover_sim.mjs [--seasons 30] [--seed 565] [--cull 1] [--out snapshot.json] [--json]
+ *   node league/tools/turnover_sim.mjs [--seasons 30] [--seed 565] [--cull 1] [--start factory|site] [--out snapshot.json] [--json]
  * Per season: retired, culled, rookies in, 一軍 average age, 一軍 median overall, share of 一軍 aged 30+, call-up queue length,
  * 自由市場 count. Career = all whole seasons a player spent in the 一軍 before he retired (all stints; players already there at the start are not counted).
  * --out writes the league after the last season (players.json format) so a later step can commit it as the day-1 snapshot. */
@@ -52,7 +52,8 @@ export function simulate(start, { seasons = 30, seed = 565, cullPerPos = CULL_PE
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
-  const start = JSON.parse(readFileSync(new URL('../site/players.json', import.meta.url), 'utf8'));
+  /* default start = the factory league (what the day-1 snapshot in site/players.json was made from); --start site = the committed snapshot */
+  const start = arg('start', 'factory') === 'site' ? JSON.parse(readFileSync(new URL('../site/players.json', import.meta.url), 'utf8')) : (await import('./site.mjs')).factoryPlayers();
   const res = simulate(start, { seasons: +arg('seasons', 30), seed: +arg('seed', 565), cullPerPos: +arg('cull', CULL_PER_POS) });
   if (process.argv.includes('--json')) console.log(JSON.stringify({ rows: res.rows, band: res.band, career: res.career }));
   else {

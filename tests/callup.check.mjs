@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { RETIRE_AGE, STATUS, slotTemplate, teamsOf, openSlots, weakestAt, isReady, decide, starters } from '../league/callup.js';
 
 const read = f => readFileSync(new URL(f, import.meta.url), 'utf8');
-const players = JSON.parse(read('../league/site/players.json'));
+const players = (await import('../league/tools/site.mjs')).factoryPlayers();   /* the factory league: the day-1 snapshot in site/players.json has a queue and open seats on purpose (#565) */
 const all = Object.values(players), tpl = slotTemplate(players), teams = teamsOf(players);
 const count = (team, pos) => all.filter(p => p.team === team && p.tier === 1 && p.pos === pos).length;
 

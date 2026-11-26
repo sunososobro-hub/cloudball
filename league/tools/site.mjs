@@ -1,6 +1,6 @@
 /* Exports the publishable data of the text-first site (#336, read by the pages of #335) into league/site/:
  *   teams.json    { season, teams: [{ id, name, city, logo, record: {w, l}, roster: [playerId, ...] }] }   (roster = 一軍)
- *   players.json  { "<playerId>": { name, num, age, role: "P"|"B", pos, hand, overall, abilities, team, tier } }
+ *   players.json  (the day-1 snapshot, #565 part 4: DAY1_SEASONS turnover seasons after the factory league) { "<playerId>": { name, num, age, role: "P"|"B", pos, hand, overall, abilities, team, tier } }
  *                 tier 1 = 一軍, 2 = 二軍, 3 = free agent (team null); `system: true` only on a 系統 filler (#437), shown as a 系統 tag
  *   games.json    [{ id, season, date, home, away, score: [home, away], replay }]
  *
@@ -19,11 +19,16 @@ import { ROSTERS } from '../players.js';
 import { ratingsOf } from '../ratings.js';
 import { CREATE, makePlayer, placeFan } from '../freeagents.js';
 import { parseRecording } from '../recording.js';
+import { simulate } from './turnover_sim.mjs';
 
 const LEAGUE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const OUT_DIR = path.join(LEAGUE, 'site');
 export const SEASON = '0';
 export const TIER = { FIRST: 1, SECOND: 2, FREE: 3 };
+/* #565 part 4: "day 1 for the first player". The site data is the factory league (league/players.js + systemSecond) run
+ * DAY1_SEASONS seasons ahead by turnover_sim.simulate (seed DAY1_SEED): mixed ages, a call-up queue, players on the 自由市場.
+ * Season 0 of the factory export is the start; 0 seasons = the plain factory export. Regenerate with `node league/tools/site.mjs --write`. */
+export const DAY1_SEASONS = 8, DAY1_SEED = 565;
 /* Characters of the city at the start of every team name (台北, 新竹, 高雄, 台東). */
 export const CITY_CHARS = 2;
 /* Recorded games of the season, oldest first. `file` is relative to the site root (it is also the replay path);
@@ -97,6 +102,18 @@ export function placeFans(second, fans = []) {
   return Object.fromEntries(Object.entries(out).map(([id, list]) => [id, list.map(x => x.player)]));
 }
 
+/* The factory league as players.json rows (no snapshot): what `turnover_sim.mjs` starts from. */
+export const factoryPlayers = () => buildSite({ second: systemSecond() }).players;
+
+/* day-1 snapshot: factory league run `seasons` seasons ahead; the 一軍 roster of each team is rebuilt from the result
+ * (team order and player order of the factory data, newcomers appended), so teams.json and players.json agree. */
+export function day1(site, seasons = DAY1_SEASONS, seed = DAY1_SEED) {
+  if (!seasons) return site;
+  const players = simulate(site.players, { seasons, seed }).players;
+  const teams = site.teams.teams.map(t => ({ ...t, roster: Object.keys(players).filter(id => players[id].team === t.id && players[id].tier === TIER.FIRST) }));
+  return { ...site, players, teams: { ...site.teams, teams } };
+}
+
 /* validateSite({ teams, players, games }) -> list of plain problems; empty = fine. */
 export function validateSite({ teams, players, games }) {
   const bad = [], tiers = Object.values(TIER);
@@ -137,7 +154,7 @@ export function validateSite({ teams, players, games }) {
 /* The three files as text, exactly as written. */
 export function siteFiles(root = path.resolve(LEAGUE, '..'), fans = []) {
   const games = RECORDED_GAMES.map(g => ({ ...g, rec: parseRecording(readFileSync(path.join(root, g.file), 'utf8')) }));
-  const site = buildSite({ games, second: placeFans(systemSecond(), fans) });
+  const site = day1(buildSite({ games, second: placeFans(systemSecond(), fans) }));
   return Object.fromEntries(Object.entries(site).map(([k, v]) => [`${k}.json`, JSON.stringify(v, null, 2) + '\n']));
 }
 
