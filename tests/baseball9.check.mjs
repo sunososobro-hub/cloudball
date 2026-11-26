@@ -126,6 +126,13 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
   if (!played) bad('3D field played nothing');
   const fb = await F3.openField({ width: 360, height: 270 }, () => { throw new Error('no three'); }); if (fb !== null) bad('openField with no 3D and no 2D context must return null');
   if (F3.CAM.pos[2] >= 0 || F3.TRAIL_N < 2) bad('3D camera must sit behind home plate');
+  /* #563 part 3: broadcast camera: low behind the plate on the pitch, eases wider and toward a ball in play, always behind the plate and looking at the field */
+  { const A = F3.camShot(0, null), B = F3.camShot(1, { x: 30, z: 90 }), C = F3.camShot(1, { x: -300, z: 900 }), D = F3.camShot(-5, { x: 9, z: 9 }), E = F3.camShot(9, null);
+    if (A.fov !== F3.CAM.fov || A.pos.join() !== F3.CAM.pos.join() || A.look.join() !== F3.CAM.look.join()) bad('camShot(0) must be the pitch shot');
+    if (D.fov !== A.fov || D.look.join() !== A.look.join()) bad('camShot before the pitch ends must stay the pitch shot');
+    if (!(B.fov > A.fov) || !(B.pos[1] > A.pos[1]) || !(B.look[0] > 0)) bad('camShot with a ball in play must widen, rise and lean toward the ball');
+    if (E.fov !== F3.CAM_HIT.fov || C.look[2] > F3.CAM_REACH * F3.CAM_LEAN + 12 + 1e-9) bad('camShot hit shot / reach limit');
+    for (const c of [A, B, C, E]) if (!(c.pos[2] < 0) || !(c.look[2] > 0)) bad('camShot must sit behind the plate looking at the field'); }
   /* #563 part 1: with the render/ player module the bodies are makePlayer bodies (8 fielders + catcher + batter, runners later), facing the plate; a throwing makePlayer falls back */
   { const calls = [], PL = { makePlayer: o => { calls.push(o); return { g: fake('g') }; } };
     const f2 = await F3.createField3D(canvas, THREE, { PL }); if (!f2) bad('createField3D with PL must still return a field');
