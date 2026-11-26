@@ -1131,7 +1131,7 @@ function bcPose(f,b,e,u){let c=null;for(const q of bcCalls(e))if(q.b===b&&u>=q.t
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
-const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
+const BALL_R=.042,BUNT_GROUND_Y=BALL_R,/* #43: a rolling bunt sits on the dirt, not 15 cm above it */BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
 const ZONE_W=.43,ZONE_LO=.55,ZONE_HI=1.1,ZONE_Z=0;
 const zoneBox=new THREE.Line(new THREE.BufferGeometry().setFromPoints([[-1,0],[1,0],[1,1],[-1,1],[-1,0]].map(([x,y])=>new THREE.Vector3(x*ZONE_W/2,ZONE_LO+y*(ZONE_HI-ZONE_LO),ZONE_Z))),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.75,toneMapped:false}));scene.add(zoneBox);
 $('zone').onclick=e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',on);zoneBox.visible=on};
@@ -1528,7 +1528,7 @@ function poseScene(e,u,dt,ei){
   paintKit(matDef,defT);paintKit(matOff,e.k==='BRK'&&u>=BRK_ON_AT?def:off);/* #42: after the change the walkers out of the dugout are the new batting side */
   applyNums(e,off,defT);
   /* fielders default */
-  for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=fielderStart(k,e.s0.b,e.s0.outs);f.ret=retSpot(e,ei,k,f.pos);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
+  for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=f.ret=fielderStart(k,e.s0.b,e.s0.outs);if(k!=='P')f.ret=retSpot(e,ei,k,f.pos);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
   retDrift(e,u,ei);
   ump.auto=true;ump.armsHeld=false;/* ump never gets resetPose: undo a call of the last frame (#42 slice 8) */poseBattery(e,u);
   if(e.k==='BRK')brkSwap(e,u,off,def,ei);
@@ -1610,11 +1610,13 @@ function poseScene(e,u,dt,ei){
   if(e.r==='inplay'){
     /* the whole defensive play (who fields, who covers, every throw and its timing) is e.plan, computed by the engine */
     const p=e.play,PL=e.plan,f=fielders[p.fielder],T=p.hang,u2=u-ARRIVE,hr=p.res==='HR',hit=PL.hit;
-    const land=[p.lx,hr?6+(p.dist-114)*.15:(hit||p.type==='GB'?.15:1.5),p.lz];
-    const rollEnd=[PL.target[0],.15,PL.target[1]];
+    const land=[p.lx,hr?6+(p.dist-114)*.15:bunt&&BCL?BUNT_GROUND_Y:(hit||p.type==='GB'?.15:1.5),p.lz];
+    const rollEnd=[PL.target[0],bunt&&BCL?BUNT_GROUND_Y:.15,PL.target[1]];
+    /* #43 item 5: a bunt goes down off the bat, hops low and rolls slowing to the engine's stop point at T (render/bunt_clip.js buntRoll) */
+    const gbAt=t=>bunt&&BCL?BCL.buntRoll(hit0,land,T,t):arc(hit0,land,p.peak,t/T),rollPk=bunt&&BCL?0:.3;
     const CV=PL.CV,tagPlay=PL.tagPlay,tagA=PL.actions.find(a=>a.a==='tag'&&a.f===CV.key),tg=tagA?{t:tagA.t,out:true}:tagPlay?{t:PL.arrive+TAG_LATE_SWEEP,out:false}:null,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer;
     const catchT=PL.catchT,D=PL.D,cx=PL.stand[0],cz=PL.stand[1];
-    const tgt=[CV.spot[0],1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
+    const tgt=[CV.spot[0],PL.wild?.15:1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
     const BAG=[BASES[1][0],BASES[1][1]],DB=Math.hypot(BAG[0]-cx,BAG[1]-cz),soloAt=PL.soloAt;
     const crowd=!!CV.key&&CV.key!==p.fielder&&Math.hypot(f.pos[0]-CV.spot[0],f.pos[1]-CV.spot[1])<BAG_CROWD_R;
     const t0=solo?Infinity:PL.t0,TT=PL.TT,rt=PL.rt,a1=dp?PL.a1:t0+TT,t1=dp?PL.t1:a1,arrive=PL.arrive;
@@ -1622,7 +1624,7 @@ function poseScene(e,u,dt,ei){
     if(u2>0){const tc=catchT-FIELD_REACT,cc=tc<=0?1:tc<RUN_ACCEL?.5*tc*tc/RUN_ACCEL:.5*RUN_ACCEL+(tc-RUN_ACCEL),vCh=clamp(D/cc,CHASE_VMIN,CHASE_VMAX);/* Chase speed: arrive exactly at the catch moment (capped at 9 m/s) */
       const k=D<.5?1:clamp(runDist(u2-FIELD_REACT,vCh)/D,0,1),kk=hr?Math.min(k,.5):k,tx=lerp(f.pos[0],cx,kk),tz=lerp(f.pos[1],cz,kk);
       if(CV.key){const c=fielders[CV.key],D2=Math.hypot(CV.spot[0]-c.pos[0],CV.spot[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u2-FIELD_REACT-COVER_REACT,COVER_SPEED)/D2,0,1),D2b=Math.hypot(CV.spot[0]-c.ret[0],CV.spot[1]-c.ret[1]),bk=D2b<.3?0:clamp(runDist(u2-(arrive+COVER_BACK_AT),COVER_SPEED)/D2b,0,1);
-        c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),c.ret[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),c.ret[1],bk));
+        c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),c.ret[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),c.ret[1],bk));/* #42: back to his pitch spot (the rubber for a pitcher covering first); #526: the next pitch's spot */
         if(tagPlay&&CV.key==='C'){resetPose(c);c.g.position.y=0}
         const fromX=dp?PVspot[0]:cx,fromZ=dp?PVspot[1]:cz;if(bk===0&&u2>arrive-TT-(dp?TT2:0)-.2){face(c,fromX-c.g.position.x,fromZ-c.g.position.z);c.noAnim=true;
           /* Receiving a throw: glove meets the ball, then the other hand takes it */
@@ -1634,7 +1636,7 @@ function poseScene(e,u,dt,ei){
         pv.g.position.set(lerp(lerp(pv.pos[0],PVspot[0],kp),pv.ret[0],bp2),0,lerp(lerp(pv.pos[1],PVspot[1],kp),pv.ret[1],bp2));
         if(bp2===0&&u2>a1-.6){pv.noAnim=true;if(u2<a1){face(pv,cx-pv.g.position.x,cz-pv.g.position.z);gloveTo(pv,ease(sat01((u2-(a1-.45))/.3)),null)}
           else{face(pv,tgt[0]-pv.g.position.x,tgt[2]-pv.g.position.z);throwPose(pv,u2-a1,PIVOT_XFER,tgt)}}else if(kp<1)face(pv,PVspot[0]-pv.g.position.x,PVspot[1]-pv.g.position.z)}
-      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.ret[0]-sx0,f.ret[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.ret[0],back),0,lerp(sz0,f.ret[1],back));/* Back to position: walk back from wherever he last stood */
+      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.ret[0]-sx0,f.ret[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.ret[0],back),0,lerp(sz0,f.ret[1],back));/* Back to position: walk back from wherever he last stood; #42: a pitcher who fielded walks back to the rubber (f.ret), not to his stride spot, so the next frame does not jump ~1 m */
       if(solo&&u2>catchT+.15&&back===0){const k2=DB<.3?1:clamp(runDist(u2-catchT-.15,6.5)/DB,0,1);f.g.position.set(lerp(tx,BAG[0],k2),0,lerp(tz,BAG[1],k2));if(k2<1){face(f,BAG[0]-cx,BAG[1]-cz);f.noAnim=false}}
       const fx=f.g.position.x,fz=f.g.position.z;
       if(back>0&&back<1)face(f,f.ret[0]-sx0,f.ret[1]-sz0);
@@ -1646,11 +1648,11 @@ function poseScene(e,u,dt,ei){
         if(u2<catchT+.12){const bpos=ballAt(u2+.04);reachGlove(f,bpos||[fx,low?.25:1.6,fz])}
         else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* Glove raised holding the ball while touching the base */
         else throwPose(f,u2-catchT,TH.xfer,tgtF)}}
-    if(u2>0&&u2<T)bp=p.type==='GB'?arc(hit0,land,p.peak,u2/T):flyPath(e,hit0,land,T)(u2);
+    if(u2>0&&u2<T)bp=p.type==='GB'?gbAt(u2):flyPath(e,hit0,land,T)(u2);
     else if(u2>=T&&!hr){
-      if(hit&&u2<T+.8)bp=arc(land,rollEnd,.3,(u2-T)/.8);
+      if(hit&&u2<T+.8)bp=arc(land,rollEnd,rollPk,(u2-T)/.8);
       else{const fx=f.g.position.x,fz=f.g.position.z,c=CV.key&&fielders[CV.key];
-        if(u2<catchT)bp=hit?[rollEnd[0],.15,rollEnd[2]]:[p.lx,.15,p.lz];
+        if(u2<catchT)bp=hit?[rollEnd[0],rollEnd[1],rollEnd[2]]:[p.lx,bunt&&BCL?land[1]:.15,p.lz];
         else if(solo&&u2>=catchT){if(u2<rt+.3){const q=f.handWorld(0);bp=[q.x,q.y,q.z]}}
         else if(u2>=catchT&&u2<t0){const q=f.handWorld(u2-catchT<TH.xfer*.45?0:1);bp=[q.x,q.y,q.z]}/* In the glove first, in the throwing hand after the transfer */
         else if(u2>=t0&&u2<a1){const rel=throwRelease(e,f,[cx,cz],TH.xfer,tgtF);bp=arc(rel,tgtF,Math.min(3,TD*THROW_ARC*(32/TH.v)),(u2-t0)/TT)}
@@ -1658,7 +1660,7 @@ function poseScene(e,u,dt,ei){
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,Math.min(3,TD2*THROW_ARC*(32/V2)),(u2-t1)/TT2)}
         else if(u2<arrive+3.2){if(c){const q=c.handWorld(tg||u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
     if(hr&&u2>0&&u2<T+.2&&!bp)bp=null;
-    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?arc(hit0,land,p.peak,t/T):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,.3,(t-T)/.8):rollEnd;return null}
+    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?gbAt(t):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,rollPk,(t-T)/.8):rollEnd;return null}
   }
   if(bp){ball.visible=true;ball.position.set(bp[0],bp[1],bp[2]);ballSh.position.set(bp[0],.03,bp[2]);const dB=ball.position.distanceTo(camera.getWorldPosition(_cw)),pxR=BALL_R*(innerHeight/2)/(dB*Math.tan(camera.fov*Math.PI/360)),bs=clamp(BALL_MIN_PX/pxR,1,BALL_MAX);ball.scale.setScalar(bs);ballSh.scale.setScalar(.35*bs)}
   ballSh.visible=ball.visible;
@@ -2030,6 +2032,7 @@ const STUDIO_ACTS=[
   ['跑壘','outhome','一壘安打・二壘跑者衝本壘遭捕手觸殺（#38）',e=>pl(e,p=>!!p.outHome),STUDIO_SEEDS_RARE],
   ['跑壘','stretch','一壘安打・打者硬闖二壘遭觸殺（#38）',e=>pl(e,p=>!!p.outStretch),STUDIO_SEEDS_RARE],
   ['跑壘','bobble','一壘安打・外野漏接、跑者多推進（#38）',e=>pl(e,p=>!!p.errAdvance),STUDIO_SEEDS_RARE],
+  ['跑壘','wildthrow','滾地球・內野暴傳一壘、跑者多推進（#38）',e=>pl(e,p=>!!p.wildThrow),STUDIO_SEEDS_RARE],/* the ball ends on the ground past first (plan.wild) */
   ['跑壘','score','跑壘・跑者回本壘得分',e=>e.k==='P'&&e.play&&e.play.res!=='HR'&&e.runs>0],
   ['跑壘','HR','跑壘・全壘打繞壘',e=>pl(e,p=>p.res==='HR')],
   ['跑壘','sb','盜壘',e=>e.k==='P'&&e.sbGo],

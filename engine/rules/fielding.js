@@ -16,6 +16,7 @@ const FIRST_BAG = [BASES[1][0] - K.BAG_FOOT, BASES[1][1]];
 const SECOND_PIVOT = [BASES[2][0] - K.BAG_FOOT, BASES[2][1] - K.BAG_FOOT];   /* outfield corner, clear of the slide */
 const SECOND_RELAY = [BASES[2][0] - K.RELAY_SPOT_OFF[0], BASES[2][1] - K.RELAY_SPOT_OFF[1]];
 const SECOND_TAG = [BASES[2][0] + K.SECOND_TAG_OFF[0], BASES[2][1] + K.SECOND_TAG_OFF[1]];   /* beside the lane from first */
+const PAST_FIRST = [BASES[1][0] + K.WILD_THROW_PAST[0], BASES[1][1] + K.WILD_THROW_PAST[1]];   /* foul ground behind first */
 const THIRD_BAG = [BASES[3][0] + K.BAG_FOOT, BASES[3][1]];
 const THIRD_TAG = [BASES[3][0] + K.THIRD_TAG_OFF, BASES[3][1] + K.THIRD_TAG_OFF];
 const toFrame = t => K.ARRIVE + t;
@@ -136,8 +137,15 @@ export function resolveFly(ctx, tagUp = null) {
 /* Hit, error or home run: nobody is out (except a runner sent home or a batter stretching a single, below). The ball comes back in to second base.
  * throwHome (#38): the outfielder throws home behind the runner scoring from second (he is safe: the ball arrives
  * TAG_LATE after him), so the batter takes second on the throw. */
-export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch = false, bobble = false } = {}) {
+export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch = false, bobble = false, wildThrow = false } = {}) {
   const plan = chase(ctx), p = ctx.play;
+  if (wildThrow) {
+    /* advancing on an error (#38): the infielder throws to first in a hurry and the ball sails past the bag into foul
+     * ground (nobody receives it); the batter and every runner take an extra base on it */
+    throwTo(plan, ctx, { key: null, spot: PAST_FIRST, base: null }, { rushBudget: batterArrival() - K.FORCE_MARGIN - plan.catchT });
+    plan.wild = true;
+    return { plan, outs: [] };
+  }
   if (p.res === 'HR') return { plan: throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null }), outs: [] };
   if (sendHome) {
     /* out on the bases (#38): the runner from second is sent home; the outfielder throws to the catcher. The ball is

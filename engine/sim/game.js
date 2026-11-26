@@ -124,7 +124,7 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? (e.play && e.play.errAdvance ? 'error' : 'batted') : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
     if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0 });
@@ -346,9 +346,11 @@ export function simGame(seed, decisions, opts) {
             let sendHome = false;   /* out on the bases (#38): a runner from second who would hold at third is sent home */
             /* advancing on an error (#38): the outfielder bobbles the single; everyone takes one base more */
             const bobble = res === '1B' && OUTFIELD_KEYS.includes(fielder) && R() < K.OF_BOBBLE_1B_P;
+            /* advancing on an error (#38): the infielder's throw to first sails past the bag; everyone takes one base more */
+            const wildThrow = res === 'E' && type === 'GB' && !bunt && fielder !== '1B' && R() < K.WILD_THROW_SHARE;
             for (let i = 2; i >= 0; i--) {
               if (!B[i]) continue; let to = i + 1 + adv;
-              if (bobble) { to = Math.min(HOME, to + 1); moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i]; continue; }
+              if (bobble || wildThrow) { to = Math.min(HOME, to + 1); moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i]; continue; }
               if (res === '1B' && i === 1 && R() < K.SCORE_FROM_2ND_ON_SINGLE) to = HOME;
               else if (res === '1B' && i === 1 && OUTFIELD_KEYS.includes(fielder) && st.outs < K.OUTS_PER_HALF - 1 && R() < K.SEND_FROM_2ND_ON_SINGLE_P) {
                 sendHome = true; moves.push([2, HOME, B[1]]); continue;   /* scores or is out: decided by the throw below */
@@ -363,10 +365,11 @@ export function simGame(seed, decisions, opts) {
             const throwHome = !bobble && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
             /* out on the bases (#38): the batter tries to stretch an outfield single into a double; the throw decides */
             const stretch = !bobble && !throwHome && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && !nb[1] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.STRETCH_1B_P;
-            const bTo = throwHome || stretch || bobble ? 2 : adv;
+            const bTo = throwHome || stretch || bobble || wildThrow ? 2 : adv;
             moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb;
             if (bobble) { ctx.fumble = K.OF_BOBBLE_TIME; play.errAdvance = true; }
-            const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble }); plan = h.plan;
+            if (wildThrow) play.wildThrow = true;
+            const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble, wildThrow }); plan = h.plan;
             if (sendHome) { if (h.safe) runs++; else { outs = h.outs; play.outHome = true; } }
             if (throwHome) { play.onThrow = true; }
             let hitRes = res;   /* the scorer's hit: a stretch that is safe is a double, one thrown out stays a single */
@@ -378,6 +381,7 @@ export function simGame(seed, decisions, opts) {
             if (play.outHome) desc += COPY.outAtHome(B[1]);
             if (play.outStretch) desc += COPY.outStretching();
             if (bobble) desc += COPY.errAdvance(fielder);
+            if (wildThrow) desc += COPY.wildThrow(fielder);
             e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;
