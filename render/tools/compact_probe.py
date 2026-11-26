@@ -49,7 +49,7 @@ async def main():
       return await r.abort()
     await pg.route('**/*',route)
     await pg.add_init_script("try{localStorage.setItem('zu_gl','1');localStorage.setItem('zu_tier','3@'+Date.now());localStorage.removeItem('zu_realTime')}catch(e){}")
-    await pg.goto('http://local/index.html'); await pg.wait_for_function("()=>!document.getElementById('enter').disabled",timeout=900000,polling=1000)
+    await pg.goto('http://local/play.html'); await pg.wait_for_function("()=>!document.getElementById('enter').disabled",timeout=900000,polling=1000)
     await pg.evaluate("()=>document.getElementById('enterMute').click()")
     await pg.wait_for_function("()=>window.__X&&window.__X.cpClock",timeout=120000,polling=500)
     r=await pg.evaluate(JS,STEP);print(json.dumps(r,ensure_ascii=False,indent=1))

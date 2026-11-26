@@ -39,7 +39,7 @@ async def main():
       return await r.abort()
     await pg.route('**/*',route)
     await pg.add_init_script(INIT)
-    await pg.goto('http://local/index.html')
+    await pg.goto('http://local/play.html')
     if os.environ.get('ACT')=='quick':
       await pg.wait_for_function("()=>__click&&__fr.filter(t=>t>__click).length>=5",timeout=600000,polling=500)
       c=await pg.evaluate("__click");lt=await pg.evaluate("__lt");fr=await pg.evaluate("__fr")

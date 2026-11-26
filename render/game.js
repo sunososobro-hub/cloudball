@@ -9,7 +9,7 @@ const $=id=>document.getElementById(id);
    par = the serial compile (no WARM_PARALLEL phase),
    shadows = #152 contact shadows, faces = #157 head shapes (every player on head 0), warm = no compileAsync (the frames compile it), prog = the old
    PassNode.compileAsync path without the #149 progress callback, post = no post pass, shadowmap = no key-light shadow map, park = #150 shaders off.
-   Production ignores the URL. BOOT_MARK writes a stage time into window.BOOT.t (index.html), read back by the 🐞 report's boot= field. */
+   Production ignores the URL. BOOT_MARK writes a stage time into window.BOOT.t (play.html), read back by the 🐞 report's boot= field. */
 const OFF=new Set((()=>{try{return window.SITE&&window.SITE.dev?(new URLSearchParams(location.search).get('off')||'').split(',').map(x=>x.trim()).filter(Boolean):[]}catch(e){return[]}})());
 /* #256 interim: SSR is off by default on max until its reflected radiance is clamped (owner's GPU: white blobs on the plate, ?off=ssr clean).
    ?on=ssr (dev only) turns it back on for tests. */
@@ -1643,7 +1643,7 @@ $('mode').onclick=()=>{stopTalk();if(mode==='live'){mode='replay';const T=(Date.
 const LIVE_ENABLED=false;
 function startPractice(){stopTalk();mode='practice';gameStart=Date.now();seedCur=(Math.random()*4294967296)>>>0;decisions={};myVotes={};resolving.clear();regen();lastIdx=-1;cues.clear();replayT=0;voteKey='';subscribeGame();
   $('seedTag').textContent=`開發版・種子 #${seedCur.toString(16)}`;$('spd').hidden=false;if(LIVE_ENABLED)$('mode').hidden=false;$('mode').textContent='回到直播'}
-/* The frozen first game (league/preseason/opening.json, loaded by index.html): the recorded stream is played from the top, nothing is simulated. */
+/* The frozen first game (league/preseason/opening.json, loaded by play.html): the recorded stream is played from the top, nothing is simulated. */
 function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();cpLoad(game);
   $('seedTag').textContent=`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
 $('practice').onclick=()=>{startPractice();note('新的一場：兩隊都由你調度，暫停時速度會自動回到 1×')};
@@ -1651,7 +1651,7 @@ $('spd').onclick=e=>{speed=speed===1?4:speed===4?16:1;e.currentTarget.textConten
 /* ---------- player bar (#47): play / pause, elapsed / total, a mark at every half inning, click or drag to move. Frozen game only (mode 'opening').
  * A jump lands on the start of the nearest play. Pictures are posed from (event, time), so nothing is replayed: the scorebug, feed and
  * cue keys are reset, the voice is stopped and the booth re-primed, and only lines bound at or after the landing frame are said (seekFloor).
- * Every jump fires a 'cloudball:seek' event on window ({from, to} seconds; a drag also fires one when it starts, {drag: true, to: null}) for ui/stats.js (#117). Markup in index.html, styles in ui/player.css. */
+ * Every jump fires a 'cloudball:seek' event on window ({from, to} seconds; a drag also fires one when it starts, {drag: true, to: null}) for ui/stats.js (#117). Markup in play.html, styles in ui/player.css. */
 const SEEK_EPS=1e-3,PL_KEY_STEP=1;/* SEEK_EPS s: re-prime the booth just before the landing time, so a line due exactly there is said; PL_KEY_STEP: plays per arrow key */
 let paused=false,scrubbing=false,plFresh=false,seekFloor=0,seekGame=null,plFor=null,plStarts=[0],plLast='';
 const plEl=$('player'),plTrack=$('plTrack'),plTip=$('plTip'),plPlay=$('plPlay');
@@ -1924,7 +1924,7 @@ let envOn=true;
    On a first visit the first frame built and compiled every material in one go: a frozen tab for seconds, right when the visitor presses enter.
    Now the loop runs without drawing while compileAsync builds the whole park (it yields between objects; frustum culling is off for that call so
    what the poster camera does not see is included; with post on it compiles for the post's scene pass). READY_FRAMES real frames follow (shadow and post passes compile there, behind the poster),
-   then window.READY resolves and index.html enables the entry buttons. A quality drop in play goes through the same path. */
+   then window.READY resolves and play.html enables the entry buttons. A quality drop in play goes through the same path. */
 const READY_FRAMES=3,READY_MAX_MS=30000;/* READY_MAX_MS: a compile that never ends (lost device) must not keep the buttons asleep for good */let warming=false,warmStarted=false,warmRun=0,readyN=0,readyOk,bootReady=false;window.READY=new Promise(ok=>readyOk=ok);
 /* #162: boot must not depend on the frame rate. A throttled tab (1 frame a second) or a hidden one (no frames) would make the READY_FRAMES
    wait seconds or forever. When the compile ends and frames come slower than READY_SLOW_GAP_MS (median gap since w0), or the tab is hidden,
@@ -1941,11 +1941,11 @@ function bootCompiled(){if(bootReady)return;if(document.hidden||rafMedian()>READ
    compile the shadow and post passes. It shows only once the wait passes WARM_BAR_DELAY_MS, so a warm visit does not flash it. */
 const BOOT_COMPILE_Q=[.25,.5,.75,.9,1];/* compile progress points timed in BOOT.t (c25 .. c100) */
 const WARM_BAR_DELAY_MS=700,WARM_BAR_FRAME_SHARE=.15,WARM_FRAMES=READY_FRAMES;let warmT0=0,warmLoaded=0,warmTotal=0,warmFramesLeft=0;
-/* the bar element is static markup in index.html (on screen from the first paint, BOOT fills its loading share); the first warm-up continues it from BOOT.share */
+/* the bar element is static markup in play.html (on screen from the first paint, BOOT fills its loading share); the first warm-up continues it from BOOT.share */
 const BOOT=window.BOOT||{share:0};let wbar=document.getElementById('warmBar');if(!wbar){wbar=document.createElement('div');wbar.id='warmBar';wbar.setAttribute('role','progressbar');wbar.innerHTML='<div><i></i></div><p>球場準備中…</p>';document.body.appendChild(wbar)}
 const wbarFill=wbar.querySelector('i');BOOT.own=true;
 function warmBarTick(now){const busy=warming||warmFramesLeft>0;if(!busy){if(!wbar.hidden)wbar.hidden=true;return}
-  const first=warmRun===1;if(!first&&now-warmT0<WARM_BAR_DELAY_MS)return;/* the first one is already on screen (index.html) */
+  const first=warmRun===1;if(!first&&now-warmT0<WARM_BAR_DELAY_MS)return;/* the first one is already on screen (play.html) */
   const f=(1-WARM_BAR_FRAME_SHARE)*(warmTotal?warmLoaded/warmTotal:0)+WARM_BAR_FRAME_SHARE*(WARM_FRAMES-warmFramesLeft)/WARM_FRAMES,base=first?BOOT.share:0,pc=Math.round(100*(base+(1-base)*f));
   wbarFill.style.width=pc+'%';wbar.setAttribute('aria-valuenow',String(pc));if(wbar.hidden)wbar.hidden=false}
 /* #162: on the owner's throttled Chrome the compile moved in whole frames. three 0.186.1 (read): its yields are scheduler.yield when present
