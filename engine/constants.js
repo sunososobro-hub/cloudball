@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.9';
+export const ENGINE_VERSION = '0.4.10';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -289,6 +289,9 @@ export const STEAL_JUMP = 0.3;            /* a stealing runner breaks this long 
 export const WALK_DELAY = 0.8;
 export const SLIDE_D = 3;
 export const LEAD_STAND = 0;
+/* #23 part 1: primary lead a runner keeps between pitches (before the first move and after the pitch); same as the lead a
+ * held runner takes on a pickoff (PO_LEAD). A runner who tags up on a caught fly goes back to the bag (LEAD_STAND). */
+export const LEAD_PRIMARY = 3.4;
 export const LEAD_PITCH = 3.8;
 export const LEAD_OPEN = 0.6;
 export const LEAD_GROW = 0.9;

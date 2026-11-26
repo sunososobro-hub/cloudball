@@ -3,7 +3,7 @@
 
 /* Everything about the game itself (rules, outcomes, timings of plays) comes from engine/. This file only draws it. */
 const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,BK_CALL_AT,
-  runDist,runTime,leadAt,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
+  runDist,runTime,leadAt,tagLeadAt,LEAD_PRIMARY,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
 const $=id=>document.getElementById(id);
 /* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park,par
    par = the serial compile (no WARM_PARALLEL phase),
@@ -1241,6 +1241,11 @@ function applyNums(e,off,def){const R=ROSTERS[def];if(e.pit&&e.pit[0]!==undefine
   const bb=e.k==='P'&&e.bat?ROSTERS[e.bat[0]].bat[e.bat[1]]:null;setNum(batter,bb?bb.num:undefined);if(bb)dress(batter,bb)}
 /* Slide pose (feet first): k 0->1; torso leans back, lead leg straight, trail leg bent, arms up, centre of mass low */
 const SLIDE_HOLD=.6,SLIDE_UP=.45;
+/* #23 part 1: a runner who ends a play on a base walks off it to the engine's primary lead (LEAD_PRIMARY), so the next pitch frame
+   (leadAt(0) = LEAD_PRIMARY) starts where this one ends. He starts LEAD_WALK_WAIT s after he arrives (up from a slide) and takes
+   LEAD_WALK_DUR s; never past the end of the event. leadWalk = metres off the bag toward the next base at u. */
+const LEAD_WALK_WAIT=SLIDE_HOLD+SLIDE_UP+.2,LEAD_WALK_DUR=2;
+const leadWalk=(u,from,end)=>{const t1=Math.min(from+LEAD_WALK_WAIT+LEAD_WALK_DUR,end),t0=Math.max(from,t1-LEAD_WALK_DUR);return LEAD_PRIMARY*ease(sat01((u-t0)/Math.max(t1-t0,.01)))};
 function slidePose(f,k){const R=f.rig;f.noAnim=true;f.auto=false;R.up.rotation.set(lerp(0,-1.05,k),0,0);R.hips.rotation.set(lerp(0,-.5,k),0,0);
   R.l0.rotation.set(lerp(0,-1.4,k),0,0);R.l1.rotation.set(lerp(0,-.75,k),0,lerp(0,.25,k));if(f.bend){f.bend.knee[0]=0;f.bend.knee[1]=1.5*k}
   R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1;R.a0.rotation.set(lerp(0,-2.5,k),0,lerp(0,-.3,k));R.a1.rotation.set(lerp(0,-2.2,k),0,lerp(0,.3,k));R.hg.rotation.set(lerp(0,.6,k),0,0);
@@ -1319,7 +1324,7 @@ const bkU=u=>u<BK_STOP?u:u<BK_CALL_AT+.3?BK_STOP:Math.max(0,BK_STOP*(1-(u-BK_CAL
 const PO_LEAD_FROM=.2,PO_LEAD_GROW=.8,PO_TURN=.3,PO_XFER=.35,PO_REACT=.3,PO_SLIDE_D=1.6,PO_OFF=1.6,POF_TAG_LATE=.05,POF_BACK_XFER=.45,POF_GLOVE_UP=.4,POF_CATCH_Y=1.4;
 function poRunner(e,u,nm,show){const S=e.plan,[x,z]=BASES[1],[nx,nz]=BASES[2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),b0=S.t0+(S.react??PO_REACT);
   if(!S.safe&&u>S.runnerAt+PO_OFF)return;
-  const out=S.lead*ease(sat01((u-PO_LEAD_FROM)/PO_LEAD_GROW)),k=sat01((u-b0)/(S.runnerAt-b0)),ld=u<b0?out:S.lead*(1-k*k);
+  const out=lerp(LEAD_PRIMARY,S.lead,ease(sat01((u-PO_LEAD_FROM)/PO_LEAD_GROW))),k=sat01((u-b0)/(S.runnerAt-b0)),ld=u<b0?out:u<S.runnerAt||!S.safe?out*(1-k*k):leadWalk(u,S.runnerAt,e.d||Infinity);/* #23 part 1: from the primary lead; safe: back out to it */
   const r=show(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);if(!r||u<b0)return;
   face(r,-dx,-dz);const sl=ld<PO_SLIDE_D?ease(sat01((PO_SLIDE_D-ld)/(PO_SLIDE_D*.5)))*(1-ease(sat01((u-S.runnerAt-SLIDE_HOLD)/SLIDE_UP))):0;if(sl>0)slidePose(r,sl)}
 function poField(e,u){const S=e.plan,P=fielders.P,c=fielders[S.CV.key],sp=S.CV.spot,tgt=[sp[0],1.2,sp[1]],px=P.g.position.x,pz=P.g.position.z;
@@ -1416,7 +1421,7 @@ function poseScene(e,u,dt,ei){
   /* runner moves: when each runner starts, slides and arrives is decided by the engine (4th element of a move) */
   const flyOut=e.r==='inplay'&&e.play.res==='out'&&e.play.type!=='GB';let batGone=Infinity;
   for(const [from,to,name,tl] of e.moves||[]){
-    const {st0,spd,slide,ts,slideTime:ST,arriveT}=tl,lead=from>0&&u<st0?leadAt(u):tl.lead,Ltot=(to-from)*27.43;
+    const {st0,spd,slide,ts,slideTime:ST,arriveT}=tl,lead=from>0&&u<st0?(tl.tag?tagLeadAt(u,st0):leadAt(u)):tl.lead,Ltot=(to-from)*27.43;
     if(from===0)batGone=st0;
     let prog;if(u<ts)prog=runDist(u-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
     let [x,z,done]=pathPos(from,to,prog);
@@ -1428,9 +1433,12 @@ function poseScene(e,u,dt,ei){
       if(r&&slide){const k=ease(sat01((u-ts)/(ST*.35)))*(1-ease(sat01((u-arriveT-SLIDE_HOLD)/SLIDE_UP)));if(k>0)slidePose(r,k)}continue}
     const stays=to<4&&e.s1.b[to-1]===name;
     if(done&&!stays&&u-arriveT>.6)continue;
+    const wk=stays&&u>=arriveT?leadWalk(u,arriveT,e.d||Infinity):0;/* #23 part 1: off the bag to the primary lead */
+    if(wk>0){const [nx,nz]=BASES[to+1],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz);x+=dx/L*wk;z+=dz/L*wk}
     showRunner(x,z,undefined,undefined,name);
     const r=runners[ri-1];if(!r)continue;const [b0x,b0z]=BASES[to-1],[b1x,b1z]=BASES[to];
     if(!done){const [nx,nz]=pathPos(from,to,prog+1);face(r,nx-x,nz-z)}else if(slide)face(r,b1x-b0x,b1z-b0z);
+    if(wk>0&&wk<LEAD_PRIMARY){const [nx,nz]=BASES[to+1];face(r,nx-b1x,nz-b1z)}else if(wk>0)face(r,-x,-z);/* walks out, then faces the plate as standRunner does */
     if(from===0&&bunt&&buntDrop>0){const rk=1-ease(sat01((u-st0)/BUNT_RISE));if(rk>0){r.rig.l0.scale.y=r.rig.l1.scale.y=1-buntDrop/((r.k||1)*LEG_LEN)*rk;r.g.position.y=-buntDrop*rk}}/* Bunter comes up out of his crouch as he breaks for first */
     if(slide&&u>=ts){const k=ease(sat01((u-ts)/(ST*.35)))*(1-ease(sat01((u-arriveT-SLIDE_HOLD)/SLIDE_UP)));if(k>0)slidePose(r,k)}
   }
@@ -1755,8 +1763,8 @@ function cpEvents(g){const ev=g.ev;
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
-      for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE));
-      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?e.plan.back.arrive+PO_TURN:e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
+      for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):Math.max(CP_RUNNER_SETTLE,LEAD_WALK_WAIT+LEAD_WALK_DUR)));/* #23: walk-out to the lead */
+      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P')tail=Math.max(tail,u2End(ev,i));/* #42 slice 9: U2 jogs between his inside spot and his post */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
     return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'?'change':'pitch',jogEnd:e.k==='BRK'?jogEnd(dugout(off),BRK_ON_AT):0}})}/* #144: jogEnd = new defence at its posts */

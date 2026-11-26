@@ -10,7 +10,7 @@
 - #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 
 ## Next
-1. #23 catcher holds the ball on steals: needs a primary lead from `render/` first (see the issue).
+1. #23 part 1 (0.4.10): `LEAD_PRIMARY` 3.4 m between pitches (`leadAt` starts/ends there), tag-ups leave from the bag (`tagLeadAt`, `tl.tag`); hold median 1.62/0.98 s (safe/out). Part 2: break at the first move, jump from the draw, release at catch + `CATCHER_POP`.
 2. #38 rest (0.4.4 wild pitch `WP_P`, 0.4.5 passed ball `PB_P`, 0.4.6 balk `BK_P`, frame `r: 'bk'`, no pitch event; 0.4.7 steal of 3rd `STEAL3_*`, `st.steal` = the base; 0.4.8 pickoff at first `PO_*`, frame `r: 'po'`; 0.4.9 throw-over that misses `POF_*`, frame `r: 'pof'`, `e.po`+`e.pof`, max 2 per PA): advancing on a throw or error, outs on the bases.
 3. Staffs have 4 relievers: 5.3 changes/game against about 6.6 in MLB. 4. Called third strikes: 19% of K, real ~25%.
 
