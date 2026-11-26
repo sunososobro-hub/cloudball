@@ -46,7 +46,7 @@ for (let seed = 1; seed <= GAMES; seed++) {
   const lines = createBooth({ stream: on.stream, seed, bank, teams: on.teams.map(t => TEAMS[t]), describe: x => on.ev[x.f].desc }).lines;
   for (const x of subs) if (lines.some(l => l.at === x.i)) bad(`seed ${seed} @${x.i}: the booth talks on a ${x.role} as if it were a pitching change`);
   if (seed <= 50) {
-    const off = simGame(seed, {}), Lo = lineupsByFrame(off.ev, off.stream, ROSTERS);
+    const off = simGame(seed, {}, { pinchHit: false, pinchRun: false }), Lo = lineupsByFrame(off.ev, off.stream, ROSTERS);
     for (const e of off.ev) if (e.bat) for (const k of [0, 1]) {
       const R = ROSTERS[e.bat[0]].bat;
       if (Lo.batterOf(e, k) !== R[(e.bat[1] + k) % R.length]) { bad(`seed ${seed}: factory game batterOf differs from the roster slot`); break; }

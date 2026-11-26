@@ -1,6 +1,6 @@
 /* Pinch run (#436 part 3): with opts.pinchRun the engine may send a fast bench man in for the lead runner late
  * (engine/constants.js PINCH_RUN_ON / PR_*; engine/sim/game.js). Fails when
- *   - the default game (PINCH_RUN_ON off) is not exactly the game with pinchRun false (factory games unchanged),
+ *   - the default game is not exactly the game with pinchRun = PINCH_RUN_ON (the switch is the default),
  *   - with pinchRun on: two runs of a seed differ, no pinch runner appears in GAMES games, a substitution is not
  *     announced by an 'R' decision picked 'pr', comes before PR_MIN_INNING, the replaced man is not the lead runner
  *     on that base, or the new man is not at least PR_EDGE faster,
@@ -19,7 +19,7 @@ const { simGame, ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'engine/
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/constants.js')));
 const GAMES = 1000;
 const DRIFT = { 'runs/game': 0.4, 'K%': 0.01, 'BB%': 0.01, AVG: 0.008, OBP: 0.008, SLG: 0.015 };
-const opts = (s, on) => ({ teams: [s % 4, (s + 1) % 4], pinchRun: on });
+const opts = (s, on) => ({ teams: [s % 4, (s + 1) % 4], pinchRun: on, pinchHit: false });
 const problems = [], bad = s => problems.push(s);
 const spd = b => b.spd || 1;
 
@@ -44,10 +44,11 @@ const off = [], on = [];
 let subs = 0;
 for (let s = 1; s <= GAMES; s++) {
   const base = simGame(s, {}, opts(s));
-  if (JSON.stringify(base.stream) !== JSON.stringify(simGame(s, {}, opts(s, false)).stream)) bad(`seed ${s}: default game differs from pinchRun false`);
+  if (JSON.stringify(base.stream) !== JSON.stringify(simGame(s, {}, opts(s, K.PINCH_RUN_ON)).stream)) bad(`seed ${s}: default game differs from pinchRun = PINCH_RUN_ON`);
+  const base0 = simGame(s, {}, opts(s, false));
   const g = simGame(s, {}, opts(s, true));
   if (JSON.stringify(g.stream) !== JSON.stringify(simGame(s, {}, opts(s, true)).stream)) bad(`seed ${s}: not deterministic with pinchRun`);
-  off.push(base); on.push(g);
+  off.push(base0); on.push(g);
   if (g.batters.some((b, k) => b.length !== g.stats[k].length)) bad(`seed ${s}: batters and stats rows differ`);
 
   const T = g.teams.map(ti => ROSTERS[ti]);
@@ -106,4 +107,4 @@ console.log(`pinch run: ${GAMES} games, ${subs} pinch runners (${(subs / GAMES).
 console.log('off: ' + Object.keys(DRIFT).map(n => `${n} ${fmt(n, a[n])}`).join('  '));
 console.log('on:  ' + Object.keys(DRIFT).map(n => `${n} ${fmt(n, b[n])}`).join('  '));
 if (problems.length) { console.error(`FAILED: ${problems.length} pinch-run problem(s)`); for (const p of problems.slice(0, 20)) console.error('  ' + p); process.exit(1); }
-console.log('OK: off by default, deterministic, legal lineups, the vote decides, rates within drift.');
+console.log('OK: default = the switch, deterministic, legal lineups, the vote decides, rates within drift.');
