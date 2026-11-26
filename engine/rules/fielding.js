@@ -133,10 +133,10 @@ export function resolveFly(ctx, tagUp = null) {
   return { plan, outs: [out] };
 }
 
-/* Hit, error or home run: nobody is out (except a runner sent home, below). The ball comes back in to second base.
+/* Hit, error or home run: nobody is out (except a runner sent home or a batter stretching a single, below). The ball comes back in to second base.
  * throwHome (#38): the outfielder throws home behind the runner scoring from second (he is safe: the ball arrives
  * TAG_LATE after him), so the batter takes second on the throw. */
-export function resolveHit(ctx, { throwHome = false, sendHome = false } = {}) {
+export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch = false } = {}) {
   const plan = chase(ctx), p = ctx.play;
   if (p.res === 'HR') return { plan: throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null }), outs: [] };
   if (sendHome) {
@@ -158,6 +158,18 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false } = {}) {
   }
   let key = p.lx >= 0 ? '2B' : 'SS';
   if (key === p.fielder) key = key === '2B' ? 'SS' : '2B';
+  if (stretch) {
+    /* out on the bases (#38): the batter tries to stretch the single into a double; the outfielder throws to the
+     * middle infielder covering second beside the lane. Held to TAG_EARLY before him (a close play); safe when the
+     * ball cannot be there by then. */
+    const runnerAt = slideArrival(0, 2);
+    throwTo(plan, ctx, { key, spot: SECOND_TAG, base: 2 }, { notBefore: runnerAt - K.TAG_EARLY });
+    plan.tagPlay = true;
+    if (!beats(plan.arrive, plan.CV.at, runnerAt)) return { plan, outs: [], safe: true };
+    const out = tagOut({ runner: ctx.batter, from: 0, base: 2, fielder: key, ballAt: toFrame(plan.arrive), fielderAt: toFrame(plan.CV.at), runnerAt: toFrame(runnerAt) });
+    plan.actions.push({ t: runnerAt, a: 'tag', f: key, base: 2 });
+    return { plan, outs: [out], safe: false };
+  }
   return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }), outs: [] };
 }
 
