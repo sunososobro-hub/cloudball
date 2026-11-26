@@ -35,9 +35,10 @@ const pick = (r, items) => { const total = items.reduce((s, [, w]) => s + w, 0);
 const poolOf = age => Object.entries(GIVEN[decadeOf(age)]).flatMap(([w, s]) => s.split(' ').map(g => [g, Number(w)]));
 
 /* people: [{id, team, age}] in a stable order. Returns Map id -> name.
- * taken: full names already in use; teamGiven: Map team -> Set of given names already on it. */
-export function drawNames(people, { seed = NAME_SEED, blocked = readBlocklist(), taken = new Set(), teamGiven = new Map() } = {}) {
-  const r = rng(seed), out = new Map(), full = new Set(taken), league = new Map();
+ * taken: full names already in use; teamGiven: Map team -> Set of given names already on it;
+ * leagueGiven: Map given name -> times already used league-wide (counts toward MAX_GIVEN_LEAGUE). */
+export function drawNames(people, { seed = NAME_SEED, blocked = readBlocklist(), taken = new Set(), teamGiven = new Map(), leagueGiven = new Map() } = {}) {
+  const r = rng(seed), out = new Map(), full = new Set(taken), league = new Map(leagueGiven);
   const team = new Map([...teamGiven].map(([t, g]) => [t, new Set(g)]));
   for (const p of people) {
     const onTeam = team.get(p.team) || new Set();

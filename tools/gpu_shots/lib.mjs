@@ -125,3 +125,36 @@ export function requestRunnable(req, commit, pulls, done, now = Date.now()) {
   if (!(now - t <= REQUEST_MAX_AGE_MS) || t > now + 5 * 60 * 1000) return { ok: false, why: 'request older than 24 h or in the future' };
   return { ok: true, why: '' };
 }
+
+/* part 2 helpers for shots.mjs (pure, checked by tests/gpu_shots.check.mjs) */
+/* external origins the pages need (three.js build, web fonts); every other non-local request is failed */
+export const ALLOWED_PREFIXES = ['https://cdn.jsdelivr.net/npm/three@0.186.1/', 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/'];
+export function allowedUrl(url, origin) {
+  const u = String(url);
+  if (/^(data|blob):/.test(u) || u === 'about:blank') return true;
+  if (u === origin || u.startsWith(origin + '/')) return true;
+  return ALLOWED_PREFIXES.some(p => u.startsWith(p));
+}
+/* URL path of the local server -> repo-relative file path, or null (no '..', no dot folders like .git / .agent, no backslash) */
+export function safeFile(urlPath) {
+  let p;
+  try { p = decodeURIComponent(String(urlPath).split(/[?#]/)[0]); } catch (e) { return null; }
+  if (!p.startsWith('/') || /[\\\0:]/.test(p)) return null;
+  const segs = p.slice(1).split('/');
+  if (segs.some(s => s === '..' || s.startsWith('.'))) return null;
+  const rel = segs.filter(Boolean).join('/');
+  return rel === '' ? 'index.html' : (p.endsWith('/') ? rel + '/index.html' : rel);
+}
+/* output of `reg query "...\App Paths\chrome.exe" /ve` -> the exe path, or '' */
+export function appPathFromReg(text) {
+  const m = /REG_(?:EXPAND_)?SZ[ \t]+(.+?\.exe)/i.exec(String(text));
+  return m ? m[1].trim().replace(/^"|"$/g, '') : '';
+}
+export const runStamp = (d = new Date()) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+/* the scheduled capture is due when the newest gpu/<run> is at least `everyMs` old (or there is none) */
+export function captureDue(names, now = Date.now(), everyMs = 55 * 60 * 1000) {
+  const runs = names.filter(n => RUN_RE.test(n)).sort();
+  if (!runs.length) return true;
+  const n = runs[runs.length - 1], t = Date.parse(`${n.slice(0, 4)}-${n.slice(4, 6)}-${n.slice(6, 8)}T${n.slice(9, 11)}:${n.slice(11, 13)}:${n.slice(13, 15)}Z`);
+  return !(now - t < everyMs);
+}
