@@ -133,6 +133,24 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
     if (calls.filter(o => o.role === 'batter').length !== 1 || calls.filter(o => o.glove).length !== 9) bad('3D field: one batter, nine gloves expected');
     const o = Gm.createGame({ rnd: seeded(9) }); let k = 0, last = null; while (!o.S.over && k++ < 12) last = o.pitch(o.userBats() ? { mode: 'one', r: 1, c: 1, steal: false, app: 'mid' } : { pt: 'fb', r: 2, c: 2, shift: 'N' }), f2.play(last), f2.skip();
     if (Math.abs(F3.faceYaw(0, 18, 0, 0)) !== Math.PI || F3.faceYaw(0, 0, 0, 5) !== 0 || F3.faceYaw(1.3, .2, 0, .2) >= 0) bad('faceYaw must turn a +z-front body toward the target');
+    /* #563 part 2: pitcher windup + batter swing from the mocap clips. Pure timing: the windup runs before release (t < 0), release lands on the clip's release frame,
+       the swing reaches contact when the ball reaches the plate. Then a real frame loop: the pitcher and the batter get setMocap, nobody else, and skip() lets go. */
+    { const A = F3.pitchAct(-F3.WINDUP_S - .5), B = F3.pitchAct(-.5), C = F3.pitchAct(0), D = F3.pitchAct(5);
+      if (A.w !== 0 || !(B.w > .99) || Math.abs(C.ct - F3.PM.rel) > 1e-9 || D.w !== 0 || D.ct > F3.PM.end + 1e-9) bad('pitchAct: windup weight / release time');
+      const S0 = F3.swingAct(F.PITCH_S - 2, false), S1 = F3.swingAct(F.PITCH_S, false), S2 = F3.swingAct(F.PITCH_S + 2, false), H = F3.swingAct(F.PITCH_S + .4, true), M = F3.swingAct(F.PITCH_S + .4, false);
+      if (S0.w !== 0 || !(S1.w > .99) || Math.abs(S1.ct - F3.SW.contact) > 1e-9 || S2.w !== 0 || !(H.w < M.w)) bad('swingAct: swing weight / contact time');
+      if (!F3.swings({ res: { kind: 'whiff' } }) || F3.swings({ res: { kind: 'called' } }) || F3.swings({ res: { kind: 'ball' } }) || F3.swings({ res: { kind: 'bunt' } }) || !F3.swings({ res: { kind: 'x' }, play: { kind: 'single' } }) || F3.swings({ res: {}, play: { bunt: true } })) bad('swings: which results swing');
+      const rafs = [], calls = []; const raf0 = globalThis.requestAnimationFrame; globalThis.requestAnimationFrame = fn => { rafs.push(fn); return rafs.length; };
+      const mk = () => { const fg = fake('g'); const o = { g: fg, mirrored: true, setMocap: (...a) => calls.push([o, ...a]) }; return o; }, bodies = [];
+      const PL2 = { makePlayer: o => { const b = mk(); b.opts = o; bodies.push(b); return b; }, loadClip: async u => ({ url: u }) };
+      const f4 = await F3.createField3D(canvas, THREE, { PL: PL2 }); const out = { res: { kind: 'whiff' }, play: null, paEnd: false };
+      f4.play(out); await new Promise(r => setTimeout(r, 5)); const now0 = performance.now();
+      f4.play(out); await new Promise(r => setTimeout(r, 5));
+      const cb = rafs[rafs.length - 1]; cb(performance.now() + 100); cb(performance.now() + 1100);
+      const who = new Set(calls.filter(c => c[1]).map(c => c[0])); if (who.size !== 2) bad('3D acts: expected the pitcher and the batter to get a clip, got ' + who.size);
+      if (![...who].some(b => b.opts.role === 'batter')) bad('3D acts: the batter must swing');
+      f4.skip(); if (!calls.slice(-2).every(c => c[1] === null)) bad('3D acts: skip() must let the clips go');
+      void now0; globalThis.requestAnimationFrame = raf0; }
     const f3 = await F3.createField3D(canvas, THREE, { PL: { makePlayer() { throw new Error('no body'); } } }); if (!f3) bad('a throwing makePlayer must fall back to the low-poly figures'); } }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
