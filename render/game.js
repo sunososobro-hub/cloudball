@@ -1085,7 +1085,7 @@ let pitchClip=null,pitchClipP=null;const pmRel=new Map();
    the rubber in PM_STEPS backward steps between PM_BACK[0] and PM_BACK[1] (inside the pitch frame, PK_END): one foot swings (lifted by
    PM_LIFT of its length) while the other stays planted, the hips ride at the middle of the two feet, every leg angle is solved from where
    its foot is (leg PM_LEG m, hip over the rubber line), so a planted foot does not slide. Pure function of u. */
-const PM_LAND=.85,PM_BACK=[3.4,4.6],PM_STEPS=4,PM_LIFT=.12,PM_LEG=.9,PM_FOOT_MAX=.9;const pmLand=new Map();
+const PM_LAND=.85,PM_BACK=[3.4,4.6],PM_STEPS=4,PM_LIFT=.12,PM_LIFT_B=.12,PM_LEG=.9,PM_FOOT_MAX=.9;const pmLand=new Map();
 function pmBack(u,S,k){if(u<PM_BACK[0])return null;
   const s=sat01((u-PM_BACK[0])/(PM_BACK[1]-PM_BACK[0]))*PM_STEPS,i=Math.min(PM_STEPS-1,Math.floor(s)),f=ease(Math.min(1,s-i)),d=S/(PM_STEPS-1),
     at=n=>Math.max(0,S-n*d),/* foot 0 moves on steps 1, 3, ...; foot 1 on steps 2, 4, ... */
@@ -1100,8 +1100,12 @@ function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,
   let S=PM_LAND;if(c&&P.moTravel){S=pmLand.get(mkey);if(S===undefined){S=P.moTravel(c,PM_END,PM_START);pmLand.set(mkey,S)}}
   const dz=u<PM_OUT[0]?kf(u,PK.dz):S,B=pmBack(u,S,P.k||1);P.legs[0].scale.y=P.legs[1].scale.y=1;
   if(B){P.legs[0].rotation.x=B.leg[0];P.legs[1].rotation.x=B.leg[1];P.legs[0].scale.y=B.sc[0];P.legs[1].scale.y=B.sc[1]}
-  /* the stride foot comes back under the hips as a step (lifted), not dragged, while the clip hands over to the keyframes */
-  else if(u>=PM_OUT[0])P.legs[0].scale.y=1-PM_LIFT*Math.sin(Math.PI*sat01((u-PM_OUT[0])/(PM_BACK[0]-PM_OUT[0])));
+  /* #274: both feet leave the ground as soon as the hand-off starts moving them (each used to slide 13-14 cm along the ground first):
+     the stride foot rises over the first half of PM_OUT and stays up until PM_BACK; the back foot, coming down from the follow-through,
+     stays off the ground until the blend has put it at its keyframe spot under the hips (a lift of PM_LIFT_B over PM_OUT) */
+  else if(u>=PM_OUT[0]){const o=sat01((u-PM_OUT[0])/(PM_OUT[1]-PM_OUT[0]));
+    P.legs[0].scale.y=1-PM_LIFT*Math.max(Math.sin(Math.PI*Math.min(o,.5)),Math.sin(Math.PI*sat01((u-PM_OUT[0])/(PM_BACK[0]-PM_OUT[0]))));
+    P.legs[1].scale.y=1-PM_LIFT_B*Math.sin(Math.PI*o)}
   P.g.position.z+=B?B.z:dz;
   let rel=pitchTipAt(RELEASE,bx,bz);
   if(mo){if(!pitchClipP&&window.PL&&PL.loadClip)pitchClipP=PL.loadClip(PITCH_CLIP_URL).then(c=>{pitchClip=c}).catch(e=>console.warn('mocap',e));
