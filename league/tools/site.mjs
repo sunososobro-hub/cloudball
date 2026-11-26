@@ -6,6 +6,7 @@
  *
  *   node league/tools/site.mjs           print what would be written (no file is written)
  *   node league/tools/site.mjs --write   write the three files
+ *   node league/tools/site.mjs --fans fans.json [--write]   real fans [{ team, player }] replace 系統 二軍 players (#437 part 5)
  *
  * Export only: it reads the league modules and the recorded games and never changes an ability or a result
  * (rules 10, 11). No randomness, no clock: two runs give the same bytes. tests/leaguesite.check.mjs keeps the files
@@ -16,7 +17,7 @@ import path from 'node:path';
 import { TEAMS } from '../teams.js';
 import { ROSTERS } from '../players.js';
 import { ratingsOf } from '../ratings.js';
-import { CREATE, makePlayer } from '../freeagents.js';
+import { CREATE, makePlayer, placeFan } from '../freeagents.js';
 import { parseRecording } from '../recording.js';
 
 const LEAGUE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -84,6 +85,18 @@ export function buildSite({ teams = TEAMS, rosters = ROSTERS, rate = ratingsOf, 
   return { teams: { season: SEASON, teams: teamRows }, players, games: gameRows };
 }
 
+/* #437 part 5: real fans from a json file take the place of 系統 二軍 players. fans: [{ team: <team id>, player: <player in the roster format> }]
+ * (default none = the bytes do not change). Per team a fan replaces the first 系統 player of his kind (placeFan), is added when none is left,
+ * and never touches a 一軍 player. Pure: returns a new { teamId: [player] }; a team id that does not exist is an error. */
+export function placeFans(second, fans = []) {
+  const out = Object.fromEntries(Object.entries(second).map(([id, list]) => [id, list.map(player => ({ id: player.id, kind: player.role ? 'pit' : 'bat', player }))]));
+  for (const f of fans) {
+    if (!f || !out[f.team] || !f.player || typeof f.player.id !== 'string') throw new Error(`fan ${JSON.stringify(f && f.player && f.player.id)}: team ${f && f.team} does not exist or the player has no id`);
+    out[f.team] = placeFan(out[f.team], { id: f.player.id, kind: f.player.role ? 'pit' : 'bat', player: f.player }).pool;
+  }
+  return Object.fromEntries(Object.entries(out).map(([id, list]) => [id, list.map(x => x.player)]));
+}
+
 /* validateSite({ teams, players, games }) -> list of plain problems; empty = fine. */
 export function validateSite({ teams, players, games }) {
   const bad = [], tiers = Object.values(TIER);
@@ -122,14 +135,15 @@ export function validateSite({ teams, players, games }) {
 }
 
 /* The three files as text, exactly as written. */
-export function siteFiles(root = path.resolve(LEAGUE, '..')) {
+export function siteFiles(root = path.resolve(LEAGUE, '..'), fans = []) {
   const games = RECORDED_GAMES.map(g => ({ ...g, rec: parseRecording(readFileSync(path.join(root, g.file), 'utf8')) }));
-  const site = buildSite({ games, second: systemSecond() });
+  const site = buildSite({ games, second: placeFans(systemSecond(), fans) });
   return Object.fromEntries(Object.entries(site).map(([k, v]) => [`${k}.json`, JSON.stringify(v, null, 2) + '\n']));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const files = siteFiles();
+  const at = process.argv.indexOf('--fans');
+  const files = siteFiles(undefined, at > 0 ? JSON.parse(readFileSync(process.argv[at + 1], 'utf8')) : []);
   if (process.argv.includes('--write')) {
     mkdirSync(OUT_DIR, { recursive: true });
     for (const [name, text] of Object.entries(files)) writeFileSync(path.join(OUT_DIR, name), text);
