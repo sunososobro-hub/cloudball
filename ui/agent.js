@@ -2,7 +2,7 @@
  * free-agent list. No free text anywhere: every choice is a button, a chip or a slider, and the server judges it again.
  * The account is a random 32-byte key kept in localStorage; the server stores only its SHA-256 (functions/lib/agents.js).
  * Every call that is not answered ok (no binding, production, offline, a static server) reads as 「還沒開放」. */
-import { CREATE, validateCreate, pointKeys, budgetOf, positionFit } from '../league/freeagents.js';
+import { CREATE, validateCreate, pointKeys, budgetOf, positionFit, presetBody, presetHt } from '../league/freeagents.js';
 import { makePreview } from './agent-preview.js';
 import { ratingRow } from './bars.js';
 import { attachCompare } from './compare.js';
@@ -13,6 +13,7 @@ const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊' };
 const ROLE = { SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
 const HAND = { L: '左', R: '右' };
+const BODY = { slim: '精瘦', power: '力量', heavy: '壯碩' };
 const BUILD = { normal: '標準', slim: '精瘦', power: '力量型', heavy: '壯碩' };
 const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球', def: '守備' };
 const PIT_RATINGS = { stuff: '球威', ctrl: '控球', arm: '臂力' };
@@ -100,7 +101,7 @@ function chipGroup(legend, options, current, onPick, cls) {
 /* a batter always gets the defence slider (#378 part 6): his points hold def, so the pool is budget + defBudget */
 const evenPoints = kind => { const c = { kind, points: kind === 'bat' ? { [CREATE.defKey]: 0 } : {} }, keys = pointKeys(c);
   return Object.fromEntries(keys.map(k => [k, budgetOf(c) / keys.length])); };
-const defaults = kind => ({ kind, [kind === 'bat' ? 'pos' : 'role']: kind === 'bat' ? 'SS' : 'SP', [kind === 'bat' ? 'bats' : 'throws']: 'R', build: 'normal',
+const defaults = kind => ({ kind, [kind === 'bat' ? 'pos' : 'role']: kind === 'bat' ? 'SS' : 'SP', [kind === 'bat' ? 'bats' : 'throws']: 'R', body: presetBody('normal'), ht: presetHt('normal'),
   look: { head: 0, skin: 0, hair: 0 }, points: evenPoints(kind) });
 
 function buildMaker(key, state) {
@@ -146,6 +147,21 @@ function buildMaker(key, state) {
 
   const kindRow = chipGroup('位置類型', Object.entries(KIND), state.kind, v => { for (const k of Object.keys(state)) delete state[k]; Object.assign(state, defaults(v)); buildFields(); refresh(); look(); });
   const fields = el('div');
+  /* #442: body mix (whole percents, sum <= CREATE.bodyMax) and height (whole cm) sliders; presets above fill them */
+  function bodyFields() {
+    const box = el('fieldset', 'field'), grid = el('div', 'pts'), keys = CREATE.bodyKeys, [lo, hi] = CREATE.htRange.map(h => Math.round(h * 100));
+    box.appendChild(el('legend', null, `身形（瘦、壯、重加起來不超過 ${CREATE.bodyMax}%，身高 ${lo} 到 ${hi} 公分）`));
+    const slider = (label, min, max, value, aria, onset, unit) => {
+      const row = el('div', 'pt'), input = el('input'), out = el('output', 'num', value + unit);
+      input.type = 'range'; input.min = min; input.max = max; input.step = 1; input.value = value; input.setAttribute('aria-label', aria);
+      input.oninput = () => { const v = onset(Number(input.value)); input.value = v; out.textContent = v + unit; look(); refresh(); };
+      row.append(el('span', null, label), input, out); grid.appendChild(row);
+    };
+    for (const k of keys) slider(BODY[k], 0, CREATE.bodyMax, state.body[k], BODY[k], v => {   /* stops where the other two leave room */
+      const others = keys.reduce((t, o) => t + (o === k ? 0 : state.body[o]), 0); return (state.body[k] = Math.min(v, CREATE.bodyMax - others)); }, '%');
+    slider('身高', lo, hi, Math.round(state.ht * 100), '身高（公分）', v => { state.ht = v / 100; return v; }, ' cm');
+    box.appendChild(grid); return box;
+  }
   function buildFields() {
     const bat = state.kind === 'bat'; fields.replaceChildren(); for (const k of Object.keys(tags)) delete tags[k];
     kindRow.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.kind)));
@@ -153,7 +169,8 @@ function buildMaker(key, state) {
       chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; refresh(); })),
       slotNeed,
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
-      chipGroup('體型', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), state.build, edit(v => { state.build = v; })));
+      chipGroup('體型預設', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), null, v => { state.body = presetBody(v); state.ht = presetHt(v); buildFields(); refresh(); look(); }),
+      bodyFields());
     /* 外觀 chips (head, skin, hair) are hidden until #151 lands a real look mapping: they draw nothing yet. `state.look` keeps its defaults (0) so the posted choice is unchanged. */
     const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = budgetOf(state), keys = pointKeys(state);
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));
