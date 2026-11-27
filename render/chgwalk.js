@@ -12,6 +12,7 @@ export const CW_JOG = 25;        /* s from the gate to the rubber */
 export const CW_OLD_GO = 8;      /* s into the frame when the old pitcher turns for the dugout (the manager is on the mound by then) */
 export const CW_OLD_V = 2.4;     /* m/s, a walk; faster only when the frame is short */
 export const CW_OLD_END_GAP = 1; /* s before the frame end when he is in the dugout at the latest */
+export const CW_HAND = 2;        /* s the ball takes from the manager's hand to the reliever's glove, from the moment the reliever reaches the rubber */
 export const CW_LANE = 1;        /* m the old pitcher keeps beside the manager's line to the mound */
 export const CW_LANE_IN = 3;     /* m from the mound over which that side step grows */
 export const CW_GATE_S = 75;     /* m from home along the foul line: the bullpen gate (render/props/bullpens.js strip, BP.S0..S1) */
@@ -35,4 +36,16 @@ export function newAt(mound, gate, u) {
   const k = sat((u - CW_SIGNAL) / CW_JOG);
   if (k >= 1) return [mound[0], mound[1], -mound[0], -mound[1]];/* on the rubber, facing home */
   return [gate[0] + (mound[0] - gate[0]) * k, gate[1] + (mound[1] - gate[1]) * k, mound[0] - gate[0], mound[1] - gate[1]];
+}
+
+/* #611 part 4: who holds the ball on a CHG frame (pure). The old pitcher gives it to the manager at CW_OLD_GO; the manager holds it until the
+ * reliever is on the rubber (CW_SIGNAL + CW_JOG), hands it over in CW_HAND s, and the reliever keeps it to the frame end (his warm-up pitches follow in #610).
+ *   holdAt(hasManager, u) -> null (old pitcher still has it) | {who: 'mgr'} | {who: 'move', k: 0..1 manager -> reliever} | {who: 'P'}
+ * No manager walk in this frame (too short) -> the ball is not shown until the reliever has it. */
+export function holdAt(hasManager, u) {
+  const t = CW_SIGNAL + CW_JOG;
+  if (u >= t + CW_HAND) return { who: 'P' };
+  if (!hasManager || !(u >= CW_OLD_GO)) return null;
+  if (u < t) return { who: 'mgr' };
+  return { who: 'move', k: sat((u - t) / CW_HAND) };
 }
