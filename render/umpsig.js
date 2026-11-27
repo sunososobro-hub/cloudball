@@ -2,6 +2,7 @@
  * Read from the event only (rule 12); a pure function of (event, time), like umpCall in game.js.
  *   foul  (e.r 'foul')   both arms straight up, after the ball is off the bat
  *   hbp   (e.r 'hbp')    time (both hands up), then the right arm points the batter to first
+ *   ci    (e.r 'ci')    #732: catcher's interference, the same dead-ball signal as hbp: time, then the right arm points the batter to first
  *   ibb   (e.r 'ibb')    the right arm points to first
  *   fair  (inplay, |spray| within LS_NEAR_DEG of a line, ball stops short of the bag, bunts too)  points into fair ground: right arm toward first, left toward third
  *   bk    (e.bk)         the right arm points at the pitcher, then waves the runners on
@@ -36,6 +37,7 @@ export function signalKind(e) {
   if (e.bk) return 'bk';
   if (e.r === 'foul') return 'foul';
   if (e.r === 'hbp') return 'hbp';
+  if (e.r === 'ci') return 'ci';
   if (e.r === 'ibb') return 'ibb';
   if (isPlateFair(e)) return 'fair';
   return null;
@@ -43,7 +45,7 @@ export function signalKind(e) {
 export function signalEnd(e, T) {
   switch (signalKind(e)) {
     case 'foul': return T.ARRIVE + FOUL_AT + SIG_UP + FOUL_HOLD + SIG_DOWN;
-    case 'hbp': return T.ARRIVE + HBP_TIME_AT + hbpPointAt() + SIG_UP + HBP_POINT_HOLD + SIG_DOWN;
+    case 'hbp': case 'ci': return T.ARRIVE + HBP_TIME_AT + hbpPointAt() + SIG_UP + HBP_POINT_HOLD + SIG_DOWN;
     case 'fair': return T.ARRIVE + FAIR_AT + SIG_UP + FAIR_HOLD + SIG_DOWN;
     case 'ibb': return IBB_AT + SIG_UP + IBB_HOLD + SIG_DOWN;
     case 'bk': return T.BK_CALL_AT + SIG_UP + BK_POINT_HOLD + BK_WAVE_HOLD + SIG_DOWN;
@@ -57,7 +59,7 @@ export function plateSignal(e, u, T) {
   let w = 0, R = REST_R, L = REST_L;
   if (kind === 'foul') {
     w = env(u - (T.ARRIVE + FOUL_AT), SIG_UP, FOUL_HOLD, SIG_DOWN); R = UP_R; L = UP_L;
-  } else if (kind === 'hbp') {
+  } else if (kind === 'hbp' || kind === 'ci') {
     const t0 = T.ARRIVE + HBP_TIME_AT, t1 = t0 + hbpPointAt();
     const a = env(u - t0, SIG_UP, HBP_TIME_HOLD, SIG_DOWN), b = env(u - t1, SIG_UP, HBP_POINT_HOLD, SIG_DOWN);
     w = Math.max(a, b);

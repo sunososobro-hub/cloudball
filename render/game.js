@@ -1169,9 +1169,11 @@ const u2End=(ev,i)=>{const q=u2Plan(ev,i);return q&&q.pl?q.pl.go+q.pl.t:0};/* cp
 /* #612 part 8 (render/umpout.js): U1 / U3 run out toward a deep fly ball on their side, hold for the out call, walk back within the event. Off with ?off=umpout. */
 let uoM=null;import(new URL('umpout.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{uoM=M}).catch(err=>console.warn('ump out off',err));
 const uoCache=new WeakMap();
-function uoPlan(e,i){if(!uoM||OFF.has('umpout')||!e||e.k!=='P'||e.r!=='inplay')return null;let m=uoCache.get(e);if(!m){m=new Map();uoCache.set(e,m)}
-  if(!m.has(i)){let pl=null;for(const c of bcCalls(e))if(c.b===i+1&&c.at){const q=uoM.outPlan(c,stUmpAt[i],bcLen(),e.d);if(q&&(!pl||c.t>pl.t0)){pl=q;q.t0=c.t}}m.set(i,pl)}return m.get(i)}
-const uoEnd=e=>{let t=0;for(const i of[0,2]){const q=uoPlan(e,i);if(q)t=Math.max(t,q.end)}return t};/* cpEvents: they move until here */
+/* part 9: U2 goes out on a deep fly to centre too, from his current spot, only in an event where he does not jog (ev, ei given) */
+function uoPlan(e,i,ev,ei){if(!uoM||OFF.has('umpout')||!e||e.k!=='P'||e.r!=='inplay')return null;let m=uoCache.get(e);if(!m){m=new Map();uoCache.set(e,m)}
+  if(!m.has(i)){let pl=null,post=stUmpAt[i];if(i===1){const q=ev&&Number.isFinite(ei)?u2Plan(ev,ei):null;post=q&&!q.pl?u2Spot(q.a):null}
+    if(post)for(const c of bcCalls(e))if(c.b===i+1&&c.at){const q=uoM.outPlan(c,post,bcLen(),e.d,i===1);if(q&&(!pl||c.t>pl.t0)){pl=q;q.t0=c.t}}m.set(i,pl)}return m.get(i)}
+const uoEnd=(e,ev,ei)=>{let t=0;for(const i of[0,1,2]){const q=uoPlan(e,i,ev,ei);if(q)t=Math.max(t,q.end)}return t};/* cpEvents: they move until here */
 /* #612 part 9 (render/umpcov.js): the plate umpire covers third while U3 is out on a deep fly with a runner on. Off with ?off=umpcov. */
 let ucM=null;import(new URL('umpcov.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{ucM=M}).catch(err=>console.warn('ump cover off',err));
 const ucCache=new WeakMap();
@@ -1179,7 +1181,7 @@ function ucPlan(e){if(!ucM||OFF.has('umpcov')||!e||!e.s0||!e.s0.b||!e.s0.b.some(
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}if(i!==1){const o=uoM&&uoPlan(e,i)?uoM.outAt(uoPlan(e,i),u):null;if(o&&o.active){x=o.x;z=o.z;mv=[x,z,o.fx,o.fz,true]}}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);grdSigPose(f,i+1,e,u);chkSigPose(f,i+1,e,u);
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}{const up=uoM?uoPlan(e,i,game&&game.ev,ei):null,o=up?uoM.outAt(up,u):null;if(o&&o.active){x=o.x;z=o.z;mv=[x,z,o.fx,o.fz,true]}}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);grdSigPose(f,i+1,e,u);chkSigPose(f,i+1,e,u);
     if(i===1&&!mv&&!f.armsHeld&&x===ST_U2_IN[0]&&z===ST_U2_IN[1])u2Watch(f,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
@@ -2260,7 +2262,7 @@ function cpEvents(g){const ev=g.ev;
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):Math.max(CP_RUNNER_SETTLE,LEAD_WALK_WAIT+LEAD_WALK_DUR)));/* #23: walk-out to the lead */
       if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);tail=Math.max(tail,K.back+K.Db/WP_BACK_V)}if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P'&&e.r!=='inplay')tail=Math.max(tail,retEnd(ev,i));/* #42: fielders walking to the next pitch's depth (retDrift) */
-    if(e.k==='P')tail=Math.max(tail,u2End(ev,i),uoEnd(e));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
+    if(e.k==='P')tail=Math.max(tail,u2End(ev,i),uoEnd(e,ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
     {const tc=tmM?tmM.timeCall(e,ev[i-1]):null;/* #638: the plate ump's time / play signal (#609 part 3a) moves him in VOTE/CHG/VIS/SUB and the next pitch */
       if(tc){head=0;/* not tc.at: a figure can still settle in the frame's first steps (pitcher after a strikeout, edge_probe) */tail=Math.max(tail,tmM.timeEnd(e,ev[i-1]))}else if(!tmM&&!OFF.has('umptime')&&TIME_FRAMES.has(e.k)){head=0;tail=e.d}}/* module not in yet -> keep it all */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
