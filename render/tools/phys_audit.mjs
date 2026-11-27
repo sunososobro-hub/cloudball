@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { simGame, RELEASE, ARRIVE } from '../../engine/index.js';
+import { pitchRelease } from '../pitchtime.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SEEDS = Number(process.argv[2] || 40);
 const G = 9.81, REL_Z = -16.8, REL_Y = 1.8, PLATE_Z = .6, THROW_ARC = .05, HIT0 = [0, 1, .3], ROLL_DUR = .8;
@@ -21,7 +22,7 @@ const S = { kmh: [], jump: [], gbPk: [], gbStill: [], roll: [], thr: [], thrIn: 
 for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) {
   if (e.k !== 'P' || !e.kmh) continue;
   const plate = [e.zx, .45 + e.zy * .75, PLATE_Z], d = Math.hypot(plate[0], plate[1] - REL_Y, plate[2] - REL_Z);
-  S.kmh.push(d / (ARRIVE - RELEASE) * 3.6 - e.kmh); (PT[e.pt] ??= []).push(e.kmh);
+  S.kmh.push(d / (ARRIVE - pitchRelease(d, e.kmh, RELEASE, ARRIVE)) * 3.6 - e.kmh); (PT[e.pt] ??= []).push(e.kmh);
   if (e.r === 'inplay' || e.r === 'foul') S.jump.push(Math.hypot(plate[0] - HIT0[0], plate[1] - HIT0[1], plate[2] - HIT0[2]));
   if (e.r !== 'inplay' || !e.play || e.play.bunt) continue;
   const p = e.play, PL = e.plan, T = p.hang, hr = p.res === 'HR';
