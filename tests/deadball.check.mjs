@@ -13,7 +13,7 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const GAMES = 1000;
-const OUTCOME_PRINT = '53d39a95eaecd7d1';   /* engine 0.4.22 (#614 part 4); 835156506a7b8055 at 0.4.21, afa174cb1a4e038c at 0.4.20, c51e555227982ade at 0.4.19, aa29046229aca344 at 0.4.17 / 0.4.18 */
+const OUTCOME_PRINT = '22806bdd6d691fee';   /* engine 0.4.23 (#690: a triple stays up for d / HIT_HORIZ_SPEED_MAX); 53d39a95eaecd7d1 at 0.4.22 (#614 part 4), 835156506a7b8055 at 0.4.21, afa174cb1a4e038c at 0.4.20, c51e555227982ade at 0.4.19, aa29046229aca344 at 0.4.17 / 0.4.18 */
 const TIME_KEY = /^(t|time|ballAt|touchAt|fielderAt|runnerAt|engine)$/;
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 const near = (a, b) => Math.abs(a - b) < 1e-9;
