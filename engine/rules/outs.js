@@ -50,12 +50,15 @@ export function forceOut({ runner, from, base, fielder, forced, ballAt, touchAt,
   return { reason: OUT.FORCE, runner, from, base, fielder, ballAt, touchAt, runnerAt, at };
 }
 
-/* Tag out: a fielder holding the ball tags the runner before he reaches the base. */
-export function tagOut({ runner, from, base, fielder, ballAt, fielderAt, runnerAt }) {
+/* Tag out: a fielder holding the ball tags the runner before he reaches the base.
+ * tagAt (optional): a tag in the base path, before the runner gets near the base (the catcher tagging a batter on a
+ * dropped third strike, #614); it must come after the fielder holds the ball and before the runner arrives. */
+export function tagOut({ runner, from, base, fielder, ballAt, fielderAt, runnerAt, tagAt = null }) {
   need(fielder, `nobody is there to tag at base ${base}`);
   need(isTime(ballAt) && isTime(fielderAt) && isTime(runnerAt), 'missing times');
   need(beats(ballAt, fielderAt, runnerAt), `no ball in the glove at base ${base} before the runner arrives`);
-  return { reason: OUT.TAG, runner, from, base, fielder, ballAt, fielderAt, runnerAt, at: runnerAt };
+  if (tagAt != null) need(isTime(tagAt) && tagAt >= Math.max(ballAt, fielderAt) && tagAt < runnerAt, `tag at ${tagAt} is not between the ball in the glove and the runner's arrival`);
+  return { reason: OUT.TAG, runner, from, base, fielder, ballAt, fielderAt, runnerAt, at: tagAt != null ? tagAt : runnerAt };
 }
 
 /* Does the ball, held by a fielder who is there, beat the runner? The only test for a force or a tag,
