@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.18';
+export const ENGINE_VERSION = '0.4.19';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -112,6 +112,26 @@ export const CONTACT_CHASE = 0.555;
 export const CONTACT_MAX = 0.97;
 export const FOUL_P = 0.5;
 export const FOUL_P_2K = 0.51;
+/* ---- caught foul flies (#614 part 1): a ball fouled off in the air is caught in foul ground for a fly-catch out ----
+ * FOUL_OUT_P: of the balls a batter fouls off. Data: MLB play-by-play (Retrosheet event files, hit-location suffix `F`)
+ * has about 1.4 foul-territory catches per game (both teams) against about 52 fouls per game here; an estimate, not
+ * re-measured in this PR. FOUL_OUT_ZONES: who catches it, [fielder, cumulative share, [angle from the centre-field
+ * line, width] in degrees, [distance from home, width] in metres]; every angle is beyond the 45-degree foul lines (or
+ * behind the plate), so the catch is in foul ground. Shares follow the usual split (catcher, the two corner infielders
+ * most, corner outfielders on flies drifting over the line). The catcher and corner infielders catch pop-ups, the
+ * outfielders fly balls. FOUL_OUT_HANG_PAD: a foul fly stays up long enough for its fielder to be under it with this
+ * margin (seconds), so the catch is always inside his reach and the landing spot never moves back into fair ground. */
+export const FOUL_OUT_P = 0.027;
+export const FOUL_OUT_ZONES = [
+  ['C', 0.24, [125, 110], [5, 12]],
+  ['1B', 0.52, [50, 25], [22, 16]],
+  ['3B', 0.80, [-75, 25], [22, 16]],
+  ['LF', 0.90, [-53, 6], [62, 20]],
+  ['RF', 1, [47, 6], [62, 20]],
+];
+export const FOUL_OUT_FB_KEYS = ['LF', 'RF'];
+export const FOUL_OUT_HANG_PAD = 0.05;
+export const FOUL_LINE_DEG = 45;
 
 /* ---- batted ball mix and results ---- */
 export const GB_SHARE = 0.43;

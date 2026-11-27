@@ -114,7 +114,7 @@ export function simGame(seed, decisions, opts) {
     else {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
       if (e.swing) add('swing', e.t + K.ARRIVE, { ...who });
-      if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder });
+      if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder, foul: e.play.foul ? true : undefined });
       else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], count: e.c1 });
     }
     if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal || e.plan.po ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
@@ -292,6 +292,7 @@ export function simGame(seed, decisions, opts) {
         const pq = look(), PT = mixOf(pit0).find(p => pq < p[1]);
         const kmh = Math.round(K.KMH_BASE + (pit.stuff - K.KMH_STUFF_REF) * K.KMH_PER_STUFF + PT[2] + (look() - K.HALF) * K.KMH_JITTER);
         const e = { t, k: 'P', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0, inZ, zx, zy, line, pline, pt: PT[0], kmh, s0, swing: false };
+        let foulFly = false;
 
         /* ---- what happens to the pitch ---- */
         if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
@@ -310,7 +311,11 @@ export function simGame(seed, decisions, opts) {
             e.swing = true;
             const contact = Math.min(K.CONTACT_MAX, (inZ ? K.CONTACT_IN_ZONE : K.CONTACT_CHASE) * bat.con / pit.stuff);
             if (R() > contact) { strikes++; e.r = 'sstr'; }
-            else if (R() < (strikes === K.STRIKES_FOR_OUT - 1 ? K.FOUL_P_2K : K.FOUL_P)) { e.r = 'foul'; if (strikes < K.STRIKES_FOR_OUT - 1) strikes++; e.foulDir = R() < K.HALF ? -1 : 1; }
+            else if (R() < (strikes === K.STRIKES_FOR_OUT - 1 ? K.FOUL_P_2K : K.FOUL_P)) {
+              /* #614 part 1: some balls fouled off in the air are caught in foul ground (a fly-catch out, any count) */
+              if (R() < K.FOUL_OUT_P) { e.r = 'inplay'; foulFly = true; }
+              else { e.r = 'foul'; if (strikes < K.STRIKES_FOR_OUT - 1) strikes++; e.foulDir = R() < K.HALF ? -1 : 1; }
+            }
             else e.r = 'inplay';
           } else if (inZ) { strikes++; e.r = 'cstr'; }
           else if (R() < K.HBP_P) e.r = 'hbp';
@@ -330,12 +335,19 @@ export function simGame(seed, decisions, opts) {
         } else if (e.r === 'inplay') {
           paDone = true; bs.ab++;
           /* ---- the batted ball ---- */
-          let type, res = 'out', spray, d, hang, peak, tryLead = null, fumble = 0;
+          let type, res = 'out', spray, d, hang, peak, tryLead = null, fumble = 0, foulKey = null;
           if (bunt) {
             const q = R(); type = 'GB';
             spray = K.BUNT_SPRAY_DEG[0] + R() * (K.BUNT_SPRAY_DEG[1] - K.BUNT_SPRAY_DEG[0]); d = span(R, K.BUNT_DIST); hang = d / K.BUNT_ROLL_SPEED; peak = K.GB_PEAK;
             if (q >= K.BUNT_HIT_END) tryLead = B[1] ? 3 : 2;            /* defence goes for the lead runner */
             else if (q >= K.BUNT_SAC_END) fumble = K.BUNT_HIT_FUMBLE;   /* a bunt too good to pick up cleanly */
+          } else if (foulFly) {
+            /* #614 part 1: a foul fly that is caught; FOUL_OUT_ZONES places it in foul ground near its fielder */
+            const z = R(), [key, , [a0, aw], dd] = K.FOUL_OUT_ZONES.find(r => z < r[1]);
+            type = K.FOUL_OUT_FB_KEYS.includes(key) ? 'FB' : 'PU';
+            spray = a0 + R() * aw; d = span(R, dd);
+            hang = span(R, type === 'PU' ? K.PU_HANG : K.FB_HANG); peak = span(R, type === 'PU' ? K.PU_PEAK : K.FB_PEAK);
+            foulKey = key;
           } else {
             const tr = R(); type = tr < K.GB_SHARE ? 'GB' : tr < K.LD_SHARE_END ? 'LD' : (R() < K.POPUP_OF_AIR ? 'PU' : 'FB');
             spray = clamp((R() - K.HALF) * K.SPRAY_MAIN_DEG + (R() - K.HALF) * K.SPRAY_NOISE_DEG, -K.SPRAY_MAX_DEG, K.SPRAY_MAX_DEG);
@@ -356,7 +368,12 @@ export function simGame(seed, decisions, opts) {
           const land = spotXZ(spray, d);
           /* nearest fielder takes it */
           let fielder = 'P', nearest = Infinity;
-          for (const k of bunt ? K.BUNT_FIELDERS : FIELDER_KEYS) { if (k === 'C') continue; const dd = dist(fielderStart(k, B, st.outs), land); if (dd < nearest) { nearest = dd; fielder = k; } }
+          if (foulKey) {
+            /* the fly stays up until its fielder is under it (FOUL_OUT_HANG_PAD), so the reach pull below never moves it */
+            fielder = foulKey; nearest = dist(fielderStart(fielder, B, st.outs), land);
+            const v = Math.min(K.FIELD_VAVG, rangeOf(def)(fielder));
+            hang = Math.max(hang, nearest / (v * K.AIR_REACH_SAFETY) + K.FIELD_REACT + K.FOUL_OUT_HANG_PAD);
+          } else for (const k of bunt ? K.BUNT_FIELDERS : FIELDER_KEYS) { if (k === 'C') continue; const dd = dist(fielderStart(k, B, st.outs), land); if (dd < nearest) { nearest = dd; fielder = k; } }
           /* a ball that is caught or fielded has to be reachable at a human pace: pull the landing point toward him.
            * A ball caught in the air gets no slack at all (the fielder is under it when it comes down). */
           let lx = land[0], lz = land[1];
@@ -366,6 +383,7 @@ export function simGame(seed, decisions, opts) {
             if (nearest > reach) { const k = reach / nearest; lx = fx + (lx - fx) * k; lz = fz + (lz - fz) * k; }
           }
           play = { type, res, lx, lz, hang, peak, fielder, spray, dist: d, bunt };
+          if (foulKey) play.foul = true;
           const ctx = ctxOf(play); ctx.fumble = fumble;
           const forcedOnGround = B[0] ? (B[1] ? (B[2] ? 3 : 2) : 1) : 0;   /* how many runners the batter pushes ahead of him */
 
@@ -467,7 +485,7 @@ export function simGame(seed, decisions, opts) {
             if (canTag && B[1] && !nb[2] && R() < K.TAG_2ND_TO_3RD_P) { tagUp = tagUp || { from: 2, to: 3 }; toThird = B[1]; moves.push([2, 3, B[1]]); nb[2] = B[1]; nb[1] = null; }
             const fly = resolveFly(ctx, tagUp); plan = fly.plan; outs = fly.outs; st.b = nb;
             if (sacFly) { result = 'sac_fly'; desc = COPY.sacFly(name, B[2]); bs.ab--; }   /* a sacrifice fly is not an at-bat */
-            else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
+            else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.foul ? COPY.foulOut(name, fielder) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
             if (toThird) desc += COPY.tagToThird(toThird);
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);
