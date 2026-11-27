@@ -9,7 +9,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const S = await import(pathToFileURL(path.join(ROOT, 'league/season.js')));
-const { runSeason } = await import(pathToFileURL(path.join(ROOT, 'league/tools/season_run.mjs')));
+const { runSeason, farmGames, FARM_SEED_BASE } = await import(pathToFileURL(path.join(ROOT, 'league/tools/season_run.mjs')));
+const E = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
+const F = await import(pathToFileURL(path.join(ROOT, 'league/farm.js')));
 const { ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'league/players.js')));
 const problems = [], bad = s => problems.push(s), eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) bad(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
 const SEASONS = 20;
@@ -55,6 +57,19 @@ for (let seed = 1; seed <= SEASONS; seed++) {
     for (const { day, sp } of days) { if (sp in seen && day - seen[sp] - 1 < S.MIN_REST_DAYS) bad(`${tag}: ${id} ${sp} started on day ${seen[sp]} and day ${day}`); seen[sp] = day; }
   }
   if (seed <= 2) eq(json(runSeason(seed)), json(r), `${tag}: same seed, same season`);
+}
+/* 二軍 records written by the season loop (#600 part 4): one per 一軍 pairing, valid, replay byte for byte, same seed = same records */
+for (const seed of [1, 2]) {
+  const recs = farmGames(seed, { commit: 'abcdef1', startId: 10 }), tag = `farm seed ${seed}`;
+  eq(recs.length, 12, `${tag}: one 二軍 game per 一軍 game`);
+  eq(recs.map(r => r.id), recs.map((_, i) => `f-${10 + i}`), `${tag}: ids continue`);
+  eq(JSON.stringify(farmGames(seed, { commit: 'abcdef1', startId: 10 })), JSON.stringify(recs), `${tag}: deterministic`);
+  if (new Set(recs.map(r => r.seed)).size !== recs.length || recs.some(r => r.seed < FARM_SEED_BASE)) bad(`${tag}: seeds not distinct / not in the 二軍 block`);
+  for (const r of recs) {
+    const why = F.farmProblem(r); if (why) bad(`${tag} ${r.id}: ${why}`);
+    const rep = await F.replayFarm(recs, r.id, async () => E);
+    if (rep.status !== 'ok') bad(`${tag} ${r.id}: replay ${rep.status} ${rep.reason}`);
+  }
 }
 eq(JSON.stringify(ROSTERS), before, 'ROSTERS unchanged by a season');
 
