@@ -1503,6 +1503,9 @@ function grdSigPose(f,b,e,u){const s=grdM&&!f.armsHeld?grdM.grdSignal(e,u,b,SIG_
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 const CHK_REACH=.75,CHK_POINT_Y=1.05;/* #708: the catcher's pointing hand: CHK_REACH m from his body toward the base umpire, CHK_POINT_Y m up (world) */
 function chkPointAt(C,b){const s=stUmpAt[b===1?0:2],x=C.g.position.x,z=C.g.position.z,dx=s[0]-x,dz=s[1]-z,d=Math.hypot(dx,dz)||1;return[x+dx/d*CHK_REACH,CHK_POINT_Y,z+dz/d*CHK_REACH]}
+/* #732 part 2 (render/cireach.js): on a catcher's interference pitch the mitt reaches forward and toward the batter. Off with ?off=cireach. */
+let ciM=null;import(new URL('cireach.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{ciM=M}).catch(err=>console.warn('ci reach off',err));
+function ciReachOf(e,u){return ciM&&!OFF.has('cireach')&&e&&e.r==='ci'?ciM.ciReach(e,u,{ARRIVE},!!(e.bat&&batOf(e).hand==='L')):null}
 function poseBattery(e,u,prev){
   const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG'||e.k==='VIS',isP=e.k==='P',up=isP&&(e.r==='inplay'||e.wp)?ease(sat01((u-ARRIVE-PLATE_UP_AT)/PLATE_UP_DUR))*(e.d?1-ease(sat01((u-(e.d-PLATE_DOWN_AT))/PLATE_DOWN_DUR)):1):0;
   const py=isP?pitchY(e):MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
@@ -1513,7 +1516,8 @@ function poseBattery(e,u,prev){
   if(set&&up<1){const gx=lerp(lerp(0,isP?e.zx:0,k),0,back),gy=lerp(lerp(MITT_REST_Y,py,k),MITT_REST_Y,back);
     const nh=nb&&nb.cat>0?nbM.handSpot(C.g.position.x,C.g.position.z):null,rw=nh?nb.cat:0;/* #612 part 5: bare hand back over his right shoulder for the new ball */
     const cp=isP&&chkM?chkM.catcherPoint(e,u,CHK_T):null,pt=cp?chkPointAt(C,cp.b):null,pw=pt?cp.w:0;/* #708: bare hand points at the base umpire for the appeal */
-    aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,lerp(lerp(gx*.8,nh?nh[0]:0,rw),pt?pt[0]:0,pw),lerp(lerp(gy-.15,nh?nh[1]:0,rw),pt?pt[1]:0,pw),lerp(lerp(MITT_Z+.2,nh?nh[2]:0,rw),pt?pt[2]:0,pw))}else armsDown(CR);
+    const cr=isP?ciReachOf(e,u):null,crx=cr?cr.dx:0,crz=cr?cr.dz:0;/* #732 part 2: catcher's interference, the mitt meets the bat */
+    aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx+crx,gy,MITT_Z+crz);aimWorld(CR,CR.a1,BAT_SHOULDER_X,lerp(lerp(gx*.8,nh?nh[0]:0,rw),pt?pt[0]:0,pw),lerp(lerp(gy-.15,nh?nh[1]:0,rw),pt?pt[1]:0,pw),lerp(lerp(MITT_Z+.2,nh?nh[2]:0,rw),pt?pt[2]:0,pw))}else armsDown(CR);
   const cl=isP?umpCall(e,u):UC_NONE,sg=isP&&sigM?sigM.plateSignal(e,u,SIG_T):null,tm=!sg&&tmM?tmM.timeSignal(e,prev,u):null,cu=(set?1:0)*(1-(cl.k?UC_K_STAND:CALL_STAND)*cl.w)*(1-(sg?sigM.SIG_STAND*sg.w:0))*(1-(tm?tmM.TM_STAND*tm.w:0))*(1-(nb?nbM.NB_STAND*nb.stand:0))*(1-up);
   crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.up.rotation.y=UC_K_TURN*cl.turn;UR.hg.rotation.x=-UMP_HEAD_UP*cu;UR.hg.rotation.y=-UC_K_TURN*cl.turn*UC_K_HEAD_KEEP;ump.noAnim=(set||!!tm)&&up<1;
   if((set||tm)&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up),R=umpArms(cl);if(sg)for(let i=0;i<6;i++)R[i]=lerp(R[i],sg.arms[i],sg.w);if(tm)for(let i=0;i<6;i++)R[i]=lerp(R[i],tm.arms[i],tm.w);if(nb&&nb.reach>0){const H=nbM.handSpot(C.g.position.x,C.g.position.z);UR.up.updateWorldMatrix(true,false);_tv.set(H[0],H[1],H[2]);UR.up.worldToLocal(_tv);const hl=[_tv.x,_tv.y,_tv.z];for(let i=0;i<3;i++)R[i]=lerp(lerp(lerp(R[i],nbM.NB_BAG[i],nb.reach),hl[i],nb.give),R[i],nb.drop)}/* #612 part 5: right hand to the ball bag, forward to the catcher, back */aimArmPole(UR.a1,BAT_SHOULDER_X,h(R[0],0,BAT_SHOULDER_X),h(R[1],1),h(R[2],2),UC_HAMMER_POLE,cl.w*(1-cl.k)*(1-up));aimArm(UR.a0,-BAT_SHOULDER_X,h(R[3],0,-BAT_SHOULDER_X),h(R[4],1),h(R[5],2))}else armsDown(UR)}
