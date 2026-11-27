@@ -6,6 +6,7 @@
  * The server keeps only SHA-256(key). No password, no e-mail, no cookie.
  * Who counts: the owner's word in #179. Game outcomes are never touched here (rule 10): a created player is a row. */
 import { validateCreate, makePlayer, drawName, CREATE } from '../../league/freeagents.js';
+import { releaseInactive } from '../../league/inactive.js';
 import { growTo, viewOf, checkpointOf, CKPT_EVERY } from '../../league/growth.js';
 
 export const DRAW_CAP = 20;               /* name draws 0 .. DRAW_CAP (the first one plus this many redraws) */
@@ -35,6 +36,7 @@ const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, 
 export const sha256 = async text => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
 const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 const randomSalt = () => hex(crypto.getRandomValues(new Uint8Array(16)));
+const DAY_MS = 86400000;
 const today = () => new Date().toISOString().slice(0, 10);
 const KEY = /^Bearer ([0-9a-f]{64})$/;
 
@@ -48,6 +50,8 @@ const SCHEMA = [
   /* #435: a released player keeps his row (name, ratings, history); players.agent_id becomes 'free:<pid>' (never a 64-hex agent id)
    and this table remembers the former agent, who alone may take him back while nobody else has */
   'CREATE TABLE IF NOT EXISTS releases (pid TEXT PRIMARY KEY, former TEXT NOT NULL, released_at INTEGER NOT NULL)',
+  /* #628 part 2: the last UTC day (whole days since 1970) each agent made a keyed call; day only, no time, no address. The daily sweep reads it. */
+  'CREATE TABLE IF NOT EXISTS agent_seen (agent_id TEXT PRIMARY KEY, day INTEGER NOT NULL)',
   /* abuse counters: the day only, never next to an agent; both tables lose every row of an older day on the next sign-up */
   'CREATE TABLE IF NOT EXISTS reg_salt (day TEXT PRIMARY KEY, salt TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS reg_seen (day TEXT NOT NULL, h TEXT NOT NULL)',
@@ -88,6 +92,7 @@ const guarded = (handler, { needKey = false } = {}) => async ctx => {
       if (!m) return fail(401, 'key');
       agent = await db.prepare('SELECT id, seed FROM agents WHERE id = ?1').bind(await sha256(m[1])).first();
       if (!agent) return fail(401, 'unknown');
+      await db.prepare('INSERT INTO agent_seen (agent_id, day) VALUES (?1, ?2) ON CONFLICT(agent_id) DO UPDATE SET day = excluded.day WHERE agent_seen.day < excluded.day').bind(agent.id, Math.floor(Date.now() / DAY_MS)).run();
     }
     return await handler({ ...ctx, db, agent });
   } catch (e) { return fail(500, 'error'); }
@@ -132,7 +137,6 @@ export const draw = guarded(async ({ request, db, agent }) => {
 /* sort keys of the free-agent list: overall, newest, and the ability keys of league/ratings.js (display numbers) */
 const SORTS = new Set(['ovr', 'new', 'con', 'pow', 'eye', 'spd', 'arm', 'stuff', 'ctrl', 'pot']);
 const FREE = pid => 'free:' + pid;        /* players.agent_id of a released player nobody has picked up */
-const DAY_MS = 86400000;
 /* #564: a created player grows lazily. `ratings` in the row stay his creation ratings (the replay base); each read advances them by
  * one training day per whole day since created_at (league/growth.js, seeded from his id and the day, so the same day is the same numbers).
  * player.ckpt = { day, abil } is a checkpoint written back at most every CKPT_EVERY days; it never leaves the server. 系統 fillers do not grow. */
@@ -149,6 +153,27 @@ const saveStep = (db, x) => db.prepare('UPDATE players SET player = ?2, ovr = ?3
 const publicRow = (r, now = Date.now(), saves = []) => {
   const g = grow(r, now); if (g.save) saves.push(g.save);
   return { id: r.pid, name: r.name, kind: r.kind, ovr: g.ratings.ovr, player: g.player, ratings: g.ratings, created: r.created_at, free: !!r.free };
+};
+
+/* #628 part 2: once per UTC day (meta `inactive_swept`, run by the first public list of the day) every fan player whose agent made no keyed call
+ * for INACTIVE_DAYS (no row in agent_seen: his created day) is released by league/inactive.js releaseInactive, the same way as `release` below
+ * (row stays, agent_id -> free:<pid>, `releases` note, new agent seed). 系統 and already free players are never touched; an empty store is a no-op. */
+export const sweepInactive = async (db, now = Date.now()) => {
+  const day = Math.floor(now / DAY_MS);
+  if ((await db.prepare("SELECT v FROM meta WHERE k = 'inactive_swept'").first())?.v === String(day)) return [];
+  const rows = (await db.prepare("SELECT p.agent_id AS agent, p.pid, p.created_at, s.day AS seen FROM players p LEFT JOIN agent_seen s ON s.agent_id = p.agent_id WHERE p.agent_id NOT LIKE 'sys:%' AND p.agent_id NOT LIKE 'free:%'").all()).results;
+  const players = {}, lastSeen = {};
+  for (const r of rows) { players[r.pid] = { owner: r.agent, created: Math.floor(r.created_at / DAY_MS) }; if (r.seen != null) lastSeen[r.agent] = r.seen; }
+  const { released } = releaseInactive(players, { today: day, lastSeen }), steps = [];
+  for (const pid of released) {
+    const agent = players[pid].owner;
+    steps.push(db.prepare('UPDATE players SET agent_id = ?2 WHERE pid = ?1 AND agent_id = ?3').bind(pid, FREE(pid), agent),
+      db.prepare('INSERT OR REPLACE INTO releases (pid, former, released_at) VALUES (?1, ?2, ?3)').bind(pid, agent, now),
+      db.prepare('UPDATE agents SET seed = ?2 WHERE id = ?1').bind(agent, randomSeed()));
+  }
+  steps.push(db.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES ('inactive_swept', ?1)").bind(String(day)));
+  await db.batch(steps);
+  return released;
 };
 
 /* GET /api/player: the player of this agent, or null */
@@ -191,6 +216,7 @@ export const list = guarded(async ({ request, db }) => {
   const order = sort === 'ovr' ? 'ovr DESC, created_at DESC, pid' : sort === 'new' ? 'created_at DESC, pid'
     : `json_extract(ratings, '$.${sort}') DESC, ovr DESC, created_at DESC, pid`;
   const saves = [], now = Date.now();
+  await sweepInactive(db, now);
   const rows = (await db.prepare(`SELECT pid, name, kind, ovr, player, ratings, created_at, (agent_id LIKE 'free:%') AS free FROM players ORDER BY ${order} LIMIT ?1 OFFSET ?2`)
     .bind(PAGE_SIZE + 1, page * PAGE_SIZE).all()).results;
   const players = rows.slice(0, PAGE_SIZE).map(r => publicRow(r, now, saves));

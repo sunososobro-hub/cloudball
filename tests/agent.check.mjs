@@ -9,7 +9,9 @@
  *     or two players get the same name;
  *   - the public list shows an agent id, or its order or paging is wrong;
  *   - (#437) the 系統 fillers are not seeded once per kind with system:true, a fan does not replace the oldest filler of his kind
- *     (or replaces another kind / a fan), or a store without fillers breaks create.
+ *     (or replaces another kind / a fan), or a store without fillers breaks create;
+ *   - (#628 part 2) the daily sweep releases a fan seen 29 days ago, keeps one seen 30 days ago from being released, ignores 系統 and free players,
+ *     treats a fan never seen as seen on his created day, runs once a day, lets the old agent reclaim, and a keyed call records the day only.
  * Usage: node tests/agent.check.mjs */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +19,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import * as lib from '../functions/lib/agents.js';
+import { INACTIVE_DAYS } from '../league/inactive.js';
 import { drawName, CREATE } from '../league/freeagents.js';
 
 const require = createRequire(import.meta.url);
@@ -88,7 +91,7 @@ const seenCols = db.sql.prepare('PRAGMA table_info(reg_seen)').all().map(c => c.
 if (seenCols !== 'day,h') bad(`reg_seen must hold only day and h, has ${seenCols}`);
 const seen = db.sql.prepare('SELECT * FROM reg_seen').all();
 if (seen.some(r => r.h.includes('1.1.1.1') || r.h.includes('2.2.2.2'))) bad('an address is stored in the clear');
-for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases', 'meta'].includes(t)) bad(`unexpected table ${t}`);
+for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases', 'meta', 'agent_seen'].includes(t)) bad(`unexpected table ${t}`);
 db.sql.prepare("UPDATE reg_seen SET day='2000-01-01'").run(); db.sql.prepare("UPDATE reg_salt SET day='2000-01-01'").run();
 is('a new day', await call(lib.register, env, { method: 'POST', k: k3, ip: '3.3.3.3' }), 201);
 if (db.sql.prepare("SELECT COUNT(*) n FROM reg_seen WHERE day < date('now')").get().n || db.sql.prepare("SELECT COUNT(*) n FROM reg_salt WHERE day < date('now')").get().n) bad('rows of an older day were not deleted');
@@ -216,6 +219,37 @@ if (/engine\//.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))) bad('functions/lib/ag
   if (again.sql.prepare("SELECT COUNT(*) n FROM meta").get().n !== 1) bad('the seed marker is not written once');
   await call(lib.list, aenv, { url: '/api/freeagents' }); if (again.sql.prepare("SELECT COUNT(*) n FROM players").get().n !== 2 * lib.SYSTEM_PER_KIND) bad('fillers were seeded twice');
   const listed = await call(lib.list, senv, { url: '/api/freeagents' }); if (!listed.body?.players?.some(p => p.player.system === true)) bad('the public list does not show the system flag'); }
+
+/* #628 part 2: the daily sweep of inactive fans */
+{ const idb = makeDb(), ienv = { DB: idb }, ks = [key(), key(), key(), key()], D = INACTIVE_DAYS, DMS = 86400000, now = Date.now(), day = Math.floor(now / DMS);
+  const post = (h, k, body) => call(h, ienv, { method: 'POST', k, body });
+  const mk = async (k, i, c) => { await call(lib.register, ienv, { method: 'POST', k, ip: `7.7.7.${i}` });
+    for (c.nameDraw = 0; c.nameDraw <= lib.DRAW_CAP; c.nameDraw++) { const r = await call(lib.create, ienv, { method: 'POST', k, ip: `7.7.7.${i}`, body: c }); if (r.status === 201) return r.body.player; } bad('sweep: no free name'); return null; };
+  const ps = [await mk(ks[0], 1, { ...BAT }), await mk(ks[1], 2, { ...PIT }), await mk(ks[2], 3, { ...BAT }), await mk(ks[3], 4, { ...PIT })];
+  const hash = async k => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k)))].map(b => b.toString(16).padStart(2, '0')).join('');
+  const ids = await Promise.all(ks.map(hash));
+  idb.sql.prepare('DELETE FROM agent_seen').run();
+  const seenDay = idb.sql.prepare('INSERT INTO agent_seen (agent_id, day) VALUES (?, ?)');
+  seenDay.run(ids[0], day - (D - 1)); seenDay.run(ids[1], day - D); seenDay.run(ids[2], day - 400);
+  idb.sql.prepare('UPDATE players SET created_at = ? WHERE agent_id = ?').run(now - (D + 5) * DMS, ids[3]);      /* never seen: created D + 5 days ago */
+  idb.sql.prepare('UPDATE players SET created_at = ? WHERE agent_id = ?').run(now - 500 * DMS, ids[0]);
+  idb.sql.prepare("UPDATE players SET created_at = ? WHERE agent_id = ? OR agent_id = ?").run(now - 500 * DMS, ids[1], ids[2]);
+  const sysBefore = idb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id LIKE 'sys:%'").get().n;
+  const out = await lib.sweepInactive(idb, now);
+  const owner = pid => idb.sql.prepare('SELECT agent_id a FROM players WHERE pid = ?').get(pid)?.a;
+  if (owner(ps[0].id) !== ids[0]) bad('a fan seen D-1 days ago must keep his player');
+  for (const i of [1, 2, 3]) if (owner(ps[i].id) !== 'free:' + ps[i].id) bad(`fan ${i} (seen D days ago, long ago, never seen and created D+5 ago) must be released`);
+  if (JSON.stringify([...out].sort()) !== JSON.stringify([ps[1].id, ps[2].id, ps[3].id].sort())) bad(`sweep returned ${out}`);
+  if (idb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id LIKE 'sys:%'").get().n !== sysBefore) bad('the sweep touched a 系統 player');
+  for (const i of [1, 2, 3]) if (idb.sql.prepare('SELECT former FROM releases WHERE pid = ?').get(ps[i].id)?.former !== ids[i]) bad(`no release note for fan ${i}`);
+  if ((await lib.sweepInactive(idb, now)).length || (await lib.sweepInactive(idb, now + 1000)).length) bad('the sweep must run once a day');
+  if (idb.sql.prepare('SELECT COUNT(*) n FROM releases').get().n !== 3) bad('a second sweep wrote release notes');
+  const row = idb.sql.prepare('SELECT ratings FROM players WHERE pid = ?').get(ps[1].id); if (JSON.parse(row.ratings).ovr !== ps[1].ratings.ovr) bad('a released player must keep his ratings');
+  is('the old agent reclaims after the sweep', await post(lib.reclaim, ks[1], { id: ps[1].id }), 200);
+  const wasSeen = day => idb.sql.prepare('SELECT day FROM agent_seen WHERE agent_id = ?').get(ids[1])?.day;
+  await call(lib.mine, ienv, { k: ks[1] }); if (wasSeen() !== Math.floor(Date.now() / DMS)) bad('a keyed call must record today as the last seen day');
+  if (JSON.stringify(idb.sql.prepare('PRAGMA table_info(agent_seen)').all().map(c => c.name)) !== '["agent_id","day"]') bad('agent_seen must hold only agent_id and day');
+  const empty = makeDb(); await call(lib.list, { DB: empty }, { url: '/api/freeagents' }); if ((await lib.sweepInactive(empty, now + DMS)).length) bad('a store with only 系統 players must release nobody'); }
 
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
 console.log(`OK: ${ROUTES.length} routes closed without the binding and on production, caps, one player per agent, unique names, public list of ${total}.`);
