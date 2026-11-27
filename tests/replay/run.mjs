@@ -191,7 +191,7 @@ function checkGame(seed, g) {
       } else if (x.type === 'call') {
         if (x.call === 'ball') balls++;
         else if (x.call === 'called_strike' || x.call === 'swinging_strike') strikes++;
-        else if (x.call === 'foul' && strikes < 2) strikes++;
+        else if (x.call === 'foul' && (strikes < 2 || x.bunt)) strikes++;   /* a foul bunt is a strike at any count (rule 5.09(a)(4), #614 part 3) */
       } else if (x.type === 'out') {
         outsInHalf++; half.outs++;
         if (x.outs !== outsInHalf) bad(`out number ${x.outs}, expected ${outsInHalf}`);
@@ -213,7 +213,7 @@ function checkGame(seed, g) {
         const call = F.find(c => c.type === 'call');
         if (!call) return 'no pitch was called';
         if (strikes !== 3) return `only ${strikes} strikes`;
-        if (x.reason === 'strikeout_looking' ? call.call !== 'called_strike' : call.call !== 'swinging_strike') return `last pitch was ${call.call}`;
+        if (x.reason === 'strikeout_looking' ? call.call !== 'called_strike' : call.call !== 'swinging_strike' && !(call.call === 'foul' && call.bunt)) return `last pitch was ${call.call}`;   /* or a two-strike foul bunt (#614 part 3) */
         if (x.t + EPS < call.t) return 'recorded before the pitch was called';
         return null;
       }

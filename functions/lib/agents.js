@@ -6,7 +6,7 @@
  * The server keeps only SHA-256(key). No password, no e-mail, no cookie.
  * Who counts: the owner's word in #179. Game outcomes are never touched here (rule 10): a created player is a row. */
 import { validateCreate, makePlayer, drawName, CREATE } from '../../league/freeagents.js';
-import { releaseInactive } from '../../league/inactive.js';
+import { releaseInactive, canClaim, FREE_TIER } from '../../league/inactive.js';
 import { growTo, viewOf, checkpointOf, CKPT_EVERY } from '../../league/growth.js';
 
 export const DRAW_CAP = 20;               /* name draws 0 .. DRAW_CAP (the first one plus this many redraws) */
@@ -238,13 +238,14 @@ export const release = guarded(async ({ db, agent }) => {
   return json(200, { ok: true, released: r.pid });
 }, { needKey: true });
 
-/* POST /api/player/reclaim {id}: the former agent takes his released player back while nobody else has him. One player at a
- * time: the player he controls now is released by the same rule first. */
+/* POST /api/player/reclaim {id}: the former agent takes his released player back while nobody else has him; once RECLAIM_DAYS have
+ * passed since the release (#628, league/inactive.js canClaim) any agent may. One player at a time: the player he controls now is
+ * released by the same rule first. */
 export const reclaim = guarded(async ({ request, db, agent }) => {
   const body = await readBody(request), pid = body && typeof body.id === 'string' && body.id.length <= 64 ? body.id : null;
   if (!pid) return fail(400, 'invalid', { reasons: ['id must be a player id'] });
-  const rel = await db.prepare('SELECT former FROM releases WHERE pid = ?1').bind(pid).first();
-  if (!rel || rel.former !== agent.id) return fail(403, 'notyours');
+  const rel = await db.prepare('SELECT former, released_at FROM releases WHERE pid = ?1').bind(pid).first();
+  if (!rel || !canClaim({ tier: FREE_TIER, former: rel.former, releasedOn: Math.floor(rel.released_at / DAY_MS) }, agent.id, Math.floor(Date.now() / DAY_MS))) return fail(403, 'notyours');
   const cur = await db.prepare('SELECT pid FROM players WHERE agent_id = ?1').bind(agent.id).first();
   if (!(await db.prepare('SELECT 1 AS x FROM players WHERE pid = ?1 AND agent_id = ?2').bind(pid, FREE(pid)).first())) return fail(409, 'taken');
   /* one batch: release the current player (if any), take the old one back, drop the release note */
