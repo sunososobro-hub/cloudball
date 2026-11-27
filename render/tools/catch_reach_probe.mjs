@@ -14,7 +14,7 @@ const game = readFileSync(path.join(ROOT, 'render/game.js'), 'utf8');
 const grab = re => { const m = game.match(re); if (!m) { console.error('not found in game.js:', re); process.exit(2) } return m[0] };
 const BLOCK = [
   grab(/const BAT_LOAD_LEAD=[^;\n]*;/), grab(/const _bv=new THREE\.Vector3\(\)[^\n]*\n/), grab(/const ARM_S_MIN=[^\n]*\n/), grab(/const [^\n]*LEG_LEN=[^;\n]*;/),
-  'const _tv=new THREE.Vector3();', grab(/const CHEST=[^\n]*\n/), grab(/function aimArm\(a[^\n]*\n/), grab(/function aimWorld\([^\n]*\n/), grab(/function crouch\([^\n]*\n/), grab(/const CATCH_CROUCH_TOP=[^\n]*\n/), grab(/function reachGlove\([^\n]*\n/),
+  'const _tv=new THREE.Vector3();', grab(/const CHEST=[^\n]*\n/), grab(/function aimArm\(a[^\n]*\n/), grab(/function aimWorld\([^\n]*\n/), grab(/function crouch\([^\n]*\n/), grab(/const CATCH_CROUCH_TOP=[^\n]*\n/), grab(/const CATCH_LEAN_K=[^\n]*\n/), grab(/function reachGlove\([^\n]*\n/),
 ].join('\n');
 const PAGE = `<!doctype html><script type="importmap">{"imports":{"three":"/three/build/three.webgpu.js","three/webgpu":"/three/build/three.webgpu.js","three/tsl":"/three/build/three.tsl.js"}}</script>
 <script type="module">
@@ -53,6 +53,8 @@ await br.close();
 const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))] }, fmt = a => `p50 ${pct(a, .5).toFixed(1)}  p95 ${pct(a, .95).toFixed(1)}  max ${Math.max(...a).toFixed(1)} cm`;
 for (const b of BUILDS) console.log(b.padEnd(7), fmt(rows.filter(r => r.build === b).map(r => r.d)));
 for (const h of HEIGHTS) console.log(`h ${h.toFixed(1)} m`.padEnd(9), fmt(rows.filter(r => r.h === h).map(r => r.d)));
+for (const x of CATCH_SIDE) console.log(`x ${x.toFixed(1)} m`.padEnd(9), fmt(rows.filter(r => r.x === x).map(r => r.d)));
+if (process.env.GRID) for (const x of CATCH_SIDE) for (const h of HEIGHTS) console.log(`x ${x} h ${h}`.padEnd(12), Math.max(...rows.filter(r => r.x === x && r.h === h).map(r => r.d)).toFixed(1));
 const worst = Math.max(...rows.map(r => r.d)), w = rows.find(r => r.d === worst);
 console.log(`worst ${worst.toFixed(1)} cm (${w.build}, h ${w.h}, x ${w.x}); limit ${LIMIT_CM}`);
 process.exit(worst > LIMIT_CM ? 1 : 0);

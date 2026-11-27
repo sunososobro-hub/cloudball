@@ -33,7 +33,7 @@ async def main():
     await pg.evaluate(f"()=>{{const s=document.getElementById('stAct');s.value='{act}';s.dispatchEvent(new Event('change'))}}"); await pg.wait_for_timeout(800)
     for i in range(clip): await pg.evaluate("()=>document.getElementById('stNext').click()"); await pg.wait_for_timeout(300)
     for t in times:
-      await pg.evaluate(f"()=>{{const s=document.getElementById('stScrub'),S=window.__X.studio;s.value={1000}*{t}/(S.t1-S.t0);s.dispatchEvent(new Event('input'))}}")
+      await pg.evaluate(f"()=>{{const s=document.getElementById('stScrub'),S=window.__X.studio;s.step='any';s.value={1000}*{t}/(S.t1-S.t0);s.dispatchEvent(new Event('input'))}}")
       await pg.wait_for_timeout(350)
       r=await pg.evaluate("(E)=>{const X=window.__X,V=o=>{o.updateWorldMatrix(true,false);const v=o.getWorldPosition(new o.position.constructor());return[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]};return JSON.stringify(eval(E))}",expr)
       print(f'{t:.2f}',r)
