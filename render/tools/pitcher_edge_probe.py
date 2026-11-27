@@ -1,13 +1,14 @@
 # Pitcher boundary check (#687): headless, no screenshots. For every P frame followed by a VOTE / CHG / VIS frame of the same game, poses the
 # pitcher (every bone matrix) at STEP s from one step before the boundary to .5 s after, and lists boundaries where any matrix moves more than
 # .01 per step. n = boundaries scanned, bad = over the limit, sample = the bad ones.
-# THREE_DIR=.../node_modules/three/ python3 pitcher_edge_probe.py REPO [STEP]
+# SEEDS=40 scans engine seeds 1..40 (each a full game via simGame) as well as the frozen game; default = frozen game only.
+# THREE_DIR=.../node_modules/three/ [SEEDS=40] python3 pitcher_edge_probe.py REPO [STEP]
 import sys,os,asyncio,mimetypes,json
 from playwright.async_api import async_playwright
 REPO=sys.argv[1];STEP=float(sys.argv[2]) if len(sys.argv)>2 else .05
 TH=os.environ.get('THREE_DIR','node_modules/three/')
-HOOK=';window.__X={poseScene,animate,FIELDER_KEYS,fielders,runners,ump,batter,ball,scene,cpEvents,makeBooth,findIdx,get cpClock(){return cpClock},get T(){return replayT},setT(t){replayT=t},get game(){return game}};'
-JS="""async (STEP)=>{const X=window.__X,g=X.game,ev=g.ev;
+HOOK=';window.__X={poseScene,animate,FIELDER_KEYS,fielders,runners,ump,batter,ball,scene,cpEvents,makeBooth,findIdx,get cpClock(){return cpClock},get T(){return replayT},setT(t){replayT=t},get game(){return game},loadSeed(s){seedCur=s;decisions={};regen();lastIdx=-1}};'
+JS="""async ([STEP,seed])=>{const X=window.__X;if(seed)X.loadSeed(seed);const g=X.game,ev=g.ev;
  const objs=[];X.fielders.P.g.traverse(o=>objs.push(o));
  const vis=o=>{for(let p=o;p;p=p.parent)if(!p.visible)return false;return true};
  const sig=()=>{X.scene.updateMatrixWorld(true);const s=new Float32Array(objs.length*17);let n=0;for(const o of objs){const v=vis(o);s[n++]=v?1:0;const m=o.matrixWorld.elements;for(let j=0;j<16;j++)s[n++]=v?m[j]:0}return s};
@@ -17,7 +18,7 @@ JS="""async (STEP)=>{const X=window.__X,g=X.game,ev=g.ev;
  for(let i=0;i<ev.length-1;i++){const e=ev[i],nx=ev[i+1];if(e.k!=='P'||!['VOTE','CHG','VIS'].includes(nx.k))continue;
   let p=pose(nx.t-STEP),worst=0,wT=0;
   for(let T=nx.t;T<nx.t+.5;T+=STEP){const s=pose(T);const w=diff(p,s);if(w>worst){worst=w;wT=T-nx.t}p=s}
-  out.push({desc:e.desc,i,t:+nx.t.toFixed(2),prev:(e.r||'')+(e.k2||''),next:nx.k,worst:+worst.toFixed(3),at:+wT.toFixed(2)})}
+  out.push({seed,desc:e.desc,i,t:+nx.t.toFixed(2),prev:(e.r||'')+(e.k2||''),next:nx.k,worst:+worst.toFixed(3),at:+wT.toFixed(2)})}
  const bad=out.filter(o=>o.worst>.01);
  return{n:out.length,bad:bad.length,sample:out.filter(o=>o.worst>.01),byNext:out.reduce((m,o)=>(m[o.next]=(m[o.next]||0)+1,m),{})}}"""
 async def main():
@@ -43,7 +44,10 @@ async def main():
     await pg.goto('http://local/play.html'); await pg.wait_for_function("()=>!document.getElementById('enter').disabled",timeout=900000,polling=1000)
     await pg.evaluate("()=>document.getElementById('enterMute').click()")
     await pg.wait_for_function("()=>window.__X&&window.__X.cpClock",timeout=120000,polling=500)
-    r=await pg.evaluate(JS,STEP);print(json.dumps(r,ensure_ascii=False,indent=1))
+    N=int(os.environ.get('SEEDS','0'));R=[await pg.evaluate(JS,[STEP,0])]
+    for s in range(1,N+1): R.append(await pg.evaluate(JS,[STEP,s]))
+    r={'games':len(R),'n':sum(x['n'] for x in R),'bad':sum(x['bad'] for x in R),'sample':[o for x in R for o in x['sample']][:10]}
+    print(json.dumps(r,ensure_ascii=False,indent=1))
     print('errs',[x for x in errs if 'Failed to load' not in x][:5])
     await b.close()
 asyncio.run(main())

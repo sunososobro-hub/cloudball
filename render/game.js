@@ -1745,6 +1745,11 @@ function chgBall(e,u){if(!cwM||!cwM.holdAt||!visitM||OFF.has('chgball'))return;c
     if(wb)b=wb;else if(w.tt<cwM.CW_WARM_REL){const r=P.handWorld(1);b=[r.x,r.y,r.z]}}}/* #611 part 5: warm-up pitches (chgwalk.js warmAt); ?off=chgwarm */
   if(h.who!=='P'){const va=visitM.visitAt(vp,u),L=Math.hypot(va.fx,va.fz)||1,m=[va.x+va.fx/L*.3,1.05,va.z+va.fz/L*.3];b=h.who==='mgr'?m:[m[0]+(q.x-m[0])*h.k,m[1]+(q.y-m[1])*h.k,m[2]+(q.z-m[2])*h.k]}
   ball.visible=true;ball.position.set(b[0],b[1],b[2]);ballSh.position.set(b[0],.03,b[2]);ballSh.visible=true}
+/* #687 part 3: the pitch-back routine state of a pitch frame (pbOn, seed, event index, situation, frame length) in one place, so a vote / visit frame can hold the pose the pitch before ended in */
+function pbSetup(e,ei){pbOn=e.r!=='inplay'&&e.r!=='foul'&&e.r!=='hbp'&&!e.wp&&!(e.k3&&e.plan&&e.plan.k3)&&!e.bk&&!e.po&&!e.sbGo&&!cpOn();if(pbOn&&pbM){const nx=game&&game.ev&&game.ev[ei+1];pbSeed=pbM.pbSeedOf(e.pit?e.pit.join(':'):'');pbEi=ei;pbSit={b:e.s0&&e.s0.b,c:e.c0};pbDur=nx&&nx.t>e.t?nx.t-e.t:12}}
+/* #687 part 3: a vote or mound visit right after a pitch not in play (strikeout, walk, ball) held the pitcher in idle, a ~180 degree snap from the end of his return-throw routine (a step of .33 on 6 seeds); now he keeps that last pose */
+function pitcherHold(e,ei){if(e.k!=='VOTE'&&e.k!=='VIS'||!pbM||OFF.has('pbback'))return;const ev=game&&game.ev,q=ev&&ev[ei]===e?ev[ei-1]:null;if(!q||q.k!=='P'||!q.bat)return;
+  pbSetup(q,ei-1);if(!pbOn||!pbM)return;fielders.P.noAnim=true;pitchPose(pbDur)}
 function poseScene(e,u,dt,ei){
   dsOut.g.visible=false;pmField=null;/* #274: set again below only for a fielding pitcher */
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
@@ -1771,9 +1776,9 @@ function poseScene(e,u,dt,ei){
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
-  if(e.k!=='P'){const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);if(e.k==='CHG'){chgWarmArms(e,u);chgBall(e,u)}if(e.k==='END')poseFinale(e,u,ei,off,def);return s}
+  if(e.k!=='P'){pitcherHold(e,ei);const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);if(e.k==='CHG'){chgWarmArms(e,u);chgBall(e,u)}if(e.k==='END')poseFinale(e,u,ei,off,def);return s}
   /* pitch */
-  pbOn=e.r!=='inplay'&&e.r!=='foul'&&e.r!=='hbp'&&!e.wp&&!(e.k3&&e.plan&&e.plan.k3)&&!e.bk&&!e.po&&!e.sbGo&&!cpOn();if(pbOn&&pbM){const nx=game&&game.ev&&game.ev[ei+1];pbSeed=pbM.pbSeedOf(e.pit?e.pit.join(':'):'');pbEi=ei;pbSit={b:e.s0&&e.s0.b,c:e.c0};pbDur=nx&&nx.t>e.t?nx.t-e.t:12}/* compact showing keeps the old walk (done by PITCH_STILL); the same frames the catcher lobs the ball back (see the ball below) */
+  pbSetup(e,ei);/* compact showing keeps the old walk (done by PITCH_STILL); the same frames the catcher lobs the ball back (see the ball below) */
   const pp=pitchPose(e.bk?bkU(u):e.po?0:u),tip=pp.tip;
   /* A pitcher who fields the ball or covers first starts from where his delivery stride left him at contact (not from the rubber, which
      was a ~1 m jump), and his limbs and trunk grow out of the follow-through into the run over P_RUN_BLEND s (P.mix, read by animate) */
