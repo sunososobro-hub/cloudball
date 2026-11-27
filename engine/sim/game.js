@@ -115,7 +115,7 @@ export function simGame(seed, decisions, opts) {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
       if (e.swing) add('swing', e.t + K.ARRIVE, { ...who });
       if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder, foul: e.play.foul ? true : undefined });
-      else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], count: e.c1 });
+      else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], tip: e.tip ? true : undefined, count: e.c1 });
     }
     if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal || e.plan.po ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
     let n = e.s0.outs;
@@ -330,8 +330,10 @@ export function simGame(seed, decisions, opts) {
           desc = e.r === 'hbp' ? COPY.hbp(name) : COPY.walk(name);
           if (runs) { rbi = runs; desc += COPY.forcedIn(runs); }
         } else if (strikes === K.STRIKES_FOR_OUT) {
+          /* #614 part 2: a share of the swinging third strikes are foul tips the catcher holds (a label, looks RNG) */
+          if (e.r === 'sstr' && look() < K.FOUL_TIP_OF_WHIFF) e.tip = true;
           outs.push(strikeout({ batter: name, looking: e.r === 'cstr', strikes, at: K.ARRIVE + K.CATCH_SNAP }));
-          bs.ab++; bs.k++; ps.k++; paDone = true; result = 'strikeout'; desc = COPY.strikeout(name, e.r === 'cstr');
+          bs.ab++; bs.k++; ps.k++; paDone = true; result = 'strikeout'; desc = COPY.strikeout(name, e.r === 'cstr', e.tip);
         } else if (e.r === 'inplay') {
           paDone = true; bs.ab++;
           /* ---- the batted ball ---- */
@@ -524,6 +526,8 @@ export function simGame(seed, decisions, opts) {
             st.b = nb; e.wp = true; if (pb) e.pb = true; e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
             desc += pb ? COPY.passedBall(runs) : COPY.wildPitch(runs);
           }
+          /* #614 part 2: a swinging strike the catcher held may be a foul tip: still a strike, the ball stays live (a steal goes on) */
+          if (e.r === 'sstr' && !e.wp && look() < K.FOUL_TIP_OF_WHIFF) { e.tip = true; desc = COPY.call('tip') + desc.slice(COPY.call('sstr').length); }
         }
 
         /* ---- book the outs and runs ---- */
