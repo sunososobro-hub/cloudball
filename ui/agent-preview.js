@@ -17,6 +17,7 @@ export function makePreview(host) {
   const note = host.querySelector('.stage-note');
   let spec = null, dressing = { ...DEFAULT_DRESS }, ready = false, dead = false, api = null;
   const turnBtn = host.querySelector('.stage-turn'), zoomBtn = host.querySelector('.stage-zoom');
+  const bar = host.querySelector('.stage-bar');
   const kitBar = host.querySelector('.stage-kit');   /* #595: one button per kit (four teams + free agent) and the cap toggle */
   const say = t => { if (note) { note.textContent = t; note.hidden = !t; } };
   
@@ -50,7 +51,7 @@ export function makePreview(host) {
       const fr = frameOf(zoom, ht), aspect = w / Math.max(h, 1), vf = FOV * Math.PI / 180, dh = fr.h / 2 / Math.tan(vf / 2), dw = fr.w / 2 / (Math.tan(vf / 2) * aspect);
       const d = Math.max(dh, dw); camera.aspect = aspect; camera.position.set(0, fr.y + d * CAM_RISE, d); camera.lookAt(0, fr.y, 0); camera.updateProjectionMatrix();
     };
-    const size = () => { const r = host.getBoundingClientRect(); w = Math.max(1, Math.round(r.width)); h = Math.max(1, Math.round(r.height)); renderer.setSize(w, h); fit(); draw(); };
+    const size = () => { const r = host.getBoundingClientRect(); const barH = bar ? bar.offsetHeight : 0; w = Math.max(1, Math.round(r.width)); h = Math.max(1, Math.round(r.height - barH)); renderer.setSize(w, h);   /* #597: the canvas stops where the button bar starts, so no tap lands on it */ fit(); draw(); };
     const draw = () => { pivot.rotation.y = yaw; renderer.render(scene, camera); };
 
     const dress = s => {
@@ -80,7 +81,7 @@ export function makePreview(host) {
     if (zoomBtn) zoomBtn.onclick = () => { zoom = flipZoom(zoom); labels(); fit(); draw(); };
     labels();
     canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
-    new ResizeObserver(size).observe(host);
+    const ro = new ResizeObserver(size); ro.observe(host); if (bar) ro.observe(bar);
     size();
     return { apply(s) { dress(s); draw(); } };
   }

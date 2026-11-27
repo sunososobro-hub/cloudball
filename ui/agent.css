@@ -28,18 +28,18 @@ main h2{margin:0 0 10px;font-size:20px}
 .need:empty{display:none}
 .me{margin-bottom:8px}
 /* the live preview (#189): sticky at the top, about 40 % of the screen height, so it stays in view while the sliders are used */
-.stage{position:sticky;top:8px;z-index:5;margin:10px 0 0;height:40vh;height:40svh;min-height:200px;max-height:380px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#232b3a,#0c0f16 75%)}
+.stage{position:sticky;top:8px;z-index:5;margin:10px 0 0;height:52vh;height:52svh;min-height:300px;max-height:480px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#232b3a,#0c0f16 75%)}
 .stage[hidden]{display:none}
 .stage-sil{position:absolute;inset:0;margin:auto;height:78%;fill:#2a3242;opacity:.9}
 .stage.live .stage-sil,.stage.dead .stage-sil{display:none}
 .stage.dead .stage-sil{display:block;opacity:.35}
 .stage-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;cursor:grab}
-.stage-ctl{position:absolute;left:0;right:0;bottom:8px;display:none;justify-content:center;gap:8px}
-.stage.live .stage-ctl{display:flex}
+.stage-bar{position:absolute;left:0;right:0;bottom:0;z-index:2;display:none;flex-direction:column;gap:6px;padding:0 8px 8px}   /* #597: the bar sits below the canvas (ui/agent-preview.js size() leaves its height out of the canvas), above it in z-order */
+.stage.live .stage-bar{display:flex}
+.stage-ctl{display:flex;justify-content:center;gap:8px}
 .stage-ctl button{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:#0c0f16cc;color:inherit;font:inherit;font-size:14px;cursor:pointer}
-.stage-kit{position:absolute;left:0;right:0;bottom:60px;display:none;flex-wrap:wrap;justify-content:center;gap:6px;padding:0 8px}
-.stage.live .stage-kit{display:flex}
-.stage-kit button{min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:#0c0f16cc;color:inherit;font:inherit;font-size:13px;cursor:pointer}
+.stage-kit{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.stage-kit button{min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:#0c0f16cc;color:inherit;font:inherit;font-size:13px;cursor:pointer}
 .stage-kit button[aria-pressed=true]{border-color:#8ab4ff;background:#1b2a4acc}
 .stage-note{position:absolute;left:0;right:0;bottom:10px;margin:0;padding:0 14px;text-align:center;color:var(--muted);font-size:13px}
 .stage-cap{position:absolute;left:0;right:0;top:8px;margin:0;padding:0 14px;text-align:center;font-size:14px;font-weight:600;pointer-events:none;text-shadow:0 1px 3px #000}
