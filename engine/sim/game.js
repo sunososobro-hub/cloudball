@@ -38,6 +38,7 @@ export function simGame(seed, decisions, opts) {
   const defSub = opts.defSub ?? K.DEF_SUB_ON;         /* #436 part 7: off = factory games byte for byte */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
+  const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);  /* #614 part 9: outcomes of rare plays (catcher's interference), drawn apart so the main sequence R is not shifted */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
   const st = { inn: 1, half: 0, outs: 0, b: [null, null, null], sc: [0, 0], ls: [[], []], H: [0, 0], E: [0, 0],
@@ -118,7 +119,7 @@ export function simGame(seed, decisions, opts) {
       else {
         /* #614 part 6: the catcher points to the base umpire, whose ruling is the call */
         if (e.chk) add('appeal', e.t + K.ARRIVE + K.CHECK_APPEAL_AT, { ...who, umpire: e.chk.ump === 3 ? 'third_base' : 'first_base', ruling: e.chk.swing ? 'swing' : 'no_swing', count: e.c1 });
-        add('call', e.t + K.ARRIVE + (e.chk ? K.CHECK_APPEAL_AT : K.CALL_LAG), { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], tip: e.tip ? true : undefined, dropped: e.k3 ? true : undefined, bunt: e.bunt ? true : undefined, checkSwing: e.chk ? true : undefined, count: e.c1 });
+        add('call', e.t + K.ARRIVE + (e.chk ? K.CHECK_APPEAL_AT : K.CALL_LAG), { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch', ci: 'catcher_interference' }[e.r], tip: e.tip ? true : undefined, dropped: e.k3 ? true : undefined, bunt: e.bunt ? true : undefined, checkSwing: e.chk ? true : undefined, count: e.c1 });
       }
     }
     if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal || e.plan.po || e.plan.k3 ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
@@ -129,7 +130,7 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'ci' ? 'catcher_interference' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
     if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0, groundRule: e.play && e.play.groundRule ? true : undefined });
@@ -323,7 +324,9 @@ export function simGame(seed, decisions, opts) {
           if (R() < Math.min(K.SWING_MAX, sw)) {
             e.swing = true;
             const contact = Math.min(K.CONTACT_MAX, (inZ ? K.CONTACT_IN_ZONE : K.CONTACT_CHASE) * bat.con / pit.stuff);
-            if (R() > contact) { strikes++; e.r = 'sstr'; }
+            /* #614 part 9: the bat clips the catcher's mitt: catcher's interference, the batter is awarded first (E2) */
+            if (!going && rare() < K.CI_OF_SWING) e.r = 'ci';
+            else if (R() > contact) { strikes++; e.r = 'sstr'; }
             else if (R() < (strikes === K.STRIKES_FOR_OUT - 1 ? K.FOUL_P_2K : K.FOUL_P)) {
               /* #614 part 1: some balls fouled off in the air are caught in foul ground (a fly-catch out, any count) */
               if (R() < K.FOUL_OUT_P) { e.r = 'inplay'; foulFly = true; }
@@ -337,7 +340,12 @@ export function simGame(seed, decisions, opts) {
 
         let desc = '', moves = [], runs = 0, outs = [], play = null, plan = null, result = null, rbi = 0, sbGo = false;
         const name = bat.name, B = st.b;
-        if (e.r === 'hbp' || balls === K.BALLS_FOR_WALK) {
+        if (e.r === 'ci') {
+          /* OBR 5.05(b)(3) / 6.01(c): dead ball, the batter takes first, only forced runners move; an error on the catcher, not an at-bat */
+          const f = forceAdvance(name); moves = f.moves; runs = f.runs; st.E[def]++; paDone = true; e.big = K.BIG.NOTABLE;
+          result = 'catcher_interference'; desc = COPY.catcherInterference(name);
+          if (runs) desc += COPY.forcedIn(runs);
+        } else if (e.r === 'hbp' || balls === K.BALLS_FOR_WALK) {
           const f = forceAdvance(name); moves = f.moves; runs = f.runs; bs.bb++; ps.bb++; paDone = true;
           result = e.r === 'hbp' ? 'hit_by_pitch' : 'walk';
           desc = e.r === 'hbp' ? COPY.hbp(name) : COPY.walk(name);

@@ -17,7 +17,7 @@ export const SPEAKERS = ['pbp', 'color', 'fan'];   /* play-by-play voice, colour
 const SEEK_GAP = 6;                                /* a jump in playback time longer than this is a seek, not playback */
 const RESPONSE_DELAY = 0.1;
 const HIT_RESULTS = new Set(['single', 'double', 'triple', 'home_run', 'infield_single', 'bunt_single']);
-const NOT_AT_BAT = new Set(['walk', 'intentional_walk', 'hit_by_pitch', 'sac_bunt', 'sac_fly']);
+const NOT_AT_BAT = new Set(['walk', 'intentional_walk', 'hit_by_pitch', 'catcher_interference', 'sac_bunt', 'sac_fly']);
 const FAN_DELAY = 0.2;                             /* each line of a fan moment follows the previous one by this much */
 /* The fan guest only talks once a play is over: never during a live at-bat or a live running play. */
 export const FAN_TRIGGERS = new Set(['game_start', 'run_scores', 'pitching_change', 'half_end', 'walkoff', 'game_end', 'strikeout', 'walk', 'intentional_walk', 'hit_by_pitch',
