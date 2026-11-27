@@ -43,7 +43,8 @@ const d2 = { teams: [], players: { m2: { ...players['pheasants-b1'], tier: 2 }, 
 const v2 = myPlayerView(d2, 'm2'), v3 = myPlayerView(d2, 'm3');
 if ((v2.match(/<li>第 /g) || []).length !== REPORT_DAYS) fail('tier-2 player page must show 7 report days');
 if (v3.includes('二軍日報')) fail('tier-3 player page must not show the report');
-/* #600 part 3: replay links from the real farm file; owls = team 1 plays f-1 (night 0) and f-3 (night 1), muntjacs = team 3 only f-2 (night 0) */
+/* #600 part 3/5: replay links from the real farm file (season_run --farm, seed 1): every team plays exactly one 二軍 game a night,
+ * so each night of the file links once per team and the report day after the last night stays plain text */
 const farm = JSON.parse(readFileSync(path.join(ROOT, 'league/site/farm_games.json'), 'utf8'));
 const links = (team, day) => { const h = myPlayerView({ ...combine({ farm }), players: { m: { ...players['pheasants-b1'], tier: 2, team } }, day }, 'm');
   return [...h.matchAll(/<li>第 (\d+) 天[^<]*(?:<a class="farm-replay" href="play\.html\?f=([^"]+)">看重播<\/a>)?<\/li>/g)].map(m => `${m[1]}:${m[2] || ''}`).join(); };
@@ -52,10 +53,15 @@ for (const [team, idx] of [['pheasants', 0], ['owls', 1], ['macaques', 2], ['mun
   const got = links(team, REPORT_DAYS);
   if (got !== want) fail(`replay links for ${team}: got ${got}, want ${want}`);
 }
-if (!links('owls', REPORT_DAYS).includes('2:f-3') || !links('owls', REPORT_DAYS).includes('1:f-1')) fail('owls must link day 1 to f-1 and day 2 to f-3');
-if (!links('muntjacs', REPORT_DAYS).includes('1:f-2') || links('muntjacs', REPORT_DAYS).includes('2:f-')) fail('muntjacs must link day 1 to f-2 and nothing on day 2');
+const nights = [...new Set(farm.map(r => r.day))], lastNight = Math.max(...nights);
+for (const n of nights) for (const team of [0, 1, 2, 3]) {
+  const n2 = farm.filter(r => r.day === n && r.teams.includes(team)).length;
+  if (n2 !== 1) fail(`team ${team} has ${n2} 二軍 records on night ${n} (want exactly 1)`);
+}
+if (!links('owls', REPORT_DAYS).includes(`1:${farmGameOn(farm, 1, 0).id}`)) fail('owls must link day 1 to its night-0 game');
+if (lastNight + 2 <= REPORT_DAYS && links('owls', REPORT_DAYS).includes(`${lastNight + 2}:f-`)) fail('the day after the last recorded night must stay plain text');
 if (links('owls', 30).includes('f-')) fail('days with no recorded game must stay plain text');
-if (farmGameOn(farm, 1, 5) || farmGameOn(farm, -1, 0) || farmGameOn([{ ...farm[0], tier: 1 }], 0, 0)) fail('farmGameOn: no game that night, no team or a non-二軍 record must give null');
+if (farmGameOn(farm, 1, lastNight + 1) || farmGameOn(farm, -1, 0) || farmGameOn([{ ...farm[0], tier: 1 }], 0, 0)) fail('farmGameOn: no game that night, no team or a non-二軍 record must give null');
 const src = readFileSync(path.join(ROOT, 'league/minors_report.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 if (/Math\.random|Date\b/.test(src)) fail('league/minors_report.js uses Math.random or Date');
 if (minorsDays('x', all[0][1], 3).length !== 3) fail('minorsDays must stop at day 1');
