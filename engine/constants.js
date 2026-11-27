@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.25';
+export const ENGINE_VERSION = '0.4.26';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -139,6 +139,17 @@ export const FOUL_LINE_DEG = 45;
  * Only a label on a swinging strike: it is drawn from the looks RNG after the wild-pitch / passed-ball draw, so no
  * outcome changes (a ball that got by is never a tip). */
 export const FOUL_TIP_OF_WHIFF = 0.08;
+/* ---- check-swing appeals (#614 part 6, OBR 8.02(c)): when the plate umpire calls a half swing a ball, the catcher may ask the
+ * base umpire on the batter's open side (first base for a right-handed batter, third for a left-handed one); his ruling is the call.
+ * Only labels: drawn from the looks RNG on a ball or a swinging strike the engine already decided, so no outcome moves.
+ * CHECK_APPEAL_BALL_P: share of balls (no swing) that were half swings appealed and denied. CHECK_APPEAL_OF_WHIFF: share of
+ * swinging strikes (not foul tips) that were half swings the base umpire ruled a swing. Data: no public pitch-level field records
+ * appeals (Baseball Savant folds them into `ball` / `swinging_strike`); estimate of about 3 appeals per MLB game, about a third
+ * ruled a swing (about 2 of ~100 balls and 1 of ~30 swinging strikes per game), not measured in this PR.
+ * CHECK_APPEAL_AT: s after the pitch arrives when the base umpire signals (catcher points, umpire answers). */
+export const CHECK_APPEAL_BALL_P = 0.02;
+export const CHECK_APPEAL_OF_WHIFF = 0.035;
+export const CHECK_APPEAL_AT = 1.2;
 /* ---- foul bunts (#614 part 3): a bunt attempt bunted foul is a strike at any count, so with two strikes it is a
  * strikeout (rule 5.09(a)(4)). BUNT_FOUL_P: share of bunt attempts (pitches bunted at) that go foul. Data: Baseball Savant
  * pitch descriptions (MLB 2023-2025), `foul_bunt` against `foul_bunt` + bunts `hit_into_play`; an estimate of about a third,
