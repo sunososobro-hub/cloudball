@@ -2319,6 +2319,10 @@ const STUDIO_ACTS=[
   ['裁判','lfair','邊線裁判・近邊線的界內球指向界內',e=>e.k==='P'&&e.r==='inplay'&&e.play&&!e.play.bunt&&e.play.res!=='HR'&&!(e.play.dist<27.43)&&Math.abs(e.play.spray)>=37&&Math.abs(e.play.spray)<=45,STUDIO_SEEDS_RARE],
   ['裁判','pfair','主審・近邊線、未到壘的界內球指向界內',e=>e.k==='P'&&e.r==='inplay'&&e.play&&!e.play.foul&&e.play.res!=='HR'&&e.play.dist<27.43&&Math.abs(e.play.spray)>=37&&Math.abs(e.play.spray)<=45,STUDIO_SEEDS_RARE],
   ['裁判','lhr','邊線裁判・全壘打手指繞圈',e=>e.k==='P'&&e.r==='inplay'&&e.play&&e.play.res==='HR',STUDIO_SEEDS_RARE],
+  /* #611: one act per change of player (every one walks on and off, read from the CHG / SUB event) */
+  ['換人','chg','換投・後援投手從牛棚跑上投手丘、原投手走回休息區',e=>e.k==='CHG'],
+  ['換人','prun','代跑・代跑者從休息區跑到壘上、原跑者跑回',e=>e.k==='SUB'&&e.base>=1&&e.base<=3],
+  ['換人','dsub','守備替補・替補野手跑到守位、原野手跑回休息區',e=>e.k==='SUB'&&e.role==='defensive'],
 ];
 let studio=null;const stCache={};
 function studioClips(key){if(stCache[key])return stCache[key];const A=STUDIO_ACTS.find(a=>a[1]===key),f=A[3],nS=A[4]||STUDIO_SEEDS,out=[];
