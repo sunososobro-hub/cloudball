@@ -142,6 +142,10 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
 /* 手機橫放：高度很矮，介面縮小讓球場多露一點 */
 @media(orientation:landscape) and (max-height:520px){#bug{zoom:.72}#tag,#pinfo,#matchup{display:none}#feed{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-width:38vw;font-size:12px}#feed li:nth-child(n+3){display:none}
  #who{padding:4px 8px;font-size:12px}button{min-height:36px;font-size:13px;padding:0 9px}.bar{top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-height:calc(100vh - 56px)}#vote{max-width:46vw}}
+/* #629 part 2: compact scoreboard on a phone held sideways: teams stacked left, inning + diamond + count right, batter / pitcher in one thin row under them; no footer. Same information, about a third of the height */
+@media(orientation:landscape) and (max-height:520px){#bug{zoom:.8;width:min(400px,calc(100vw - 24px));display:grid;grid-template-columns:auto 1fr;align-items:stretch}#bug .r1{grid-template-columns:1fr;min-width:112px}#bug .tm{padding:1px 6px}#bug .tm .lg{width:22px;height:22px}#bug .tm .sc{font-size:24px}
+ #bug .r2{padding:2px 8px;gap:6px;justify-content:start}#bug .bin{font-size:26px;min-width:34px}#bug .bs .dia{width:46px;height:32px}#bug .bso{font-size:12px;line-height:1.2}#bug .bso b{width:12px}
+ #bug .bb,#bug .bp{grid-row:2;padding:2px 6px;font-size:12px;min-height:20px;text-overflow:ellipsis}#bug .bb{grid-column:1}#bug .bp{grid-column:2}#bug .bb .av,#bug .bb small,#bug .bp .st{display:none}#bug .ft{display:none}}
 @media(prefers-reduced-motion:reduce){#feed li{animation:none}#status.live::before{animation:none}}
 </style>
 </head>
