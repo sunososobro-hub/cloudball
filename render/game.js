@@ -1171,17 +1171,27 @@ let uoM=null;import(new URL('umpout.js',stHere||location.href.replace(/[^/]*$/,'
 const uoCache=new WeakMap();
 /* part 9: U2 goes out on a deep fly to centre too, from his current spot, only in an event where he does not jog (ev, ei given) */
 function uoPlan(e,i,ev,ei){if(!uoM||OFF.has('umpout')||!e||e.k!=='P'||e.r!=='inplay')return null;let m=uoCache.get(e);if(!m){m=new Map();uoCache.set(e,m)}
-  if(!m.has(i)){let pl=null,post=stUmpAt[i];if(i===1){const q=ev&&Number.isFinite(ei)?u2Plan(ev,ei):null;post=q&&!q.pl?u2Spot(q.a):null}
-    if(post)for(const c of bcCalls(e))if(c.b===i+1&&c.at){const q=uoM.outPlan(c,post,bcLen(),e.d,i===1);if(q&&(!pl||c.t>pl.t0)){pl=q;q.t0=c.t}}m.set(i,pl)}return m.get(i)}
+  if(!m.has(i)){let pl=null,post=i===1?null:usPost(ev,ei,i);if(i===1){const q=ev&&Number.isFinite(ei)?u2Plan(ev,ei):null;post=q&&!q.pl?u2Spot(q.a):null}
+    if(post)for(const c of bcCalls(e))if(c.b===i+1&&c.at){const q=uoM.outPlan(c,post,bcLen(),e.d,i===1);if(q&&(!pl||c.t>pl.t0)){pl=q;q.t0=c.t}}if(usM||i===1)m.set(i,pl);else return pl}return m.get(i)}/* U1 / U3 posts move once umpspot.js is in: no cache before */
 const uoEnd=(e,ev,ei)=>{let t=0;for(const i of[0,1,2]){const q=uoPlan(e,i,ev,ei);if(q)t=Math.max(t,q.end)}return t};/* cpEvents: they move until here */
 /* #612 part 9 (render/umpcov.js): the plate umpire covers third while U3 is out on a deep fly with a runner on. Off with ?off=umpcov. */
 let ucM=null;import(new URL('umpcov.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{ucM=M}).catch(err=>console.warn('ump cover off',err));
 const ucCache=new WeakMap();
-function ucPlan(e){if(!ucM||OFF.has('umpcov')||!e||!e.s0||!e.s0.b||!e.s0.b.some(Boolean))return null;if(ucCache.has(e))return ucCache.get(e);const o=uoPlan(e,2),q=o?ucM.covPlan(o,stUmpAt[2],true):null;ucCache.set(e,q);return q}
+/* #612 part 10 (render/umpspot.js): U1 moves up behind first with a runner on first, U3 behind third with a runner on third, and walk back to
+   their deep posts when the base empties, inside the event (never a jump). Until the module is in (or ?off=umpspot) they stay deep. */
+let usM=null;import(new URL('umpspot.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{usM=M}).catch(err=>console.warn('ump spots off',err));
+const usCache=new WeakMap(),usOpt=()=>({ARRIVE,BRK_ON_AT,BRK_OFF_AT});/* read late: those constants are declared further down */
+function usPlan(ev,i,k){if(!usM||OFF.has('umpspot')||!ev||!Number.isFinite(i)||!ev[i])return null;const e=ev[i];let m=usCache.get(e);if(!m){m=new Map();usCache.set(e,m)}
+  if(!m.has(k))m.set(k,usM.spotPlan(ev,i,k,usOpt()));return m.get(k)}
+/* his spot when he stands still all event (the post of uoPlan / ucPlan), null when he walks between spots in it */
+const usPost=(ev,ei,k)=>{if(!usM||OFF.has('umpspot'))return stUmpAt[k];const q=usPlan(ev,ei,k);return q?q.pl?null:usM.spotOf(k,q.a):stUmpAt[k]};
+const usEnd=(ev,i)=>usM?Math.max(usM.spotEnd(usPlan(ev,i,0)),usM.spotEnd(usPlan(ev,i,2))):0;/* cpEvents: they walk until here */
+function ucPlan(e,ev,ei){if(!ucM||OFF.has('umpcov')||!e||!e.s0||!e.s0.b||!e.s0.b.some(Boolean))return null;if(ucCache.has(e))return ucCache.get(e);const o=uoPlan(e,2,ev,ei),q=o?ucM.covPlan(o,o.from,true):null;if(usM)ucCache.set(e,q);return q}
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}{const up=uoM?uoPlan(e,i,game&&game.ev,ei):null,o=up?uoM.outAt(up,u):null;if(o&&o.active){x=o.x;z=o.z;mv=[x,z,o.fx,o.fz,true]}}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);grdSigPose(f,i+1,e,u);chkSigPose(f,i+1,e,u);
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}
+    else if(i!==1&&game){const q=usPlan(game.ev,ei,i);if(q){const s=usM.spotAt(q,i,u);x=s.x;z=s.z;if(s.moving)mv=[x,z,s.fx,s.fz,true]}}{const up=uoM?uoPlan(e,i,game&&game.ev,ei):null,o=up?uoM.outAt(up,u):null;if(o&&o.active){x=o.x;z=o.z;mv=[x,z,o.fx,o.fz,true]}}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);grdSigPose(f,i+1,e,u);chkSigPose(f,i+1,e,u);
     if(i===1&&!mv&&!f.armsHeld&&x===ST_U2_IN[0]&&z===ST_U2_IN[1])u2Watch(f,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
@@ -1503,7 +1513,7 @@ function grdSigPose(f,b,e,u){const s=grdM&&!f.armsHeld?grdM.grdSignal(e,u,b,SIG_
   f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 const CHK_REACH=.75,CHK_POINT_Y=1.05;/* #708: the catcher's pointing hand: CHK_REACH m from his body toward the base umpire, CHK_POINT_Y m up (world) */
-function chkPointAt(C,b){const s=stUmpAt[b===1?0:2],x=C.g.position.x,z=C.g.position.z,dx=s[0]-x,dz=s[1]-z,d=Math.hypot(dx,dz)||1;return[x+dx/d*CHK_REACH,CHK_POINT_Y,z+dz/d*CHK_REACH]}
+function chkPointAt(C,b){const U=umpB[b===1?0:2].g.position,s=[U.x,U.z],x=C.g.position.x,z=C.g.position.z,dx=s[0]-x,dz=s[1]-z,d=Math.hypot(dx,dz)||1;return[x+dx/d*CHK_REACH,CHK_POINT_Y,z+dz/d*CHK_REACH]}
 /* #732 part 2 (render/cireach.js): on a catcher's interference pitch the mitt reaches forward and toward the batter. Off with ?off=cireach. */
 let ciM=null;import(new URL('cireach.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{ciM=M}).catch(err=>console.warn('ci reach off',err));
 function ciReachOf(e,u){return ciM&&!OFF.has('cireach')&&e&&e.r==='ci'?ciM.ciReach(e,u,{ARRIVE},!!(e.bat&&batOf(e).hand==='L')):null}
@@ -1553,12 +1563,12 @@ function umpArms(c){const R=[],L=[];for(let i=0;i<3;i++){
    batting team's dugout, where scorers peel off), stays until UMP_HOLD s after the last runner reaches home, and is back on his spot
    before he crouches again at the end of the play */
 const UMP_X=.3,UMP_Z=2.6,UMP_GIVE=[2,2.1],UMP_GO_AT=PLATE_UP_AT+PLATE_UP_DUR,UMP_HOLD=1.5,UMP_WALK=2.2,UMP_BACK_PAD=PLATE_DOWN_AT+.2;
-function placeUmp(e,u){const lf=e.bat&&batOf(e).hand==='L',hx=lf?-UMP_X:UMP_X;let x=hx,z=UMP_Z,yaw=Math.PI;
+function placeUmp(e,u,ei){const lf=e.bat&&batOf(e).hand==='L',hx=lf?-UMP_X:UMP_X;let x=hx,z=UMP_Z,yaw=Math.PI;
   if(e.r==='inplay'){const last=Math.max(-Infinity,...(e.moves||[]).filter(m=>m[1]===4).map(m=>m[3].arriveT)),gx=-Math.sign(dugout(e.s0.half)[0])*UMP_GIVE[0],gz=UMP_GIVE[1],tw=Math.hypot(gx-hx,gz-UMP_Z)/UMP_WALK,t0=ARRIVE+UMP_GO_AT,
       end=e.d||Math.max(t0,last)+UMP_HOLD+2*tw+UMP_BACK_PAD,tb=Math.max(t0+tw,Math.min(last>-Infinity?last+UMP_HOLD:Infinity,end-tw-UMP_BACK_PAD)),go=ease(sat01((u-t0)/tw)),bk=ease(sat01((u-tb)/tw));
     x=lerp(lerp(hx,gx,go),hx,bk);z=lerp(lerp(UMP_Z,gz,go),UMP_Z,bk);
     if(go>0&&go<1)yaw=Math.atan2(gx-hx,gz-UMP_Z);else if(bk>0&&bk<1)yaw=Math.atan2(hx-gx,UMP_Z-gz);else if(go>=1&&bk===0)yaw=Math.atan2(-x,-z)}
-  const uc=ucPlan(e),cv=uc?ucM.covAt(uc,u):null;if(cv&&cv.w>0){x=lerp(x,cv.x,cv.w);z=lerp(z,cv.z,cv.w);yaw=Math.atan2(cv.fx,cv.fz)}
+  const uc=ucPlan(e,game&&game.ev,ei),cv=uc?ucM.covAt(uc,u):null;if(cv&&cv.w>0){x=lerp(x,cv.x,cv.w);z=lerp(z,cv.z,cv.w);yaw=Math.atan2(cv.fx,cv.fz)}
   ump.g.position.x=x;ump.g.position.z=z;ump.g.rotation.y=yaw;if(ump.noAnim){ump.px=x;ump.pz=z}}
 /* #42: jog ends from render/brkjog.js (off from where the last pitch left him, out to where the next pitch poses him); home until it is in */
 let bjM=null;import(new URL('brkjog.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{bjM=M}).catch(err=>console.warn('break jog ends off',err));
@@ -1866,7 +1876,7 @@ function poseScene(e,u,dt,ei){
   const moving=new Set(k3Moves(e).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
-  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
+  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u,ei);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
   const hit0=bunt||fbunt?buntHit(e,u):contact?contactPt(e):null;if(hit0)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<pr||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
@@ -2260,7 +2270,7 @@ function cpEvents(g){const ev=g.ev;
     {const w=welNow(ev,i,e.t,off);if(w)pe=Math.max(pe,w[0].end-w[1])}/* #266: teammates of a home run still walking back */
     if(e.k==='VOTE'){head=e.d;tail=0}
     else if(e.k==='CHG'||e.k==='VIS'){const vp=visitOf(e);if(vp){head=vp.go;tail=vp.end}else if(visitM){head=e.d;tail=0}if(e.k==='CHG'&&cwM&&cwM.warmEnd&&!OFF.has('chgwarm')){head=Math.min(head,cwM.warmStart());tail=Math.max(tail,cwM.warmEnd(e.d))}}/* #611 part 5: warm-up pitches *//* #81: the manager's walk to the mound and back; module not in yet -> keep it all */
-    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to}),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
+    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to}),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i),usEnd(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
     else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),jogEnd([dugout(1-off)[0],INTRO_Z],0,k=>preEndOf(ev,i,k)),stJogEnd(off,0),odEnd(ev,i));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=k3Moves(e);tail=PITCH_STILL;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
@@ -2268,7 +2278,7 @@ function cpEvents(g){const ev=g.ev;
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):Math.max(CP_RUNNER_SETTLE,LEAD_WALK_WAIT+LEAD_WALK_DUR)));/* #23: walk-out to the lead */
       if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);tail=Math.max(tail,K.back+K.Db/WP_BACK_V)}if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P'&&e.r!=='inplay')tail=Math.max(tail,retEnd(ev,i));/* #42: fielders walking to the next pitch's depth (retDrift) */
-    if(e.k==='P')tail=Math.max(tail,u2End(ev,i),uoEnd(e,ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
+    if(e.k==='P')tail=Math.max(tail,u2End(ev,i),uoEnd(e,ev,i),usEnd(ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
     {const tc=tmM?tmM.timeCall(e,ev[i-1]):null;/* #638: the plate ump's time / play signal (#609 part 3a) moves him in VOTE/CHG/VIS/SUB and the next pitch */
       if(tc){head=0;/* not tc.at: a figure can still settle in the frame's first steps (pitcher after a strikeout, edge_probe) */tail=Math.max(tail,tmM.timeEnd(e,ev[i-1]))}else if(!tmM&&!OFF.has('umptime')&&TIME_FRAMES.has(e.k)){head=0;tail=e.d}}/* module not in yet -> keep it all */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
