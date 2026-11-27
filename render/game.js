@@ -959,7 +959,10 @@ function buntHit(e,u){if(u<=ARRIVE)return buntContact().slice();
   if(buntAt&&buntAt.e===e&&buntAt.c===buntClip&&buntAt.m===BCL)return buntAt.p;
   poseBatter(e,ARRIVE);batterWalk(e,ARRIVE);batterMocap(e,ARRIVE);const p=buntContact().slice();
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);buntAt={e,c:buntClip,m:BCL,p};return p}
-const BAT_HAND_GAP=.09,BUNT_CRACK=.3,HIT0=[0,1,.3];/* HIT0: where a swung-at ball leaves the bat */
+const BAT_HAND_GAP=.09,BUNT_CRACK=.3;
+/* #649: a swung-at ball (foul or in play) meets the bat where the pitch is, CONTACT_Z m out in front of the plate spot's line (z .6) toward
+   the pitcher: the pitch path ends there and the batted ball leaves from there, so nothing jumps at contact (was a fixed [0,1,.3]) */
+const CONTACT_Z=.3;function contactPt(e){return[e.zx,.45+e.zy*.75,CONTACT_Z]}
 /* Six runner bodies: up to four movers or base runners of this play plus scorers of earlier plays still jogging off to their dugout (#43) */
 const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
 /* #42 slice 1, on-deck batter: the next batter waits on his team's on-deck circle (DECK in render/props/ondeck.js: |x| 11.3, z 1.2; the
@@ -1670,14 +1673,14 @@ function poseScene(e,u,dt,ei){
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
-  const hit0=bunt?buntHit(e,u):HIT0;if(bunt)plate.splice(0,3,...hit0);
+  const hit0=bunt?buntHit(e,u):contact?contactPt(e):null;if(hit0)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
   else if(u<ARRIVE)bp=pitchArc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE),pitchBreak(e.pt,hand));
   else if(!contact&&e.wp){bp=wpBall(e,u,plate);wpCatcher(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
-  else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
+  else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(hit0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers the bag (e.plan: SS at second, 3B at third, #38); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),D2b=Math.hypot(sp[0]-c.ret[0],sp[1]-c.ret[1]),bk=D2b<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2b,0,1);
     c.g.position.set(lerp(lerp(c.pos[0],sp[0],kc),c.ret[0],bk),0,lerp(lerp(c.pos[1],sp[1],kc),c.ret[1],bk));
