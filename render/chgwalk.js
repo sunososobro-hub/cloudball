@@ -18,9 +18,15 @@ export const CW_LANE_IN = 3;     /* m from the mound over which that side step g
 export const CW_GATE_S = 75;     /* m from home along the foul line: the bullpen gate (render/props/bullpens.js strip, BP.S0..S1) */
 export const CW_GATE_D = 12;     /* m outside that line (BP.LANES) */
 
+export const CW_EXIT_S = 61.5;   /* #611 part 6: m from home where he leaves the pen, past the strip's home end (BP.S0 62.6), in front of the bench */
+export const CW_EXIT_D = 11.4;   /* m off the line: the aisle between the two lanes (BP.LANES 9.9 / 12.9), so he never crosses a lane's mound or plate */
+
 const sat = x => x < 0 ? 0 : x > 1 ? 1 : x, R2 = Math.SQRT1_2;
 /* the gate of the bullpen on the dugout's side: x sign follows the dugout, the outfield is -z (game.js dugout(), BASES) */
 export const bullpenGate = dug => { const s = dug[0] < 0 ? -1 : 1; return [s * (CW_GATE_S + CW_GATE_D) * R2, (CW_GATE_D - CW_GATE_S) * R2]; };
+
+/* the pen exit on the dugout's side: the gate's side, CW_EXIT_S out and CW_EXIT_D off the line */
+export const bullpenExit = dug => { const s = dug[0] < 0 ? -1 : 1; return [s * (CW_EXIT_S + CW_EXIT_D) * R2, (CW_EXIT_D - CW_EXIT_S) * R2]; };
 
 export function oldAt(mound, dug, u, d) {
   const dx = dug[0] - mound[0], dz = dug[1] - mound[1], L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L;
@@ -31,11 +37,23 @@ export function oldAt(mound, dug, u, d) {
   return [mound[0] + ux * s - uz * o, mound[1] + uz * s + ux * o, dx, dz];
 }
 
-export function newAt(mound, gate, u) {
+/* #611 part 6: with `exit` (bullpenExit) he jogs inside the pen first: gate -> along the aisle between the lanes to the exit -> over foul ground to the
+ * rubber; the pace is even over the whole route and he is on the rubber at the same time as before (CW_SIGNAL + CW_JOG). No exit -> the old straight line. */
+export function newAt(mound, gate, u, exit) {
   if (!(u >= CW_SIGNAL)) return null;
   const k = sat((u - CW_SIGNAL) / CW_JOG);
   if (k >= 1) return [mound[0], mound[1], -mound[0], -mound[1]];/* on the rubber, facing home */
-  return [gate[0] + (mound[0] - gate[0]) * k, gate[1] + (mound[1] - gate[1]) * k, mound[0] - gate[0], mound[1] - gate[1]];
+  const pts = exit ? [gate, exit, mound] : [gate, mound], seg = [];
+  let L = 0;
+  for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(l); L += l; }
+  let r = k * L;
+  for (let i = 0; i < seg.length; i++) {
+    if (r <= seg[i] || i === seg.length - 1) {
+      const a = pts[i], b = pts[i + 1], f = seg[i] > 0 ? r / seg[i] : 1;
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, b[0] - a[0], b[1] - a[1]];
+    }
+    r -= seg[i];
+  }
 }
 
 /* #611 part 4: who holds the ball on a CHG frame (pure). The old pitcher gives it to the manager at CW_OLD_GO; the manager holds it until the

@@ -1712,7 +1712,7 @@ function dsFielders(e,u,ei,def){const L=luOf();if(!sjM||!sjM.dsJog||!L||ei<1)ret
    already carrying the new number) comes in from his bullpen gate and stops on the rubber; paths and pace in render/chgwalk.js; module not in yet -> old swap */
 let cwM=null;import(new URL('chgwalk.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{cwM=M}).catch(err=>console.warn('pitching change walk off',err));
 function chgPitchers(e,u,def){const R=ROSTERS[def],i=curPit[def],od=R.pit[i],nw=R.pit[i+1];if(!cwM||!od||!nw)return;
-  const f=fielders.P,m=f.pos,dug=dugout(def),bob=Math.abs(Math.sin(u*9))*.07,O=cwM.oldAt(m,dug,u,e.d),N=cwM.newAt(m,cwM.bullpenGate(dug),u);
+  const f=fielders.P,m=f.pos,dug=dugout(def),bob=Math.abs(Math.sin(u*9))*.07,O=cwM.oldAt(m,dug,u,e.d),N=cwM.newAt(m,cwM.bullpenGate(dug),u,cwM.bullpenExit?cwM.bullpenExit(dug):null);
   if(O){resetPose(dsOut);dsOut.noAnim=false;dsOut.g.visible=true;dsOut.g.position.set(O[0],u>cwM.CW_OLD_GO?bob:0,O[1]);setNum(dsOut,od.num);dress(dsOut,od);face(dsOut,O[2],O[3])}
   if(N){f.g.visible=true;f.g.position.set(N[0],u<cwM.CW_SIGNAL+cwM.CW_JOG?bob:0,N[1]);face(f,N[2],N[3])}else f.g.visible=false}
 /* #613 end of the game: render/finale.js plans it from the END frame (winner from the final score, walk-off = the winners were batting).
