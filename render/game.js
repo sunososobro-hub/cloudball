@@ -1557,6 +1557,13 @@ const retEnd=(ev,i)=>{const e=ev[i],nx=ev[i+1];if(!(e.k==='P'&&nx&&RET_NEXT.incl
 function retDrift(e,u,ei){const nx=retNext(e,ei);if(!nx)return;const dur=Number.isFinite(nx.t-e.t)?nx.t-e.t:e.d;
   for(const k of FIELDER_KEYS){const f=fielders[k];if(RET_SKIP.includes(k))continue;const D=Math.hypot(f.ret[0]-f.pos[0],f.ret[1]-f.pos[1]);if(D<.01)continue;
     const t0=e.r==='inplay'&&e.plan?ARRIVE+e.plan.rt:dur-RET_GAP-runTime(D,RET_V),w=clamp(runDist(u-t0,RET_V)/D,0,1);f.g.position.set(lerp(f.pos[0],f.ret[0],w),0,lerp(f.pos[1],f.ret[1],w))}}
+/* #611 part 1: a pinch runner (SUB frame with `base`) jogs out from his dugout to the bag while the man he replaces jogs off,
+   paths and pace in render/subjog.js; module not in yet -> the old swap on the bag */
+let sjM=null;import(new URL('subjog.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{sjM=M}).catch(err=>console.warn('pinch-run jog off',err));
+function prRunners(e,u,i,off,standRunner,showRunner){const [bx,bz]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-bx,dz=nz-bz,L=Math.hypot(dx,dz),ld=leadAt(0),spot=[bx+dx/L*ld,bz+dz/L*ld];
+  const J=sjM.prJog(spot,dugout(off),u,e.d,[-bx,-bz]),oldN=e.s0.b[i],newN=e.s1.b[i];
+  if(J.out&&oldN)showRunner(...J.out,oldN);
+  if(J.in&&newN){if(J.in[0]===spot[0]&&J.in[1]===spot[1])standRunner(i,0,newN);else showRunner(...J.in,newN)}}
 function poseScene(e,u,dt,ei){
   pmField=null;/* #274: set again below only for a fielding pitcher */
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
@@ -1580,7 +1587,7 @@ function poseScene(e,u,dt,ei){
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
-  if(e.k!=='P'){for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK')standRunner(i,0,s.b[i]);peelers();poseBatBoy(e,u,ei);return s}
+  if(e.k!=='P'){const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);return s}
   /* pitch */
   const pp=pitchPose(e.bk?bkU(u):e.po?0:u),tip=pp.tip;
   /* A pitcher who fields the ball or covers first starts from where his delivery stride left him at contact (not from the rubber, which
