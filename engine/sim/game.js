@@ -115,7 +115,11 @@ export function simGame(seed, decisions, opts) {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
       if (e.swing) add('swing', e.t + K.ARRIVE, { ...who });
       if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder, foul: e.play.foul ? true : undefined });
-      else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], tip: e.tip ? true : undefined, dropped: e.k3 ? true : undefined, bunt: e.bunt ? true : undefined, count: e.c1 });
+      else {
+        /* #614 part 6: the catcher points to the base umpire, whose ruling is the call */
+        if (e.chk) add('appeal', e.t + K.ARRIVE + K.CHECK_APPEAL_AT, { ...who, umpire: e.chk.ump === 3 ? 'third_base' : 'first_base', ruling: e.chk.swing ? 'swing' : 'no_swing', count: e.c1 });
+        add('call', e.t + K.ARRIVE + (e.chk ? K.CHECK_APPEAL_AT : K.CALL_LAG), { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], tip: e.tip ? true : undefined, dropped: e.k3 ? true : undefined, bunt: e.bunt ? true : undefined, checkSwing: e.chk ? true : undefined, count: e.c1 });
+      }
     }
     if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal || e.plan.po || e.plan.k3 ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
     let n = e.s0.outs;
@@ -293,6 +297,10 @@ export function simGame(seed, decisions, opts) {
         const kmh = Math.round(K.KMH_BASE + (pit.stuff - K.KMH_STUFF_REF) * K.KMH_PER_STUFF + PT[2] + (look() - K.HALF) * K.KMH_JITTER);
         const e = { t, k: 'P', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0, inZ, zx, zy, line, pline, pt: PT[0], kmh, s0, swing: false };
         let foulFly = false;
+        /* #614 part 6: a check swing the catcher appeals to the base umpire on the batter's open side (first for a right-handed
+         * batter, third for a left-handed one). A label drawn from the looks RNG on a ball or a swinging strike already decided,
+         * so no outcome changes: `swing` false = the appeal is denied (ball stands), true = the base umpire rules a swing (strike). */
+        const appeal = swing => { e.chk = { ump: bat.hand === 'L' ? 3 : 1, swing }; return COPY.checkSwing(e.chk.ump, swing); };
 
         /* ---- what happens to the pitch ---- */
         if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
@@ -333,6 +341,7 @@ export function simGame(seed, decisions, opts) {
           const f = forceAdvance(name); moves = f.moves; runs = f.runs; bs.bb++; ps.bb++; paDone = true;
           result = e.r === 'hbp' ? 'hit_by_pitch' : 'walk';
           desc = e.r === 'hbp' ? COPY.hbp(name) : COPY.walk(name);
+          if (e.r === 'ball' && look() < K.CHECK_APPEAL_BALL_P) desc = COPY.call('ball') + appeal(false) + '，' + desc;
           if (runs) { rbi = runs; desc += COPY.forcedIn(runs); }
         } else if (strikes === K.STRIKES_FOR_OUT) {
           /* #614 part 2: a share of the swinging third strikes are foul tips the catcher holds (a label, looks RNG) */
@@ -345,8 +354,9 @@ export function simGame(seed, decisions, opts) {
             desc = COPY.droppedThird(name, e.r === 'cstr', k.ok, runs, !!k.plan.k3tag);
           } else {
             if (e.r === 'sstr' && look() < K.FOUL_TIP_OF_WHIFF) e.tip = true;
-            outs.push(strikeout({ batter: name, looking: e.r === 'cstr', strikes, at: K.ARRIVE + K.CATCH_SNAP }));
-            desc = COPY.strikeout(name, e.r === 'cstr', e.tip, e.bunt);
+            else if (e.r === 'sstr' && look() < K.CHECK_APPEAL_OF_WHIFF) appeal(true);
+            outs.push(strikeout({ batter: name, looking: e.r === 'cstr', strikes, at: K.ARRIVE + (e.chk ? K.CHECK_APPEAL_AT : K.CATCH_SNAP) }));
+            desc = COPY.strikeout(name, e.r === 'cstr', e.tip, e.bunt, e.chk && e.chk.ump);
           }
           bs.ab++; bs.k++; ps.k++; paDone = true; result = 'strikeout';
         } else if (e.r === 'inplay') {
@@ -543,6 +553,9 @@ export function simGame(seed, decisions, opts) {
           }
           /* #614 part 2: a swinging strike the catcher held may be a foul tip: still a strike, the ball stays live (a steal goes on) */
           if (e.r === 'sstr' && !e.wp && look() < K.FOUL_TIP_OF_WHIFF) { e.tip = true; desc = COPY.call('tip') + desc.slice(COPY.call('sstr').length); }
+          /* #614 part 6: check-swing appeals on a ball or a held swinging strike (labels, looks RNG) */
+          else if (e.r === 'sstr' && !e.wp && look() < K.CHECK_APPEAL_OF_WHIFF) desc = COPY.call('chk') + appeal(true) + desc.slice(COPY.call('sstr').length);
+          else if (e.r === 'ball' && !e.wp && look() < K.CHECK_APPEAL_BALL_P) desc = COPY.call('ball') + appeal(false) + desc.slice(COPY.call('ball').length);
         }
 
         /* ---- book the outs and runs ---- */
