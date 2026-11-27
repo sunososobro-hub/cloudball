@@ -133,3 +133,44 @@ export function recordStart(rot, teamId, idx, day) {
   rot.last[teamId][idx] = day; rot.days[teamId] = day;
   return rot;
 }
+
+/* Part 3 (#599): the final. The top two of rank() meet in a best-of-three; the first to FINAL_WINS takes the title, so it
+ * lasts 2 or 3 games. Pure like the rest: it reads results that already exist (rules 10, 11).
+ *
+ *   FINAL_WINS, FINAL_MAX_GAMES        2 wins, so at most 3 games.
+ *   newFinal(table)                    { seeds: [first, second], games: [], wins } from the final standings.
+ *   nextFinalGame(final)               the next { home, away }, or null once someone has FINAL_WINS. The better seed hosts
+ *                                      games 1 and 3, the other hosts game 2.
+ *   applyFinalResult(final, game)      game { home, away, homeRuns, awayRuns } must be the one nextFinalGame names; a tie throws.
+ *   champion(final)                    the winner's id, or null while the final is open.
+ * A final game is one more calendar day after the last season night (day SEASON_NIGHTS + games played), for the rotation. */
+export const FINAL_WINS = 2;
+export const FINAL_MAX_GAMES = 2 * FINAL_WINS - 1;
+
+export function newFinal(table) {
+  const seeds = rank(table).slice(0, 2);
+  if (seeds.length !== 2) throw new Error('newFinal: need two teams');
+  return { seeds, games: [], wins: { [seeds[0]]: 0, [seeds[1]]: 0 } };
+}
+
+export function champion(fin) {
+  for (const id of fin.seeds) if (fin.wins[id] >= FINAL_WINS) return id;
+  return null;
+}
+
+export function nextFinalGame(fin) {
+  if (champion(fin) || fin.games.length >= FINAL_MAX_GAMES) return null;
+  const [a, b] = fin.seeds;
+  return fin.games.length % 2 === 0 ? { home: a, away: b } : { home: b, away: a };
+}
+
+export function applyFinalResult(fin, { home, away, homeRuns, awayRuns }) {
+  const want = nextFinalGame(fin);
+  if (!want) throw new Error('applyFinalResult: the final is over');
+  if (home !== want.home || away !== want.away) throw new Error(`applyFinalResult: expected ${want.home} at home v ${want.away}`);
+  if (!Number.isInteger(homeRuns) || !Number.isInteger(awayRuns) || homeRuns < 0 || awayRuns < 0) throw new Error('applyFinalResult: runs must be whole numbers');
+  if (homeRuns === awayRuns) throw new Error('applyFinalResult: a game has a winner');
+  fin.wins[homeRuns > awayRuns ? home : away]++;
+  fin.games.push({ home, away, homeRuns, awayRuns });
+  return fin;
+}
