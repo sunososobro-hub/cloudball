@@ -879,6 +879,11 @@ const BUNT={yaw:1.25,hips:.75,head:1.45,lean:.45,gap:.32},BUNT_SQUARE_LEAD=1.05,
 const BUNT_DIR=[.25,.18,1],BUNT_SWEET=.55,BUNT_SWEET_X=.42,BUNT_KNEE=.3,BUNT_KNEE_REF=.92,BUNT_KNEE_LOW=.25,BUNT_KNEE_MIN=.2,BUNT_KNEE_MAX=.4,BUNT_HAND_MIN=.6,BUNT_HAND_MAX=1.25,BUNT_RISE=.3;
 const _ugm=new THREE.Matrix4(),_ugh=new THREE.Vector3(),_ugd=new THREE.Vector3(),_ugs=new THREE.Vector3();
 let buntK=0,buntDrop=0;const buntPt=[0,1,.3];
+/* #655: a bunt attempt that goes foul (engine e.r 'foul', e.bunt) is squared around like a bunt in play, then he straightens up; the ball dribbles foul near the plate */
+const buntE=e=>e.r==='inplay'&&!!e.play&&!!e.play.bunt||e.r==='foul'&&!!e.bunt;
+const BUNT_FOUL_HOLD=.5,BUNT_FOUL_UP=.4;/* seconds after ARRIVE he stays squared, then straightens over BUNT_FOUL_UP */
+const bfbRel=(e,u)=>e.r==='foul'&&e.bunt?1-ease(sat01((u-ARRIVE-BUNT_FOUL_HOLD)/BUNT_FOUL_UP)):1;
+let FBB=null;import(new URL('foul_bunt.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{FBB=M}).catch(err=>console.warn('foul bunt ball off',err));/* #655: render/foul_bunt.js */
 /* Convert a point (or direction) from the batter's ground frame into the upper-body frame batPivot lives in */
 function groundToUp(v,dir){batter.g.updateMatrixWorld(true);_ugm.copy(batter.g.matrixWorld).invert().multiply(BR.up.matrixWorld).invert();return dir?v.transformDirection(_ugm):v.applyMatrix4(_ugm)}
 /* Hit by pitch: the ball ends on the batter's body (spot picked from the pitch height, on the pitcher's side of him), he flinches and turns away,
@@ -894,7 +899,7 @@ function hbpBall(e,u){const S=hbpSpot(e),t=u-ARRIVE,sg=S[0]>0?-1:1;/* he stands 
   if(t<HBP_DROP_DUR+HBP_HOP_DUR)return arc(g1,g2,HBP_HOP_PEAK,(t-HBP_DROP_DUR)/HBP_HOP_DUR);
   return t<HBP_BALL_GONE?g2:null}
 function poseBatter(e,u){
-  const bn=e.r==='inplay'&&e.play&&e.play.bunt?ease(sat01((u-(ARRIVE-BUNT_SQUARE_LEAD))/BUNT_SQUARE_DUR)):0;
+  const bn=buntE(e)?ease(sat01((u-(ARRIVE-BUNT_SQUARE_LEAD))/BUNT_SQUARE_DUR))*bfbRel(e,u):0;
   const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing&&!bn?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing&&!bn?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
   const K=(k,c)=>{const a=BK[k];let v=lerp(a[0],a[1],ld);v=lerp(v,c===undefined?a[2]:c,sw);return lerp(v,a[3],ft)};
   const stay=!(e.pa&&e.r!=='ibb'),kOut=batKOut(e),rw=kOut?ease(sat01((u-(ARRIVE+BAT_K_REST_AT[e.r==='sstr'?1:0]))/BAT_K_REST_DUR)):stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
@@ -927,7 +932,7 @@ function poseBatter(e,u){
 const SWING_CLIP_URL='assets/mocap/swing_124_07.json',SW_FPS=30,SW_CONTACT=85/SW_FPS,SW_START=1.6,SW_END=3.6,SW_IN=.4,SW_OUT=[ARRIVE+.6,ARRIVE+1.1],SW_OUT_HIT=[ARRIVE+.2,ARRIVE+.35],SW_HAND_GAP_MIN=.03;
 let swingClip=null,swingClipP=null;const _sw0=new THREE.Vector3(),_sw1=new THREE.Vector3(),_swm=new THREE.Matrix4();
 const swTime=u=>Math.max(SW_START,Math.min(SW_END,SW_CONTACT+(u-ARRIVE)));
-function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
+function swW(e,u){if(!e.swing||buntE(e))return 0;const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
   return Math.min(ease(sat01((u-a)/SW_IN)),1-ease(sat01((u-o[0])/(o[1]-o[0]))))}
 /* #303: a bunt plays bunt_124_08.json instead (square 52-64, hold 64-80, time warp and weight in render/bunt_clip.js). The clip has its
    own crouch, so the knee-bend drop of the ground frame (buntDrop) is taken back by the clip weight; the bat follows the hands as on the swing,
@@ -952,7 +957,7 @@ function swingWarp(e,u){if(swRaw||OFF.has('swingwarp')||!(e.r==='inplay'||e.r===
     swWarpAt={e,c:swingClip,d};poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);swRaw=false}
   return swWarpAt.d}
 function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
-  const bu=e.r==='inplay'&&e.play&&e.play.bunt;let w;
+  const bu=buntE(e);let w;
   if(bu){if(BCL&&!buntClipP&&window.PL&&PL.loadClip)buntClipP=PL.loadClip(BCL.BUNT_CLIP_URL).then(c=>{buntClip=c}).catch(x=>console.warn('mocap',x));
     w=buntClip&&BCL&&batter.g.visible?BCL.buntClipW(true,u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0;
     batter.setMocap(buntClip,w>0?BCL.buntClipTime(u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0,w,false,BCL?BCL.BUNT_CLIP_T0:0,0);if(w<=0)return;
@@ -1774,12 +1779,12 @@ function poseScene(e,u,dt,ei){
   if(e.r==='inplay'&&(e.play.fielder==='P'||e.plan.CV.key==='P')&&u>=ARRIVE){pmFieldSet(e,u);const k=1-ease(sat01((u-ARRIVE-FIELD_REACT)/P_RUN_BLEND));
     P.pos=[P.pos[0],P.pos[1]+kf(ARRIVE,PK.dz)];P.noAnim=false;PR.up.rotation.x*=k;PR.up.rotation.y*=k;PR.hg.rotation.y*=k;
     P.mix={k,l0:P.legs[0].rotation.x,l1:P.legs[1].rotation.x,a0:P.arms[0].rotation.x,a1:wrapA(P.arms[1].rotation.x)}}
-  const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp';
+  const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp',fbunt=e.r==='foul'&&!!e.bunt;
   const moving=new Set((e.moves||[]).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
-  const hit0=bunt?buntHit(e,u):contact?contactPt(e):null;if(hit0)plate.splice(0,3,...hit0);
+  const hit0=bunt||fbunt?buntHit(e,u):contact?contactPt(e):null;if(hit0)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
   else if(u<ARRIVE)bp=pitchArc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE),pitchBreak(e.pt,hand));
@@ -1787,6 +1792,7 @@ function poseScene(e,u,dt,ei){
   else if(!contact&&e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);bp=k3Ball(e,u,plate,K);k3Catcher(e,u,K);k3First(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=e.tip&&TIPB?TIPB.tipPath(plate,[q.x,q.y,q.z],e.bat&&batOf(e).hand==='L'?1:-1,(u-ARRIVE)/CATCH_SNAP):arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #631: a foul tip bends once at the bat (render/tipball.js) *//* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],pbGlove(hand),3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
+  else if(fbunt&&FBB)bp=FBB.foulBuntBall(hit0,e.foulDir,u-ARRIVE,BUNT_GROUND_Y);
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(hit0,[e.foulDir*24,9,22],12,tt);
     else{const nb=nbNow(e,u);if(nb&&nb.ball){const q=nb.ball==='ump'?ump.handWorld(1):fielders.C.handWorld(1);bp=nb.ball==='lob'?arc([q.x,q.y,q.z],hand,3,nb.k):[q.x,q.y,q.z]}}}/* #612 part 5: the new ball from the umpire's bag to the catcher, then to the pitcher */
   /* steal: the engine planned the catcher's throw and who covers the bag (e.plan: SS at second, 3B at third, #38); draw it */
