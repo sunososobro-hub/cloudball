@@ -9,7 +9,7 @@
  * Plan times are seconds after contact. Out records use seconds into the pitch frame. */
 import * as K from '../constants.js';
 import { BASES, BASE_PATH, HOME, FIELD_HOME, dist, fielderStart, runDist, runTime, runnerTimeline, throwPlan, coverArrival, clamp } from './field.js';
-import { forceOut, tagOut, flyCatch, isForced, beats } from './outs.js';
+import { forceOut, tagOut, flyCatch, infieldFly, isForced, beats } from './outs.js';
 
 export const HIT_LIKE = ['1B', '2B', '3B', 'E'];   /* results where the ball is not caught or fielded for an out */
 const FIRST_BAG = [BASES[1][0] - K.BAG_FOOT, BASES[1][1]];
@@ -123,8 +123,18 @@ export function resolveGround(ctx, { tryDoublePlay = false, leadBase = null } = 
 
 /* Ball caught in the air. tagUp: { from, to } of a runner who tags up and goes (he is safe:
  * the throw is made, and arrives after him), or null. */
-export function resolveFly(ctx, tagUp = null) {
+export function resolveFly(ctx, tagUp = null, drop = false) {
   const plan = chase(ctx);
+  if (drop) {
+    /* #614 part 10: an infield fly dropped: off the glove when it comes down, picked up IFF_DROP_PICKUP later and tossed back
+     * in; the batter is out by rule (infieldFly), the runners hold (none was forced, none tagged on it) */
+    const downAt = plan.catchT, p = ctx.play;
+    plan.actions[0].a = 'drop'; plan.drop = true; plan.dropAt = downAt; plan.catchT = downAt + K.IFF_DROP_PICKUP;
+    plan.actions.push({ t: plan.catchT, a: 'field', f: plan.fielder });
+    const out = infieldFly({ batter: ctx.batter, fielder: plan.fielder, type: p.type, foul: !!p.foul, bunt: !!p.bunt, outs: ctx.outs, bases: ctx.bases, ballDownAt: toFrame(plan.ballDownAt), at: toFrame(downAt) });
+    throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null });
+    return { plan, outs: [out] };
+  }
   const out = flyCatch({ batter: ctx.batter, fielder: plan.fielder, fielderAt: toFrame(plan.fielderAt), ballDownAt: toFrame(plan.ballDownAt), at: toFrame(plan.catchT) });
   if (tagUp) {
     const runnerAt = sinceContact(runnerTimeline(tagUp.from, tagUp.to, { kind: 'inplay', tagUpAt: toFrame(plan.catchT), slide: true }).arriveT);

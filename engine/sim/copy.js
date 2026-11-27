@@ -58,6 +58,7 @@ export const COPY = {
   groundOut: (n, f) => `${n} ${FIELDER_NAME[f]}前滾地球出局`,
   lineOut: (n, f) => `${n} 平飛球被${FIELDER_NAME[f]}接殺出局`,
   popOut: n => `${n} 內野高飛球出局`,
+  infieldFlyDrop: (n, f) => `${n} 內野高飛球，裁判宣告內野高飛必死球，${FIELDER_NAME[f]}沒接住，打者仍然出局`,
   foulOut: (n, f) => `${n} 界外飛球，${FIELDER_NAME[f]}接殺出局`,
   flyOut: (n, f) => `${n} ${FIELDER_NAME[f]}接殺出局`,
   runsNote: runs => runs > 1 ? `（${runs} 分）` : '',
