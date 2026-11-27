@@ -57,13 +57,17 @@ const IP_PER_START = 5.2, IP_PER_START_TOL = 0.15;
  *   to first only; the real count includes the few throws to second. No 2024/2025 count found.
  * Balks: 181 in 2,430 games in 2025 (Baseball-Reference league pitching totals, 0.04 per team game) -> 0.074 per game.
  * Per-game numbers count both teams. The default sample has to stay within the tolerance, which is about
- * three standard errors of a 1000-game sample plus a little room for the model. Tighten, never loosen. */
+ * three standard errors of a 1000-game sample plus a little room for the model. Tighten, never loosen.
+ * runs/game (#38, engine 0.4.14): 25,000 games on seeds 10001.. and 200001.. average 8.69, sd 4.28 per game, so a
+ * 1000-game sample has a standard error of 0.135; 0.5 = three of them plus 0.09 (was 0.7 before #38 closed the gap).
+ * SF/game (#38 part 13, engine 0.4.16): MLB 2025 0.54 (issue #38). A 1000-game sample of about 0.45 a game has a standard
+ *   error of 0.02; 0.12 = three of them plus 0.06 for the model, which has fewer runners on third with fewer than two outs. */
 const RATE_SAMPLE_MIN = 1000;
 const REFERENCE = [   /* [aggregate() key, label, reference, tolerance, decimals, shown as a percentage] */
-  ['runsPerGame', 'runs/game', 8.89, 0.7, 2], ['kPct', 'K%', 0.222, 0.01, 1, true], ['bbPct', 'BB%', 0.084, 0.008, 1, true], ['hbpPct', 'HBP%', 0.0105, 0.003, 2, true],
+  ['runsPerGame', 'runs/game', 8.89, 0.5, 2], ['kPct', 'K%', 0.222, 0.01, 1, true], ['bbPct', 'BB%', 0.084, 0.008, 1, true], ['hbpPct', 'HBP%', 0.0105, 0.003, 2, true],
   ['avg', 'AVG', 0.245, 0.008, 3], ['obp', 'OBP', 0.315, 0.009, 3], ['slg', 'SLG', 0.404, 0.014, 3], ['babip', 'BABIP', 0.29, 0.009, 3],
   ['hrPerGame', 'HR/game', 2.33, 0.25, 2], ['doublesPerGame', '2B/game', 3.19, 0.35, 2], ['triplesPerGame', '3B/game', 0.26, 0.12, 2],
-  ['gidpPerGame', 'GIDP/game', 1.29, 0.25, 2], ['ibbPerGame', 'IBB/game', 0.23, 0.12, 2], ['sbPerGame', 'SB/game', 1.36, 0.3, 2], ['csPerGame', 'CS/game', 0.41, 0.15, 2], ['wpPerGame', 'WP/game', 0.58, 0.12, 2], ['pbPerGame', 'PB/game', 0.10, 0.05, 2], ['bkPerGame', 'BK/game', 0.074, 0.03, 3], ['poPerGame', 'PO/game', 0.14, 0.05, 2], ['pickoffThrowsPerGame', 'PO throws/game', 3.94, 0.4, 2], ['sb3PerGame', 'SB3/game', 0.19, 0.06, 2], ['cs3PerGame', 'CS3/game', 0.04, 0.03, 2],
+  ['gidpPerGame', 'GIDP/game', 1.29, 0.25, 2], ['ibbPerGame', 'IBB/game', 0.23, 0.12, 2], ['sbPerGame', 'SB/game', 1.36, 0.3, 2], ['csPerGame', 'CS/game', 0.41, 0.15, 2], ['wpPerGame', 'WP/game', 0.58, 0.12, 2], ['pbPerGame', 'PB/game', 0.10, 0.05, 2], ['bkPerGame', 'BK/game', 0.074, 0.03, 3], ['poPerGame', 'PO/game', 0.14, 0.05, 2], ['pickoffThrowsPerGame', 'PO throws/game', 3.94, 0.4, 2], ['sb3PerGame', 'SB3/game', 0.19, 0.06, 2], ['cs3PerGame', 'CS3/game', 0.04, 0.03, 2], ['sfPerGame', 'SF/game', 0.54, 0.12, 2],
   ['pitchesPerPa', 'pitches/PA', 3.88, 0.12, 2], ['zonePct', 'zone', 0.507, 0.015, 1, true], ['swingPct', 'swing', 0.478, 0.015, 1, true],
   ['zoneSwingPct', 'zone swing', 0.668, 0.015, 1, true], ['chasePct', 'chase', 0.282, 0.015, 1, true], ['whiffPct', 'whiff', 0.253, 0.015, 1, true],
 ];
@@ -177,6 +181,9 @@ function checkGame(seed, g) {
       } else if (x.type === 'runner_placed') {
         if (half.inning <= REGULATION) bad('tiebreak runner in regulation');
         bases[x.base - 1] = x.runner; pre[x.base - 1] = x.runner;
+      } else if (x.type === 'substitution' && x.role === 'pinch_runner') {   /* #436: the pinch runner takes over a runner who is there */
+        if (bases[x.base - 1] !== x.out) bad(`pinch runner ${x.in} for ${x.out}, who is not on base ${x.base}`);
+        bases[x.base - 1] = x.in; pre[x.base - 1] = x.in;
       } else if (x.type === 'pitch') {
         if (x.lineup !== expectBatter[x.team]) bad(`batting order: lineup slot ${x.lineup} at bat, expected ${expectBatter[x.team]} (inning ${half.inning})`);
         if (outsInHalf >= 3) bad('pitch thrown after the third out');
@@ -333,6 +340,32 @@ function checkHook(seed, S) {
   for (const p of sp) { hook.starts++; hook.outs += p.outs; hook.pitches += p.pitches; }
 }
 
+/* Base-out states (#38): replays the stream's runner moves (runner_advance, runner_placed, out, pinch_runner, half_start) to know who is
+ * on base when each plate appearance starts (its first pitch or an intentional walk). Fails when two runners share a base
+ * then, or a runner advances from a base the stream never put him on. Counts plate appearances that start with a runner
+ * on third and fewer than two outs, and how often that runner scores in it (report only: the reference is thin, issue #38). */
+const r3 = { pa: 0, scored: 0 };
+function checkBaseStates(seed, S) {
+  let on = new Map(), outs = 0, lead = null, fresh = true;   /* runner name -> base 1..3; the runner on third at PA start */
+  const startPA = () => {
+    const bases = [...on.values()];
+    if (new Set(bases).size !== bases.length) fail(seed, `two runners share a base at a plate appearance start (${[...on].map(([n, b]) => n + '@' + b).join(', ')})`);
+    lead = null;
+    if (outs < 2) for (const [n, b] of on) if (b === 3) { lead = n; r3.pa++; }
+  };
+  for (const x of S) {
+    if (x.type === 'half_start') { on = new Map(); outs = 0; lead = null; fresh = true; }
+    else if ((x.type === 'pitch' || x.type === 'intentional_walk') && fresh) { startPA(); fresh = false; }
+    else if (x.type === 'out') { outs = x.outs; on.delete(x.runner); }
+    else if (x.type === 'runner_placed') on.set(x.runner, x.base);
+    else if (x.type === 'substitution' && x.role === 'pinch_runner') { if (on.has(x.out)) { on.set(x.in, on.get(x.out)); on.delete(x.out); } }
+    else if (x.type === 'runner_advance') {
+      if (x.from > 0 && on.get(x.runner) !== x.from) fail(seed, `${x.runner} advances from base ${x.from} but the stream has him on ${on.get(x.runner) ?? 'no base'}`);
+      if (x.to >= BASES.length - 1) { on.delete(x.runner); if (x.runner === lead) { r3.scored++; lead = null; } } else on.set(x.runner, x.to);
+    } else if (x.type === 'pa_end') { lead = null; fresh = true; }
+  }
+}
+
 /* ---------- run ---------- */
 checkPurity();
 checkTables();
@@ -350,7 +383,7 @@ for (let n = 0; n < GAMES; n++) {
   try { if (JSON.stringify(simGame(seed, {}, opts).stream) !== json) fail(seed, 'not deterministic: two runs differ'); } catch (err) { fail(seed, `second run threw: ${err.message}`); }
   digest.update(json);
   const box = checkGame(seed, g);
-  if (box) { boxes.push(box); checkHook(seed, g.stream); }
+  if (box) { boxes.push(box); checkHook(seed, g.stream); checkBaseStates(seed, g.stream); }
   for (const x of g.stream) { if (x.type === 'out') outReasons[x.reason] = (outReasons[x.reason] || 0) + 1; if (x.type === 'pa_end') results[x.result] = (results[x.result] || 0) + 1; }
 }
 const ms = Number(process.hrtime.bigint() - started) / 1e6;
@@ -362,6 +395,7 @@ console.log(`stream digest ${digest.digest('hex').slice(0, 16)}`);
 console.log(`runs/game ${A.runsPerGame.toFixed(2)}   K% ${pct(A.kPct)}   BB% ${pct(A.bbPct)}   AVG ${f3(A.avg)}   OBP ${f3(A.obp)}   SLG ${f3(A.slg)}   BABIP ${f3(A.babip)}`);
 console.log(`HR/game ${A.hrPerGame.toFixed(2)}   2B/game ${A.doublesPerGame.toFixed(2)}   3B/game ${A.triplesPerGame.toFixed(2)}   GIDP/game ${A.gidpPerGame.toFixed(2)}   HBP% ${pct(A.hbpPct)}   PA/game ${A.paPerGame.toFixed(1)}   pitches/game ${A.pitchesPerGame.toFixed(0)}   innings/game ${A.inningsPerGame.toFixed(2)}`);
 console.log(`SF/game ${A.sfPerGame.toFixed(2)}   SH/game ${A.shPerGame.toFixed(2)}   IBB/game ${A.ibbPerGame.toFixed(2)}   SB/game ${A.sbPerGame.toFixed(2)}   CS/game ${A.csPerGame.toFixed(2)}   SB% ${pct(A.sbPct)}   SB3/game ${A.sb3PerGame.toFixed(2)}   CS3/game ${A.cs3PerGame.toFixed(2)}   WP/game ${A.wpPerGame.toFixed(2)}   PB/game ${A.pbPerGame.toFixed(2)}   BK/game ${A.bkPerGame.toFixed(3)}   PO/game ${A.poPerGame.toFixed(2)}   PO throws/game ${A.pickoffThrowsPerGame.toFixed(2)}   ROE/game ${A.roePerGame.toFixed(2)}   H/game ${A.hitsPerGame.toFixed(2)}`);
+console.log(`runner on 3rd, < 2 outs: ${(r3.pa / GAMES).toFixed(2)} PA/game, runner scores ${pct(r3.pa ? r3.scored / r3.pa : 0)} (report only, #38)`);
 console.log(`pitches/PA ${A.pitchesPerPa.toFixed(2)}   zone ${pct(A.zonePct)}   swing ${pct(A.swingPct)}   zone swing ${pct(A.zoneSwingPct)}   chase ${pct(A.chasePct)}   whiff ${pct(A.whiffPct)}   zone contact ${pct(A.zoneContactPct)}   chase contact ${pct(A.chaseContactPct)}`);
 const ipPerStart = hook.outs / 3 / (hook.starts || 1);
 console.log(`IP/start ${ipPerStart.toFixed(2)}   pitches/start ${(hook.pitches / (hook.starts || 1)).toFixed(1)}   pitching changes/game ${(hook.changes / (boxes.length || 1)).toFixed(2)}   coach's own pick when asked about a change: change ${pct(hook.coachChange / (hook.asked || 1))}`);

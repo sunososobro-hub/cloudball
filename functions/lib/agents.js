@@ -5,13 +5,16 @@
  * Account: the browser makes a random 32-byte key (64 hex characters) and sends it as `Authorization: Bearer <key>`.
  * The server keeps only SHA-256(key). No password, no e-mail, no cookie.
  * Who counts: the owner's word in #179. Game outcomes are never touched here (rule 10): a created player is a row. */
-import { validateCreate, makePlayer, drawName } from '../../league/freeagents.js';
+import { validateCreate, makePlayer, drawName, CREATE } from '../../league/freeagents.js';
+import { growTo, viewOf, checkpointOf, CKPT_EVERY } from '../../league/growth.js';
 
 export const DRAW_CAP = 20;               /* name draws 0 .. DRAW_CAP (the first one plus this many redraws) */
 export const AGENTS_PER_DAY = 300;        /* new agents per UTC day, in total */
 export const AGENTS_PER_ADDRESS_PER_DAY = 3;  /* new agents per UTC day from one address */
 export const PAGE_SIZE = 20;
 export const MAX_PAGE = 500;
+export const SYSTEM_PER_KIND = 10;        /* 系統 fillers kept per kind until real fans take their places (#437) */
+export const SYSTEM_SEED = 437000;        /* filler i of a kind uses seed SYSTEM_SEED + i (+ 500 for pitchers) */
 const BODY_MAX = 1000;                    /* characters of a request body */
 const PAGES_HOST = 'cloudball-3uy.pages.dev';
 
@@ -39,6 +42,7 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, seed INTEGER NOT NULL, created_at INTEGER NOT NULL)',
   `CREATE TABLE IF NOT EXISTS players (agent_id TEXT PRIMARY KEY, pid TEXT NOT NULL, name TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
      ovr INTEGER NOT NULL, player TEXT NOT NULL, ratings TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+  'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS players_ovr ON players (ovr DESC, created_at DESC)',
   'CREATE INDEX IF NOT EXISTS players_new ON players (created_at DESC)',
   /* #435: a released player keeps his row (name, ratings, history); players.agent_id becomes 'free:<pid>' (never a 64-hex agent id)
@@ -49,8 +53,27 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS reg_seen (day TEXT NOT NULL, h TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS reg_seen_day ON reg_seen (day, h)',
 ];
+/* #437: a 系統 filler is a players row whose agent_id is 'sys:<pid>' (no agent holds it) and whose player JSON has system:true.
+ * Even spread of the budget, positions / roles in turn, so nobody is a star; made once, marked in `meta`. */
+export const systemChoice = (kind, i) => {
+  const keys = CREATE.keys[kind], per = Math.round(CREATE.budget[kind] / keys.length), look = { head: 0, skin: 0, hair: 0 };
+  const points = Object.fromEntries(keys.map(k => [k, per])); points[keys[0]] += CREATE.budget[kind] - per * keys.length;
+  return kind === 'bat' ? { kind, pos: CREATE.positions[i % CREATE.positions.length], bats: 'R', build: 'normal', look, points }
+    : { kind, role: CREATE.roles[i % CREATE.roles.length], throws: 'R', build: 'normal', look, points };
+};
+const seedSystem = async db => {
+  if (await db.prepare("SELECT 1 AS x FROM meta WHERE k = 'system_seeded'").first()) return;
+  const steps = [], now = Date.now();
+  for (const kind of CREATE.kinds) for (let i = 0; i < SYSTEM_PER_KIND; i++) {
+    const { player, ratings } = makePlayer(SYSTEM_SEED + (kind === 'pit' ? 500 : 0) + i, { ...systemChoice(kind, i), nameDraw: 0 });
+    steps.push(db.prepare('INSERT OR IGNORE INTO players (agent_id, pid, name, kind, ovr, player, ratings, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)')
+      .bind('sys:' + player.id, player.id, player.name, kind, ratings.ovr, JSON.stringify({ ...player, system: true }), JSON.stringify(ratings), now - i));
+  }
+  steps.push(db.prepare("INSERT OR IGNORE INTO meta (k, v) VALUES ('system_seeded', '1')"));
+  await db.batch(steps);
+};
 const ready = new WeakMap();
-const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
+const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).then(() => seedSystem(db)).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
 
 /* every handler: closed unless the binding exists on a dev host; one small catch so nothing ever breaks the page */
 const guarded = (handler, { needKey = false } = {}) => async ctx => {
@@ -109,12 +132,31 @@ export const draw = guarded(async ({ request, db, agent }) => {
 /* sort keys of the free-agent list: overall, newest, and the ability keys of league/ratings.js (display numbers) */
 const SORTS = new Set(['ovr', 'new', 'con', 'pow', 'eye', 'spd', 'arm', 'stuff', 'ctrl', 'pot']);
 const FREE = pid => 'free:' + pid;        /* players.agent_id of a released player nobody has picked up */
-const publicRow = r => ({ id: r.pid, name: r.name, kind: r.kind, ovr: r.ovr, player: JSON.parse(r.player), ratings: JSON.parse(r.ratings), created: r.created_at, free: !!r.free });
+const DAY_MS = 86400000;
+/* #564: a created player grows lazily. `ratings` in the row stay his creation ratings (the replay base); each read advances them by
+ * one training day per whole day since created_at (league/growth.js, seeded from his id and the day, so the same day is the same numbers).
+ * player.ckpt = { day, abil } is a checkpoint written back at most every CKPT_EVERY days; it never leaves the server. 系統 fillers do not grow. */
+const grow = (r, now) => {
+  const player = JSON.parse(r.player), ratings = JSON.parse(r.ratings);
+  if (player.system || !player.train) return { player, ratings, save: null };
+  const ckpt = player.ckpt || null, s = growTo(player, ratings, Math.max(0, Math.floor((now - r.created_at) / DAY_MS)), ckpt);
+  const view = viewOf(player, ratings, s), { ckpt: hidden, ...shown } = view.player;
+  /* write back: the day count moved CKPT_EVERY past the stored checkpoint; ovr (the sort column) follows */
+  const save = s.day - (ckpt ? ckpt.day : 0) >= CKPT_EVERY ? { pid: r.pid, player: JSON.stringify({ ...player, ckpt: checkpointOf(s) }), ovr: view.ratings.ovr } : null;
+  return { player: shown, ratings: view.ratings, save };
+};
+const saveStep = (db, x) => db.prepare('UPDATE players SET player = ?2, ovr = ?3 WHERE pid = ?1').bind(x.pid, x.player, x.ovr);
+const publicRow = (r, now = Date.now(), saves = []) => {
+  const g = grow(r, now); if (g.save) saves.push(g.save);
+  return { id: r.pid, name: r.name, kind: r.kind, ovr: g.ratings.ovr, player: g.player, ratings: g.ratings, created: r.created_at, free: !!r.free };
+};
 
 /* GET /api/player: the player of this agent, or null */
 export const mine = guarded(async ({ db, agent }) => {
   const r = await db.prepare('SELECT pid, name, kind, ovr, player, ratings, created_at FROM players WHERE agent_id = ?1').bind(agent.id).first();
-  return json(200, { ok: true, player: r ? publicRow(r) : null, cap: DRAW_CAP });
+  const saves = [], row = r ? publicRow(r, Date.now(), saves) : null;
+  if (saves.length) await db.batch(saves.map(x => saveStep(db, x)));
+  return json(200, { ok: true, player: row, cap: DRAW_CAP });
 }, { needKey: true });
 
 /* POST /api/player: create the one player of this agent. The body is the choice of league/freeagents.js (kind, position or
@@ -134,6 +176,8 @@ export const create = guarded(async ({ request, db, agent }) => {
     /* a unique key said no: this agent already has his player (a second tap at the same time), or the name is taken */
     return fail(409, (await db.prepare('SELECT 1 AS x FROM players WHERE agent_id = ?1').bind(agent.id).first()) ? 'already' : 'name');
   }
+  /* #437: a real fan takes the place of the oldest 系統 filler of the same kind (none left: nothing to drop) */
+  await db.prepare("DELETE FROM players WHERE pid = (SELECT pid FROM players WHERE agent_id LIKE 'sys:%' AND kind = ?1 ORDER BY created_at, pid LIMIT 1)").bind(choice.kind).run();
   return json(201, { ok: true, player: { id: player.id, name: player.name, kind: choice.kind, ovr: ratings.ovr, player, ratings, created: Date.now() } });
 }, { needKey: true });
 
@@ -146,10 +190,12 @@ export const list = guarded(async ({ request, db }) => {
    a player without that ability (a batter has no stuff) sorts last */
   const order = sort === 'ovr' ? 'ovr DESC, created_at DESC, pid' : sort === 'new' ? 'created_at DESC, pid'
     : `json_extract(ratings, '$.${sort}') DESC, ovr DESC, created_at DESC, pid`;
+  const saves = [], now = Date.now();
   const rows = (await db.prepare(`SELECT pid, name, kind, ovr, player, ratings, created_at, (agent_id LIKE 'free:%') AS free FROM players ORDER BY ${order} LIMIT ?1 OFFSET ?2`)
     .bind(PAGE_SIZE + 1, page * PAGE_SIZE).all()).results;
-  return json(200, { ok: true, page, sort, more: rows.length > PAGE_SIZE, players: rows.slice(0, PAGE_SIZE).map(publicRow) },
-    { 'cache-control': 'public, max-age=10' });
+  const players = rows.slice(0, PAGE_SIZE).map(r => publicRow(r, now, saves));
+  if (saves.length) await db.batch(saves.map(x => saveStep(db, x)));
+  return json(200, { ok: true, page, sort, more: rows.length > PAGE_SIZE, players }, { 'cache-control': 'public, max-age=10' });
 });
 
 /* POST /api/player/release: this agent lets his player go (解約). The row stays (records are append-only); he loses his agent,

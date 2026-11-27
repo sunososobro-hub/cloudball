@@ -1,0 +1,6 @@
+# Checks that static.mjs must not run (one file name per line). Keep this list short; a skipped check is not covered by CI.
+frametime.check.mjs
+frontlogos.check.mjs
+look_map.check.mjs
+preview.check.mjs
+sitedata.check.mjs

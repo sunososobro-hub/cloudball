@@ -44,6 +44,7 @@ function applyEvent(s, x) {
     case 'pitch': s.balls = x.count[0]; s.strikes = x.count[1]; break;
     case 'call': s.balls = x.count[0]; s.strikes = x.count[1]; break;
     case 'runner_placed': s.bases[x.base] = x.runner; break;
+    case 'substitution': if (x.role === 'pinch_runner' && s.bases[x.base] === x.out) s.bases[x.base] = x.in; break;   /* #436: the pinch runner takes the base */
     case 'runner_advance':
       if (x.from >= 1 && x.from <= BASES && s.bases[x.from] === x.runner) s.bases[x.from] = null;
       if (x.to >= 1 && x.to <= BASES) s.bases[x.to] = x.runner;

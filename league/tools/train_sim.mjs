@@ -17,12 +17,18 @@
  * percent, hands-off and active: days until he can throw it (LEARN_AT).
  * Decline (#433): AGE_PLAYERS of the same players train on past the peak, hands-off and active; it prints the overall
  * p25 / median / p75 on the first day of each age in TABLE_AGES (up to 18 seasons for a 20-year-old) and after
- * LONG_SEASONS seasons. */
+ * LONG_SEASONS seasons.
+ * Call-up (#500): for each player, days until he is ready (his overall at the weakest starter of his position, league/callup.js)
+ * and, from then on, days until a slot opens at that position. Slots open only when a starter retires (RETIRE_AGE), on the
+ * day his age gets there (starters keep their overall, nobody else queues: the best case, the wait is at least this long).
+ * Printed as it comes out, never tuned. */
+import { factoryPlayers } from './site.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { CREATE, makePlayer, potShareAtLeast } from '../freeagents.js';
 import { RATING_TOP } from '../ratings.js';
+import { RETIRE_AGE, slotPos, weakestAt, starters } from '../callup.js';
 import { trainDay, overallOf, ageOn, declineFactor, defaultSplit, learnPitch, learnSplit, knownPitches, ACTIVE_BONUS, DAYS_PER_SEASON, SPLIT_TOTAL, LEARN_SHARE } from '../training.js';
 
 export const PLAYERS = 1000, SIM_SEED = 369, SEASONS = 3, HORIZON = SEASONS * DAYS_PER_SEASON, EVEN_EVERY = 10;
@@ -109,29 +115,44 @@ export function ageRun(made, bonus, seed, ages = TABLE_AGES, seasons = LONG_SEAS
   }
 }
 
+/* days until the first slot opens at pos on or after day `from`: the starters' retirement days from the real roster */
+export const WAIT_SEASONS = 20;
+export function slotDays(players, pos) {
+  return starters(players).filter(p => slotPos(p) === pos).map(p => (RETIRE_AGE - p.age) * DAYS_PER_SEASON).sort((a, b) => a - b);
+}
+export const waitFrom = (days, from) => { const d = days.find(x => x >= from); return d === undefined ? Infinity : d - from; };
+
 export function simulate() {
-  const players = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../site/players.json'), 'utf8'));
+  const players = factoryPlayers();   /* factory 一軍 (the day-1 snapshot in site/players.json is 8 seasons older, #565) */
   const t = targets(players), goals = [t.median, t.bottom], r = rng(SIM_SEED), res = { hands: [[], []], active: [[], []], 'hands, no pot stop': [[], []], 'active, no pot stop': [[], []] };
   const start = [], pots = [], byPitches = Object.fromEntries(PITCH_COUNTS.flatMap(n => [[`${n} hands`, []], [`${n} active`, []]]));
   const ageTab = { hands: [], active: [] };
+  const callup = { hands: { ready: [], wait: [] }, active: { ready: [], wait: [] } }, slotTab = {};
   const learn = Object.fromEntries([LEARN_SHARE, LEARN_WIDE].flatMap(n => [[`${n} % hands`, []], [`${n} % active`, []]]));
   for (let i = 0; i < PLAYERS; i++) {
     const made = makePlayer((SIM_SEED * 100003 + i) >>> 0, choiceOf(i, r));
     start.push(made.ratings.ovr); pots.push(made.ratings.pot);
     for (const [mode, bonus, free] of [['hands', 0, false], ['active', ACTIVE_BONUS, false], ['hands, no pot stop', 0, true], ['active, no pot stop', ACTIVE_BONUS, true]])
       daysTo(made, bonus, i + 1, goals, free).forEach((d, j) => res[mode][j].push(d));
+    const pos = slotPos(made.player), line = weakestAt(players, pos);
+    slotTab[pos] ??= slotDays(players, pos);
+    for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]]) {
+      const [d] = daysTo(made, bonus, i + 1, [line]);
+      callup[mode].ready.push(d);
+      if (d !== Infinity) callup[mode].wait.push(waitFrom(slotTab[pos], d));
+    }
     if (made.player.role) for (const n of PITCH_COUNTS) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]])
       byPitches[`${n} ${mode}`].push(pitchRun(withPitches(made, n), bonus, i + 1, t.median));
     if (i < AGE_PLAYERS) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]]) ageTab[mode].push(ageRun(made, bonus, i + 1));
     if (made.player.role) for (const pct of [LEARN_SHARE, LEARN_WIDE]) for (const [mode, bonus] of [['hands', 0], ['active', ACTIVE_BONUS]])
       learn[`${pct} % ${mode}`].push(learnDays(withPitches(made, 1), CREATE.pitches[1], pct, bonus, i + 1));
   }
-  return { t, res, byPitches, learn, ageTab, start: start.sort((a, b) => a - b), pots: pots.sort((a, b) => a - b) };
+  return { t, res, byPitches, learn, ageTab, callup, slotTab, start: start.sort((a, b) => a - b), pots: pots.sort((a, b) => a - b) };
 }
 
 const fmt = d => (d === Infinity ? 'never' : String(d));
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { t, res, byPitches, learn, ageTab, start, pots } = simulate();
+  const { t, res, byPitches, learn, ageTab, callup, slotTab, start, pots } = simulate();
   console.log(`train_sim (#369): ${PLAYERS} created players (seed ${SIM_SEED}), horizon ${HORIZON} days (${SEASONS} seasons of ${DAYS_PER_SEASON}), active bonus ${ACTIVE_BONUS}/day`);
   console.log(`一軍 (${t.n} players in league/site/players.json): median overall ${t.median}, bottom quartile ${t.bottom}`);
   console.log(`一軍 p75 ${t.p75}; created at day 0: overall p25/median/p75 ${[0.25, 0.5, 0.75].map(q => rank(start, q)).join('/')}, potential (hidden) ${[0.25, 0.5, 0.75].map(q => rank(pots, q)).join('/')}`);
@@ -157,5 +178,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   for (const [mode, list] of Object.entries(ageTab)) {
     const q = key => { const v = list.map(x => x[key]).sort((a, b) => a - b); return [0.25, 0.5, 0.75].map(x => rank(v, x)).join('/'); };
     console.log(`  ${mode.replace('hands', 'hands-off').padEnd(9)}: ${TABLE_AGES.map(a => `age ${a} ${q(a)}`).join(', ')}; ${LONG_SEASONS} seasons ${q('long')}`);
+  }
+  console.log(`call-up (#500): ready = overall at the weakest 一軍 starter of his position; a slot opens only when a starter reaches age ${RETIRE_AGE}. Days of ${DAYS_PER_SEASON} per season, the real roster, nobody else in the queue:`);
+  console.log(`  first slot opens at day: ${Object.entries(slotTab).map(([k, v]) => `${k} ${v[0] ?? 'never'}`).join(', ')}`);
+  for (const [mode, c] of Object.entries(callup)) {
+    const rd = [...c.ready].sort((a, b) => a - b), ok = rd.filter(x => x !== Infinity), w = [...c.wait].sort((a, b) => a - b), now = w.filter(x => x === 0).length;
+    console.log(`  ${mode.replace('hands', 'hands-off').padEnd(9)}: ready ${ok.length}/${PLAYERS}, median days to ready ${fmt(rank(rd, 0.5))} (of those ready ${ok.length ? rank(ok, 0.5) : 'n/a'}); ready -> called up p25/median/p75 ${[0.25, 0.5, 0.75].map(q => fmt(rank(w, q))).join('/')} days (${now} of ${w.length} have a slot open the day they are ready)`);
   }
 }

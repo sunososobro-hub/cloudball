@@ -3,7 +3,7 @@
 
 /* Everything about the game itself (rules, outcomes, timings of plays) comes from engine/. This file only draws it. */
 const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,BK_CALL_AT,
-  runDist,runTime,leadAt,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
+  runDist,runTime,leadAt,tagLeadAt,LEAD_PRIMARY,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
 const $=id=>document.getElementById(id);
 /* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park,par
    par = the serial compile (no WARM_PARALLEL phase),
@@ -145,9 +145,9 @@ function fieldTex(){
     dab(0,-18.42,.3,BASE_DUST,.4,DIRT_RGB)}
   try{const im=g.getImageData(0,0,c.width,c.height),d=im.data;let r=12345;for(let i=0;i<d.length;i+=4){r=(r*1103515245+12345)&0x7fffffff;const n=((r>>16)&31)-15;d[i]+=n;d[i+1]+=n*1.1;d[i+2]+=n*.7}g.putImageData(im,0,0)}catch(e){}
   try{FIELD_PIX={d:g.getImageData(0,0,c.width,c.height).data,w:c.width,h:c.height,X,Y}}catch(e){}
-  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.getMaxAnisotropy();return t;
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.getMaxAnisotropy();FIELD_CV={c,g,X,Y,S,t};return t;
 }
-let FIELD_PIX=null;
+let FIELD_PIX=null,FIELD_CV=null;
 const isGrassAt=(x,z)=>{const F=FIELD_PIX;if(!F)return false;const px=Math.round(F.X(x)),py=Math.round(F.Y(z));if(px<0||py<0||px>=F.w||py>=F.h)return false;const i=(py*F.w+px)*4;return F.d[i+1]-F.d[i]>18};
 /* #203 item 5 slice 4: turf look per park (TURF below, picked by PARKS[id].shape.turf in applyPark). Uniforms only, so a park change does
    not recompile: grass and dirt colour gains, and `even` = how much of the grass's light/dark variation is flattened (artificial turf
@@ -270,6 +270,11 @@ for(let a=-40;a<=40;a+=10){const t=a*Math.PI/180;stand(Math.sin(t)*OF_R,-Math.co
    polish rounds never edit this file: an object file finds its old meshes with ctx.old('<slot>'). */
 {const PROPS_POLL_MS=1000,url=new URL('props/index.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;/* max only (#215 10:30): nothing is fetched until max is on; gfxMax is declared further down, so the first look waits a tick */
   const go=()=>{let on=false;try{on=gfxMax}catch(e){}if(!on)return void setTimeout(go,PROPS_POLL_MS);import(url).then(M=>M.mountProps({scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('props off',err))};setTimeout(go,0)}
+/* #214 item 2 part 2: sky occlusion baked into the old stands (render/skyocc_stands.js), max only: nothing is fetched before max is on; bakes once, then follows gfxMax (off = the old material). `?off=skyocc`. Any failure keeps the old look. */
+{const SKYOCC_POLL_MS=1000,url=new URL('skyocc_stands.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href;let ctl=null,loading=false;
+  const go=()=>{let on=false;try{on=gfxMax&&!OFF.has('skyocc')}catch(e){}
+    if(ctl)ctl.apply(on);else if(on&&!loading){loading=true;import(url).then(M=>{ctl=M.mountSkyOcc({THREE,TSL,scene,standMat});ctl.apply(true)}).catch(err=>console.warn('skyocc off',err))}
+    setTimeout(go,SKYOCC_POLL_MS)};setTimeout(go,0)}
 const SEATS=[{x:0,y:5.4,z:31.6,tx:0,ty:1,tz:-30,fov:55},{x:36.7,y:4.3,z:-5.8,tx:-2,ty:1,tz:-26,fov:55},
   {x:0,y:OF_BASE+FRONT_H+OF_SEAT_ROW*ROW_RISE+.55,z:-(OF_R+OF_SEAT_ROW*ROW_D+ROW_D/2+.12),tx:0,ty:1,tz:0,fov:50},{x:1.6,y:16,z:-112,tx:0,ty:1.0,tz:0,fov:5.5,cam:true,auto:true},{x:0,y:7,z:14,tx:0,ty:1.3,tz:-9,fov:45,cam:true,follow:true},{x:0,y:20,z:20,tx:0,ty:0,tz:-32,fov:55,cam:true},{director:true}];
 const FIELD_SPOTS_XZ={P:spotXZ(...FIELD_SPOTS.P)};
@@ -346,7 +351,10 @@ function updateCrowd(now,ex,batTeam,live){
 const TOWER_I=.16*Math.PI,BEAM_K=BEAM_DEFAULT,TOWER_ANGLE=.6,TOWER_PENUMBRA=1,TOWER_AIM=[0,-24],TOWER_AIM_K=.1;/* Keep only a hint of light beam, so the camera passing through it does not white out */
 const lampMat=new THREE.MeshBasicMaterial({color:new THREE.Color(...LAMP_RGB),toneMapped:false}),mast=new THREE.MeshStandardMaterial({color:LC(0x3a4256),roughness:.8,metalness:.3,map:paintTex(),roughnessMap:paintTex()});
 const glowC=document.createElement('canvas');glowC.width=glowC.height=128;{const g=glowC.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,248,230,1)');gr.addColorStop(.18,'rgba(255,240,210,.55)');gr.addColorStop(1,'rgba(255,230,190,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)}
-const glowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowC),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false,toneMapped:false});
+/* #255: both lamp sprites fade out near the camera (render/lampfade.js; uniforms start at the same numbers until it loads) */
+const lampNear=TSL.uniform(45),lampFar=TSL.uniform(140),lampFadeN=()=>TSL.smoothstep(lampNear,lampFar,TSL.length(TSL.positionView));
+import(new URL('lampfade.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{lampNear.value=M.LAMP_FADE_NEAR;lampFar.value=M.LAMP_FADE_FAR}).catch(err=>console.warn('lamp fade defaults',err));
+const glowMat=(()=>{const m=new THREE.SpriteNodeMaterial({blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false});m.colorNode=TSL.texture(new THREE.CanvasTexture(glowC)).mul(lampFadeN());m.toneMapped=false;return m})();
 /* #208 item 2, light you can see: on max the beams are stronger (BEAM_MAX_K) and carry slow drifting dust (3D noise scrolled by time: decoration,
    like the bugs), each lamp gets a wide aureole in the haze (haloMat) and dust motes drift through every beam (motes). Below max: the old faint beam and a fainter aureole. */
 const BEAM_MAX_K=2.4,BEAM_DUST=.9,BEAM_DUST_SCALE=.09,BEAM_DUST_DRIFT=.35,HALO_SCALE=95,HALO_LOW=.35,MOTE_PER=140,MOTE_CORE=.45,MOTE_FALL=.18;
@@ -356,7 +364,7 @@ const beamMat=(()=>{const {uv,pow,abs,dot,normalView,positionViewDirection,vec4,
   m.colorNode=vec4(color(LC(0xfff0d0)).mul(pow(uv().y,2.2)).mul(e).mul(skyU.beam).mul(beamK).mul(dust).mul(smoothstep(45,130,length(positionView))),1);return m})();/* Fade out near the camera, so being inside a beam does not white out */
 const haloK=TSL.uniform(0).onFrameUpdate(()=>skyCur.halo*(gfxMax?1:HALO_LOW));
 const haloMat=(()=>{const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});const t=new THREE.CanvasTexture(glowC);
-  m.colorNode=TSL.texture(t).mul(haloK);m.toneMapped=false;return m})();
+  m.colorNode=TSL.texture(t).mul(haloK).mul(lampFadeN());m.toneMapped=false;return m})();
 const towerSpots=[];
 for(const [x,z] of [[-62,10],[62,10],[-100,-70],[100,-70],[-55,-135],[55,-135]]){const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.8,46,8),mast);m.name='old:towers';m.position.set(x,23,z);scene.add(m);
   const l=new THREE.Mesh(new THREE.BoxGeometry(9,4,.6),lampMat);l.name='old:towers:lamp';l.position.set(x,46,z);l.lookAt(0,0,-45);scene.add(l);
@@ -410,14 +418,21 @@ function updateBlades(){const cp=camera.getWorldPosition(_cw),dir=camera.getWorl
 /* ---------- Post-processing: AO (contact shadows) + bloom + vignette + FXAA; lightweight version for the WebGL fallback or phones ---------- */
 const HQ=(window.FORCE_HQ||!!(renderer.backend&&renderer.backend.isWebGPUBackend))&&!/Mobi|Android/i.test(navigator.userAgent);
 let PP=null;
+let MB_SAMPLES=8;/* from render/mblur.js once loaded */
+const dofU={};/* uniforms of the depth-of-field pass (#211 item 4); filled by dofInit once TSL is there, driven by dofFrame */
+try{const {uniform}=TSL;dofU.focus=uniform(1);dofU.len=uniform(1);dofU.scale=uniform(0)}catch(e){console.warn('dof uniforms',e)}
+const mbU={};/* uniforms of the motion-blur pass (#211 item 4, render/mblur.js); driven by mbFrame */
+try{const {uniform}=TSL;mbU.scale=uniform(0);mbU.cap=uniform(.02)}catch(e){console.warn('mb uniforms',e)}
+const finU={};/* uniforms of the video finish (#209 item 3, render/finish.js); knee 99 / amount 0 = pass-through until the module is loaded */
+try{const {uniform}=TSL;finU.knee=uniform(99);finU.max=uniform(100);finU.amt=uniform(0);finU.f=uniform(0);finU.lift=uniform(0)}catch(e){console.warn('finish uniforms',e)}
 /* #211 item 3, max only: SSGI (bounce light from grass and dirt onto uniforms; its own AO replaces GTAO) and SSR on glossy surfaces.
    fxKey says which max passes this PP was built with, so a module that loads later (or fails) rebuilds exactly once. */
-const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgr' = all three, '-' = not loaded or ?off= */
+const fxKey=()=>gfxMax&&HQ?[['traa','t'],['ssgi','g'],['ssr','r'],['dof','d'],['motionBlur','m']].map(([k,l])=>FX[k]&&!OFF.has(k)?l:'-').join(''):'';/* 'tgrdm' = all five, '-' = not loaded or ?off= */
 /* #267: side targets blend like the material (opaque: no blending, as before), so a see-through overlay can leave the ground's normal, albedo
    and velocity under it by writing alpha 0 there (contact shadows, csMrt). Outputs with alpha 1 (normalView, velocity) still replace. */
 const MRT_KEEP=['normal','diffuse','velocity'];
-function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4,diffuseColor,metalness,roughness,step,blendColor}=TSL;
-  const key=fxKey(),mx=key[0]==='t',gi=key[1]==='g',sr=key[2]==='r',pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx||HQ?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass. #236 A1: so do GTAO and SSGI (their textureGather needs a single-sample depth; on a real GPU a multisampled one failed renderPipeline_GTAO every frame); FXAA covers the edges */
+function setupPost(){try{const {int,pass,mrt,output,normalView,velocity,screenUV,length,smoothstep,mix,float,renderOutput,vec4,diffuseColor,metalness,roughness,step,blendColor}=TSL;
+  const key=fxKey(),mx=key[0]==='t',gi=key[1]==='g',sr=key[2]==='r',df=key[3]==='d',mb=mx&&key[4]==='m',pp=new THREE.RenderPipeline(renderer),sp=pass(scene,camera,mx||HQ?{samples:0}:{});let c;/* #211: TRAA needs MSAA off in the scene pass. #236 A1: so do GTAO and SSGI (their textureGather needs a single-sample depth; on a real GPU a multisampled one failed renderPipeline_GTAO every frame); FXAA covers the edges */
   if(HQ){/* WebGPU allows 32 colour bytes per pixel (four 8-byte targets), so the SSR inputs ride in spare channels: normal.a = gloss mask
       (SSR's metalness input: 0, skipped, unless the surface is smoother than MAX_SSR_ROUGH: helmets, wet or polished props), diffuse.a = roughness */
     const ch={output,normal:sr?vec4(normalView,step(roughness,float(MAX_SSR_ROUGH)).mul(metalness.max(MAX_SSR_F0))):normalView};if(mx)ch.velocity=velocity;
@@ -431,9 +446,15 @@ function setupPost(){try{const {pass,mrt,output,normalView,velocity,screenUV,len
       c=vec4(c.rgb.mul(mix(float(.35),float(1),aoN.getTextureNode().sample(screenUV).r)),c.a)}
     if(sr){const r=FX.ssr(sp.getTextureNode('output'),dep,nor,{metalnessNode:nor.a,roughnessNode:sp.getTextureNode('diffuse').a,camera});
       r.resolutionScale=MAX_SSR_RES;r.maxDistance.value=MAX_SSR_DIST;r.thickness.value=MAX_SSR_THICK;r.quality.value=MAX_SSR_Q;c=blendColor(c,r)}
+    if(df)c=FX.dof(c,sp.getViewZNode('depth'),dofU.focus,dofU.len,dofU.scale);/* #211 item 4: scale 0 outside the tight and plate shots = pass-through */
+    if(mb){const v=sp.getTextureNode('velocity').xy.mul(mbU.scale);c=FX.motionBlur(c,v.mul(mbU.cap.div(length(v).max(mbU.cap))),int(MB_SAMPLES))}/* #211 item 4: scale 0 outside the shots = pass-through; streak capped */
     if(mx)c=FX.traa(c,dep,sp.getTextureNode('velocity'),camera)}
   else c=sp.getTextureNode();
   c=c.add(FX.bloom(c,.3,.3,1.6));
+  if(gfxMax&&HQ&&finU.knee&&!OFF.has('finish')){/* #209 item 3, max only, no extra pass: highlight roll-off (same maths as finish.js roll) and film grain (hash of the pixel and the 24/s grain frame) */
+    const {select,exp,fract,sin,dot,vec2,screenCoordinate}=TSL,K=finU.knee,R=finU.max.sub(K),LF=finU.lift,rl0=v=>v.mul(float(1).sub(LF)).add(LF),rl=v0=>{const v=rl0(v0);return select(v.greaterThan(K),K.add(R.mul(float(1).sub(exp(v.sub(K).negate().div(R))))),v)},
+      gr=fract(sin(dot(screenCoordinate.xy.add(finU.f.mul(vec2(37.2,17.9))),vec2(12.9898,78.233))).mul(43758.5453)).sub(.5).mul(finU.amt.mul(2));
+    c=vec4(rl(c.r).add(gr),rl(c.g).add(gr),rl(c.b).add(gr),c.a)}
   const d=length(screenUV.sub(.5));c=vec4(c.rgb.mul(mix(float(1),float(.7),smoothstep(.3,.85,d))),1);
   pp.outputColorTransform=false;pp.outputNode=mx?renderOutput(c):FX.fxaa(renderOutput(c));pp.scenePass=sp;pp.max=gfxMax;pp.fx=key;return pp}catch(e){console.error('post',e);return null}}
 let gfxLow=false;try{gfxLow=localStorage.getItem('zu_gfx')==='low'}catch(e){}
@@ -452,7 +473,7 @@ let gfxMax=maxWish&&IS_GPU&&HQ&&!gfxLow&&!OFF.has('post');
 if(window.PL&&PL.SKIN)PL.SKIN.on=()=>gfxMax;/* #207: the real skin maps follow max (players.js polls it; nothing extra loads while max is off) */
 const maxSave=v=>{maxWish=v;try{localStorage.setItem('zu_max',v?'1':'0')}catch(e){}};
 /* the max modules are fetched only when max is on; each one may fail alone (max then keeps FXAA / GTAO / no reflections). ?off=traa,ssgi,ssr skips one on dev; a skipped one is not fetched */
-const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode']];
+const MAX_MODS=[['traa','TRAANode'],['ssgi','SSGINode'],['ssr','SSRNode'],['dof','DepthOfFieldNode'],['motionBlur','MotionBlur']];
 const maxLoad=()=>Promise.all(MAX_MODS.map(([k,f])=>FX[k]||OFF.has(k)?0:import(`three/addons/tsl/display/${f}.js`).then(m=>{FX[k]=m[k]}).catch(e=>console.warn(`${f} failed to load; max goes on without it`,e))));
 /* image-based light: the sky mesh is drawn alone into a PMREM. One entry point: applySky (#203 park skies) calls skyEnv() again after it changes the sky. */
 let skyEnvRT=null;
@@ -678,12 +699,32 @@ import(new URL('cloud.js',document.currentScript&&document.currentScript.src||lo
   const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,fog:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   m.colorNode=vec3(0,0,0);m.opacityNode=smoothstep(float(M.CLOUD_COVER-M.CLOUD_SOFT),float(M.CLOUD_COVER+M.CLOUD_SOFT),n).mul(M.CLOUD_MAX).mul(cloudU.k);
   cloudMesh=new THREE.Mesh(new THREE.PlaneGeometry(260,190),m);cloudMesh.name='old:cloud';cloudMesh.rotation.x=-Math.PI/2;cloudMesh.position.set(0,.02,-55);cloudMesh.renderOrder=1;cloudMesh.visible=false;scene.add(cloudMesh);cloudSet()}).catch(err=>console.warn('cloud shadows off',err));
+/* #208 item 3 (part 6): damp sheen on the fair grass at night (render/damp.js constants). One flat pale overlay, no extra pass, no download; tiers 0-1 and max (envOn); strength by the sky's lamp value (night full, dusk a little, day none). Static, so a seek matches playing. `?off=damp`. */
+let DAMP=null;const dampU={k:TSL.uniform(0)};let dampMesh=null;
+function dampSet(){if(!dampMesh||!DAMP)return;const k=OFF.has('damp')?0:DAMP.strengthOf(skyCur.lamp);dampU.k.value=k;dampMesh.visible=envOn&&k>0}
+import(new URL('damp.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{DAMP=M;
+  const {positionWorld,mx_noise_float:nz,vec2,vec3,float,smoothstep,abs,length,select}=TSL,x=positionWorld.x,z=positionWorld.z,w=vec2(x,z);
+  const n=nz(vec3(w.div(M.DAMP_SCALE),0)).mul(.5).add(.5).mul(.65).add(nz(vec3(w.div(M.DAMP_SCALE*.41).add(vec2(7.1,2.9)),0)).mul(.5).add(.5).mul(.35));
+  const mask=select(z.greaterThanEqual(0),float(0),smoothstep(float(-2),float(6),z.negate().sub(abs(x))).mul(float(1).sub(smoothstep(float(M.DAMP_R[0]),float(M.DAMP_R[0]+M.DAMP_R[1]),length(w)))));
+  const m=new THREE.MeshBasicNodeMaterial({transparent:true,depthWrite:false,fog:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  m.colorNode=vec3(...M.DAMP_COLOR);m.opacityNode=smoothstep(float(M.DAMP_COVER-M.DAMP_SOFT),float(M.DAMP_COVER+M.DAMP_SOFT),n).mul(M.DAMP_MAX).mul(mask).mul(dampU.k);
+  dampMesh=new THREE.Mesh(new THREE.PlaneGeometry(260,190),m);dampMesh.name='old:damp';dampMesh.rotation.x=-Math.PI/2;dampMesh.position.set(0,.025,-55);dampMesh.renderOrder=1;dampMesh.visible=false;scene.add(dampMesh);dampSet()}).catch(err=>console.warn('damp sheen off',err));
+/* #208 item 4 (part 4): slide dust drawn; part 5: plus a puff where a batted ball comes down on dirt (DUST.eventDust). render/dust.js is pure (event + time -> puffs); here DUST_MAX soft sprites show the current event's puffs at curU, so a seek shows what playing shows.
+   Tiers 0-1 and max (envOn), no new pass; `?off=dust`. Colour = the dirt dabs (DIRT_RGB). */
+let DUST=null;const DUST_MAX=32,DUST_BASES=[[0,0],[19.4,-19.4],[0,-38.8],[-19.4,-19.4],[0,0]],dustCache=new WeakMap(),dustSprites=[];
+function dustPuffs(e){let p=dustCache.get(e);if(!p){p=DUST.eventDust(e,DUST_BASES);dustCache.set(e,p)}return p}
+function dustTick(e,u){if(!DUST)return;let n=0;if(envOn&&!OFF.has('dust')&&e)for(const p of dustPuffs(e)){const q=DUST.puffAt(p,u);if(!q||n>=DUST_MAX)continue;const sp=dustSprites[n++];sp.visible=true;sp.position.set(q.x,q.y,q.z);sp.scale.set(q.r*2,q.r*2,1);sp.material.opacity=q.a}
+  for(let k=n;k<dustSprites.length;k++)dustSprites[k].visible=false}
+import(new URL('dust.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{DUST=M;
+  const c=document.createElement('canvas');c.width=c.height=64;{const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,`rgba(${DIRT_RGB},1)`);gr.addColorStop(.6,`rgba(${DIRT_RGB},.5)`);gr.addColorStop(1,`rgba(${DIRT_RGB},0)`);g.fillStyle=gr;g.fillRect(0,0,64,64)}
+  const tex=new THREE.CanvasTexture(c);
+  for(let i=0;i<DUST_MAX;i++){const m=new THREE.SpriteNodeMaterial({transparent:true,depthWrite:false});m.colorNode=TSL.texture(tex);const sp=new THREE.Sprite(m);sp.name='old:dust';sp.visible=false;sp.frustumCulled=false;scene.add(sp);dustSprites.push(sp)}}).catch(err=>console.warn('slide dust off',err));
 function applySky(S){skyCur=S;csSoft=GRADE?GRADE.softOf(S.mood):csSoft;const mood=GRADE?GRADE.moodOf(S.mood):null,gr=h=>mood?GRADE.grade(h,mood):h;renderer.toneMappingExposure=S.exposure*(mood?mood.exp:1);key.intensity=S.key*Math.PI;key.color.set(gr(S.keyC));fill.intensity=S.fill*Math.PI;fill.color.set(gr(S.fillC));
   hemi.intensity=S.hemi*Math.PI;hemi.color.set(gr(S.hemiC));hemi.groundColor.set(S.ground);scene.fog.color.set(S.fog).lerp(new THREE.Color(...S.horizon),S.hazeSky);scene.fog.density=S.fogD;hazeU.color.value.copy(scene.fog.color);hazeU.dens.value=S.fogD;
   skyU.horizon.value.set(...S.horizon);skyU.zenith.value.set(...S.zenith);skyU.glow.value.set(...S.glow);skyU.beam.value=S.beam;
   for(const sp of towerSpots)sp.intensity=S.tower*Math.PI;glowMat.opacity=S.lamp;lampMat.color.setRGB(...LAMP_RGB.map(v=>Math.max(1,v*S.lamp)));
   stars.visible=S.stars;bugs.pts.material.visible=S.bugs;/* material switch: the tier code keeps owning bugs.pts.visible */
-  cloudSet();if(scene.environment)skyEnv()}/* #211 max: the image-based light follows the new sky; only once setTier has turned it on (renderer ready), same shaders, new texture */
+  cloudSet();dampSet();if(scene.environment)skyEnv()}/* #211 max: the image-based light follows the new sky; only once setTier has turned it on (renderer ready), same shaders, new texture */
 const PARK_Q=(()=>{try{return new URLSearchParams(location.search).get('park')||''}catch(e){return''}})();
 const PROP_Q=(()=>{try{return new URLSearchParams(location.search).get('prop')}catch(e){return null}})();if(PROP_Q!==null)import(new URL('props/viewer.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>M.startViewer({name:PROP_Q,renderer,scene,tier:()=>gfxTier,max:()=>gfxMax,dugout,park:()=>PARKS[parkCur&&parkCur.id]||PARK_DEFAULT})).catch(err=>console.warn('prop viewer off',err));/* #215: ?prop=<object> = one polished prop alone on a neutral floor (render/props/viewer.js, imported only with the switch) */
 let parkCur=null;
@@ -740,12 +781,12 @@ function figure(m,pm=pants,glove=false,o={}){
   if(f.glove)f.glove.traverse(x=>{if(x.isMesh)x.material=leather});
   return f}
 const KITS=new Map(),kitOf=m=>window.PL&&PL.makeKit&&(m===matDef||m===matOff||m===matCo||m===matMgr)?KITS.get(m)||KITS.set(m,PL.makeKit(m)).get(m):undefined,paintKit=(m,t)=>{const k=window.PL&&kitOf(m);if(k)PL.setKit(k,TEAMS[t],t===1);else m.color.setHex(TEAMS[t].color)};/* #204: side 1 = home (white), side 0 = road */
-const BODY_OF=(team,name)=>{const R=ROSTERS[team];return R.bat.find(x=>x.name===name)||R.pit.find(x=>x.name===name)};
+const BODY_OF=(team,name)=>{const R=ROSTERS[team];return R.bat.find(x=>x.name===name)||(R.bench||[]).find(x=>x.name===name)||R.pit.find(x=>x.name===name)};
 /* Body-type weights are snapped to .25 steps so the geometry cache is not one entry per player */
 const qBody=b=>{const o={};for(const k in b){const v=Math.round(b[k]*4)/4;if(v)o[k]=v}return o};
 /* Prewarm: before first pitch, build every player's body geometry plus cap/helmet for both teams (one at a time while idle), so a substitution does not stutter mid-game */
 function prewarmBodies(){if(!window.PL)return;const dummies=[PL.makePlayer({head:'cap'}),PL.makePlayer({head:'helmet',role:'batter'})],list=[];
-  for(const t of [0,1])for(const p of [...ROSTERS[t].bat,...ROSTERS[t].pit])list.push(p);
+  for(const t of [0,1])for(const p of [...ROSTERS[t].bat,...(ROSTERS[t].bench||[]),...ROSTERS[t].pit])list.push(p);
   const step=()=>{const t0=performance.now();while(list.length&&performance.now()-t0<8){const p=list.shift();for(const d of dummies)d.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p))}if(list.length)(window.requestIdleCallback||setTimeout)(step)};step()}
 const headIx=p=>OFF.has('faces')||!window.PL?0:PL.headOfPlayer(p);/* ?off=faces: one head shape for all */
 function dress(f,p){if(f.setName)f.setName(p&&p.name);/* #204: family name on the back */if(!p){f.setBuild('normal');return}f.setBuild(p.body?qBody(p.body):'normal',p.ht,headIx(p))}
@@ -766,6 +807,40 @@ if(window.PL){fielders.C.setHead('helmet');if(fielders.C.setGear)fielders.C.setG
 const BR=rigUpper(batter),CR=rigUpper(fielders.C),UR=rigUpper(ump),PR=rigUpper(fielders.P);
 const batPivot=new THREE.Group();BR.up.add(batPivot);
 const bat=window.PL?PL.makeBat(0xc9a06a):new THREE.Mesh(new THREE.CylinderGeometry(.04,.022,.85,8),SM(0xc9a06a,.45));if(!window.PL)bat.position.y=.42;bat.castShadow=true;batPivot.add(bat);
+/* #43 items 2-3: the bat he lets go when he sets off (render/batdrop.js plans the flight: HR flip, toss, walk lay). One loose copy in world
+   space, handle origin at the group origin like batPivot; shown from the batter's st0 to the end of the event. Dev switch ?off=batdrop. */
+const looseBat=new THREE.Group(),looseIn=bat.clone();looseBat.add(looseIn);looseBat.visible=false;scene.add(looseBat);let batM=null;
+import(new URL('batdrop.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{batM=M}).catch(err=>console.warn('bat drop off',err));
+const _lb0=new THREE.Vector3(),_lb1=new THREE.Vector3(),_lbq=new THREE.Quaternion(),_lbq2=new THREE.Quaternion(),_lba=new THREE.Vector3();
+/* Release pose = the held bat at st0 (the batter re-posed there: pure in (event, time)), then the planned arc, slerped to lying flat and
+   spun end over end a whole number of turns about the horizontal axis square to where it lies */
+function poseLooseBat(e,u){const k=batM&&!OFF.has('batdrop')?batM.batKind(e):null;if(!k)return;const rel=batM.batRelease(e);if(u<rel)return;
+  const vis=batter.g.visible;batter.g.visible=true;poseBatter(e,rel);batterWalk(e,rel);batterMocap(e,rel);batter.g.updateMatrixWorld(true);
+  batPivot.localToWorld(_lb0.set(0,0,0));batPivot.localToWorld(_lb1.set(0,1,0));batter.g.visible=vis;
+  _lb1.sub(_lb0).normalize();_lbq.setFromUnitVectors(_up,_lb1);
+  const lf=e.bat&&batOf(e).hand==='L',F=batM.batFlight(k,[_lb0.x,_lb0.y,_lb0.z],lf?1:-1,u-rel);
+  _lb1.set(Math.sin(F.head),0,Math.cos(F.head));_lbq2.setFromUnitVectors(_up,_lb1);_lbq.slerp(_lbq2,ease(F.s));
+  _lba.set(Math.cos(F.head),0,-Math.sin(F.head));_lbq2.setFromAxisAngle(_lba,-F.spin);
+  looseBat.quaternion.multiplyQuaternions(_lbq2,_lbq);looseBat.position.set(...F.p);looseBat.visible=true}
+/* #43 item 2: the bat boy (render/batboy.js plans the trip). The batting team's boy runs out of its dugout once the bat lies still, bends,
+   picks it up and runs back into the dugout with it. Drawn from the newest bat let go (this event or an earlier one within BOY_LOOK s,
+   like peelers), so he never vanishes when the play ends; an earlier bat still lying is drawn lying. Dev switch ?off=batboy. */
+const BOY_LOOK=40,boy=figure(matOff,pants,false);boy.g.visible=false;let boyM=null;
+import(new URL('batboy.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{boyM=M;boy.g.scale.setScalar(M.BOY_SCALE)}).catch(err=>console.warn('bat boy off',err));
+const _bbq=new THREE.Quaternion(),_bbv=new THREE.Vector3();
+function poseBatBoy(e,u,ei){boy.g.visible=false;if(!batM||!boyM||!game||OFF.has('batdrop')||OFF.has('batboy')||!Number.isFinite(ei))return;
+  const T=e.t+u;let q=null,k=null,rel=0;
+  for(let j=ei;j>=0&&T-game.ev[j].t<BOY_LOOK;j--){const c=game.ev[j],kk=batM.batKind(c);if(!kk)continue;const r=batM.batRelease(c);if(T>=c.t+r){q=c;k=kk;rel=r;break}}
+  if(!q)return;
+  const lf=q.bat&&batOf(q).hand==='L',L=batM.batLand(k,lf?1:-1),tau=T-q.t-rel,plan=boyM.boyPlan(L,dugout(q.s0.half),batM.BAT_LEN),st=boyM.boyAt(plan,tau);
+  if(tau>=plan.end||st&&st.carry)looseBat.visible=false
+  else if(q!==e){_bbv.set(Math.sin(L.head),0,Math.cos(L.head));looseBat.quaternion.setFromUnitVectors(_up,_bbv);looseBat.position.set(L.x,batM.BAT_REST_Y,L.z);looseBat.visible=true}
+  if(!st)return;
+  resetPose(boy);boy.noAnim=st.bend>0;boy.g.visible=true;boy.g.position.set(st.x,-.12*st.bend,st.z);face(boy,st.fx,st.fz);setNum(boy,undefined);
+  if(st.bend>0){const R=boy.rig;R.up.rotation.x=.85*st.bend;if(boy.bend)boy.bend.knee[0]=boy.bend.knee[1]=.9*st.bend}
+  if(st.carry){/* held by the handle in his right hand, barrel hanging down and a little forward */
+    const a=boy.g.rotation.y,fx=Math.sin(a),fz=Math.cos(a),rx=-fz,rz=fx,h=st.bend>0?.75-.45*st.bend:.75;
+    looseBat.position.set(st.x+rx*.28+fx*.08,h,st.z+rz*.28+fz*.08);_bbv.set(fx*.35,-1,fz*.35).normalize();looseBat.quaternion.setFromUnitVectors(_up,_bbv);looseBat.visible=true}}
 /* batting keyframes: S stance, L load (stride + hands back), C contact, F follow-through. Frame: batter-local, +z faces the plate, +x faces the pitcher */
 const BK={yaw:[-.15,-.45,.75,1.7],lean:[.12,.16,.2,.1],hx:[-.2,-.3,-.05,.35],hy:[.55,.62,.38,.65],hz:[.3,.22,.56,.35],
   bx:[-.3,-.5,-.55,.4],by:[.95,.85,.12,.7],bz:[.12,.1,.82,.55],stride:[.2,.3,.42,.4],back:[-.2,-.2,-.25,-.32],head:[1.1,1.15,.6,.2]};
@@ -811,7 +886,7 @@ function groundToUp(v,dir){batter.g.updateMatrixWorld(true);_ugm.copy(batter.g.m
 const HBP_BODY_R=.2,HBP_Y_MIN=.55,HBP_Y_MAX=1.5,HBP_DROP_DUR=.5,HBP_HOP_DUR=.3,HBP_DROP_DX=.3,HBP_DROP_DZ=.35,HBP_HOP_DX=.2,HBP_HOP_DZ=.25,HBP_HOP_PEAK=.1,HBP_DROP_PEAK=.12,HBP_BALL_GONE=2.2;
 const HBP_REACT_IN=.15,HBP_REACT_OUT_AT=.45,HBP_REACT_OUT=.35,HBP_YAW=-.9,HBP_LEAN=.4,HBP_KNEE=.15;
 const hbpReact=u=>ease(sat01((u-ARRIVE)/HBP_REACT_IN))*(1-ease(sat01((u-ARRIVE-HBP_REACT_OUT_AT)/HBP_REACT_OUT)));
-function hbpSpot(e){const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',kk=batter.k||1;
+function hbpSpot(e){const lf=e.bat&&batOf(e).hand==='L',kk=batter.k||1;
   return[lf?-BAT_BOX[0]:BAT_BOX[0],clamp(.45+e.zy*.75,HBP_Y_MIN,HBP_Y_MAX)*kk,BAT_BOX[1]-HBP_BODY_R]}
 function hbpBall(e,u){const S=hbpSpot(e),t=u-ARRIVE,sg=S[0]>0?-1:1;/* he stands on the side away from the plate: the ball bounces back toward it and toward the pitcher */
   const g1=[S[0]+sg*HBP_DROP_DX,BALL_R,S[2]-HBP_DROP_DZ],g2=[g1[0]+sg*HBP_HOP_DX,BALL_R,g1[2]-HBP_HOP_DZ];
@@ -832,7 +907,7 @@ function poseBatter(e,u){
   const RK=k=>lerp(BAT_REST[k],BAT_ONE[k],oh);
   let gx=lerp(K('hx'),RK('hx'),rw),gy=lerp(K('hy'),RK('hy'),rw),gz=lerp(K('hz'),RK('hz'),rw);
   _bv.set(lerp(K('bx'),RK('bx'),rw),lerp(K('by',dyC),RK('by'),rw),lerp(K('bz'),RK('bz'),rw)).normalize();
-  if(bn>0){const give=BUNT_GIVE*ease(sat01((u-ARRIVE)/BUNT_GIVE_DUR)),L=Math.hypot(...BUNT_DIR),sl=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L'?-1:1;
+  if(bn>0){const give=BUNT_GIVE*ease(sat01((u-ARRIVE)/BUNT_GIVE_DUR)),L=Math.hypot(...BUNT_DIR),sl=e.bat&&batOf(e).hand==='L'?-1:1;
     /* Sweet spot on the pitch line: world x = e.zx, height = pitch height (ground frame is lowered by the knee bend) */
     const sx=BUNT_SWEET_X,sz=-BAT_BOX[0]+sl*e.zx,sy=clamp(py,BUNT_HAND_MIN,BUNT_HAND_MAX)+buntDrop;
     _ugh.set(sx-BUNT_SWEET*BUNT_DIR[0]/L-give,sy-BUNT_SWEET*BUNT_DIR[1]/L,sz-BUNT_SWEET*BUNT_DIR[2]/L);groundToUp(_ugh,false);
@@ -854,15 +929,32 @@ let swingClip=null,swingClipP=null;const _sw0=new THREE.Vector3(),_sw1=new THREE
 const swTime=u=>Math.max(SW_START,Math.min(SW_END,SW_CONTACT+(u-ARRIVE)));
 function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
   return Math.min(ease(sat01((u-a)/SW_IN)),1-ease(sat01((u-o[0])/(o[1]-o[0]))))}
+/* #303: a bunt plays bunt_124_08.json instead (square 52-64, hold 64-80, time warp and weight in render/bunt_clip.js). The clip has its
+   own crouch, so the knee-bend drop of the ground frame (buntDrop) is taken back by the clip weight; the bat follows the hands as on the swing,
+   and buntContact() then reads the clip's bat, so the pitch still ends on the sweet spot. */
+let buntClip=null,buntClipP=null,BCL=null;
+import(new URL('bunt_clip.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{BCL=M}).catch(err=>console.warn('bunt clip off',err));
 function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
-  if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
-  const w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return;
+  const bu=e.r==='inplay'&&e.play&&e.play.bunt;let w;
+  if(bu){if(BCL&&!buntClipP&&window.PL&&PL.loadClip)buntClipP=PL.loadClip(BCL.BUNT_CLIP_URL).then(c=>{buntClip=c}).catch(x=>console.warn('mocap',x));
+    w=buntClip&&BCL&&batter.g.visible?BCL.buntClipW(true,u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0;
+    batter.setMocap(buntClip,w>0?BCL.buntClipTime(u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0,w,false,BCL?BCL.BUNT_CLIP_T0:0,0);if(w<=0)return;
+    batter.g.position.y+=buntDrop*w}
+  else{if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
+    w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return}
   batter.handWorld(1,_sw0);batter.handWorld(0,_sw1);/* bottom hand (arms[1]) holds the handle, top hand (arms[0]) gives the axis */
   const up=batPivot.parent;up.updateMatrixWorld(true);_sw1.sub(_sw0);const L=_sw1.length();
   up.worldToLocal(_sw0);batPivot.position.lerp(_sw0,w);
   if(L>SW_HAND_GAP_MIN){_swm.copy(up.matrixWorld).invert();_sw1.transformDirection(_swm);_bv.set(0,1,0).applyQuaternion(batPivot.quaternion).lerp(_sw1,w).normalize();batPivot.quaternion.setFromUnitVectors(_up,_bv)}}
 /* World position of the bat's sweet spot (call after batterWalk has placed the batter): a bunted pitch ends here and the bunted ball starts here */
 function buntContact(){batter.g.updateMatrixWorld(true);_ugs.set(0,BUNT_SWEET,0);bat.localToWorld(_ugs);buntPt[0]=_ugs.x;buntPt[1]=_ugs.y;buntPt[2]=_ugs.z;return buntPt}
+/* Where the bunted ball leaves the bat: the live sweet spot up to contact; after ARRIVE the spot at ARRIVE, so the ball does not follow the bat
+   as the clip hands back to the run (pose at ARRIVE once per event and clip state, then the pose at u again) */
+let buntAt=null;
+function buntHit(e,u){if(u<=ARRIVE)return buntContact().slice();
+  if(buntAt&&buntAt.e===e&&buntAt.c===buntClip&&buntAt.m===BCL)return buntAt.p;
+  poseBatter(e,ARRIVE);batterWalk(e,ARRIVE);batterMocap(e,ARRIVE);const p=buntContact().slice();
+  poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);buntAt={e,c:buntClip,m:BCL,p};return p}
 const BAT_HAND_GAP=.09,BUNT_CRACK=.3,HIT0=[0,1,.3];/* HIT0: where a swung-at ball leaves the bat */
 /* Six runner bodies: up to four movers or base runners of this play plus scorers of earlier plays still jogging off to their dugout (#43) */
 const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
@@ -873,7 +965,7 @@ const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
    dugout to the circle. So nobody appears at the plate between two batters of one half inning. Only when the next pitch (past a vote or a
    pitching change, where they hold) is to the same team. Slice 3: the leadoff pair comes out of the dugout in a BRK/PRE frame, the
    on-deck man of the side just retired goes back to it (odLead, odOff). Pure function of (event, time, neighbouring events). */
-const OD_AT=[11.3,1.2],OD_GO_AT=ARRIVE+1.5,OD_WALK_V=1.8,OD_JOG_V=2.4,OD_HOLD=.6,OD_MIN_DUR=.5,OD_BEHIND_Z=4.2,OD_LEAD_PRE_AT=2;
+const OD_AT=[11.3,1.2],OD_GO_AT=ARRIVE+1.5,OD_WALK_V=1.8,OD_JOG_V=2.4,OD_HOLD=.6,OD_MIN_DUR=.5,OD_BEHIND_Z=4.2,OD_LEAD_PRE_AT=2,OD_SUB_GO=1;/* OD_SUB_GO: s into a pinch-hit SUB frame when he leaves the dugout */
 const odSpot=t=>[(t===0?1:-1)*OD_AT[0],OD_AT[1]];/* team 0 (road) on +x, like dugout(0) */
 /* #128 item 3: the walk F -> A of a man whose box is on the far side goes round behind the umpire, then down the far side at OD_ROUND_X:
    the straight line from behind the plate to BAT_FROM ran through the plate umpire walking back from UMP_GIVE after a ball in play
@@ -902,16 +994,25 @@ function odSwingS(u){const a=OD_SWING_AT,b=a+OD_SWING_DUR,r=ease(sat01((a-u)/OD_
 function odPath(pts){const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));return{pts,cum,L:cum[cum.length-1]}}
 function odAt(P,k){const d=k*P.L;let i=1;while(i<P.pts.length-1&&P.cum[i]<d)i++;const a=P.pts[i-1],b=P.pts[i],s=P.cum[i]-P.cum[i-1],t=s>0?sat01((d-P.cum[i-1])/s):1;
   return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),b[0]-a[0],b[1]-a[1]]}
-const odGap=k=>k==='VOTE'||k==='CHG'||k==='VIS';/* frames with no pitch inside a half inning: a vote, a pitching change, a mound visit */
+const odGap=k=>k==='VOTE'||k==='CHG'||k==='VIS'||k==='SUB';/* frames with no pitch inside a half inning: a vote, a pitching change, a mound visit, a pinch hitter / runner (#436) */
+/* #436 part 4: who holds a lineup slot at a frame (render/lineup.js: pinch hitters and runners stay in). Module not in yet, or no
+   substitution: the roster's own `bat`, as before. */
+let lineM=null,luG=null,luF=null;
+import(new URL('lineup.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{lineM=M}).catch(err=>console.warn('lineup follow off',err));
+const luOf=()=>{if(game&&(luG!==game||(!luF&&lineM))){luG=game;luF=lineM?lineM.lineupsByFrame(game.ev,game.stream,ROSTERS):null}return luG===game?luF:null};
+const lineupNow=(e,t)=>{const L=luOf();return L?L.lineupAt(e,t):undefined};
+function batOf(e,k=0){const L=luOf(),b=L&&L.batterOf(e,k);if(b)return b;const R=ROSTERS[e.bat[0]].bat;return R[(e.bat[1]+k)%R.length]}
+/* a pinch-hit SUB frame (no `base`; a pinch runner has one) between pitch i and pitch j: the new man comes from the dugout in it */
+const odPhBetween=(ev,i,j)=>{for(let k=i+1;k<j;k++)if(ev[k].k==='SUB'&&ev[k].base===undefined&&ev[k].role!=='defensive')return true;return false};
 function odNextP(ev,i){let j=i+1;while(ev[j]&&odGap(ev[j].k))j++;return ev[j]&&ev[j].k==='P'&&ev[j].bat?j:-1}
 /* The walk to the plate of the batter of pitch n (team t): `from` = the circle (he was on deck) or the dugout (leadoff, slice 3), the
    batter after him jogs dugout -> circle. Both start at `go` (event-local s) and are done by OD_HOLD before the event ends. */
-function odMake(e,n,from,go,v){const t=n.bat[0],R=ROSTERS[t].bat,nb=R[n.bat[1]],lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]],G=dugout(t);
+function odMake(e,n,from,go,v){const t=n.bat[0],nb=batOf(n),lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]],G=dugout(t);
   const F=from==='deck'?D:G,walk=odPath(odRoute(F,A)),jog=odPath([G,D]),room=Math.max(e.d-OD_HOLD-go,OD_MIN_DUR);
-  return{go,walk,jog,t1:Math.min(walk.L/v,room),t2:Math.min(jog.L/OD_JOG_V,room),box:[lf?-BAT_BOX[0]:BAT_BOX[0],BAT_BOX[1]],nb,nn:R[(n.bat[1]+1)%R.length]}}
+  return{go,walk,jog,t1:Math.min(walk.L/v,room),t2:Math.min(jog.L/OD_JOG_V,room),box:[lf?-BAT_BOX[0]:BAT_BOX[0],BAT_BOX[1]],nb,nn:batOf(n,1)}}
 /* Pitch i ends a plate appearance and the next pitch (past a vote or a pitching change) is to the same team: on-deck man walks up */
-function odPlan(ev,i){const e=ev[i],j=odNextP(ev,i),n=ev[j];if(!e||e.k!=='P'||!e.pa||!e.bat||j<0||n.bat[0]!==e.bat[0])return null;
-  const t=e.bat[0],R=ROSTERS[t].bat,nb=R[n.bat[1]],lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]];
+function odPlan(ev,i){const e=ev[i],j=odNextP(ev,i),n=ev[j];if(!e||e.k!=='P'||!e.pa||!e.bat||j<0||n.bat[0]!==e.bat[0]||odPhBetween(ev,i,j))return null;
+  const t=e.bat[0],nb=batOf(n),lf=nb&&nb.hand==='L',D=odSpot(t),A=[lf?-BAT_FROM[0]:BAT_FROM[0],BAT_FROM[1]];
   const L=odPath(odRoute(D,A)).L,J=odPath([dugout(t),D]).L;
   return odMake(e,n,'deck',e.r==='inplay'?Math.max(0,e.d-OD_HOLD-Math.max(L/OD_WALK_V,J/OD_JOG_V)):OD_GO_AT,OD_WALK_V)}
 /* #42 slice 3: a half-inning break or the pregame (i = BRK/PRE) before the leadoff pitch: the leadoff man and the batter after him come
@@ -919,7 +1020,7 @@ function odPlan(ev,i){const e=ev[i],j=odNextP(ev,i),n=ev[j];if(!e||e.k!=='P'||!e
 function odLead(ev,i){const e=ev[i],j=odNextP(ev,i);if(j<0||!(e.k==='BRK'||e.k==='PRE'))return null;return odMake(e,ev[j],'dugout',e.k==='BRK'?BRK_ON_AT:OD_LEAD_PRE_AT,OD_JOG_V)}
 /* ... and the on-deck man of the side that has just made its third out (or ended the game) jogs circle -> dugout and goes down the steps */
 function odOff(ev,i){const e=ev[i];if(e.k!=='BRK'&&e.k!=='END')return null;let b=i-1;while(ev[b]&&odGap(ev[b].k))b--;const q=ev[b];if(!q||q.k!=='P'||!q.bat)return null;
-  const t=q.bat[0],R=ROSTERS[t].bat,path=odPath([odSpot(t),dugout(t)]);return{go:e.k==='BRK'?BRK_OFF_AT:0,path,t:path.L/OD_JOG_V,team:t,p:R[(q.bat[1]+1)%R.length]}}
+  const t=q.bat[0],path=odPath([odSpot(t),dugout(t)]);return{go:e.k==='BRK'?BRK_OFF_AT:0,path,t:path.L/OD_JOG_V,team:t,p:batOf(q,1)}}
 const odEnd=(ev,i)=>{const o=odOff(ev,i),l=odLead(ev,i);return Math.max(o?o.go+o.t:0,l?l.go+Math.max(l.t1,l.t2):0)};/* cpEvents: they move until here */
 function poseOnDeck(e,u,ei){odNext.g.visible=odDeck.g.visible=false;if(!game)return;
   const ev=game.ev,put=(f,p,x,z,fx,fz)=>{resetPose(f);f.noAnim=false;f.g.visible=true;f.g.position.set(x,0,z);setNum(f,p?p.num:undefined);dress(f,p);face(f,fx,fz);odHold(f,0,1,p&&p.hand==='L')};
@@ -929,11 +1030,12 @@ function poseOnDeck(e,u,ei){odNext.g.visible=odDeck.g.visible=false;if(!game)ret
   const walkUp=(pl,u)=>{const k1=sat01((u-pl.go)/pl.t1),k2=sat01((u-pl.go)/pl.t2),[ax,az,adx,adz]=odAt(pl.walk,k1),[bx,bz,bdx,bdz]=odAt(pl.jog,k2);
     if(k1<1)put(odNext,pl.nb,ax,az,adx,adz);else put(odNext,pl.nb,ax,az,pl.box[0]-ax,pl.box[1]-az);
     if(k2<1)put(odDeck,pl.nn,bx,bz,bdx,bdz);else put(odDeck,pl.nn,bx,bz,-bx,-bz)};
-  if(e.k==='P'){if(!e.bat)return;const pl=odPlan(ev,ei);if(!pl||u<pl.go){const R=ROSTERS[e.bat[0]].bat;deck(e.bat[0],R[(e.bat[1]+1)%R.length],u,pl?pl.go:undefined);return}walkUp(pl,u);return}
+  if(e.k==='P'){if(!e.bat)return;const pl=odPlan(ev,ei);if(!pl||u<pl.go){deck(e.bat[0],batOf(e,1),u,pl?pl.go:undefined);return}walkUp(pl,u);return}
+  if(e.k==='SUB'&&e.base===undefined&&e.role!=='defensive'){const j=odNextP(ev,ei);if(j>=0){walkUp(odMake(e,ev[j],'dugout',OD_SUB_GO,OD_WALK_V),u);return}}/* #436: the pinch hitter walks up from the dugout, the next man jogs to the circle */
   if(odGap(e.k)){/* a vote or a pitching change: everyone holds where the frame before left him */
     let b=ei-1;while(ev[b]&&odGap(ev[b].k))b--;const q=ev[b];if(!q)return;
     if(q.k==='BRK'||q.k==='PRE'){const pl=odLead(ev,b);if(pl)walkUp(pl,Infinity);return}
-    if(q.k!=='P'||!q.bat)return;const pl=odPlan(ev,b);if(pl){walkUp(pl,Infinity);return}const R=ROSTERS[q.bat[0]].bat;deck(q.bat[0],R[(q.bat[1]+1)%R.length]);return}
+    if(q.k!=='P'||!q.bat)return;const pl=odPlan(ev,b);if(pl){walkUp(pl,Infinity);return}deck(q.bat[0],batOf(q,1));return}
   const o=odOff(ev,ei);if(o&&u<o.go+o.t){const k=sat01((u-o.go)/o.t),[x,z,dx,dz]=odAt(o.path,k);if(k>0)put(odDeck,o.p,x,z,dx,dz);else deck(o.team,o.p)}
   const pl=odLead(ev,ei);if(pl&&u>=pl.go)walkUp(pl,u)}
 /* #42 slice 2 (owner 11/22 14:25): field umpires and base coaches at their posts, idle poses only (no signals yet). Base umpires (dark,
@@ -952,6 +1054,23 @@ const umpB=stUmpAt.map(()=>{const f=figure(matUmp,matUmp,false);f.g.scale.y=.95;
    (STAFF `<team>-pitching`). Until that module is in he stays in the dugout and cpEvents keeps the
    whole frame. */
 const mgr=figure(matMgr,pants,false);mgr.g.visible=false;let visitM=null;
+/* #266 item 2: on a home run WELCOME_N teammates come out of the batting team's dugout, line up along the scorers' path (peelPath) and
+   hop with their arms up as the runners come through, then walk back behind the batter: render/welcome.js plans it (pure). The walk back
+   runs into the next frames of the same half, so the pose looks back up to WEL_LOOK s for the latest home run. Who: lineup men not
+   scoring on the play and not the next two hitters (on deck), then the bench arms. Module not in yet -> nobody comes out. */
+let welM=null;const WEL_LOOK=60,welCache=new WeakMap(),welF=[0,1,2,3,4].map(()=>figure(matOff,pants,false));welF.forEach(f=>f.g.visible=false);
+import(new URL('welcome.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{welM=M}).catch(err=>console.warn('home-run welcome off',err));
+function welPlanOf(q){if(!welM||!q||q.k!=='P'||!q.play||q.play.res!=='HR'||!q.moves||!q.bat)return null;if(welCache.has(q))return welCache.get(q);
+  const off=q.s0.half,arr=q.moves.filter(m=>m[1]===4).map(m=>m[3].arriveT),pl=arr.length?welM.welcomePlan(dugout(off),peelPath(off,false),Math.min(...arr),Math.max(...arr)):null;
+  if(pl){const R=ROSTERS[off],skip=new Set(q.moves.map(m=>m[2]));for(const k of [1,2]){const b=batOf(q,k);if(b)skip.add(b.name)}
+    pl.who=(lineupNow(q,off)||R.bat).filter(b=>!skip.has(b.name)).concat(R.pit.filter(p=>!skip.has(p.name))).slice(0,pl.members.length)}
+  welCache.set(q,pl);return pl}
+/* the latest home run of this half whose party is still out at T (game s) -> [plan, frame-local s] or null */
+function welNow(ev,ei,T,off){for(let j=ei;j>=0&&T-ev[j].t<WEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;const pl=welPlanOf(q);if(pl)return T-q.t<pl.end?[pl,T-q.t]:null}return null}
+function poseWelcome(e,u,ei){welF.forEach(f=>f.g.visible=false);if(!game||!welM||!e.s0)return;const off=e.s0.half,w=welNow(game.ev,ei,e.t+u,off);if(!w)return;const [pl,uq]=w;
+  pl.members.forEach((m,i)=>{const f=welF[i],a=welM.welcomeAt(pl,i,uq);if(!a.visible)return;const p=pl.who[i];resetPose(f);f.noAnim=!a.moving;f.g.visible=true;f.g.position.set(a.x,a.hop,a.z);
+    setNum(f,p?p.num:undefined);dress(f,p);face(f,a.fx,a.fz);if(a.arms>0){const R=f.rig;R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1;R.a0.rotation.set(-2.8*a.arms,0,-.35*a.arms);R.a1.rotation.set(-2.8*a.arms,0,.35*a.arms)}})}
+
 import(new URL('visit.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{visitM=M}).catch(err=>console.warn('mound visit off',err));
 const visitOf=e=>visitM&&e&&(e.k==='CHG'||e.k==='VIS')?visitM.visitPlan(dugout(e.def!==undefined?e.def:1-e.s0.half),fielders.P.home,e.d):null;
 let staffM=null;const stHere=document.currentScript&&document.currentScript.src;
@@ -975,11 +1094,16 @@ function u2Plan(ev,i){const e=ev[i];if(!e)return null;if(u2Cache.has(e))return u
     if(e.k==='P'&&e.r==='inplay')go=Math.max(go,ARRIVE+ST_U2_SETTLE);if(Number.isFinite(e.d))go=Math.max(0,Math.min(go,e.d-T));
     pl={go,t:T,path:odPath([u2Spot(a),u2Spot(b)])}}
   const r={a,b,pl};u2Cache.set(e,r);return r}
+/* #42: from inside he turns to watch the play at first while U1 calls it (render/u2watch.js; no turn until the module is in) */
+let u2wM=null;import(new URL('u2watch.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{u2wM=M}).catch(err=>console.warn('u2 watch off',err));
+function u2Watch(f,e,u){if(!u2wM)return;const w=u2wM.watchWeight(bcCalls(e),1,u,{up:BC_UP,hold:BC_HOLD,down:BC_DOWN});if(w<=0)return;
+  const p=f.g.position,[bx,bz]=BASES[1];f.g.rotation.y=u2wM.turnYaw(f.g.rotation.y,p.x,p.z,bx,bz,u2wM.U2_WATCH.TURN*w)}
 const u2End=(ev,i)=>{const q=u2Plan(ev,i);return q&&q.pl?q.pl.go+q.pl.t:0};/* cpEvents: he moves until here */
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u)});
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);
+    if(i===1&&!mv&&!f.armsHeld&&x===ST_U2_IN[0]&&z===ST_U2_IN[1])u2Watch(f,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
@@ -1036,7 +1160,7 @@ function bcPose(f,b,e,u){let c=null;for(const q of bcCalls(e))if(q.b===b&&u>=q.t
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 /* Throws: speed THROW_V m/s (about 120 km/h, including the grip transfer before release); flight time = distance / speed; longer throws arc higher but stay flat */
 const THROW_ARC=.05;
-const BALL_R=.042,BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
+const BALL_R=.042,BUNT_GROUND_Y=BALL_R,/* #43: a rolling bunt sits on the dirt, not 15 cm above it */BALL_MIN_PX=1.5,BALL_MAX=3.5,_cw=new THREE.Vector3();
 const ZONE_W=.43,ZONE_LO=.55,ZONE_HI=1.1,ZONE_Z=0;
 const zoneBox=new THREE.Line(new THREE.BufferGeometry().setFromPoints([[-1,0],[1,0],[1,1],[-1,1],[-1,0]].map(([x,y])=>new THREE.Vector3(x*ZONE_W/2,ZONE_LO+y*(ZONE_HI-ZONE_LO),ZONE_Z))),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.75,toneMapped:false}));scene.add(zoneBox);
 $('zone').onclick=e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',on);zoneBox.visible=on};
@@ -1044,6 +1168,14 @@ const ball=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,14,10),new THREE.MeshB
 const ballSh=new THREE.Mesh(GEO.shadow,shadowMat);ballSh.rotation.x=-Math.PI/2;ballSh.scale.setScalar(.35);scene.add(ballSh);
 function pathPos(from,to,dist){let d=dist;for(let b=from;b<to;b++){const [x1,z1]=BASES[b],[x2,z2]=BASES[b+1],L=27.43;if(d<=L){const t=d/L;return[lerp(x1,x2,t),lerp(z1,z2,t),false]}d-=L}const [x,z]=BASES[to];return[x,z,true]}
 function face(f,x,z){f.g.rotation.y=Math.atan2(x,z)}
+/* #268 lead: a runner off the bag (engine leadAt: on the bag in the set, out over the delivery, back after the pitch) shuffles sideways
+   facing the pitcher, feet apart, knees bent (render/lead.js, loaded below; until it is in he stands as before). st0 = his break
+   (Infinity = he stays): from there the stance and the turn fade into the run over LEAD_TURN while animate() swings the legs.
+   Pure in (event, time): the step phase comes from the lead metres, not from a clock. Position stays the caller's (rule 12). */
+function leadPose(r,u,ld,st0){const M=leadM;if(!M||!r)return;const b=M.breakW(u,st0),w=M.leadW(ld)*b;if(w<=0)return;
+  const x=r.g.position.x,z=r.g.position.z,P=fielders.P.home,cw=M.LEAD_CROUCH*w,sp=M.leadSplay(ld,w);
+  r.g.rotation.y=M.yawMix(r.g.rotation.y,M.leadYaw(x,z,P[0],P[1]),w);crouch(r,r.rig,cw,CROUCH_FWD,sp/cw,CROUCH_LEAN,CROUCH_SHRINK);
+  if(b>=1){r.noAnim=true;r.px=x;r.pz=z}}
 function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.px,z-f.pz)/Math.max(dt,1e-3);f.px=x;f.pz=z;
   const sp=Math.min(s,9);f.ph+=sp*dt*2.4;const sw=Math.sin(f.ph)*Math.min(1,sp/6)*.9;f.legs[0].rotation.x=sw;f.legs[1].rotation.x=-sw;if(!f.armsHeld){f.arms[0].rotation.x=-sw*.8;f.arms[1].rotation.x=sw*.8}
   /* f.mix: limb angles of the motion this run grows out of (the pitcher's follow-through), faded out by f.mix.k */
@@ -1054,7 +1186,7 @@ function animate(f,dt){const x=f.g.position.x,z=f.g.position.z,s=Math.hypot(x-f.
    batter-local spot, so every lefty went to the other team's side) and goes down the steps there. */
 const BAT_BOX=[-.9,.15],BAT_FROM=[-2.6,1],BAT_WALK_DUR=1.0,BAT_TURN=.3,BAT_AWAY_AT=ARRIVE+1.5,BAT_AWAY_AT_HIT=ARRIVE+.35,BAT_AWAY_SPEED=4,BAT_AWAY_SPEED_HIT=4.6,BAT_STEP_HZ=2.4,BAT_STEP_AMP=.7,BAT_LEAVE_BLEND=4,BAT_CROSS_FWD=.8;
 /* the strikeout walk-off, in the batter-local frame (a lefty's figure is mirrored, so his dugout is mirrored into that frame too) */
-function batAway(e){const lf=ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',G=dugout(e.bat[0]),D=[lf?-G[0]:G[0],G[1]];
+function batAway(e){const lf=batOf(e).hand==='L',G=dugout(e.bat[0]),D=[lf?-G[0]:G[0],G[1]];
   return odPath(Math.sign(D[0])===Math.sign(BAT_BOX[0])?[BAT_BOX,D]:[BAT_BOX,[0,OD_BEHIND_Z],D])}
 /* distance walked off tau s after the start, its speed, and the time to cover L (in play: flat BAT_AWAY_SPEED_HIT; strikeout: walk then pick up) */
 function batAwayD(e,tau){if(e.r==='inplay')return[tau*BAT_AWAY_SPEED_HIT,BAT_AWAY_SPEED_HIT];const v0=BAT_K_WALK_V,v1=BAT_AWAY_SPEED,R=BAT_K_RAMP;
@@ -1070,7 +1202,7 @@ function batterWalk(e,u){
     const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,P=batAway(e),[d,v]=batAwayD(e,u-at),t=d/P.L;
     if(t>=1)batter.g.visible=false;
     const [px,pz,dx,dz]=odAt(P,Math.min(t,1));x=px;z=pz;yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP*Math.min(1,v/BAT_AWAY_SPEED)}
-  const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';/* Left-handed batter = the whole figure mirrored left/right */
+  const lf=e.bat&&batOf(e).hand==='L';/* Left-handed batter = the whole figure mirrored left/right */
   batter.g.scale.x=lf?-1:1;
   batter.g.position.set(lf?-x:x,-buntDrop,z);batter.g.rotation.y=lf?-yaw:yaw;batter.legs[0].rotation.x=sw;batter.legs[1].rotation.x=-sw}
 
@@ -1113,6 +1245,10 @@ function pmBack(u,S,k){if(u<PM_BACK[0])return null;
   return{z,leg:F.map(Fz=>Math.asin(clamp((z-Fz)/(PM_LEG*k),-PM_FOOT_MAX,PM_FOOT_MAX))),sc:[0,1].map(ft=>ft===sw?1-PM_LIFT*Math.sin(Math.PI*f):1)}}
 const pmTime=(u,c)=>{const tr=c.release.frame/c.fps;return u<PM_KNEE_U?PM_START+Math.max(0,u)*(PM_KNEE-PM_START)/PM_KNEE_U:u<RELEASE?PM_KNEE+(u-PM_KNEE_U)*(tr-PM_KNEE)/(RELEASE-PM_KNEE_U):Math.min(PM_END,tr+(u-RELEASE))};
 const pmW=u=>Math.min(ease(sat01(u/PM_IN)),1-ease(sat01((u-PM_OUT[0])/(PM_OUT[1]-PM_OUT[0]))));
+/* #274 part 2: the stride leg (legs[0]) keeps the clip PM_STRIDE_LAG s longer than the body, then leaves it over PM_OUT_STRIDE s (ends with
+   PM_OUT): the clip plants that foot, and the keyframe leg turned it while the whole-body weight was still > .9, so it glided ~10 cm.
+   Values from render/tools/pitch_foot_scan.py (lag 0 / -.1 glide 10-27 cm, .1 6.8, .2-.3 4.7) */
+const PM_STRIDE_LAG=.2,PM_OUT_STRIDE=.4,pmStrideW=u=>Math.min(ease(sat01(u/PM_IN)),1-ease(sat01((u-PM_OUT[0]-PM_STRIDE_LAG)/PM_OUT_STRIDE)));
 function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,PK.a1),bx=P.g.position.x,bz=P.g.position.z;
   PR.up.rotation.set(L,y,0);PR.hg.rotation.y=-y*.9;P.legs[0].rotation.x=kf(u,PK.l0);P.legs[1].rotation.x=kf(u,PK.l1);P.arms[0].rotation.x=kf(u,PK.a0);P.arms[1].rotation.x=th;
   const mo=P.setMocap&&!OFF.has('mocap'),c=mo?pitchClip:null,mkey=[bx,bz,P.buildKey,P.throws,P.k].join();
@@ -1130,8 +1266,19 @@ function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,
   if(mo){if(!pitchClipP&&window.PL&&PL.loadClip)pitchClipP=PL.loadClip(PITCH_CLIP_URL).then(c=>{pitchClip=c}).catch(e=>console.warn('mocap',e));
     if(c){const mir=c.release.hand==='right',key=[bx,bz,P.buildKey,P.throws].join();let r=pmRel.get(key);
       if(!r){const z=P.g.position.z,dR=kf(RELEASE,PK.dz);P.g.position.z=bz+dR;P.setMocap(c,pmTime(RELEASE,c),1,mir,PM_START,dR);const q=P.handWorld(1);r=[q.x,q.y,q.z];pmRel.set(key,r);P.g.position.z=z}
-      const w=pmW(u);P.setMocap(c,pmTime(u,c),w,mir,PM_START,dz);if(w>0)rel=r}}
+      const w=pmW(u);P.setMocap(c,pmTime(u,c),w,mir,PM_START,dz,[pmStrideW(u),w]);if(w>0)rel=r}}
   return{tip:pitchTipAt(u,bx,bz),rel}}
+/* #274 item 2: a pitcher who fields the ball or covers a bag used to drop the clip at ARRIVE (the run code moves his proxies, which
+   unkeys setMocap): a snap from the follow-through to the proxy pose. Now the clip stays on, at pmW(u) times a fade from 1 at ARRIVE to
+   0 after PF_FADE s (FIELD_REACT + P_RUN_BLEND, the same span his trunk and limbs grow into the run) or at his first plan action (tP,
+   since ARRIVE: catch, field, cover) if that is sooner, so the ball always meets the proxy hand. pmField is re-applied after animate(). */
+const pfFade=tP=>Math.min(FIELD_REACT+P_RUN_BLEND,tP);
+const pmFieldW=(u,tP)=>{const T=pfFade(tP);return T>0?pmW(u)*(1-ease(sat01((u-ARRIVE)/T))):0};
+let pmField=null;
+function pmFieldSet(e,u){pmField=null;const P=fielders.P,c=pitchClip;if(!c||!P.setMocap||OFF.has('mocap')||u<ARRIVE)return;
+  const tP=Math.min(...((e.plan&&e.plan.actions)||[]).filter(a=>a.f==='P').map(a=>a.t)),w=pmFieldW(u,tP);
+  if(w>0)pmField={c,t:pmTime(u,c),w,mir:c.release.hand==='right',dz:kf(ARRIVE,PK.dz)}}
+function pmFieldApply(){const m=pmField;if(m)fielders.P.setMocap(m.c,m.t,m.w,m.mir,PM_START,m.dz)}
 function arc(p0,p1,peak,t){return[lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)+peak*4*t*(1-t),lerp(p0[2],p1[2],t)]}
 
 /* ---------- Fielding: catch / transfer / throw (frame-steppable in the studio) ---------- */
@@ -1253,20 +1400,31 @@ function umpArms(c){const R=[],L=[];for(let i=0;i<3;i++){
    batting team's dugout, where scorers peel off), stays until UMP_HOLD s after the last runner reaches home, and is back on his spot
    before he crouches again at the end of the play */
 const UMP_X=.3,UMP_Z=2.6,UMP_GIVE=[2,2.1],UMP_GO_AT=PLATE_UP_AT+PLATE_UP_DUR,UMP_HOLD=1.5,UMP_WALK=2.2,UMP_BACK_PAD=PLATE_DOWN_AT+.2;
-function placeUmp(e,u){const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',hx=lf?-UMP_X:UMP_X;let x=hx,z=UMP_Z,yaw=Math.PI;
+function placeUmp(e,u){const lf=e.bat&&batOf(e).hand==='L',hx=lf?-UMP_X:UMP_X;let x=hx,z=UMP_Z,yaw=Math.PI;
   if(e.r==='inplay'){const last=Math.max(-Infinity,...(e.moves||[]).filter(m=>m[1]===4).map(m=>m[3].arriveT)),gx=-Math.sign(dugout(e.s0.half)[0])*UMP_GIVE[0],gz=UMP_GIVE[1],tw=Math.hypot(gx-hx,gz-UMP_Z)/UMP_WALK,t0=ARRIVE+UMP_GO_AT,
       end=e.d||Math.max(t0,last)+UMP_HOLD+2*tw+UMP_BACK_PAD,tb=Math.max(t0+tw,Math.min(last>-Infinity?last+UMP_HOLD:Infinity,end-tw-UMP_BACK_PAD)),go=ease(sat01((u-t0)/tw)),bk=ease(sat01((u-tb)/tw));
     x=lerp(lerp(hx,gx,go),hx,bk);z=lerp(lerp(UMP_Z,gz,go),UMP_Z,bk);
     if(go>0&&go<1)yaw=Math.atan2(gx-hx,gz-UMP_Z);else if(bk>0&&bk<1)yaw=Math.atan2(hx-gx,UMP_Z-gz);else if(go>=1&&bk===0)yaw=Math.atan2(-x,-z)}
   ump.g.position.x=x;ump.g.position.z=z;ump.g.rotation.y=yaw;if(ump.noAnim){ump.px=x;ump.pz=z}}
-function brkSwap(e,u,off,def){FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],on=u>=BRK_ON_AT,[dx,dz]=dugout(on?off:def),t0=(on?BRK_ON_AT:BRK_OFF_AT)+jogRank(k)*JOG_GAP,[ax,az]=on?[dx,dz]:f.pos,[bx,bz]=on?f.home:[dx,dz],tt=sat01((u-t0)/(Math.hypot(bx-ax,bz-az)/JOG_SPEED)),x=lerp(ax,bx,tt),z=lerp(az,bz,tt);
+/* #42: jog ends from render/brkjog.js (off from where the last pitch left him, out to where the next pitch poses him); home until it is in */
+let bjM=null;import(new URL('brkjog.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{bjM=M}).catch(err=>console.warn('break jog ends off',err));
+const brkEndsOf=(ev,i,k)=>bjM&&ev&&ev[i]&&ev[i].k==='BRK'?bjM.brkEnds(ev,i,k,fielderStart):null;
+/* #42: the opening jog ends on the spot the first pitch poses each fielder on (the catcher's spot is .45 m in front of his home) */
+const preEndOf=(ev,i,k)=>bjM&&ev&&ev[i]&&ev[i].k==='PRE'&&ev[i+1]&&ev[i+1].s0?bjM.brkEnds(ev,i,k,fielderStart).to:null;
+function brkSwap(e,u,off,def,ei){const ev=game&&game.ev&&game.ev[ei]===e?game.ev:null;FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],be=brkEndsOf(ev,ei,k),on=u>=BRK_ON_AT,[dx,dz]=dugout(on?off:def),t0=(on?BRK_ON_AT:BRK_OFF_AT)+jogRank(k)*JOG_GAP,[ax,az]=on?[dx,dz]:be?be.from:f.pos,[bx,bz]=on?be?be.to:f.home:[dx,dz],tt=sat01((u-t0)/(Math.hypot(bx-ax,bz-az)/JOG_SPEED)),x=lerp(ax,bx,tt),z=lerp(az,bz,tt);
   f.g.visible=on?u>=t0:tt<1;f.g.position.set(x,tt>0&&tt<1?Math.abs(Math.sin(u*9+i))*.07:0,z);if(tt>0&&tt<1)face(f,bx-ax,bz-az);else face(f,-x,-z)})}
-const curPit=[0,0],numOf=(t,name)=>{const b=ROSTERS[t].bat.find(x=>x.name===name);return b?b.num:undefined};
+const curPit=[0,0],numOf=(t,name)=>{const R=ROSTERS[t],b=R.bat.find(x=>x.name===name)||(R.bench||[]).find(x=>x.name===name);return b?b.num:undefined};
 function applyNums(e,off,def){const R=ROSTERS[def];if(e.pit&&e.pit[0]!==undefined)curPit[e.pit[0]]=e.pit[1];
-  for(const k of FIELDER_KEYS){const b=k==='P'?R.pit[curPit[def]]:R.bat.find(x=>x.pos===k);setNum(fielders[k],b?b.num:undefined);dress(fielders[k],b);if(k==='P')fielders.P.setThrows(b&&b.throws||'R')}
-  const bb=e.k==='P'&&e.bat?ROSTERS[e.bat[0]].bat[e.bat[1]]:null;setNum(batter,bb?bb.num:undefined);if(bb)dress(batter,bb)}
+  const LU=lineupNow(e,def)||R.bat;/* #436: a pinch hitter / runner who stayed in plays his man's position */
+  for(const k of FIELDER_KEYS){const b=k==='P'?R.pit[curPit[def]]:LU.find(x=>x.pos===k);setNum(fielders[k],b?b.num:undefined);dress(fielders[k],b);if(k==='P')fielders.P.setThrows(b&&b.throws||'R')}
+  const bb=e.k==='P'&&e.bat?batOf(e):null;setNum(batter,bb?bb.num:undefined);if(bb)dress(batter,bb)}
 /* Slide pose (feet first): k 0->1; torso leans back, lead leg straight, trail leg bent, arms up, centre of mass low */
 const SLIDE_HOLD=.6,SLIDE_UP=.45;
+/* #23 part 1: a runner who ends a play on a base walks off it to the engine's primary lead (LEAD_PRIMARY), so the next pitch frame
+   (leadAt(0) = LEAD_PRIMARY) starts where this one ends. He starts LEAD_WALK_WAIT s after he arrives (up from a slide) and takes
+   LEAD_WALK_DUR s; never past the end of the event. leadWalk = metres off the bag toward the next base at u. */
+const LEAD_WALK_WAIT=SLIDE_HOLD+SLIDE_UP+.2,LEAD_WALK_DUR=2;
+const leadWalk=(u,from,end)=>{const t1=Math.min(from+LEAD_WALK_WAIT+LEAD_WALK_DUR,end),t0=Math.max(from,t1-LEAD_WALK_DUR);return LEAD_PRIMARY*ease(sat01((u-t0)/Math.max(t1-t0,.01)))};
 function slidePose(f,k){const R=f.rig;f.noAnim=true;f.auto=false;R.up.rotation.set(lerp(0,-1.05,k),0,0);R.hips.rotation.set(lerp(0,-.5,k),0,0);
   R.l0.rotation.set(lerp(0,-1.4,k),0,0);R.l1.rotation.set(lerp(0,-.75,k),0,lerp(0,.25,k));if(f.bend){f.bend.knee[0]=0;f.bend.knee[1]=1.5*k}
   R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1;R.a0.rotation.set(lerp(0,-2.5,k),0,lerp(0,-.3,k));R.a1.rotation.set(lerp(0,-2.2,k),0,lerp(0,.3,k));R.hg.rotation.set(lerp(0,.6,k),0,0);
@@ -1345,7 +1503,7 @@ const bkU=u=>u<BK_STOP?u:u<BK_CALL_AT+.3?BK_STOP:Math.max(0,BK_STOP*(1-(u-BK_CAL
 const PO_LEAD_FROM=.2,PO_LEAD_GROW=.8,PO_TURN=.3,PO_XFER=.35,PO_REACT=.3,PO_SLIDE_D=1.6,PO_OFF=1.6,POF_TAG_LATE=.05,POF_BACK_XFER=.45,POF_GLOVE_UP=.4,POF_CATCH_Y=1.4;
 function poRunner(e,u,nm,show){const S=e.plan,[x,z]=BASES[1],[nx,nz]=BASES[2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),b0=S.t0+(S.react??PO_REACT);
   if(!S.safe&&u>S.runnerAt+PO_OFF)return;
-  const out=S.lead*ease(sat01((u-PO_LEAD_FROM)/PO_LEAD_GROW)),k=sat01((u-b0)/(S.runnerAt-b0)),ld=u<b0?out:S.lead*(1-k*k);
+  const out=lerp(LEAD_PRIMARY,S.lead,ease(sat01((u-PO_LEAD_FROM)/PO_LEAD_GROW))),k=sat01((u-b0)/(S.runnerAt-b0)),ld=u<b0?out:u<S.runnerAt||!S.safe?out*(1-k*k):leadWalk(u,S.runnerAt,e.d||Infinity);/* #23 part 1: from the primary lead; safe: back out to it */
   const r=show(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);if(!r||u<b0)return;
   face(r,-dx,-dz);const sl=ld<PO_SLIDE_D?ease(sat01((PO_SLIDE_D-ld)/(PO_SLIDE_D*.5)))*(1-ease(sat01((u-S.runnerAt-SLIDE_HOLD)/SLIDE_UP))):0;if(sl>0)slidePose(r,sl)}
 function poField(e,u){const S=e.plan,P=fielders.P,c=fielders[S.CV.key],sp=S.CV.spot,tgt=[sp[0],1.2,sp[1]],px=P.g.position.x,pz=P.g.position.z;
@@ -1386,33 +1544,48 @@ function wpCatcher(e,u){const C=fielders.C,W=wpPlan(e),t=u-ARRIVE-WP_C_REACT;if(
   const [hx,hz]=W.c0;let d;
   if(u<W.reach)d=Math.min(W.L,runDist(t,WP_C_SPEED));else if(u<W.back)d=W.L;else d=Math.max(0,W.L-(u-W.back)*WP_BACK_V);
   const [x,z,dx,dz]=wpAt(W,d);C.g.position.set(x,0,z);C.noAnim=false;if(u<W.back)face(C,dx,dz);else if(d>0)face(C,-dx,-dz);else face(C,-hx,-hz)}
+/* #526: a pitch followed by a pitch of the same half ends on the spot the NEXT pitch poses each fielder on (fielderStart of its s0: holding a
+   runner, double-play depth), not the spot of its own start, so no one pops 1-4 m at the boundary (render/tools/edge_probe.py). Anyone the
+   play does not move walks there at RET_V m/s, starting RET_GAP s before the event ends (an in-play pitch: when the play returns, PL.rt) */
+const RET_V=6.5,RET_GAP=.3,RET_SKIP=['P','C'];
+const RET_NEXT=['P','VOTE','CHG','VIS'];
+const retNext=(e,ei)=>{const nx=game&&game.ev&&game.ev[ei]===e?game.ev[ei+1]:null;return e.k==='P'&&nx&&RET_NEXT.includes(nx.k)&&nx.s0&&e.s0&&nx.s0.half===e.s0.half?nx:null};
+function retSpot(e,ei,k,pos){const nx=retNext(e,ei);return nx?fielderStart(k,nx.s0.b,nx.s0.outs):pos}
+/* #42: event-local time the last retDrift walk of a pitch not in play ends (0 = nobody moves); cpEvents must not cut it */
+const retEnd=(ev,i)=>{const e=ev[i],nx=ev[i+1];if(!(e.k==='P'&&nx&&RET_NEXT.includes(nx.k)&&nx.s0&&e.s0&&nx.s0.half===e.s0.half))return 0;const dur=Number.isFinite(nx.t-e.t)?nx.t-e.t:e.d;
+  return FIELDER_KEYS.some(k=>{if(RET_SKIP.includes(k))return false;const a=fielderStart(k,e.s0.b,e.s0.outs),b=fielderStart(k,nx.s0.b,nx.s0.outs);return Math.hypot(b[0]-a[0],b[1]-a[1])>=.01})?dur-RET_GAP:0};
+function retDrift(e,u,ei){const nx=retNext(e,ei);if(!nx)return;const dur=Number.isFinite(nx.t-e.t)?nx.t-e.t:e.d;
+  for(const k of FIELDER_KEYS){const f=fielders[k];if(RET_SKIP.includes(k))continue;const D=Math.hypot(f.ret[0]-f.pos[0],f.ret[1]-f.pos[1]);if(D<.01)continue;
+    const t0=e.r==='inplay'&&e.plan?ARRIVE+e.plan.rt:dur-RET_GAP-runTime(D,RET_V),w=clamp(runDist(u-t0,RET_V)/D,0,1);f.g.position.set(lerp(f.pos[0],f.ret[0],w),0,lerp(f.pos[1],f.ret[1],w))}}
 function poseScene(e,u,dt,ei){
+  pmField=null;/* #274: set again below only for a fielding pitcher */
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
   paintKit(matDef,defT);paintKit(matOff,e.k==='BRK'&&u>=BRK_ON_AT?def:off);/* #42: after the change the walkers out of the dugout are the new batting side */
   applyNums(e,off,defT);
   /* fielders default */
-  for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=fielderStart(k,e.s0.b,e.s0.outs);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
+  for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=f.ret=fielderStart(k,e.s0.b,e.s0.outs);if(k!=='P')f.ret=retSpot(e,ei,k,f.pos);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
+  retDrift(e,u,ei);
   ump.auto=true;ump.armsHeld=false;/* ump never gets resetPose: undo a call of the last frame (#42 slice 8) */poseBattery(e,u);
-  if(e.k==='BRK')brkSwap(e,u,off,def);
+  if(e.k==='BRK')brkSwap(e,u,off,def,ei);
   const P=fielders.P;P.arms[1].rotation.x=0;PR.up.rotation.set(0,0,0);PR.hg.rotation.set(0,0,0);P.noAnim=e.k==='P';
   /* opening ceremony: defenders jog in from the 1B-side dugout one by one */
-  if(e.k==='PRE'){FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],d0=jogRank(k)*JOG_GAP,sx=dugout(def)[0],sz=INTRO_Z,tt=sat01((u-d0)/(Math.hypot(f.home[0]-sx,f.home[1]-sz)/JOG_SPEED));
-    f.g.visible=u>=d0;f.g.position.set(lerp(sx,f.home[0],tt),tt>0&&tt<1?Math.abs(Math.sin(u*9+i))*.07:0,lerp(sz,f.home[1],tt));
-    if(tt<1)face(f,f.home[0]-sx,f.home[1]-sz);else face(f,-f.home[0],-f.home[1])})}
-  batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;
+  if(e.k==='PRE'){const ev=game&&game.ev&&game.ev[ei]===e?game.ev:null;FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],h=preEndOf(ev,ei,k)||f.home,d0=jogRank(k)*JOG_GAP,sx=dugout(def)[0],sz=INTRO_Z,tt=sat01((u-d0)/(Math.hypot(h[0]-sx,h[1]-sz)/JOG_SPEED));
+    f.g.visible=u>=d0;f.g.position.set(lerp(sx,h[0],tt),tt>0&&tt<1?Math.abs(Math.sin(u*9+i))*.07:0,lerp(sz,h[1],tt));
+    if(tt<1)face(f,h[0]-sx,h[1]-sz);else face(f,-h[0],-h[1])})}
+  batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;looseBat.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
-  poseOnDeck(e,u,ei);poseStaff(e,u,ei);
+  poseOnDeck(e,u,ei);poseStaff(e,u,ei);poseWelcome(e,u,ei);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
-  const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm)};
+  const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);leadPose(runners[ri-1],uu,ld,Infinity)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
-  if(e.k!=='P'){for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK')standRunner(i,0,s.b[i]);peelers();return s}
+  if(e.k!=='P'){for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK')standRunner(i,0,s.b[i]);peelers();poseBatBoy(e,u,ei);return s}
   /* pitch */
   const pp=pitchPose(e.bk?bkU(u):e.po?0:u),tip=pp.tip;
   /* A pitcher who fields the ball or covers first starts from where his delivery stride left him at contact (not from the rubber, which
      was a ~1 m jump), and his limbs and trunk grow out of the follow-through into the run over P_RUN_BLEND s (P.mix, read by animate) */
-  if(e.r==='inplay'&&(e.play.fielder==='P'||e.plan.CV.key==='P')&&u>=ARRIVE){const k=1-ease(sat01((u-ARRIVE-FIELD_REACT)/P_RUN_BLEND));
+  if(e.r==='inplay'&&(e.play.fielder==='P'||e.plan.CV.key==='P')&&u>=ARRIVE){pmFieldSet(e,u);const k=1-ease(sat01((u-ARRIVE-FIELD_REACT)/P_RUN_BLEND));
     P.pos=[P.pos[0],P.pos[1]+kf(ARRIVE,PK.dz)];P.noAnim=false;PR.up.rotation.x*=k;PR.up.rotation.y*=k;PR.hg.rotation.y*=k;
     P.mix={k,l0:P.legs[0].rotation.x,l1:P.legs[1].rotation.x,a0:P.arms[0].rotation.x,a1:wrapA(P.arms[1].rotation.x)}}
   const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp';
@@ -1420,7 +1593,7 @@ function poseScene(e,u,dt,ei){
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
-  const hit0=bunt?buntContact().slice():HIT0;if(bunt)plate.splice(0,3,...hit0);
+  const hit0=bunt?buntHit(e,u):HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
   else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
@@ -1429,8 +1602,8 @@ function poseScene(e,u,dt,ei){
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers the bag (e.plan: SS at second, 3B at third, #38); draw it */
-  if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2,0,1);
-    c.g.position.set(lerp(lerp(c.pos[0],sp[0],kc),c.pos[0],bk),0,lerp(lerp(c.pos[1],sp[1],kc),c.pos[1],bk));
+  if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),D2b=Math.hypot(sp[0]-c.ret[0],sp[1]-c.ret[1]),bk=D2b<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2b,0,1);
+    c.g.position.set(lerp(lerp(c.pos[0],sp[0],kc),c.ret[0],bk),0,lerp(lerp(c.pos[1],sp[1],kc),c.ret[1],bk));
     const tagA=S.actions.find(a=>a.a==='tag'),tagT=tagA?tagA.t:S.arrive+TAG_LATE_SWEEP;/* out: the engine's tag time; safe: a late swipe */
     if(bk===0&&u>S.t0-.2){face(c,-c.g.position.x,-c.g.position.z);c.noAnim=true;if(u<S.arrive)gloveTo(c,lerp(.45,1,ease(sat01((u-(S.arrive-.45))/.3))),null);else tagPose(c,u,S.arrive,tagT,S.CV.base,!!tagA)}
     const C=fielders.C,ct=catcherThrow(e,u,S,sp);
@@ -1442,42 +1615,51 @@ function poseScene(e,u,dt,ei){
   /* runner moves: when each runner starts, slides and arrives is decided by the engine (4th element of a move) */
   const flyOut=e.r==='inplay'&&e.play.res==='out'&&e.play.type!=='GB';let batGone=Infinity;
   for(const [from,to,name,tl] of e.moves||[]){
-    const {st0,spd,slide,ts,slideTime:ST,arriveT}=tl,lead=from>0&&u<st0?leadAt(u):tl.lead,Ltot=(to-from)*27.43;
+    const {st0,spd,slide,ts,slideTime:ST,arriveT}=tl,lead=from>0&&u<st0?(tl.tag?tagLeadAt(u,st0):leadAt(u)):tl.lead,Ltot=(to-from)*27.43;
     if(from===0)batGone=st0;
     let prog;if(u<ts)prog=runDist(u-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
     let [x,z,done]=pathPos(from,to,prog);
     if(from===0&&u<st0)continue;
-    if(from===0){const lf=e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L',w=1-ease(sat01(prog/BAT_LEAVE_BLEND));x+=(lf?-BAT_BOX[0]:BAT_BOX[0])*w;z+=BAT_BOX[1]*w;/* Leave from the box he stood in, not from the middle of the plate */
+    if(from===0){const lf=e.bat&&batOf(e).hand==='L',w=1-ease(sat01(prog/BAT_LEAVE_BLEND));x+=(lf?-BAT_BOX[0]:BAT_BOX[0])*w;z+=BAT_BOX[1]*w;/* Leave from the box he stood in, not from the middle of the plate */
       /* Walk / hit by pitch from the third-base-side box: he crosses the plate in an arc BAT_CROSS_FWD out in front of it, clear of the crouched catcher (#43) */
       if(e.r!=='inplay'&&!lf)z-=BAT_CROSS_FWD*4*w*(1-w)}
     if(to===4&&u>=arriveT){const P=peelAt(off,tl,u-arriveT);if(!P)continue;showRunner(...P,name);const r=runners[ri-1];
       if(r&&slide){const k=ease(sat01((u-ts)/(ST*.35)))*(1-ease(sat01((u-arriveT-SLIDE_HOLD)/SLIDE_UP)));if(k>0)slidePose(r,k)}continue}
     const stays=to<4&&e.s1.b[to-1]===name;
     if(done&&!stays&&u-arriveT>.6)continue;
+    const wk=stays&&u>=arriveT?leadWalk(u,arriveT,e.d||Infinity):0;/* #23 part 1: off the bag to the primary lead */
+    if(wk>0){const [nx,nz]=BASES[to+1],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz);x+=dx/L*wk;z+=dz/L*wk}
     showRunner(x,z,undefined,undefined,name);
     const r=runners[ri-1];if(!r)continue;const [b0x,b0z]=BASES[to-1],[b1x,b1z]=BASES[to];
     if(!done){const [nx,nz]=pathPos(from,to,prog+1);face(r,nx-x,nz-z)}else if(slide)face(r,b1x-b0x,b1z-b0z);
+    if(wk>0&&wk<LEAD_PRIMARY){const [nx,nz]=BASES[to+1];face(r,nx-b1x,nz-b1z)}else if(wk>0)face(r,-x,-z);/* walks out, then faces the plate as standRunner does */
+    if(wk>0)leadPose(r,u,wk,Infinity);/* #23: shuffles out to the primary lead, so the next pitch frame starts in the same stance */
+    else if(from>0)leadPose(r,u,lead,st0);/* #268: shuffle stance until the break, turned into the run over LEAD_TURN */
     if(from===0&&bunt&&buntDrop>0){const rk=1-ease(sat01((u-st0)/BUNT_RISE));if(rk>0){r.rig.l0.scale.y=r.rig.l1.scale.y=1-buntDrop/((r.k||1)*LEG_LEN)*rk;r.g.position.y=-buntDrop*rk}}/* Bunter comes up out of his crouch as he breaks for first */
     if(slide&&u>=ts){const k=ease(sat01((u-ts)/(ST*.35)))*(1-ease(sat01((u-arriveT-SLIDE_HOLD)/SLIDE_UP)));if(k>0)slidePose(r,k)}
   }
   peelers();
+  poseLooseBat(e,u);/* #43: before hiding him, so the release pose can be read from his hands */
+  poseBatBoy(e,u,ei);
   if(u>=batGone)batter.g.visible=false;
   if(e.r==='inplay'){
     /* the whole defensive play (who fields, who covers, every throw and its timing) is e.plan, computed by the engine */
     const p=e.play,PL=e.plan,f=fielders[p.fielder],T=p.hang,u2=u-ARRIVE,hr=p.res==='HR',hit=PL.hit;
-    const land=[p.lx,hr?6+(p.dist-114)*.15:(hit||p.type==='GB'?.15:1.5),p.lz];
-    const rollEnd=[PL.target[0],.15,PL.target[1]];
+    const land=[p.lx,hr?6+(p.dist-114)*.15:bunt&&BCL?BUNT_GROUND_Y:(hit||p.type==='GB'?.15:1.5),p.lz];
+    const rollEnd=[PL.target[0],bunt&&BCL?BUNT_GROUND_Y:.15,PL.target[1]];
+    /* #43 item 5: a bunt goes down off the bat, hops low and rolls slowing to the engine's stop point at T (render/bunt_clip.js buntRoll) */
+    const gbAt=t=>bunt&&BCL?BCL.buntRoll(hit0,land,T,t):arc(hit0,land,p.peak,t/T),rollPk=bunt&&BCL?0:.3;
     const CV=PL.CV,tagPlay=PL.tagPlay,tagA=PL.actions.find(a=>a.a==='tag'&&a.f===CV.key),tg=tagA?{t:tagA.t,out:true}:tagPlay?{t:PL.arrive+TAG_LATE_SWEEP,out:false}:null,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer;
     const catchT=PL.catchT,D=PL.D,cx=PL.stand[0],cz=PL.stand[1];
-    const tgt=[CV.spot[0],1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
+    const tgt=[CV.spot[0],PL.wild?.15:1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
     const BAG=[BASES[1][0],BASES[1][1]],DB=Math.hypot(BAG[0]-cx,BAG[1]-cz),soloAt=PL.soloAt;
     const crowd=!!CV.key&&CV.key!==p.fielder&&Math.hypot(f.pos[0]-CV.spot[0],f.pos[1]-CV.spot[1])<BAG_CROWD_R;
     const t0=solo?Infinity:PL.t0,TT=PL.TT,rt=PL.rt,a1=dp?PL.a1:t0+TT,t1=dp?PL.t1:a1,arrive=PL.arrive;
     const rtF=crowd?Math.max(rt,arrive+COVER_BACK_AT+CROWD_CLEAR_T):rt;
     if(u2>0){const tc=catchT-FIELD_REACT,cc=tc<=0?1:tc<RUN_ACCEL?.5*tc*tc/RUN_ACCEL:.5*RUN_ACCEL+(tc-RUN_ACCEL),vCh=clamp(D/cc,CHASE_VMIN,CHASE_VMAX);/* Chase speed: arrive exactly at the catch moment (capped at 9 m/s) */
       const k=D<.5?1:clamp(runDist(u2-FIELD_REACT,vCh)/D,0,1),kk=hr?Math.min(k,.5):k,tx=lerp(f.pos[0],cx,kk),tz=lerp(f.pos[1],cz,kk);
-      if(CV.key){const c=fielders[CV.key],D2=Math.hypot(CV.spot[0]-c.pos[0],CV.spot[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u2-FIELD_REACT-COVER_REACT,COVER_SPEED)/D2,0,1),bk=D2<.3?0:clamp(runDist(u2-(arrive+COVER_BACK_AT),COVER_SPEED)/D2,0,1);
-        c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),c.pos[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),c.pos[1],bk));
+      if(CV.key){const c=fielders[CV.key],D2=Math.hypot(CV.spot[0]-c.pos[0],CV.spot[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u2-FIELD_REACT-COVER_REACT,COVER_SPEED)/D2,0,1),D2b=Math.hypot(CV.spot[0]-c.ret[0],CV.spot[1]-c.ret[1]),bk=D2b<.3?0:clamp(runDist(u2-(arrive+COVER_BACK_AT),COVER_SPEED)/D2b,0,1);
+        c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),c.ret[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),c.ret[1],bk));/* #42: back to his pitch spot (the rubber for a pitcher covering first); #526: the next pitch's spot */
         if(tagPlay&&CV.key==='C'){resetPose(c);c.g.position.y=0}
         const fromX=dp?PVspot[0]:cx,fromZ=dp?PVspot[1]:cz;if(bk===0&&u2>arrive-TT-(dp?TT2:0)-.2){face(c,fromX-c.g.position.x,fromZ-c.g.position.z);c.noAnim=true;
           /* Receiving a throw: glove meets the ball, then the other hand takes it */
@@ -1485,14 +1667,14 @@ function poseScene(e,u,dt,ei){
           if(tg&&u2>=arrive)tagPose(c,u2,arrive,tg.t,CV.base,tg.out);/* A runner to tag (FC lead runner, tag-up at home or third): the tag */
           else gloveTo(c,lerp(.45,1,reach),u2<arrive?null:hold)}
         else face(c,p.lx-c.g.position.x,p.lz-c.g.position.z)}
-      if(dp){const D3=Math.hypot(PVspot[0]-pv.pos[0],PVspot[1]-pv.pos[1]),kp=D3<.3?1:clamp(runDist(u2-FIELD_REACT,PIVOT_SPEED)/D3,0,1),bp2=D3<.3?0:clamp(runDist(u2-(t1+1.5),6.5)/D3,0,1);
-        pv.g.position.set(lerp(lerp(pv.pos[0],PVspot[0],kp),pv.pos[0],bp2),0,lerp(lerp(pv.pos[1],PVspot[1],kp),pv.pos[1],bp2));
+      if(dp){const D3=Math.hypot(PVspot[0]-pv.pos[0],PVspot[1]-pv.pos[1]),kp=D3<.3?1:clamp(runDist(u2-FIELD_REACT,PIVOT_SPEED)/D3,0,1),D3b=Math.hypot(PVspot[0]-pv.ret[0],PVspot[1]-pv.ret[1]),bp2=D3b<.3?0:clamp(runDist(u2-(t1+1.5),6.5)/D3b,0,1);
+        pv.g.position.set(lerp(lerp(pv.pos[0],PVspot[0],kp),pv.ret[0],bp2),0,lerp(lerp(pv.pos[1],PVspot[1],kp),pv.ret[1],bp2));
         if(bp2===0&&u2>a1-.6){pv.noAnim=true;if(u2<a1){face(pv,cx-pv.g.position.x,cz-pv.g.position.z);gloveTo(pv,ease(sat01((u2-(a1-.45))/.3)),null)}
           else{face(pv,tgt[0]-pv.g.position.x,tgt[2]-pv.g.position.z);throwPose(pv,u2-a1,PIVOT_XFER,tgt)}}else if(kp<1)face(pv,PVspot[0]-pv.g.position.x,PVspot[1]-pv.g.position.z)}
-      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.pos[0]-sx0,f.pos[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.pos[0],back),0,lerp(sz0,f.pos[1],back));/* Back to position: walk back from wherever he last stood */
+      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.ret[0]-sx0,f.ret[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.ret[0],back),0,lerp(sz0,f.ret[1],back));/* Back to position: walk back from wherever he last stood; #42: a pitcher who fielded walks back to the rubber (f.ret), not to his stride spot, so the next frame does not jump ~1 m */
       if(solo&&u2>catchT+.15&&back===0){const k2=DB<.3?1:clamp(runDist(u2-catchT-.15,6.5)/DB,0,1);f.g.position.set(lerp(tx,BAG[0],k2),0,lerp(tz,BAG[1],k2));if(k2<1){face(f,BAG[0]-cx,BAG[1]-cz);f.noAnim=false}}
       const fx=f.g.position.x,fz=f.g.position.z;
-      if(back>0&&back<1)face(f,f.pos[0]-sx0,f.pos[1]-sz0);
+      if(back>0&&back<1)face(f,f.ret[0]-sx0,f.ret[1]-sz0);
       else if(!hr&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
       else if(crowd&&u2<rtF)face(f,CV.spot[0]-fx,CV.spot[1]-fz);/* Waiting off the bag: watch the coverer */
       else face(f,-p.lx,-p.lz);
@@ -1501,11 +1683,11 @@ function poseScene(e,u,dt,ei){
         if(u2<catchT+.12){const bpos=ballAt(u2+.04);reachGlove(f,bpos||[fx,low?.25:1.6,fz])}
         else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* Glove raised holding the ball while touching the base */
         else throwPose(f,u2-catchT,TH.xfer,tgtF)}}
-    if(u2>0&&u2<T)bp=p.type==='GB'?arc(hit0,land,p.peak,u2/T):flyPath(e,hit0,land,T)(u2);
+    if(u2>0&&u2<T)bp=p.type==='GB'?gbAt(u2):flyPath(e,hit0,land,T)(u2);
     else if(u2>=T&&!hr){
-      if(hit&&u2<T+.8)bp=arc(land,rollEnd,.3,(u2-T)/.8);
+      if(hit&&u2<T+.8)bp=arc(land,rollEnd,rollPk,(u2-T)/.8);
       else{const fx=f.g.position.x,fz=f.g.position.z,c=CV.key&&fielders[CV.key];
-        if(u2<catchT)bp=hit?[rollEnd[0],.15,rollEnd[2]]:[p.lx,.15,p.lz];
+        if(u2<catchT)bp=hit?[rollEnd[0],rollEnd[1],rollEnd[2]]:[p.lx,bunt&&BCL?land[1]:.15,p.lz];
         else if(solo&&u2>=catchT){if(u2<rt+.3){const q=f.handWorld(0);bp=[q.x,q.y,q.z]}}
         else if(u2>=catchT&&u2<t0){const q=f.handWorld(u2-catchT<TH.xfer*.45?0:1);bp=[q.x,q.y,q.z]}/* In the glove first, in the throwing hand after the transfer */
         else if(u2>=t0&&u2<a1){const rel=throwRelease(e,f,[cx,cz],TH.xfer,tgtF);bp=arc(rel,tgtF,Math.min(3,TD*THROW_ARC*(32/TH.v)),(u2-t0)/TT)}
@@ -1513,7 +1695,7 @@ function poseScene(e,u,dt,ei){
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,Math.min(3,TD2*THROW_ARC*(32/V2)),(u2-t1)/TT2)}
         else if(u2<arrive+3.2){if(c){const q=c.handWorld(tg||u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
     if(hr&&u2>0&&u2<T+.2&&!bp)bp=null;
-    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?arc(hit0,land,p.peak,t/T):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,.3,(t-T)/.8):rollEnd;return null}
+    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?gbAt(t):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,rollPk,(t-T)/.8):rollEnd;return null}
   }
   if(bp){ball.visible=true;ball.position.set(bp[0],bp[1],bp[2]);ballSh.position.set(bp[0],.03,bp[2]);const dB=ball.position.distanceTo(camera.getWorldPosition(_cw)),pxR=BALL_R*(innerHeight/2)/(dB*Math.tan(camera.fov*Math.PI/360)),bs=clamp(BALL_MIN_PX/pxR,1,BALL_MAX);ball.scale.setScalar(bs);ballSh.scale.setScalar(.35*bs)}
   ballSh.visible=ball.visible;
@@ -1536,7 +1718,7 @@ let bugKey='';
 function hudBug(e,u,s,c){const P=e.k==='P'&&e.r!=='ibb'&&e.r!=='bk'&&!e.po,np=P?(u>=ARRIVE?e.pc:e.pc-1):'',sh=P&&u>=RELEASE+.05&&u<ARRIVE+4,k=[s.sc,s.inn,s.half,s.outs,s.b.map(Boolean),c,P?e.t:'',np,sh,e.k==='END'].join('|');if(k===bugKey)return;bugKey=k;
   const dot=(n,t,cl)=>{let h='';for(let i=0;i<t;i++)h+=`<span style="color:${i<n?cl:'rgba(255,255,255,.28)'}">●</span>`;return h};
   let bp='',bb='';
-  if(P){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]];
+  if(P){const B=batOf(e),Pp=ROSTERS[e.pit[0]].pit[e.pit[1]];
     bp=`<b>P</b> ${Pp.name}`+(sh?`<span class="sp">${e.kmh} km/h ${e.pt}</span>`:'')+`<span class="st">NP ${np}</span>`;
     bb=`<b>${B.num}</b> ${B.name}${B.hand==='L'?'<small>（左打）</small>':''}<span class="av"><i>AVG</i> ${B.avg.toFixed(3).replace(/^0/,'')}</span><span class="st">今日 ${e.line.replace(' 打數 ','打 ').replace(' 安打','安').replace('，',' ')}</span>`}
   const on=i=>s.b[i]&&e.k!=='BRK'?'#ffd24d':'rgba(255,255,255,.18)',dia=`<svg class="dia" viewBox="0 0 66 46"><g stroke="rgba(255,255,255,.7)" stroke-width="1.2"><rect x="26" y="4" width="14" height="14" transform="rotate(45 33 11)" fill="${on(1)}"/><rect x="43" y="21" width="14" height="14" transform="rotate(45 50 28)" fill="${on(0)}"/><rect x="9" y="21" width="14" height="14" transform="rotate(45 16 28)" fill="${on(2)}"/></g></svg>`;
@@ -1558,9 +1740,9 @@ function hud(e,u,s){
     document.querySelectorAll('.bases i').forEach((d,i)=>d.classList.toggle('on',!!s.b[[1,0,2][i]]&&e.k!=='BRK'))}
   /* matchup */
   let m='';
-  if(e.k==='P'){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]];m=`打者 <b>${B.num} ${B.name}</b>（${B.pos}）<br><small>${e.line}</small>投手 ${Pp.num} ${Pp.name}<small>本場用球數 ${e.pc}</small>`}
+  if(e.k==='P'){const B=batOf(e),Pp=ROSTERS[e.pit[0]].pit[e.pit[1]];m=`打者 <b>${B.num} ${B.name}</b>（${B.pos}）<br><small>${e.line}</small>投手 ${Pp.num} ${Pp.name}<small>本場用球數 ${e.pc}</small>`}
   {const pi=$('pinfo');let h='';
-    if(e.k==='P'&&e.r!=='ibb'&&e.r!=='bk'&&!e.po){const B=ROSTERS[e.bat[0]].bat[e.bat[1]],Pp=ROSTERS[e.pit[0]].pit[e.pit[1]],sh=u>=RELEASE+.05&&u<ARRIVE+4,rt=x=>Math.round(x*70-12);
+    if(e.k==='P'&&e.r!=='ibb'&&e.r!=='bk'&&!e.po){const B=batOf(e),Pp=ROSTERS[e.pit[0]].pit[e.pit[1]],sh=u>=RELEASE+.05&&u<ARRIVE+4,rt=x=>Math.round(x*70-12);
       h=`<b>投</b> ${Pp.num} ${Pp.name} <small>${e.pline}・${e.pc} 球</small><br><small>球威 ${rt(Pp.stuff)}　控球 ${rt(Pp.ctrl)}</small><br>`+(sh?`<span class="spd">${e.kmh}</span> km/h <small>${e.pt}</small>`:'<small>&nbsp;</small>')+`<br><b>打</b> ${B.num} ${B.name} <small>${e.line}</small><br><small>擊球 ${rt(B.con)}　長打 ${rt(B.pow)}　選球 ${rt(B.eye)}</small>`}
     if(pi.dataset.k!==h){pi.dataset.k=h;pi.innerHTML=h;pi.hidden=!h}}
   if($('matchup').dataset.k!==m){$('matchup').dataset.k=m;$('matchup').innerHTML=m}
@@ -1640,7 +1822,22 @@ const TIGHT_FOV=2.4,TIGHT_OUT_AT=RELEASE-.6,TIGHT_OUT_DUR=.45,TIGHT_AIM_Y=1.45;
 const tightW=(e,u)=>!e||e.k!=='P'||e.r==='ibb'||e.r==='bk'||e.po||!e.c0||e.c0[0]+e.c0[1]!==0||u>=TIGHT_OUT_AT+TIGHT_OUT_DUR?0:1-ease(sat01((u-TIGHT_OUT_AT)/TIGHT_OUT_DUR));
 /* #209 item 1 (render/platecam.js): the play at the plate, auto seat only. A high home camera behind the net on a narrow lens while a runner is tagged
    or tags up at home; weight = pure function of (event, time), camera only. Loaded by dynamic import: until it is in, the weight is 0. */
+let leadM=null;import(new URL('lead.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{leadM=M}).catch(err=>console.warn('runner lead stance off',err));/* #268 */
 let platecamM=null;import(new URL('platecam.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{platecamM=M}).catch(err=>console.warn('plate camera off',err));
+/* #211: tight key-shadow frustum on the batter while the tight shot is on, max only (render/keyfit.js, pure). Light direction is unchanged. */
+let keyfitM=null,keyTight=false;import(new URL('keyfit.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{keyfitM=M}).catch(err=>console.warn('key fit off',err));
+/* #211 item 4: depth of field on the tight batter shot and the plate camera, max only (render/dof.js, pure). Focus = distance to the batter / the plate aim. */
+let dofM=null;import(new URL('dof.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{dofM=M}).catch(err=>console.warn('dof off',err));
+function dofFrame(tw,pw){if(!dofM||!dofU.scale)return;let d=0;if(gfxMax){const t=pw>=dofM.DOF_MIN_W&&platecamM?_dofT.set(...platecamM.PLATE_AIM):tw>0?batter.g.position:null;if(t)d=rig.position.distanceTo(t)}
+  const p=dofM.dofParams(gfxMax?tw:0,gfxMax?pw:0,d);dofU.focus.value=p.focus;dofU.len.value=p.length;dofU.scale.value=p.scale}
+const _dofT=new THREE.Vector3();
+/* #211 item 4: per-object motion blur (bat, arm, ball) on the same two shots, max only; render/mblur.js is pure, a frame over MB_MAX_DT is a jump and gets none */
+let mbM=null;import(new URL('mblur.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{mbM=M;MB_SAMPLES=M.MB_SAMPLES}).catch(err=>console.warn('motion blur off',err));
+function mbFrame(tw,pw,dt){if(!mbM||!mbU.scale)return;const p=mbM.mbParams(gfxMax?tw:0,gfxMax?pw:0,dt);mbU.scale.value=p.scale;mbU.cap.value=p.cap}
+/* #209 item 3: video finish on max (render/finish.js, pure). The grain frame is a function of the game time, so a seek shows the grain of playing there. */
+let finM=null;import(new URL('finish.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{finM=M;if(finU.knee){finU.knee.value=M.ROLL_KNEE;finU.max.value=M.ROLL_MAX;finU.amt.value=M.GRAIN_AMT;finU.lift.value=M.SOFT_LIFT}}).catch(err=>console.warn('finish off',err));
+function finFrame(){if(finM&&finU.f)finU.f.value=finM.grainFrame(curT())}
+function fitKey(on){if(!keyfitM)return;on=on&&gfxMax;if(!on&&!keyTight)return;const f=keyfitM.keyFit(on?batter.g.position:null),c=key.shadow.camera;keyTight=on;key.target.position.set(...f.target);key.position.set(...f.position);Object.assign(c,{left:-f.half,right:f.half,top:f.half,bottom:-f.half});c.updateProjectionMatrix();key.target.updateMatrixWorld()}
 function directorShot(){const e=curEvent,u=curU;let id=5;
   if(e&&e.k==='P'){if(u<ARRIVE+.35)id=3;else if(e.r==='inplay'&&u<ARRIVE+e.play.hang+.6)id=4;else id=5}
   if(id!==shotNow){shotNow=id;FOLLOW_T.set(0,1.3,-9);camera.fov=fitFov(SEATS[id].follow?30:SEATS[id].fov);camera.updateProjectionMatrix()}
@@ -1660,11 +1857,11 @@ function placeCamera(dt){const s=SEATS[seat].director?directorShot():SEATS[seat]
   const tw=s.auto&&!trk&&!zoomed&&batter.g.visible?tightW(curEvent,curU):0;
   if(tw>0){const bp=batter.g.position;tx=lerp(tx,bp.x,tw);ty=lerp(ty,TIGHT_AIM_Y*(batter.k||1),tw);tz=lerp(tz,bp.z,tw)}
   const pw=s.auto&&!zoomed&&platecamM?platecamM.plateW(curEvent,curU,ARRIVE):0;
-  if(pw>0){rig.position.set(lerp(cs.x,0,pw),lerp(py,platecamM.PLATE_CAM_Y,pw),lerp(cs.z,platecamM.PLATE_CAM_Z,pw));const A=platecamM.PLATE_AIM;tx=lerp(tx,A[0],pw);ty=lerp(ty,A[1],pw);tz=lerp(tz,A[2],pw)}
+  if(pw>0){rig.position.set(lerp(cs.x,0,pw),lerp(py,platecamM.PLATE_CAM_Y,pw),lerp(cs.z,platecamM.PLATE_CAM_Z,pw));const A=platecamM.plateAim?platecamM.plateAim(curEvent,curU,ARRIVE):platecamM.PLATE_AIM;tx=lerp(tx,A[0],pw);ty=lerp(ty,A[1],pw);tz=lerp(tz,A[2],pw)}
   const rp=rig.position,[y,p]=look(rp.x,rp.y,rp.z,tx,ty,tz);camera.rotation.set(clamp(p+pitchOff,-1.3,.9),y+yawOff,0);
   const fov=fitFov(zoomed?bf*.4:pw>0?lerp(tw>0?lerp(bf,TIGHT_FOV,tw):bf,platecamM.PLATE_FOV,pw):tw>0?lerp(bf,TIGHT_FOV,tw):bf);
   if(tw>0||tightPrev||pw>0||platePrev){if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}/* the tight shot is a cut in and a timed ease out: no lag */
-  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0}
+  else if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix()}tightPrev=tw>0;platePrev=pw>0;fitKey(tw>0&&gfxMax);dofFrame(tw,pw);mbFrame(tw,pw,dt);finFrame()}
 $('seats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;seat=+b.dataset.seat;yawOff=pitchOff=0;for(const x of $('seats').children)x.setAttribute('aria-pressed',x===b)});
 $('gear').onclick=()=>{if(isEditing())return;const b=$('bar');b.classList.toggle('collapsed');$('gear').textContent=b.classList.contains('collapsed')?'⚙ 設定':'✕ 收起';bugPlace()};
 
@@ -1767,7 +1964,7 @@ import(new URL('grade.js',cpHere||location.href.replace(/[^/]*$/,'render/')).hre
 const BARCURVE=import(new URL('barcurve.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).catch(err=>{console.warn('bar curve off',err);return null});
 const COMPACT=import(new URL('compact.js',cpHere||location.href.replace(/[^/]*$/,'render/')).href).catch(err=>{console.warn('compact showing off',err);return null});
 function peelLen(team,tl){for(let t=0;t<CP_PEEL_MAX;t+=CP_PEEL_STEP)if(!peelAt(team,tl,t))return t;return CP_PEEL_MAX}
-const jogEnd=(from,t0)=>t0+Math.max(...FIELDER_KEYS.map(k=>jogRank(k)*JOG_GAP+Math.hypot(fielders[k].home[0]-from[0],fielders[k].home[1]-from[1])/JOG_SPEED));
+const jogEnd=(from,t0,end)=>t0+Math.max(...FIELDER_KEYS.map(k=>{const h=end&&end(k)||fielders[k].home;return jogRank(k)*JOG_GAP+Math.hypot(h[0]-from[0],h[1]-from[1])/JOG_SPEED}));
 /* [{t, d, head, tail, kind}] for render/compact.js: nothing moves in [0, head) and [tail, d) of each event (event-local s). A ball in play,
    a steal and a hit batsman are never cut (their motion depends on the whole plan). Scorers of earlier plays still peeling off to their
    dugout (drawn until PEEL_LOOK s after their play) keep any event they cross moving. */
@@ -1775,18 +1972,20 @@ function cpEvents(g){const ev=g.ev;
   return ev.map((e,i)=>{const off=e.s0?e.s0.half:0;let pe=0,head=0,tail=e.d;
     for(let j=i-1;j>=0&&e.t-ev[j].t<PEEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
       for(const [,to,,tl] of q.moves||[])if(to===4)pe=Math.max(pe,Math.min(q.t+PEEL_LOOK,q.t+tl.arriveT+peelLen(off,tl))-e.t)}
+    {const w=welNow(ev,i,e.t,off);if(w)pe=Math.max(pe,w[0].end-w[1])}/* #266: teammates of a home run still walking back */
     if(e.k==='VOTE'){head=e.d;tail=0}
     else if(e.k==='CHG'||e.k==='VIS'){const vp=visitOf(e);if(vp){head=vp.go;tail=vp.end}else if(visitM){head=e.d;tail=0}}/* #81: the manager's walk to the mound and back; module not in yet -> keep it all */
-    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
-    else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),stJogEnd(off,0),odEnd(ev,i));
+    else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to}),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
+    else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),jogEnd([dugout(1-off)[0],INTRO_Z],0,k=>preEndOf(ev,i,k)),stJogEnd(off,0),odEnd(ev,i));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
-      for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):CP_RUNNER_SETTLE));
-      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?e.plan.back.arrive+PO_TURN:e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
-    if(e.k==='P')tail=Math.max(tail,u2End(ev,i));/* #42 slice 9: U2 jogs between his inside spot and his post */
+      for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):Math.max(CP_RUNNER_SETTLE,LEAD_WALK_WAIT+LEAD_WALK_DUR)));/* #23: walk-out to the lead */
+      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
+    if(e.k==='P'&&e.r!=='inplay')tail=Math.max(tail,retEnd(ev,i));/* #42: fielders walking to the next pitch's depth (retDrift) */
+    if(e.k==='P')tail=Math.max(tail,u2End(ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
-    return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'||e.k==='VIS'?'change':'pitch',jogEnd:e.k==='BRK'?jogEnd(dugout(off),BRK_ON_AT):0}})}/* #144: jogEnd = new defence at its posts */
+    return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'||e.k==='VIS'||e.k==='SUB'?'change':'pitch',jogEnd:e.k==='BRK'?Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to})):0}})}/* #144: jogEnd = new defence at its posts */
 let cpClock=null,cpFor=null,cpReal=false;
 try{cpReal=!!(window.SITE&&window.SITE.dev)&&(localStorage.getItem('zu_realTime')==='1'||new URLSearchParams(location.search).get('rt')==='1')}catch(e){}
 /* the cuts need the booth's line times, so they are known once the script has loaded (a second or so; real time until then) */
@@ -1840,7 +2039,7 @@ if(window.OPENING&&window.HIGHLIGHTS&&new URLSearchParams(location.search).get('
 
 
 /* ---------- Action studio: pick one kind of action, find examples in a fixed seed bank, loop it on its own ---------- */
-const isL=e=>e.bat&&ROSTERS[e.bat[0]].bat[e.bat[1]].hand==='L';
+const isL=e=>e.bat&&batOf(e).hand==='L';
 const pl=(e,f)=>e.k==='P'&&e.play&&f(e.play);
 const K3=e=>/三振/.test(e.desc||'');
 const STUDIO_SEEDS=40,STUDIO_SEEDS_RARE=400,STUDIO_MAX=30;/* rare acts (5th field) scan a bigger seed bank */
@@ -1869,6 +2068,10 @@ const STUDIO_ACTS=[
   ['跑壘','2B','跑壘・二壘安打',e=>pl(e,p=>p.res==='2B')],
   ['跑壘','3B','跑壘・三壘安打',e=>pl(e,p=>p.res==='3B')],
   ['跑壘','homeplay','本壘攻防・捕手觸殺',e=>pl(e,p=>true)&&e.plan&&e.plan.CV&&e.plan.CV.base===4&&e.plan.tagPlay,STUDIO_SEEDS_RARE],
+  ['跑壘','outhome','一壘安打・二壘跑者衝本壘遭捕手觸殺（#38）',e=>pl(e,p=>!!p.outHome),STUDIO_SEEDS_RARE],
+  ['跑壘','stretch','一壘安打・打者硬闖二壘遭觸殺（#38）',e=>pl(e,p=>!!p.outStretch),STUDIO_SEEDS_RARE],
+  ['跑壘','bobble','一壘安打・外野漏接、跑者多推進（#38）',e=>pl(e,p=>!!p.errAdvance),STUDIO_SEEDS_RARE],
+  ['跑壘','wildthrow','滾地球・內野暴傳一壘、跑者多推進（#38）',e=>pl(e,p=>!!p.wildThrow),STUDIO_SEEDS_RARE],/* the ball ends on the ground past first (plan.wild) */
   ['跑壘','score','跑壘・跑者回本壘得分',e=>e.k==='P'&&e.play&&e.play.res!=='HR'&&e.runs>0],
   ['跑壘','HR','跑壘・全壘打繞壘',e=>pl(e,p=>p.res==='HR')],
   ['跑壘','sb','盜壘',e=>e.k==='P'&&e.sbGo],
@@ -1962,13 +2165,13 @@ function tierHudInit(){if(!IS_DEV||tierHud!==null)return;tierHud=false;let on=tr
   ($('tag')||document.body).appendChild(el);tierHud=el}
 function tierHudText(){if(tierHud===null)tierHudInit();if(!tierHud)return;
   const t=gfxMax?'畫質 max':`畫質 ${gfxTier}/${TIER_MAX}${maxWish&&!gfxTier?'（最高沒開）':''}`;tierHud.textContent=t;
-  tierHud.title=`${gfxMax?`max: ${PP?PP.fx||'-':'no post'} (t TRAA, g SSGI, r SSR; - = off)`:`0 = 最好、${TIER_MAX} = 最省`}・點一下收起來`}
+  tierHud.title=`${gfxMax?`max: ${PP?PP.fx||'-':'no post'} (t TRAA, g SSGI, r SSR, d DoF, m motion blur; - = off)`:`0 = 最好、${TIER_MAX} = 最省`}・點一下收起來`}
 function setTier(n){const was=gfxTier;gfxTier=clamp(n,0,TIER_MAX);if(gfxTier>0)gfxMax=false;try{localStorage.setItem('zu_tier',`${gfxTier}@${Date.now()}`)}catch(e){}
   renderer.setPixelRatio(gfxMax?devicePixelRatio:Math.min(devicePixelRatio,[2,1.25,1,1][gfxTier]));renderer.setSize(innerWidth,innerHeight);
   {const sm=gfxMax?MAX_SHADOW_MAP:gfxTier?1024:2048;key.shadow.mapSize.set(sm,sm);key.shadow.radius=gfxMax?MAX_SHADOW_RADIUS:TIER_SHADOW_RADIUS}/* radius is a uniform: no rebuild *//* the shadow node resizes its map from mapSize every frame: a size change needs no rebuild */
   PP=gfxTier>=2||gfxLow||OFF.has('post')?null:(PP&&PP.max===gfxMax&&PP.fx===fxKey()?PP:setupPost());if(!!scene.environment!==gfxMax)skyEnv();
   const sh=gfxTier<3&&!OFF.has('shadowmap');renderer.shadowMap.enabled=sh;key.castShadow=sh;
-  envOn=gfxTier<2;cloudSet();bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
+  envOn=gfxTier<2;cloudSet();dampSet();bugs.pts.visible=envOn;setCrowdDensity(CROWD_DENSITY[gfxTier]);if(!envOn)blades.im.visible=false;
   /* #133: only shadows on/off and post on/off change the shaders. A drop that changes neither (0->1: resolution, map size, crowd) used to
      rebuild every material and freeze the picture for the whole warm-up, right after the click on a first visit; now it costs nothing. */
   tierHudText();/* #258: before the no-rebuild return below, so every tier change shows */
@@ -2085,6 +2288,22 @@ function introScene(now){if($('intro').hidden||!introM||renderer.xr&&renderer.xr
   for(const f of [...Object.values(fielders),...runners,batter,ump,odNext,odDeck,...umpB,...coaches])f.g.visible=false;
   const c=introM.introShot(now/1000),[y,p]=look(c.x,c.y,c.z,c.tx,c.ty,c.tz);rig.position.set(c.x,c.y,c.z);camera.rotation.set(p,y,0);
   const fov=fitFov(c.fov);if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}
+/* #209 item 2, part 3 (render/wear.js): on max the scuffs of the game so far are painted on the field canvas, a function of the pitch count before the current event
+   (every repaint starts from a clean copy). Dabs are drawn like the #150 static ones; the texture is re-uploaded only when the pitch count changes. */
+let wearM=null,wearBk=null,wearN=-1,wearEv=null,wearPre=null,wearDr=null;const WEAR_BASES=[[0,0],[19.4,-19.4],[0,-38.8],[-19.4,-19.4],[0,0]];import(new URL('wear.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{wearM=M}).catch(err=>console.warn('ground wear off',err));
+function wearTick(i){
+  if(!gfxMax||!wearM||!FIELD_CV||!game)return;
+  if(wearEv!==game.ev){wearEv=game.ev;wearPre=wearM.pitchPrefix(game.ev);wearDr=wearM.slideDrags(game.ev,WEAR_BASES);wearN=-1}
+  const dr=wearM.dragsBefore(wearDr,i),n=(wearPre[i]||0)+':'+dr.length;if(n===wearN)return;
+  const {c,g,X,Y,S,t}=FIELD_CV;
+  try{
+    if(!wearBk){wearBk=document.createElement('canvas');wearBk.width=c.width;wearBk.height=c.height;wearBk.getContext('2d').drawImage(c,0,0)}
+    else{g.globalCompositeOperation='copy';g.drawImage(wearBk,0,0);g.globalCompositeOperation='source-over'}/* always from the clean canvas: wear is a function of n only */
+    for(const d of wearM.wearDabs(wearPre[i]||0)){const s=d.r*S;g.fillStyle=`rgba(${DIRT_RGB},${d.a})`;g.fillRect(X(d.x)-s/2,Y(d.z)-s/2,s,s*.75)}
+    g.lineCap='round';for(const d of dr){g.strokeStyle=`rgba(${DIRT_RGB},${d.a})`;g.lineWidth=d.w*S;g.beginPath();g.moveTo(X(d.x0),Y(d.z0));g.lineTo(X(d.x1),Y(d.z1));g.stroke()}/* #209 part 8: slide drag marks */
+    t.needsUpdate=true;wearN=n;
+  }catch(e){wearN=n;console.warn('ground wear',e)}
+}
 renderer.setAnimationLoop(()=>{
   const now=performance.now(),dtMs=now-lastNow,dt=Math.min(dtMs/1000,.1);lastNow=now;if(!warming)fpsTick(dtMs);if(!bootReady&&warmStarted)bootGaps.push(dtMs);
   if(LIVE_ENABLED&&mode==='live'&&liveStart()!==gameStart&&(Date.now()-gameStart)/1000>game.dur){loadGame(liveStart());cues.clear()}
@@ -2095,17 +2314,17 @@ renderer.setAnimationLoop(()=>{
   {const k=cpOn()&&mode==='opening'?cpClock.dip(replayT):0;if(k!==cutDipK){cutDipK=k;cutDip.style.opacity=String(k)}}
   const T=curT(),i=findIdx(Math.max(0,T)),e=game.ev[i],u=Math.max(0,T)-e.t;
   if(i!==lastIdx){if(lastIdx>=0&&i<lastIdx-1)cues.clear();lastIdx=i;if(e.big===2&&mode==='live'&&u<1)setTimeout(()=>bigText(e.walkoff?'再見！':'全壘打！'),Math.max(0,(e.showAt-u)*1000))}
-  curEvent=e;curU=u;if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
+  wearTick(i);curEvent=e;curU=u;dustTick(e,u);if(e.k==='VOTE'&&e.pending&&mode!=='replay'&&mode!=='studio'&&mode!=='opening')resolveVote(e);
   voteEv=mode==='studio'?null:findVote(Math.max(0,T));if(voteEv&&sayOn&&!cues.has(voteEv.id+'open')&&mode!=='replay'){cues.add(voteEv.id+'open');say(0,`${TEAMS[voteEv.team].short}教練團請球迷幫忙決定。${voteEv.q}`,true)}
   const s=poseScene(e,u,dt,i);staffGiveWay();/* #42: staff step off their posts for runners and fielders */
   if(plFresh||scrubbing){plFresh=false;for(const f of [...Object.values(fielders),...runners,ump,...umpB,...coaches,mgr]){f.px=f.g.position.x;f.pz=f.g.position.z}}/* a jump is not a stride */
-  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck,...umpB,...coaches,mgr].forEach(f=>{if(f.g.visible)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);
+  for(const k of FIELDER_KEYS)if(!fielders[k].noAnim)animate(fielders[k],dt);runners.forEach(r=>{if(!r.noAnim)animate(r,dt)});[odNext,odDeck,...umpB,...coaches,mgr].forEach(f=>{if(f.g.visible)animate(f,dt)});welF.forEach(f=>{if(f.g.visible&&!f.noAnim)animate(f,dt)});if(!ump.noAnim)animate(ump,dt);pmFieldApply();/* #274: after animate, so its key holds */
   hud(e,u,s);if(mode!=='studio'&&!scrubbing)commentary(T);renderVote(voteEv,T);plUpdate();
   {const iv=!$('intro').hidden;if(iv!==introVis){introVis=iv;$('bug').style.visibility=iv?'hidden':''}}/* Hide the scorebug on the intro screen */
   const st=statusText(),sk=st.txt+st.sub;if(sk!==stKey){stKey=sk;$('status').textContent=st.txt;$('status').className=st.cls;$('sched').textContent=st.sub;
     $('introStatus').textContent=!LIVE_ENABLED?'按進場，馬上開一場新的比賽':st.cls==='live'?`現在 ${inningLabel(s)}，${TEAMS[0].short} ${s.sc[0]}：${s.sc[1]} ${TEAMS[1].short}，直播中`:st.txt}
   const playing=e.k==='P'||e.k==='BRK';drumOn=false;excite=Math.max(0,excite-dt*.12);
-  updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);introScene(now);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
+  if(gfxMax&&window.PL&&PL.setEyeClock)PL.setEyeClock(curT());updateCrowd(now,excite,s.half,playing&&$('intro').hidden);updateAudio(playing&&$('intro').hidden);placeCamera(dt);introScene(now);if(CS_ON)updateContactShadows();if(envOn){updateBugs(now/1000);updateBlades()}
   warmBarTick(now);if(warming)return;/* the last drawn picture stays up while the materials compile */
   if(PP){try{PP.render()}catch(err){console.error(err);PP=null}}else renderer.render(scene,camera);entryFrame(performance.now());if(warmFramesLeft>0)warmFramesLeft--;
   if(readyN<READY_FRAMES){++readyN;BOOT_MARK(`f${readyN}`);if(readyN===READY_FRAMES)readyNow()}

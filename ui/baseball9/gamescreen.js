@@ -3,12 +3,13 @@
  * the computer does the other side. The result stays on this page in window.baseball9GameResult (local only). */
 import { createGame, SHIFTS, MODE_NAME } from './game.js';
 import { PT } from './practice.js';
-import { createField, SPEEDS } from './field.js';
+import { SPEEDS } from './field.js';
+import { openField } from './field3d.js';
 import { describeHalf, describeBases, describeCount, describeScore, describeLine, describeGameResult, canSteal } from './text.js';
 
 const $ = id => document.getElementById(id);
 const APPS = { pull: '拉打', mid: '中間', push: '推打', bunt: '觸擊' };
-let field = null, speedI = 0, g = null, mode = 'one', app = 'mid', ptk = 'fb', shift = 'N', steal = false, hold = false;
+let opening = false, field = null, speedI = 0, g = null, mode = 'one', app = 'mid', ptk = 'fb', shift = 'N', steal = false, hold = false;
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function chips(box, items, cur, pick) {
@@ -46,7 +47,7 @@ function play(r, c) {
   draw();
 }
 export function startGame() {
-  if (!field) { field = createField($('gfield')); $('gfbar').hidden = !field; $('gfield').hidden = !field; }
+  if (!field && !opening) { opening = true; openField($('gfield')).then(f => { field = f; opening = false; $('gfbar').hidden = !field; $('gfield').hidden = !field; if (field) field.skip(); }); }
   if (field) field.skip();
   g = createGame(); window.baseball9GameResult = null; mode = 'one'; app = 'mid'; ptk = 'fb'; shift = 'N'; steal = hold = false;
   $('menu').hidden = true; $('stage').hidden = true; $('gstage').hidden = false; $('gend').hidden = true; $('glog').textContent = ''; $('gtxt').textContent = ''; draw();
