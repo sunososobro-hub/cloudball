@@ -132,7 +132,7 @@ export function simGame(seed, decisions, opts) {
       add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
-    if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0 });
+    if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0, groundRule: e.play && e.play.groundRule ? true : undefined });
     out.sort((a, b) => a.time - b.time);
     for (const o of out) emit(o.type, o.time, o.data);
   };
@@ -425,6 +425,9 @@ export function simGame(seed, decisions, opts) {
             const bobble = res === '1B' && OUTFIELD_KEYS.includes(fielder) && R() < K.OF_BOBBLE_1B_P;
             /* advancing on an error (#38): the infielder's throw to first sails past the bag; everyone takes one base more */
             const wildThrow = res === 'E' && type === 'GB' && !bunt && fielder !== '1B' && R() < K.WILD_THROW_SHARE;
+            /* #614 part 7: ground-rule double: an air-ball double whose roll reaches the wall bounces over it; the ball is dead
+             * and every runner gets exactly two bases (the runner from first stops at third) */
+            const groundRule = res === '2B' && type !== 'GB' && !bunt && Math.sqrt(lx * lx + lz * lz) * K.HIT_ROLL_FACTOR > K.FENCE_R - K.WALL_PICKUP && R() < K.GRD_OF_WALL_2B_P;
             for (let i = 2; i >= 0; i--) {
               if (!B[i]) continue; let to = i + 1 + adv;
               if (bobble || wildThrow) { to = Math.min(HOME, to + 1); moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i]; continue; }
@@ -433,7 +436,7 @@ export function simGame(seed, decisions, opts) {
                 sendHome = true; moves.push([2, HOME, B[1]]); continue;   /* scores or is out: decided by the throw below */
               }
               if (res === '1B' && i === 0 && !nb[2] && R() < K.FIRST_TO_THIRD_ON_SINGLE) to = 3;
-              if (res === '2B' && i === 0 && R() < K.SCORE_FROM_1ST_ON_DOUBLE) to = HOME;
+              if (res === '2B' && i === 0 && !groundRule && R() < K.SCORE_FROM_1ST_ON_DOUBLE) to = HOME;
               to = Math.min(HOME, to); while (to < HOME && nb[to - 1]) to++;
               moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i];
             }
@@ -446,13 +449,14 @@ export function simGame(seed, decisions, opts) {
             moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb;
             if (bobble) { ctx.fumble = K.OF_BOBBLE_TIME; play.errAdvance = true; }
             if (wildThrow) play.wildThrow = true;
+            if (groundRule) play.groundRule = true;
             const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble, wildThrow }); plan = h.plan;
             if (sendHome) { if (h.safe) runs++; else { outs = h.outs; play.outHome = true; } }
             if (throwHome) { play.onThrow = true; }
             let hitRes = res;   /* the scorer's hit: a stretch that is safe is a double, one thrown out stays a single */
             if (stretch) { if (h.safe) hitRes = '2B'; else { outs = h.outs; play.outStretch = true; nb[1] = null; } }
             if (res === 'E') { st.E[def]++; result = 'error'; desc = COPY.error(name, type === 'GB'); }
-            else { if (bobble) st.E[def]++; bs.h++; st.H[off]++; ps.h++; if (hitRes === '2B') bs.d++; if (hitRes === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[hitRes]; desc = COPY.hit(name, hitRes); }
+            else { if (bobble) st.E[def]++; bs.h++; st.H[off]++; ps.h++; if (hitRes === '2B') bs.d++; if (hitRes === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[hitRes]; desc = groundRule ? COPY.groundRuleDouble(name) : COPY.hit(name, hitRes); }
             if (runs) desc += COPY.drivesIn(runs);
             if (play.onThrow) desc += COPY.onThrow(name);
             if (play.outHome) desc += COPY.outAtHome(B[1]);

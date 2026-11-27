@@ -41,6 +41,7 @@ export const COPY = {
   homer: (n, runs) => `${n} ${runs === 4 ? '滿貫全壘打！' : runs > 1 ? `${runs} 分砲！` : '陽春全壘打！'}`,
   hit: (n, res) => `${n} ${HIT_NAME[res]}`,
   infieldHit: n => `${n} 內野安打`,
+  groundRuleDouble: n => `${n} 球彈出全壘打牆，場地規則二壘安打`,
   error: (n, ground) => `${n} 擊出${ground ? '滾地球' : '飛球'}，守備失誤上壘`,
   drivesIn: runs => `，帶回 ${runs} 分`,
   doublePlay: (n, f) => `${n} 擊出${FIELDER_NAME[f]}方向滾地球，雙殺！`,
