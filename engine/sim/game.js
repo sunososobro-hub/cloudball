@@ -342,7 +342,7 @@ export function simGame(seed, decisions, opts) {
             const k = resolveDroppedThird(ctxOf(null), span(R, K.K3_RETRIEVE));
             plan = k.plan; outs = k.outs; e.k3 = true; e.big = k.ok ? K.BIG.NOTABLE : K.BIG.NONE;
             if (k.ok) { const f = forceAdvance(name); moves = f.moves; runs = f.runs; for (const m of moves) if (m[0] === 0) m[3] = k.tl; }
-            desc = COPY.droppedThird(name, e.r === 'cstr', k.ok, runs);
+            desc = COPY.droppedThird(name, e.r === 'cstr', k.ok, runs, !!k.plan.k3tag);
           } else {
             if (e.r === 'sstr' && look() < K.FOUL_TIP_OF_WHIFF) e.tip = true;
             outs.push(strikeout({ batter: name, looking: e.r === 'cstr', strikes, at: K.ARRIVE + K.CATCH_SNAP }));
