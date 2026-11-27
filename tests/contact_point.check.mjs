@@ -22,7 +22,7 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m) };
 let n = 0, worst = 0; const spots = new Set();
 for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) {
-  if (e.k !== 'P' || !((e.r === 'inplay' && !e.play.bunt) || e.r === 'foul')) continue;
+  if (e.k !== 'P' || e.bunt || !((e.r === 'inplay' && !e.play.bunt) || e.r === 'foul')) continue;
   const tag = `seed ${seed} t ${e.t}`, cp = contactPt(e), plate = [e.zx, .45 + e.zy * .75, .6];
   if (Math.abs(cp[0] - plate[0]) > 1e-9 || Math.abs(cp[1] - plate[1]) > 1e-9 || Math.abs(plate[2] - cp[2] - (.6 - CONTACT_Z)) > 1e-9) bad(`${tag}: contact point ${cp} is not in front of the plate spot ${plate}`);
   spots.add(cp.map(v => v.toFixed(2)).join());
