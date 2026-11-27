@@ -942,6 +942,8 @@ let buntClip=null,buntClipP=null,BCL=null;
 /* #646: base-hit roll under friction (render/roll.js); null until loaded -> the old fixed .8 s arc */
 let RL=null;import(new URL('roll.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{RL=M}).catch(err=>console.warn('roll off',err));
 let TIPB=null;import(new URL('tipball.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{TIPB=M}).catch(err=>console.warn('tip ball off',err));/* #631 */
+let GRDP=null;/* #718: ground-rule double ball (render/grd_path.js) */
+import(new URL('grd_path.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{GRDP=M}).catch(err=>console.warn('grd path off',err));
 let GBP=null;/* #645: grounder hops (render/gb_path.js gbPath / gbGlove) */
 import(new URL('gb_path.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{GBP=M}).catch(err=>console.warn('gb path off',err));
 import(new URL('bunt_clip.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{BCL=M}).catch(err=>console.warn('bunt clip off',err));
@@ -1916,6 +1918,7 @@ function poseScene(e,u,dt,ei){
         else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* Glove raised holding the ball while touching the base */
         else throwPose(f,u2-catchT,TH.xfer,tgtF)}}
     if(u2>0&&u2<T)bp=p.type==='GB'?gbAt(u2):flyPath(e,hit0,land,T)(u2);
+    else if(u2>=T&&!hr&&p.groundRule&&GRDP)bp=GRDP.grdAt(GRDP.grdPlan(land),u2-T);/* #718: one bounce on the warning track and over the wall; the ball is dead, nobody picks it up */
     else if(u2>=T&&!hr){
       if(hit&&u2<T+rollDur)bp=rollBall(u2-T);
       else{const fx=f.g.position.x,fz=f.g.position.z,c=CV.key&&fielders[CV.key];
