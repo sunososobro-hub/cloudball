@@ -17,6 +17,7 @@
  *   replayFarm(list, id, loadEngine)   replay.js replayRecord of that record; { status: 'unknown' } for a missing id
  *   farmUrl(id)                        'play.html?f=<id>'
  *   farmOpening(list, id, loadEngine)  what play.html needs: { rec, opening: { seed, game, farm: id } | null, status, reason }
+ *   farmGameOn(list, team, night)      the record of team index `team` (away or home) on that night (0-based), or null (#600 part 3)
  *   recordBytes(rec)                   size of the record as written to the file (UTF-8 bytes of its JSON line)
  *   yearBytes(perGame, games)          estimated size of `games` records */
 import { replayRecord, recordProblem } from './replay.js';
@@ -44,6 +45,8 @@ export function farmRecord({ id, day, seed, commit, version, teams = [0, 1], opt
   if (why) throw new Error(`farm record ${id}: ${why}`);
   return rec;
 }
+
+export const farmGameOn = (list, team, night) => (Array.isArray(list) && Number.isInteger(team) && team >= 0 && list.find(r => r && r.day === night && Array.isArray(r.teams) && r.teams.includes(team) && !farmProblem(r))) || null;
 
 export const findFarm = (list, id) => (Array.isArray(list) && list.find(r => r && r.id === id)) || null;
 

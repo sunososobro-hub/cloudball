@@ -39,4 +39,5 @@ draw();
 /* created players (#399): the D1 list, a few pages at most; no answer (closed, offline, no API on this host) = no rows, no error screen */
 const FA_PAGES = 5;
 async function created() { const rows = []; for (let pg = 0; pg < FA_PAGES; pg++) { const r = await get(`/api/freeagents?sort=new&page=${pg}`); if (!r || !r.ok || !Array.isArray(r.players)) break; rows.push(...r.players); if (!r.more) break; } return rows; }
-Promise.all([...Object.values(DATA_FILES).map(get), created(), get(TRAIN_FILE)]).then(([teams, players, games, rows, train]) => { data = mergeCreated(combine({ teams, players, games }), rows); trainTable = train; draw(); });
+const KEYS = Object.keys(DATA_FILES); /* teams, players, games, farm (#600 part 3: 二軍 replays) */
+Promise.all([...KEYS.map(k => get(DATA_FILES[k])), created(), get(TRAIN_FILE)]).then(r => { data = mergeCreated(combine(Object.fromEntries(KEYS.map((k, i) => [k, r[i]]))), r[KEYS.length]); trainTable = r[KEYS.length + 1]; draw(); });
