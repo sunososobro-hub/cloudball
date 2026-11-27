@@ -1619,6 +1619,12 @@ function prRunners(e,u,i,off,standRunner,showRunner){const [bx,bz]=BASES[i+1],[n
 /* #611 part 2: a defensive replacement (SUB frame, role 'defensive') jogs the new fielder out from the dugout to his position while
    the man he replaces jogs off (dsOut, a spare fielder-kit figure); paths in render/subjog.js dsJog; lineup or module missing -> old swap */
 const dsOut=figure(matDef,pants,true);dsOut.g.visible=false;
+/* #611 part 3: a pitching change (CHG): the old pitcher (dsOut, still on the mound at u 0) walks to the dugout, the reliever (the P figure) jogs in
+   from the pen gate; paths in render/subjog.js pitChange. curPit is still the old pitcher here (the next P frame advances it). */
+function chgPitchers(e,u,def){if(!sjM||!sjM.pitChange)return;const R=ROSTERS[def],od=R.pit[curPit[def]],nw=R.pit[curPit[def]+1],P=fielders.P;if(!od||!nw)return;
+  const J=sjM.pitChange(P.pos,dugout(def),sjM.reliefGate(def),u,e.d),bob=Math.abs(Math.sin(u*9))*.07,still=q=>q[0]===P.pos[0]&&q[1]===P.pos[1];
+  if(J.in){P.g.visible=true;P.g.position.set(J.in[0],still(J.in)?0:bob,J.in[1]);face(P,J.in[2],J.in[3]);setNum(P,nw.num);dress(P,nw);P.setThrows(nw.throws||'R')}else P.g.visible=false;
+  if(J.out){resetPose(dsOut);dsOut.noAnim=false;dsOut.g.visible=true;dsOut.g.position.set(J.out[0],still(J.out)?0:bob,J.out[1]);setNum(dsOut,od.num);dress(dsOut,od);face(dsOut,J.out[2],J.out[3])}}
 function dsFielders(e,u,ei,def){const L=luOf();if(!sjM||!sjM.dsJog||!L||ei<1)return;
   const nw=(L.lineupAt(e,def)||[])[e.lineup],od=(L.lineupAt(game.ev[ei-1],def)||[])[e.lineup],f=nw&&fielders[nw.pos];if(!f||!od)return;
   const J=sjM.dsJog(f.pos,dugout(def),u,e.d),bob=Math.abs(Math.sin(u*9))*.07;
@@ -1654,6 +1660,7 @@ function poseScene(e,u,dt,ei){
   ump.auto=true;ump.armsHeld=false;/* ump never gets resetPose: undo a call of the last frame (#42 slice 8) */ump.g.visible=e.k!=='END'&&e.k!=='PRE';/* #81: introScene hides every figure under the entry card; like the catcher, the plate umpire is shown again by his own pose every frame */poseBattery(e,u,ei>0?game.ev[ei-1]:null);poseMask(e,u);
   if(e.k==='BRK')brkSwap(e,u,off,def,ei);
   const P=fielders.P;P.arms[1].rotation.x=0;PR.up.rotation.set(0,0,0);PR.hg.rotation.set(0,0,0);P.noAnim=e.k==='P';
+  if(e.k==='CHG')chgPitchers(e,u,def);
   /* opening ceremony: defenders jog in from the 1B-side dugout one by one */
   if(e.k==='PRE'){const ev=game&&game.ev&&game.ev[ei]===e?game.ev:null;FIELDER_KEYS.forEach((k,i)=>{const f=fielders[k],h=preEndOf(ev,ei,k)||f.home,d0=jogRank(k)*JOG_GAP,sx=dugout(def)[0],sz=INTRO_Z,tt=sat01((u-d0)/(Math.hypot(h[0]-sx,h[1]-sz)/JOG_SPEED));
     f.g.visible=u>=d0;f.g.position.set(lerp(sx,h[0],tt),tt>0&&tt<1?Math.abs(Math.sin(u*9+i))*.07:0,lerp(sz,h[1],tt));
