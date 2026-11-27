@@ -1785,7 +1785,7 @@ const VOICE=window.COMMENTARY.createVoice({onTalk:talk=>{talkDuck=talk?window.CO
 let sayOn=false,booth=null,boothFor=null,hello=null;
 function say(who,text,urgent){if(sayOn)VOICE.say(WHO[who]||who,text,{urgent:!!urgent})}
 /* #133: one fetch per script, shared by the booth, the compact clock and the highlights, and started behind the entry card (createBooth copies the lines, so sharing the parsed script is safe) */
-const scriptP=new Map(),loadScript=seed=>{if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
+const scriptP=new Map(),loadScript=seed=>{if(window.OPENING&&window.OPENING.farm)return Promise.reject(new Error('二軍 game: no voice script'));/* #600: subtitles only, no clip, no fetch */if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
 if(window.OPENING)loadScript(window.OPENING.seed).catch(()=>{});/* fetched while the park compiles, not after the click */
 function makeBooth(script){const g=game;return window.COMMENTARY.createBooth({stream:g.stream,seed:g.seed,bank:window.COMMENTARY_BANK,script,teams:g.teams.map(i=>TEAMS[i]),describe:x=>g.ev[x.f].desc})}
 function showAiTag(){const v=!(sayOn&&booth&&booth.recorded);if(aiTag.hidden!==v)aiTag.hidden=v}
@@ -1897,7 +1897,7 @@ function startPractice(){stopTalk();mode='practice';gameStart=Date.now();seedCur
   $('seedTag').textContent=`開發版・種子 #${seedCur.toString(16)}`;$('spd').hidden=false;if(LIVE_ENABLED)$('mode').hidden=false;$('mode').textContent='回到直播'}
 /* The frozen first game (league/preseason/opening.json, loaded by play.html): the recorded stream is played from the top, nothing is simulated. */
 function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();cpLoad(game);
-  $('seedTag').textContent=`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
+  $('seedTag').textContent=O.farm?`二軍 ${O.id}・第 ${O.day+1} 夜・重播・引擎 ${O.engine}・種子 #${seedCur}`:`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
 $('practice').onclick=()=>{startPractice();note('新的一場：兩隊都由你調度，暫停時速度會自動回到 1×')};
 $('spd').onclick=e=>{speed=speed===1?4:speed===4?16:1;e.currentTarget.textContent=speed+'×'};
 /* ---------- player bar (#47): play / pause, elapsed / total, a mark at every half inning, click or drag to move. Frozen game only (mode 'opening').

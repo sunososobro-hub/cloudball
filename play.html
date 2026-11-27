@@ -244,22 +244,26 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
 <script type="module">
 /* The intro line comes straight from league/ and does not wait for three.js. */
 import {TEAMS as LEAGUE_TEAMS} from './league/teams.js';
-const [teamA,teamB]=LEAGUE_TEAMS;
+window.setPoster=(teamA,teamB)=>{/* #600: also called with the two teams of a 二軍 game */
 const pick=document.getElementById('introTeam').children;pick[0].textContent=`我挺${teamA.short}`;pick[1].textContent=`我挺${teamB.short}`;
 /* Poster: away team left, home team right (same order as render/game.js). A logo that fails to load leaves a team-colour tile with the short name. */
 for(const [id,T] of [['sideA',teamA],['sideB',teamB]]){
-  const side=document.getElementById(id),mark=side.firstElementChild;side.style.setProperty('--tc',T.css);side.lastElementChild.textContent=T.name;
+  const side=document.getElementById(id),mark=side.firstElementChild;side.classList.remove('nologo');mark.textContent='';side.style.setProperty('--tc',T.css);side.lastElementChild.textContent=T.name;
   const img=new Image();img.alt=T.name;img.draggable=false;
   img.onerror=()=>{img.remove();side.classList.add('nologo');mark.textContent=T.short};
-  img.src=`assets/logos/${T.id}_512.webp`;mark.appendChild(img)}
+  img.src=`assets/logos/${T.id}_512.webp`;mark.appendChild(img)}};
+window.setPoster(...LEAGUE_TEAMS.slice(0,2));
 </script>
 <script type="module">
 /* #133: every load starts at once (they used to wait for each other); each finished stage moves the bar (BOOT.N stages counted). */
+const FARM_ID=(()=>{try{return new URLSearchParams(location.search).get('f')}catch(e){return null}})();
 const B=window.BOOT,st=(k,p)=>p.then(v=>{B.mark(k);B.step();return v},e=>{B.mark(k+'!');B.step();throw e});/* k = the stage name in BOOT.t (! = failed) */
 const pThree=st('three',import('three/webgpu')),pTsl=st('tsl',import('three/tsl')),
   pFx=st('fx',Promise.all([import('three/addons/tsl/display/BloomNode.js'),import('three/addons/tsl/display/GTAONode.js'),import('three/addons/tsl/display/FXAANode.js')])),
   pEngine=st('engine',import('./engine/index.js')),
   /* The frozen first game: played instead of a live simulation. Missing or broken file: window.OPENING stays null and the page falls back to a live game. */
+  /* #600: play.html?f=f-<n> replays a 二軍 game record with the engine of its own commit; no record, bad id or failed replay -> the normal opening, with the reason on the poster */
+  pFarm=FARM_ID?(Promise.all([import('./league/farm.js'),pEngine]).then(([F,E])=>F.farmOpening(FARM_ID,()=>fetch('league/site/farm_games.json').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}),E))).catch(e=>({error:String(e&&e.message||e)})):Promise.resolve(null),
   pOpening=st('opening',fetch('league/preseason/opening.json').then(r=>r.ok?r.text():null).then(t=>t?import('./league/recording.js').then(m=>m.parseRecording(t)):null)).catch(e=>{console.warn('frozen game failed to load',e);return null}),
   pComm=st('comm',import('./commentary/index.js')),
   pBank=st('bank',pComm.then(m=>m.loadBank())).catch(e=>{console.warn('commentary bank failed to load; the booth stays silent',e);return null}),
@@ -273,7 +277,10 @@ window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
 const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await st('gpu',R.init())}catch(e){console.error(e)}window.RENDERER=R;
 /* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
-window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
+window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;
+const farm=await pFarm;/* #600: a 二軍 game: subtitles only, so the voice bank stays off (render/game.js reads OPENING.farm) */
+if(farm&&farm.opening){window.OPENING=farm.opening;import('./league/teams.js').then(m=>window.setPoster(...farm.opening.game.teams.map(i=>m.TEAMS[i])));}else if(farm){const p=document.getElementById('introStatus');p.hidden=false;p.textContent='這場二軍賽無法重播（'+farm.error+'），先看季前熱身賽'}
+window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=window.OPENING&&window.OPENING.farm?null:await pBank;window.HIGHLIGHTS=await pHl;
 await load('render/game.js').catch(halt);B.mark('game');
 /* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
 await window.READY;document.getElementById('enter').textContent='進場（開聲音）';

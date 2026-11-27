@@ -14,7 +14,10 @@
  *   farmRecord(fields)                 build + validate a record (throws a named reason)
  *   farmProblem(rec)                   named reason why a record is not a 二軍 record, or null
  *   findFarm(list, id)                 the record with that id, or null
- *   replayFarm(list, id, loadEngine)   replay.js replayRecord of that record; { status: 'unknown' } for a missing id
+ *   replayFarm(list, id, loadEngine, local)  replay.js replayRecord of that record; { status: 'unknown' } for a missing id.
+ *                                      `local` (optional engine module): used instead of the loader when its ENGINE_VERSION is the record's
+ *   farmOpening(id, fetchList, local, loadEngine)  what play.html?f=<id> needs (#600 part 2): { opening } shaped like the frozen
+ *                                      opening (seed, game, engine, plus farm/id/day/box; subtitles only, never a clip) or { error } in plain words
  *   farmUrl(id)                        'play.html?f=<id>'
  *   recordBytes(rec)                   size of the record as written to the file (UTF-8 bytes of its JSON line)
  *   yearBytes(perGame, games)          estimated size of `games` records */
@@ -46,12 +49,23 @@ export function farmRecord({ id, day, seed, commit, version, teams = [0, 1], opt
 
 export const findFarm = (list, id) => (Array.isArray(list) && list.find(r => r && r.id === id)) || null;
 
-export async function replayFarm(list, id, loadEngine) {
+export async function replayFarm(list, id, loadEngine, local) {
   const rec = findFarm(list, id);
   if (!rec) return { status: 'unknown', reason: `no 二軍 game ${id}` };
   const why = farmProblem(rec);
   if (why) return { status: 'invalid', reason: why };
-  return replayRecord(rec, loadEngine);
+  const load = local && local.ENGINE_VERSION === rec.engine.version ? async () => local : loadEngine;
+  return replayRecord(rec, load);
+}
+
+export async function farmOpening(id, fetchList, local, loadEngine) {
+  if (typeof id !== 'string' || !ID_RE.test(id)) return { error: `bad 二軍 game id` };
+  let list;
+  try { list = await fetchList(); } catch (e) { return { error: `二軍 game list not loaded: ${(e && e.message) || e}` }; }
+  const r = await replayFarm(list, id, loadEngine, local);
+  if (r.status !== 'ok') return { error: `${r.status}: ${r.reason}` };
+  const rec = findFarm(list, id);
+  return { opening: { seed: rec.seed, game: r.game, engine: rec.engine.version, farm: true, id, day: rec.day, box: r.box } };
 }
 
 export const recordBytes = rec => new TextEncoder().encode(JSON.stringify(rec)).length;

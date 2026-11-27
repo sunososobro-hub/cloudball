@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as engine from '../engine/index.js';
 import { ROSTERS } from '../league/players.js';
-import { farmProblem, farmRecord, findFarm, replayFarm, farmUrl, recordBytes, yearBytes } from '../league/farm.js';
+import { farmProblem, farmRecord, findFarm, replayFarm, farmOpening, farmUrl, recordBytes, yearBytes } from '../league/farm.js';
 import { serialize } from '../league/tools/farm_record.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -63,6 +63,29 @@ for (const [name, edit, re] of cases) {
 }
 let threw = false; try { farmRecord({ id: 'f-1', day: 0, seed: -1, commit: first.engine.commit, version: '0', score: [1, 0], line: [[1], [0]] }); } catch { threw = true; }
 if (!threw) fail('farmRecord accepted a bad seed');
+
+/* #600 part 2: the page's loader. A record of the CURRENT engine version replays with the local engine (no CDN), an older one asks the CDN
+ * loader for its own commit; a bad id, a missing list or a broken replay gives { error } and never a picture. */
+{
+  const g = engine.simGame(7101, {}, { teams: [0, 1] }), bx = engine.boxFromStream(g.stream);
+  const cur = farmRecord({ id: 'f-90', day: 2, seed: 7101, commit: 'abcdef1', version: engine.ENGINE_VERSION, teams: [0, 1], score: bx.score, line: bx.line });
+  const cdn = [], viaCdn = async c => { cdn.push(c); return engine; };
+  const o = await farmOpening('f-90', async () => [cur], engine, viaCdn);
+  if (!o.opening || o.opening.farm !== true || o.opening.seed !== 7101 || o.opening.id !== 'f-90' || o.opening.day !== 2) fail('farmOpening: not an opening');
+  else {
+    if (cdn.length) fail('farmOpening: current-version record went to the CDN');
+    if (JSON.stringify(o.opening.box.score) !== JSON.stringify(cur.result.score)) fail('farmOpening: score on screen differs from the record');
+    if (JSON.stringify(o.opening.game.stream) !== JSON.stringify(g.stream)) fail('farmOpening: not the same game byte for byte');
+  }
+  const old = clone(cur); old.engine.version = '0.0.1';
+  cdn.length = 0; await farmOpening('f-90', async () => [old], engine, viaCdn);
+  if (cdn.join() !== 'abcdef1') fail(`farmOpening: older record asked the CDN for "${cdn.join()}"`);
+  const worse = clone(cur); worse.result.score[0] += 1;
+  for (const [name, id, fl] of [['bad id', '../x', async () => [cur]], ['unknown id', 'f-91', async () => [cur]], ['list fails', 'f-90', async () => { throw new Error('HTTP 404'); }], ['tampered', 'f-90', async () => [worse]]]) {
+    const e = await farmOpening(id, fl, engine, viaCdn);
+    if (e.opening || !e.error) fail(`farmOpening ${name}: no error`);
+  }
+}
 
 const src = readFileSync(path.join(ROOT, 'league/farm.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 if (/^\s*import\s[^;]*from\s+['"](?!\.\/replay\.js)/m.test(src)) fail('league/farm.js imports something other than ./replay.js');
