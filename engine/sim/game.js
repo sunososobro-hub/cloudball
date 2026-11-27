@@ -380,7 +380,7 @@ export function simGame(seed, decisions, opts) {
             else if (type === 'LD') { d = res === 'out' ? (R() < K.LD_SHALLOW_P ? span(R, K.LD_SHALLOW_DIST) : span(R, K.LD_DEEP_DIST)) : span(R, K.LD_HIT_DIST); hang = d / K.LD_SPEED; peak = span(R, K.LD_PEAK); }
             else if (type === 'PU') { d = span(R, K.PU_DIST); hang = span(R, K.PU_HANG); peak = span(R, K.PU_PEAK); }
             else { d = span(R, res === 'HR' ? K.FB_HR_DIST : res === 'out' ? K.FB_OUT_DIST : K.FB_HIT_DIST); hang = span(R, K.FB_HANG); peak = span(R, K.FB_PEAK); }
-            if (res === '3B') d = Math.max(d, K.TRIPLE_MIN_DIST);
+            if (res === '3B') { d = Math.max(d, K.TRIPLE_MIN_DIST); hang = Math.max(hang, d / K.HIT_HORIZ_SPEED_MAX); }
           }
           const land = spotXZ(spray, d);
           /* nearest fielder takes it */
