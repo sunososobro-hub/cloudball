@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.20';
+export const ENGINE_VERSION = '0.4.21';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -139,6 +139,15 @@ export const FOUL_LINE_DEG = 45;
  * Only a label on a swinging strike: it is drawn from the looks RNG after the wild-pitch / passed-ball draw, so no
  * outcome changes (a ball that got by is never a tip). */
 export const FOUL_TIP_OF_WHIFF = 0.08;
+/* ---- foul bunts (#614 part 3): a bunt attempt bunted foul is a strike at any count, so with two strikes it is a
+ * strikeout (rule 5.09(a)(4)). BUNT_FOUL_P: share of bunt attempts (pitches bunted at) that go foul. Data: Baseball Savant
+ * pitch descriptions (MLB 2023-2025), `foul_bunt` against `foul_bunt` + bunts `hit_into_play`; an estimate of about a third,
+ * not re-measured in this PR. BUNT_FOUL_RIGHT_P: share that rolls foul past first (most go up the third-base line, as the
+ * BUNT_SPRAY_DEG window does). BUNT_2K_KEEP_P: after the second strike the coach keeps the bunt on (risking the foul-bunt
+ * strikeout) instead of letting him swing away; an estimate, most two-strike bunts in MLB are squeeze or bunt-for-hit tries. */
+export const BUNT_FOUL_P = 0.33;
+export const BUNT_FOUL_RIGHT_P = 0.3;
+export const BUNT_2K_KEEP_P = 0.2;
 
 /* ---- batted ball mix and results ---- */
 export const GB_SHARE = 0.43;
