@@ -1355,7 +1355,8 @@ const CHASE_VMIN=5,CHASE_VMAX=9;
 const CHEST=[0,.32,.34],G_SX=-BAT_SHOULDER_X,T_SX=BAT_SHOULDER_X;
 const resetPose=f=>{const R=f.rig;f.auto=true;f.mix=null;if(f.bend){f.bend.elbow[0]=f.bend.elbow[1]=0}armsDown(R);R.l0.rotation.set(0,0,0);R.l1.rotation.set(0,0,0);R.l0.scale.y=R.l1.scale.y=1;R.up.rotation.set(0,0,0);R.hg.rotation.set(0,0,0);R.hips.rotation.set(0,0,0);f.g.position.y=0};
 /* Reach the glove to world point w; bend at waist and knees for low balls */
-function reachGlove(f,w){f.auto=false;const R=f.rig,low=w[1]<.7;if(low)crouch(f,R,clamp((.7-w[1])/.5,0,1),.5,.3,.7,.3);aimWorld(R,R.a0,G_SX,w[0],w[1],w[2]);aimArm(R.a1,T_SX,CHEST[0]+.05,CHEST[1]-.1,CHEST[2])}
+const CATCH_CROUCH_TOP=1.2,CATCH_CROUCH_SPAN=1;/* #650: a fielder bends from 1.2 m down (was .7) so the glove arm, at most 1.2 x .6 m, reaches a ball at .2 m */
+function reachGlove(f,w){f.auto=false;const R=f.rig,low=w[1]<CATCH_CROUCH_TOP;if(low)crouch(f,R,clamp((CATCH_CROUCH_TOP-w[1])/CATCH_CROUCH_SPAN,0,1),.5,.3,.7,.3);aimWorld(R,R.a0,G_SX,w[0],w[1],w[2]);aimArm(R.a1,T_SX,CHEST[0]+.05,CHEST[1]-.1,CHEST[2])}
 /* Throw receiver: reach 0->1 raises the glove to chest height, slightly forward; hold 0->1 brings the throwing hand over to take the ball after the catch */
 /* #642 part 2: blend an arm from the pose it has now (keyframes) toward a hand target by w (pole: where the elbow points) */
 const _pbq=new THREE.Quaternion();function pbArm(a,sx,t,w,pole){_pbq.copy(a.quaternion);const sy=a.scale.y;if(pole)aimArmPole(a,sx,t[0],t[1],t[2],pole,1);else aimArm(a,sx,t[0],t[1],t[2]);const ty=a.scale.y;a.quaternion.copy(_pbq.slerp(a.quaternion,w));a.scale.y=sy+(ty-sy)*w}

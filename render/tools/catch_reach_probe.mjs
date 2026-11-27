@@ -14,7 +14,7 @@ const game = readFileSync(path.join(ROOT, 'render/game.js'), 'utf8');
 const grab = re => { const m = game.match(re); if (!m) { console.error('not found in game.js:', re); process.exit(2) } return m[0] };
 const BLOCK = [
   grab(/const BAT_LOAD_LEAD=[^;\n]*;/), grab(/const _bv=new THREE\.Vector3\(\)[^\n]*\n/), grab(/const ARM_S_MIN=[^\n]*\n/), grab(/const [^\n]*LEG_LEN=[^;\n]*;/),
-  'const _tv=new THREE.Vector3();', grab(/const CHEST=[^\n]*\n/), grab(/function aimArm\(a[^\n]*\n/), grab(/function aimWorld\([^\n]*\n/), grab(/function crouch\([^\n]*\n/), grab(/function reachGlove\([^\n]*\n/),
+  'const _tv=new THREE.Vector3();', grab(/const CHEST=[^\n]*\n/), grab(/function aimArm\(a[^\n]*\n/), grab(/function aimWorld\([^\n]*\n/), grab(/function crouch\([^\n]*\n/), grab(/const CATCH_CROUCH_TOP=[^\n]*\n/), grab(/function reachGlove\([^\n]*\n/),
 ].join('\n');
 const PAGE = `<!doctype html><script type="importmap">{"imports":{"three":"/three/build/three.webgpu.js","three/webgpu":"/three/build/three.webgpu.js","three/tsl":"/three/build/three.tsl.js"}}</script>
 <script type="module">
