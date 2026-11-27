@@ -66,7 +66,7 @@ for (let seed = 1; seed <= GAMES; seed++) {
   const lines = createBooth({ stream: g.stream, seed, bank, teams, describe }).lines;
   drafted += topBanter({ lines }, { bank, stream: g.stream }).length;
   check(`draft ${seed}`, { lines }, g.stream);
-  /* #82 part 2: a pitching change names the coaches of the team making it, never the other bench's */
+  /* #82 part 2 (superseded by #603): never name the other bench's coach; the v2 bank names no one */
   for (const x of g.stream) if (x.type === 'substitution') {
     const own = ['manager', 'pitching'].map(r => coachOnAir(teams[x.team], r)), other = ['manager', 'pitching'].map(r => coachOnAir(teams[1 - x.team], r)).filter(c => !own.includes(c));
     for (const l of lines.filter(y => y.at === x.i && !y.aside)) {
@@ -76,7 +76,8 @@ for (let seed = 1; seed <= GAMES; seed++) {
     }
   }
 }
-if (!coachNamed) bad('bank drafts: no pitching change names a coach');
+/* #603 part 2: the v2 bank is name-free, so no pitching change names a coach on air any more */
+if (coachNamed) bad('bank drafts: a pitching change names a coach (v2 bank is name-free)');
 
 /* owner 2026-11-22 on the top 8 of PR #138 (seed 704), by event index: funny 8, 6, 3, 2; not 1, 4, 5, 7 */
 const VERDICT = { seed: 704, funny: [1126, 246, 1200, 30], flat: [1296, 311, 382, 617] };
