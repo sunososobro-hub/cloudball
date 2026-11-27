@@ -934,6 +934,8 @@ function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT
    own crouch, so the knee-bend drop of the ground frame (buntDrop) is taken back by the clip weight; the bat follows the hands as on the swing,
    and buntContact() then reads the clip's bat, so the pitch still ends on the sweet spot. */
 let buntClip=null,buntClipP=null,BCL=null;
+let GBP=null;/* #645: grounder hops (render/gb_path.js gbPath / gbGlove) */
+import(new URL('gb_path.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{GBP=M}).catch(err=>console.warn('gb path off',err));
 import(new URL('bunt_clip.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{BCL=M}).catch(err=>console.warn('bunt clip off',err));
 function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
   const bu=e.r==='inplay'&&e.play&&e.play.bunt;let w;
@@ -1300,6 +1302,15 @@ function pmFieldSet(e,u){pmField=null;const P=fielders.P,c=pitchClip;if(!c||!P.s
   if(w>0)pmField={c,t:pmTime(u,c),w,mir:c.release.hand==='right',dz:kf(ARRIVE,PK.dz)}}
 function pmFieldApply(){const m=pmField;if(m)fielders.P.setMocap(m.c,m.t,m.w,m.mir,PM_START,m.dz)}
 function arc(p0,p1,peak,t){return[lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)+peak*4*t*(1-t),lerp(p0[2],p1[2],t)]}
+/* #644: pitch break by type. Metres at the plate beyond the old straight-plus-hump line (the fastball look): [vertical, arm-side horizontal]
+   (vertical + = up, horizontal + = toward the throwing-arm side, flipped for a lefty by the release x). Public Statcast pitch-tracking
+   averages, induced break in inches (vertical vs gravity-only / horizontal): 直球 +16 / 8 arm, 滑球 +2 / 3 glove, 曲球 -10 / 10 glove,
+   變速球 +8 / 14 arm, 指叉球 +4 / 12 arm; vertical here is that minus the fastball's +16 (the hump already draws it), 1 in = .0254 m. */
+const PITCH_BRK_IN={'直球':[0,8],'滑球':[-14,-3],'曲球':[-26,-10],'變速球':[-8,14],'指叉球':[-12,12]},IN_M=.0254;
+const pitchBreak=(pt,hand)=>{const b=PITCH_BRK_IN[pt]||PITCH_BRK_IN['直球'];return[b[1]*IN_M*(hand[0]<0?-1:1),b[0]*IN_M]};
+/* the hump path plus a quadratic bend that is 0 at release and at the plate, so it still ends exactly on the engine's spot: the ball leaves
+   aimed `brk` short of it and is pulled there, so the break at the plate vs its release line is exactly `brk` */
+function pitchArc(p0,p1,peak,t,brk){const q=arc(p0,p1,peak,t),k=t*t-t;return[q[0]+brk[0]*k,q[1]+brk[1]*k,q[2]]}
 
 /* ---------- Fielding: catch / transfer / throw (frame-steppable in the studio) ---------- */
 /* Throw speed by arm strength and distance (m/s): short toss 25-30, infield 34-40, outfield 36-43; transfer (catch to release) 0.6-1.2 s.
@@ -1666,7 +1677,7 @@ function poseScene(e,u,dt,ei){
   const hit0=bunt?buntHit(e,u):HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<pr||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
-  else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-pr)/(ARRIVE-pr));
+  else if(u<ARRIVE)bp=pitchArc(hand,hbp?hbpSpot(e):plate,.3,(u-pr)/(ARRIVE-pr),pitchBreak(e.pt,hand));
   else if(!contact&&e.wp){bp=wpBall(e,u,plate);wpCatcher(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
@@ -1718,7 +1729,9 @@ function poseScene(e,u,dt,ei){
     const land=[p.lx,hr?6+(p.dist-114)*.15:bunt&&BCL?BUNT_GROUND_Y:(hit||p.type==='GB'?.15:1.5),p.lz];
     const rollEnd=[PL.target[0],bunt&&BCL?BUNT_GROUND_Y:.15,PL.target[1]];
     /* #43 item 5: a bunt goes down off the bat, hops low and rolls slowing to the engine's stop point at T (render/bunt_clip.js buntRoll) */
-    const gbAt=t=>bunt&&BCL?BCL.buntRoll(hit0,land,T,t):arc(hit0,land,p.peak,t/T),rollPk=bunt&&BCL?0:.3;
+    /* #645: any other grounder drops off the bat, hops with gravity (dirt or grass at the land point) and rolls to the land point at T, then into the glove by catchT (render/gb_path.js) */
+    const gbHop=!bunt&&GBP&&p.type==='GB',gbP=gbHop?GBP.gbPlan(hit0,land,T,!!(DUST&&DUST.onDirt(p.lx,p.lz))):null;
+    const gbAt=t=>bunt&&BCL?BCL.buntRoll(hit0,land,T,t):gbHop?GBP.gbPath(hit0,land,T,t,false,gbP):arc(hit0,land,p.peak,t/T),rollPk=bunt&&BCL?0:.3;
     const CV=PL.CV,tagPlay=PL.tagPlay,tagA=PL.actions.find(a=>a.a==='tag'&&a.f===CV.key),tg=tagA?{t:tagA.t,out:true}:tagPlay?{t:PL.arrive+TAG_LATE_SWEEP,out:false}:null,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer;
     const catchT=PL.catchT,D=PL.D,cx=PL.stand[0],cz=PL.stand[1];
     const tgt=[CV.spot[0],PL.wild?.15:1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
@@ -1757,7 +1770,7 @@ function poseScene(e,u,dt,ei){
     else if(u2>=T&&!hr){
       if(hit&&u2<T+.8)bp=arc(land,rollEnd,rollPk,(u2-T)/.8);
       else{const fx=f.g.position.x,fz=f.g.position.z,c=CV.key&&fielders[CV.key];
-        if(u2<catchT)bp=hit?[rollEnd[0],rollEnd[1],rollEnd[2]]:[p.lx,bunt&&BCL?land[1]:.15,p.lz];
+        if(u2<catchT)bp=hit?[rollEnd[0],rollEnd[1],rollEnd[2]]:gbHop?GBP.gbGlove(land,PL.stand,T,catchT,u2):[p.lx,bunt&&BCL?land[1]:.15,p.lz];
         else if(solo&&u2>=catchT){if(u2<rt+.3){const q=f.handWorld(0);bp=[q.x,q.y,q.z]}}
         else if(u2>=catchT&&u2<t0){const q=f.handWorld(u2-catchT<TH.xfer*.45?0:1);bp=[q.x,q.y,q.z]}/* In the glove first, in the throwing hand after the transfer */
         else if(u2>=t0&&u2<a1){const rel=throwRelease(e,f,[cx,cz],TH.xfer,tgtF);bp=arc(rel,tgtF,Math.min(3,TD*THROW_ARC*(32/TH.v)),(u2-t0)/TT)}
@@ -1765,7 +1778,7 @@ function poseScene(e,u,dt,ei){
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,Math.min(3,TD2*THROW_ARC*(32/V2)),(u2-t1)/TT2)}
         else if(u2<arrive+3.2){if(c){const q=c.handWorld(tg||u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
     if(hr&&u2>0&&u2<T+.2&&!bp)bp=null;
-    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?gbAt(t):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,rollPk,(t-T)/.8):rollEnd;return null}
+    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?gbAt(t):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,rollPk,(t-T)/.8):rollEnd;if(gbHop&&t<=catchT)return GBP.gbGlove(land,PL.stand,T,catchT,t);return null}
   }
   if(bp){ball.visible=true;ball.position.set(bp[0],bp[1],bp[2]);ballSh.position.set(bp[0],.03,bp[2]);const dB=ball.position.distanceTo(camera.getWorldPosition(_cw)),pxR=BALL_R*(innerHeight/2)/(dB*Math.tan(camera.fov*Math.PI/360)),bs=clamp(BALL_MIN_PX/pxR,1,BALL_MAX);ball.scale.setScalar(bs);ballSh.scale.setScalar(.35*bs)}
   ballSh.visible=ball.visible;
