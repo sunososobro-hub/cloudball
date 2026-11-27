@@ -33,3 +33,6 @@
 
 ## #599 season-0 loop
 - Part 1 done: `season.js` (makeSchedule, tonight, applyResult, rank) + `tests/season.check.mjs`. Next: part 2 rotation, part 3 final, `tools/season_run.mjs`.
+
+## #600 二軍 replay
+- Part 1: `farm.js` (pure) + `league/site/farm_games.json` (records `f-<n>`, shape of `replay.js` + `id`/`tier`/`day`) + `tools/farm_record.mjs` (append a record) + `tests/farm.check.mjs`. 231 B a record; lineups of a 二軍 side would go in `opts.rosters` (~8.6 KB a pair). Next: `play.html?f=<id>` loads the file, `replayFarm` with the CDN loader, subtitles only (no clip); then the daily report links (`farmUrl`); the season loop (#599) writes the records. Trap: a record's commit must be pushed (jsDelivr) and the engine files must match it.

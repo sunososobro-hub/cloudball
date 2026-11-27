@@ -1,0 +1,5 @@
+[
+  {"id":"f-1","tier":2,"day":0,"seed":7001,"engine":{"commit":"aaf3e89f9ebc6a321907d11fd10e6c2d8cbf70b2","version":"0.4.17"},"teams":[0,1],"decisions":{},"result":{"score":[0,4],"line_score":[[0,0,0,0,0,0,0,0,0],[3,0,0,0,0,1,0,0]]}},
+  {"id":"f-2","tier":2,"day":0,"seed":7002,"engine":{"commit":"aaf3e89f9ebc6a321907d11fd10e6c2d8cbf70b2","version":"0.4.17"},"teams":[2,3],"decisions":{},"result":{"score":[1,2],"line_score":[[0,0,0,1,0,0,0,0,0],[0,1,0,1,0,0,0,0]]}},
+  {"id":"f-3","tier":2,"day":1,"seed":7003,"engine":{"commit":"aaf3e89f9ebc6a321907d11fd10e6c2d8cbf70b2","version":"0.4.17"},"teams":[1,0],"decisions":{},"result":{"score":[6,10],"line_score":[[1,3,2,0,0,0,0,0,0],[2,3,0,0,1,4,0,0]]}}
+]
