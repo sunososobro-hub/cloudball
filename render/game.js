@@ -1785,7 +1785,8 @@ const VOICE=window.COMMENTARY.createVoice({onTalk:talk=>{talkDuck=talk?window.CO
 let sayOn=false,booth=null,boothFor=null,hello=null;
 function say(who,text,urgent){if(sayOn)VOICE.say(WHO[who]||who,text,{urgent:!!urgent})}
 /* #133: one fetch per script, shared by the booth, the compact clock and the highlights, and started behind the entry card (createBooth copies the lines, so sharing the parsed script is safe) */
-const scriptP=new Map(),loadScript=seed=>{if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
+const scriptP=new Map(),loadScript=seed=>{if(window.FARM)return Promise.reject(new Error('二軍: no commentary script (subtitles only, #600)'));if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
+if(window.FARM_NOTE)window.READY.then(()=>note(window.FARM_NOTE));
 if(window.OPENING)loadScript(window.OPENING.seed).catch(()=>{});/* fetched while the park compiles, not after the click */
 function makeBooth(script){const g=game;return window.COMMENTARY.createBooth({stream:g.stream,seed:g.seed,bank:window.COMMENTARY_BANK,script,teams:g.teams.map(i=>TEAMS[i]),describe:x=>g.ev[x.f].desc})}
 function showAiTag(){const v=!(sayOn&&booth&&booth.recorded);if(aiTag.hidden!==v)aiTag.hidden=v}
@@ -1794,7 +1795,7 @@ function sayHello(lines){if(boothFor===game&&booth){if(!booth.recorded)for(const
 function setBooth(b,T0){booth=b;VOICE.setRecorded(b.recorded);b.due(T0-BOOTH_PRIME);showAiTag();
   const h=hello;hello=null;if(h&&!b.recorded)for(const [w,t] of h)say(w,t)}
 function commentary(T){if(!sayOn||!window.COMMENTARY_BANK)return;
-  if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)})}
+  if(boothFor!==game){const g=boothFor=game;booth=null;VOICE.setRecorded(false);loadScript(g.seed).then(sc=>{if(boothFor===g)setBooth(makeBooth(sc),T)},()=>{})}
   if(!booth)return;showAiTag();
   for(const l of booth.due(T,{fast:mode!=='live'&&speed>1}))if(seekGame!==game||l.at>=seekFloor)VOICE.say(l.speaker,l.text,{urgent:l.priority>=2&&l.speaker==='pbp',audio:l.audio,cast:l.cast,aside:l.aside})}
 const sayBtn=$('say');
@@ -2024,7 +2025,7 @@ $('hlAgain').onclick=()=>startHighlights();
 $('hlFull').onclick=()=>{hlStop();seekTo(0);plSetPaused(false)};
 function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart+CYCLE*1000;
   if(mode==='studio')return{cls:'',txt:'動作片場',sub:studio?`${studio.e.desc||''}・${studio.spd}×`:''};
-  if(mode==='opening')return{cls:'',txt:'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
+  if(mode==='opening')return{cls:'',txt:window.FARM?'二軍比賽（重播）':'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
   if(mode==='practice')return{cls:'',txt:window.SITE&&window.SITE.dev?'開發模式':'季前熱身賽',sub:window.SITE&&window.SITE.dev?`${speed}× 速度・兩隊都由你調度`:''};
   if(mode==='replay')return{cls:'',txt:`重播中（${fmtT(gameStart)} 場）`,sub:`${speed}× 速度・不影響直播`};
   if(T<game.dur)return{cls:'live',txt:'直播中',sub:`${fmtT(gameStart)} 開打・下一場 ${fmtT(next)}`};

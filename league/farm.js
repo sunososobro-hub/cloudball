@@ -16,6 +16,7 @@
  *   findFarm(list, id)                 the record with that id, or null
  *   replayFarm(list, id, loadEngine)   replay.js replayRecord of that record; { status: 'unknown' } for a missing id
  *   farmUrl(id)                        'play.html?f=<id>'
+ *   farmOpening(list, id, loadEngine)  what play.html needs: { rec, opening: { seed, game, farm: id } | null, status, reason }
  *   recordBytes(rec)                   size of the record as written to the file (UTF-8 bytes of its JSON line)
  *   yearBytes(perGame, games)          estimated size of `games` records */
 import { replayRecord, recordProblem } from './replay.js';
@@ -52,6 +53,15 @@ export async function replayFarm(list, id, loadEngine) {
   const why = farmProblem(rec);
   if (why) return { status: 'invalid', reason: why };
   return replayRecord(rec, loadEngine);
+}
+
+/* play.html?f=<id>: the page plays `opening` exactly like the frozen game (window.OPENING). Only status `ok` gives a picture;
+ * any other status gives opening null and the page shows `reason`. Subtitles only: a 二軍 seed has no clip script, so the booth stays silent. */
+export async function farmOpening(list, id, loadEngine) {
+  const r = await replayFarm(list, id, loadEngine);
+  if (r.status !== 'ok') return { rec: findFarm(list, id), opening: null, status: r.status, reason: r.reason };
+  const rec = findFarm(list, id);
+  return { rec, opening: { seed: rec.seed, game: r.game, farm: id }, status: 'ok', reason: '' };
 }
 
 export const recordBytes = rec => new TextEncoder().encode(JSON.stringify(rec)).length;
