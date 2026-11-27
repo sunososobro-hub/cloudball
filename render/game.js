@@ -1638,7 +1638,29 @@ const bkU=u=>u<BK_STOP?u:u<BK_CALL_AT+.3?BK_STOP:Math.max(0,BK_STOP*(1-(u-BK_CAL
    lobs the ball back to the pitcher (plan.back: throwPose over POF_BACK_XFER s, the pitcher's glove up POF_GLOVE_UP s before it lands),
    who turns back to the plate over PO_TURN s. Pure function of (event, time). */
 const PO_LEAD_FROM=.2,PO_LEAD_GROW=.8,PO_TURN=.3,PO_XFER=.35,PO_REACT=.3,PO_SLIDE_D=1.6,PO_OFF=1.6,POF_TAG_LATE=.05,POF_BACK_XFER=.45,POF_GLOVE_UP=.4,POF_CATCH_Y=1.4;
+/* #726: rundown on a pickoff (e.rd, plan.rundown): runner, 1B, SS and ball from render/rundown.js (pure, plan times); module not in yet -> plain pickoff. Dev switch ?off=rundown */
+let rdM=null;import(new URL('rundown.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('rundown'))rdM=M}).catch(err=>console.warn('rundown off',err));
+const RD_XFER=.3,RD_REL_Y=1.6,RD_TGT_Y=1.2,RD_PEAK=.3,RD_REACH=.45;
+const rdOn=e=>!!(rdM&&e.plan&&e.plan.rundown&&e.plan.rd);
+function rdRunnerDraw(e,u,nm,show){const S=e.plan,R=S.rd;if(u>R.tagAt+rdM.RD_OFF)return;const [x,z]=BASES[1],[ux,uz]=rdM.LINE_DIR;
+  const d=u<R.goAt?lerp(LEAD_PRIMARY,S.lead,ease(sat01((u-PO_LEAD_FROM)/PO_LEAD_GROW))):rdM.rdRunner(S,u);
+  const r=show(x+ux*d,z+uz*d,-x,-z,nm);if(!r||u<R.goAt)return;const back=u>=(R.r2+R.backAt)/2;face(r,back?-ux:ux,back?-uz:uz)}
+/* the 1B > SS and SS > 1B throws: release at the thrower's spot at release time, target the receiver's spot at the catch (fixed points, pure) */
+const rdThrowEnds=(S,from)=>{const R=S.rd,ss=fielders.SS.pos,t1=from==='1B'?R.r1:R.s0,t2=from==='1B'?R.r2:R.r3,
+  p=from==='1B'?rdM.rdFirst(S,t1):rdM.rdShort(S,t1,ss),q=from==='1B'?rdM.rdShort(S,t2,ss):rdM.rdFirst(S,t2);return[[p[0],RD_REL_Y,p[1]],[q[0],RD_TGT_Y,q[1]]]};
+function rdField(e,u,bp){const S=e.plan,R=S.rd,c=fielders['1B'],s=fielders.SS,f1=rdM.rdFirst(S,u),fs=rdM.rdShort(S,u,s.pos);
+  c.g.position.set(f1[0],0,f1[1]);s.g.position.set(fs[0],0,fs[1]);
+  const [ux,uz]=rdM.LINE_DIR,toSS=[fs[0]-f1[0],fs[1]-f1[1]];if(u>=S.arrive)face(c,toSS[0],toSS[1]);if(u>=R.r2-RD_REACH)face(s,-ux,-uz);
+  const [a1,b1]=rdThrowEnds(S,'1B'),[a2,b2]=rdThrowEnds(S,'SS'),tagA=S.actions.find(a=>a.a==='tag');
+  if(u>=R.r1-RD_XFER&&u<R.r1+RD_XFER){c.noAnim=true;throwPose(c,u-(R.r1-RD_XFER),RD_XFER,b1)}
+  else if(u>=R.r3-RD_REACH){c.noAnim=u>=R.r3;if(u<R.r3)gloveTo(c,ease(sat01((u-(R.r3-RD_REACH))/RD_REACH)),null);else tagPose(c,u,R.r3,tagA?tagA.t:R.tagAt,1,true,2)}
+  if(u>=R.r2-RD_REACH&&u<R.r2+.1){s.noAnim=true;gloveTo(s,ease(sat01((u-(R.r2-RD_REACH))/RD_REACH)),null)}
+  else if(u>=R.s0-RD_XFER&&u<R.s0+RD_XFER){s.noAnim=true;throwPose(s,u-(R.s0-RD_XFER),RD_XFER,b2)}
+  const B=rdM.rdBall(S,u);if(!B)return bp;
+  if(B.hold){const q=fielders[B.hold].handWorld(B.hold==='SS'?1:0);return[q.x,q.y,q.z]}
+  return B.from==='1B'?arc(a1,b1,RD_PEAK,B.k):arc(a2,b2,RD_PEAK,B.k)}
 function poRunner(e,u,nm,show){const S=e.plan,[x,z]=BASES[1],[nx,nz]=BASES[2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),b0=S.t0+(S.react??PO_REACT);
+  if(rdOn(e))return rdRunnerDraw(e,u,nm,show);
   if(!S.safe&&u>S.runnerAt+PO_OFF)return;
   const out=lerp(LEAD_PRIMARY,S.lead,ease(sat01((u-PO_LEAD_FROM)/PO_LEAD_GROW))),k=sat01((u-b0)/(S.runnerAt-b0)),ld=u<b0?out:u<S.runnerAt||!S.safe?out*(1-k*k):leadWalk(u,S.runnerAt,e.d||Infinity);/* #23 part 1: from the primary lead; safe: back out to it */
   const r=show(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);if(!r||u<b0)return;
@@ -1647,7 +1669,7 @@ function poField(e,u){const S=e.plan,P=fielders.P,c=fielders[S.CV.key],sp=S.CV.s
   c.g.position.set(sp[0],0,sp[1]);face(c,px-sp[0],pz-sp[1]);c.noAnim=true;
   const B=S.safe?S.back:null,bs=B?B.t0-POF_BACK_XFER:Infinity,ptgt=[px,POF_CATCH_Y,pz];
   const tagA=S.actions.find(a=>a.a==='tag');if(u>=S.t0-.2){if(u<S.arrive)gloveTo(c,lerp(.45,1,ease(sat01((u-(S.arrive-.45))/.3))),null);
-    else if(!B)tagPose(c,u,S.arrive,tagA.t,1,true,2);else if(u<bs)tagPose(c,u,S.arrive,S.arrive+POF_TAG_LATE,1,false,2);else throwPose(c,u-bs,POF_BACK_XFER,ptgt)}
+    else if(!B&&!rdOn(e))tagPose(c,u,S.arrive,tagA.t,1,true,2);else if(!B)gloveTo(c,1,null);else if(u<bs)tagPose(c,u,S.arrive,S.arrive+POF_TAG_LATE,1,false,2);else throwPose(c,u-bs,POF_BACK_XFER,ptgt)}
   const ts=S.t0-PO_XFER,y0=P.g.rotation.y,y1=Math.atan2(sp[0]-px,sp[1]-pz),w=ease(sat01((u-(ts-PO_TURN))/PO_TURN))*(B?1-ease(sat01((u-B.arrive)/PO_TURN)):1);
   P.g.rotation.y=y0+Math.atan2(Math.sin(y1-y0),Math.cos(y1-y0))*w;
   if(B&&u>=B.arrive-POF_GLOVE_UP){P.noAnim=true;gloveTo(P,1-ease(sat01((u-B.arrive-.3)/.4)),null)}
@@ -1657,7 +1679,7 @@ function poField(e,u){const S=e.plan,P=fielders.P,c=fielders[S.CV.key],sp=S.CV.s
   else if(B&&u>=B.t0&&u<B.arrive){const rel=throwRelease(e,c,sp,POF_BACK_XFER,ptgt);bp=arc(rel,ptgt,.6,(u-B.t0)/B.TT)}
   else if(B&&u>=B.arrive){const q=P.handWorld(0);bp=[q.x,q.y,q.z]}
   else if(B||u<S.arrive+2.5){const q=c.handWorld(0);bp=[q.x,q.y,q.z]}else bp=null;
-  return bp}
+  return rdOn(e)?rdField(e,u,bp):bp}
 const BALL_BACK_AT=3.4,BALL_BACK_DUR=.9;/* a pitch not put in play: the catcher holds the ball until BALL_BACK_AT s into the frame, then lobs it back to the pitcher over BALL_BACK_DUR s */
 /* #38 wild pitch (engine: e.wp, runners' runner_advance how 'wild_pitch'): the ball hits the dirt in front of the plate, skips under the mitt
    and rolls toward the backstop (left or right by the pitch's side); the catcher gets up, runs it down, picks it up and walks back to his spot.
