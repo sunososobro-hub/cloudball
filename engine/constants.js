@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.17';
+export const ENGINE_VERSION = '0.4.18';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -21,14 +21,29 @@ export const COSMETIC_SALT = 0x5ca1ab1e;  /* seed offset of the RNG used for loo
 
 /* ---- broadcast timeline (how long each frame takes on screen) ---- */
 export const PRE_DUR = 18;
-export const BREAK_DUR = 34;
-export const CHANGE_DUR = 14;
+/* #610: dead-ball time as in a real game (so 哥 2026-11-27: time is no constraint). Timing only: no draw, no outcome reads these;
+ * only later times move. Sources: MLB Official Baseball Rules 5.07(b) (up to 8 preparatory pitches before each inning and for a
+ * reliever), MLB pace-of-game regulations (inning break and pitching change timed at about two minutes), CPBL follows the same rules. */
+export const WARMUP_PITCH_GAP = 9;         /* s from one warm-up pitch to the next (throw, catcher's return, set) */
+export const BRK_SWAP_DUR = 20;            /* s: the sides change and the pitcher reaches the mound (render: fielders on by BRK_ON_AT 17.5) */
+export const BRK_WARMUP_PITCHES = 8;       /* warm-up pitches between innings (OBR 5.07(b)) */
+export const BRK_THROW_AROUND_DUR = 12;    /* s: the catcher's throw down to second and the ball around the infield */
+export const BRK_BATTER_IN_DUR = 8;        /* s: the leadoff batter steps in */
+export const BREAK_DUR = BRK_SWAP_DUR + BRK_WARMUP_PITCHES * WARMUP_PITCH_GAP + BRK_THROW_AROUND_DUR + BRK_BATTER_IN_DUR;   /* 112 s */
+export const RELIEF_SIGNAL_DUR = 14;       /* s: the manager walks to the mound and signals the bullpen (render/visit.js needs ~13.2 s) */
+export const BULLPEN_JOG_M = 105;          /* m from the outfield bullpen gate to the mound */
+export const RELIEF_JOG_SPEED = 4.2;       /* m/s: the reliever's jog in */
+export const RELIEF_WARMUP_PITCHES = 8;    /* a reliever's warm-up pitches on the mound (OBR 5.07(b)) */
+export const RELIEF_SETTLE_DUR = 10;       /* s: the ball handed over, the manager back to the dugout, the batter in */
+export const CHANGE_DUR = RELIEF_SIGNAL_DUR + BULLPEN_JOG_M / RELIEF_JOG_SPEED + RELIEF_WARMUP_PITCHES * WARMUP_PITCH_GAP + RELIEF_SETTLE_DUR;   /* 121 s */
+export const HBP_PLAY_DUR = 15;            /* s: the pitch, the reaction and the walk to first: the old hbp frame (WALK_FRAME_DUR + PA_END_HOLD) */
+export const HBP_CHECK_DUR = 20;           /* s: the trainer and the manager check on the hit batter before play resumes */
 /* #81: the pitching coach's mound visit after a "stay" pick, once per pitcher (frame `VIS`). render/visit.js needs about 13.2 s for the
  * walk out and back from either dugout; the rest is the talk at the mound. Timing only: no draw, no outcome reads it. */
 export const MOUND_VISIT_DUR = 16;
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
-export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10, po: 10, pof: 8 };
+export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: HBP_PLAY_DUR + HBP_CHECK_DUR, ibb: 10, bk: 10, po: 10, pof: 8 };
 export const PITCH_DUR_DEFAULT = 10;
 export const PA_END_HOLD = 3;             /* extra pause after a plate appearance ends */
 export const WALK_FRAME_DUR = 12;

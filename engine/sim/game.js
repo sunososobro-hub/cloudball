@@ -562,7 +562,8 @@ export function simGame(seed, decisions, opts) {
           showAt = Math.max(...moves.map(m => m[3].arriveT)) + K.OUT_CALL_LAG;
           d = Math.max(d, showAt + K.POST_PLAY_HOLD);
         } else {
-          if (e.r === 'hbp' || (paDone && e.r === 'ball')) d = K.WALK_FRAME_DUR;
+          if (e.r === 'hbp') d = K.PITCH_DUR.hbp - K.PA_END_HOLD;   /* #610: the walk to first, then the trainer's check; PA_END_HOLD below makes it PITCH_DUR.hbp */
+          else if (paDone && e.r === 'ball') d = K.WALK_FRAME_DUR;
           if (outs.length) showAt = lastOut + K.OUT_CALL_LAG;
         }
         if (paDone) d += K.PA_END_HOLD;
