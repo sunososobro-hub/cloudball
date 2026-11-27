@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.28';
+export const ENGINE_VERSION = '0.4.29';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -18,6 +18,7 @@ export const STREAM_TIME_PRECISION = 1000; /* stream times are rounded to 1/1000
 export const BIG = { NONE: 0, NOTABLE: 1, HUGE: 2 };   /* how much a frame matters to the broadcast (crowd, captions) */
 export const IBB_PITCH_SPOT = [0.6, 0.7];  /* where the pitch-out of an intentional walk is drawn */
 export const COSMETIC_SALT = 0x5ca1ab1e;  /* seed offset of the RNG used for looks only (pitch type, speed, slides) */
+export const RARE_PLAY_SALT = 0x0c1d0e11;  /* #614 part 9: seed offset of the seeded RNG for rare-play outcomes (one draw per swing), so adding one keeps R's sequence */
 
 /* ---- broadcast timeline (how long each frame takes on screen) ---- */
 export const PRE_DUR = 18;
@@ -82,6 +83,11 @@ export const MISS_LOW_SPAN = 0.25;
 export const MISS_HIGH_Y = 1.15;
 export const MISS_HIGH_SPAN = 0.3;
 export const HBP_P = 0.0077;              /* chance that a taken pitch outside the zone hits the batter */
+/* #614 part 9: share of non-bunt swings (no steal on) where the bat hits the catcher's mitt: catcher's interference, batter to first.
+ * Data: MLB had about 100 catcher's interference calls a season in 2023-2024 (Baseball-Reference, ~98 / ~96) in ~184,000 PA,
+ * about 5.4e-4 per PA = ~0.04 a game for both teams. MLB swings ~1.9 times a PA (47% of ~3.9 pitches, Statcast) -> 2.8e-4 a swing,
+ * but this engine swings more often: 2.8e-4 gave 0.054 a game (seeds 1-2000), scaled to 0.04 -> 2.1e-4 (0.035 on seeds 1-2000) */
+export const CI_OF_SWING = 0.00021;
 export const TIRE_AFTER_PITCHES = 85;
 export const TIRE_STUFF_PER_PITCH = 0.003;
 export const TIRE_CTRL_PER_PITCH = 0.002;

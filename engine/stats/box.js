@@ -2,7 +2,7 @@
  * running totals, which is what makes it useful as a cross-check. */
 
 const HITS = { single: 1, infield_single: 1, bunt_single: 1, double: 2, triple: 3, home_run: 4 };
-const NOT_AT_BAT = new Set(['walk', 'intentional_walk', 'hit_by_pitch', 'sac_bunt', 'sac_fly']);
+const NOT_AT_BAT = new Set(['walk', 'intentional_walk', 'hit_by_pitch', 'catcher_interference', 'sac_bunt', 'sac_fly']);
 const blank = () => ({ pa: 0, ab: 0, h: 0, d: 0, t: 0, hr: 0, tb: 0, bb: 0, ibb: 0, hbp: 0, k: 0, sf: 0, sh: 0, rbi: 0, gidp: 0, roe: 0 });
 /* Team-only counts: steals, and what happened to every pitch the team's batters saw. */
 const blankTeam = () => ({ ...blank(), sb: 0, cs: 0, sb3: 0, cs3: 0, wp: 0, pb: 0, bk: 0, po: 0, pof: 0, seen: 0, zone: 0, zoneSwing: 0, chaseSwing: 0, zoneWhiff: 0, chaseWhiff: 0, first: 0, firstSwing: 0, inPlay: 0 });
