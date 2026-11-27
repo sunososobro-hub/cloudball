@@ -1172,6 +1172,10 @@ const uoCache=new WeakMap();
 function uoPlan(e,i){if(!uoM||OFF.has('umpout')||!e||e.k!=='P'||e.r!=='inplay')return null;let m=uoCache.get(e);if(!m){m=new Map();uoCache.set(e,m)}
   if(!m.has(i)){let pl=null;for(const c of bcCalls(e))if(c.b===i+1&&c.at){const q=uoM.outPlan(c,stUmpAt[i],bcLen(),e.d);if(q&&(!pl||c.t>pl.t0)){pl=q;q.t0=c.t}}m.set(i,pl)}return m.get(i)}
 const uoEnd=e=>{let t=0;for(const i of[0,2]){const q=uoPlan(e,i);if(q)t=Math.max(t,q.end)}return t};/* cpEvents: they move until here */
+/* #612 part 9 (render/umpcov.js): the plate umpire covers third while U3 is out on a deep fly with a runner on. Off with ?off=umpcov. */
+let ucM=null;import(new URL('umpcov.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{ucM=M}).catch(err=>console.warn('ump cover off',err));
+const ucCache=new WeakMap();
+function ucPlan(e){if(!ucM||OFF.has('umpcov')||!e||!e.s0||!e.s0.b||!e.s0.b.some(Boolean))return null;if(ucCache.has(e))return ucCache.get(e);const o=uoPlan(e,2),q=o?ucM.covPlan(o,stUmpAt[2],true):null;ucCache.set(e,q);return q}
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
@@ -1547,6 +1551,7 @@ function placeUmp(e,u){const lf=e.bat&&batOf(e).hand==='L',hx=lf?-UMP_X:UMP_X;le
       end=e.d||Math.max(t0,last)+UMP_HOLD+2*tw+UMP_BACK_PAD,tb=Math.max(t0+tw,Math.min(last>-Infinity?last+UMP_HOLD:Infinity,end-tw-UMP_BACK_PAD)),go=ease(sat01((u-t0)/tw)),bk=ease(sat01((u-tb)/tw));
     x=lerp(lerp(hx,gx,go),hx,bk);z=lerp(lerp(UMP_Z,gz,go),UMP_Z,bk);
     if(go>0&&go<1)yaw=Math.atan2(gx-hx,gz-UMP_Z);else if(bk>0&&bk<1)yaw=Math.atan2(hx-gx,UMP_Z-gz);else if(go>=1&&bk===0)yaw=Math.atan2(-x,-z)}
+  const uc=ucPlan(e),cv=uc?ucM.covAt(uc,u):null;if(cv&&cv.w>0){x=lerp(x,cv.x,cv.w);z=lerp(z,cv.z,cv.w);yaw=Math.atan2(cv.fx,cv.fz)}
   ump.g.position.x=x;ump.g.position.z=z;ump.g.rotation.y=yaw;if(ump.noAnim){ump.px=x;ump.pz=z}}
 /* #42: jog ends from render/brkjog.js (off from where the last pitch left him, out to where the next pitch poses him); home until it is in */
 let bjM=null;import(new URL('brkjog.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{bjM=M}).catch(err=>console.warn('break jog ends off',err));
