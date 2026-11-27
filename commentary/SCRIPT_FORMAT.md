@@ -172,3 +172,23 @@ spot, deterministically for a given seed.
   2); his own lines get `rules.fanOwnShare` of his moments; after him routine calls wait
   `rules.fanGapSec` longer. He draws from his own random stream, so his picks never shift the
   other two's picks.
+
+## Name-free clip bank, `lines.json` version 2 (#603)
+
+One shared bank, generated once; every viewer's browser assembles the booth from its clips at $0 (rule 17).
+`"version": 2` switches `validateBank` and `draftFromBank` to these rules (code: `clips.js`, id rule: `clip-id.js`).
+
+- A spoken text (`call`, `response`, `alt`, fan lines) is a list of **parts** or a string split on its slot tokens.
+  A part is fixed text or a **voiced slot** from a closed set, one clip per value:
+  `{inning}` 1-15, `{half}` 上/下, `{outs}` 0-3, `{count}` (12 counts), `{bases}` (8 states), `{n:<source>}` 0-20
+  (source: `runs` `halfRuns` `lastInningRuns` `batterKToday` `batterHits` `batterHrToday` `pitcherK` `awayScore` `homeScore` `margin`),
+  `{team}` `{fieldTeam}` `{leadTeam}` (the 4 teams), `{pos}` (9 positions), `{pitchType}` (`PITCH_TYPES`).
+- Names are never spoken: `validateBank` rejects `{batter}` `{pitcher}` `{runner}` `{manager}` `{pitchingCoach}` `{homeManager}`
+  `{managerName}` `{plateUmp}` `{guest}` and `{desc}` (the play text stays on screen). `when` may still read any slot.
+- Clip id = `<role>-<10 hex sha1(role, tone, text)>` (`tools/line-id.mjs`); a drafted line carries `clips: [id, ...]` and
+  `text` is exactly the spoken words (the subtitle). `bankClips(bank)` lists every id the bank can ask for.
+- A value outside its closed set (a 21st run) or one the booth cannot know yet makes the wording unsayable, so the line is
+  not picked; `{bases}` is not tracked yet, so lines using it never fit until a ticket adds it. A missing clip is silence at
+  playback, never another pick: the draft sees only the bank, the seed and the stream.
+- Tone: clips are made `calm` unless the line carries an `emotion` (its tone is part of the id).
+- Part 2 of #603 rewrites the current bank (still v1) into this format; until then v1 banks work as before.
