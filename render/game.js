@@ -1699,8 +1699,15 @@ function poseFinale(e,u,ei,off,def){if(!FINM)return;const P=finPlanOf(e,off,def)
     const pl=R[i%R.length];setNum(f,pl?pl.num:undefined);dress(f,pl);finFig(f,g.at(u),u)})}
   [ump,...umpB].forEach((f,i)=>{const c=P.U[i].at(u);f.g.visible=c.vis;if(c.vis){f.g.position.set(c.x,0,c.z);face(f,c.fx,c.fz);f.noAnim=false}})}
 /* #611 part 4: the ball on a pitching change: old pitcher -> manager (at the mound) -> reliever's glove (render/chgwalk.js holdAt); dev switch ?off=chgball */
+const CW_REL_FWD=.9,CW_REL_Y=1.75,CW_MITT_FWD=.35,CW_MITT_Y=.7;/* #611 part 5: warm-up release point (m in front of the rubber, height) and the crouched catcher's mitt (m in front of him, height) */
+/* the reliever's warm-up wind-up on a CHG frame (pen.js throwHands, release at chgwalk.js CW_WARM_REL); after the arm resets of poseScene */
+function chgWarmArms(e,u){if(!cwM||!cwM.warmAt||!penM||OFF.has('chgwarm'))return;const w=cwM.warmAt(u,e.d);if(!w)return;const f=fielders.P,h=penM.throwHands(Math.min(w.tt,penM.PEN_THROW_PERIOD*.999));
+  f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h.r[0],h.r[1],h.r[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h.l[0],h.l[1],h.l[2])}
 function chgBall(e,u){if(!cwM||!cwM.holdAt||!visitM||OFF.has('chgball'))return;const vp=visitOf(e),h=cwM.holdAt(!!vp,u);if(!h)return;
   const q=fielders.P.handWorld(0);let b=[q.x,q.y,q.z];
+  if(h.who==='P'&&!OFF.has('chgwarm')){const w=cwM.warmAt&&cwM.warmAt(u,e.d);if(w){const P=fielders.P,C=fielders.C.g.position,px=P.pos[0],pz=P.pos[1],dx=px-C.x,dz=pz-C.z,L=Math.hypot(dx,dz)||1;
+    const rel=[px-dx/L*CW_REL_FWD,CW_REL_Y,pz-dz/L*CW_REL_FWD],mitt=[C.x+dx/L*CW_MITT_FWD,CW_MITT_Y,C.z+dz/L*CW_MITT_FWD],wb=cwM.warmBall(w,rel,mitt,b);
+    if(wb)b=wb;else if(w.tt<cwM.CW_WARM_REL){const r=P.handWorld(1);b=[r.x,r.y,r.z]}}}/* #611 part 5: warm-up pitches (chgwalk.js warmAt); ?off=chgwarm */
   if(h.who!=='P'){const va=visitM.visitAt(vp,u),L=Math.hypot(va.fx,va.fz)||1,m=[va.x+va.fx/L*.3,1.05,va.z+va.fz/L*.3];b=h.who==='mgr'?m:[m[0]+(q.x-m[0])*h.k,m[1]+(q.y-m[1])*h.k,m[2]+(q.z-m[2])*h.k]}
   ball.visible=true;ball.position.set(b[0],b[1],b[2]);ballSh.position.set(b[0],.03,b[2]);ballSh.visible=true}
 function poseScene(e,u,dt,ei){
@@ -1729,7 +1736,7 @@ function poseScene(e,u,dt,ei){
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
-  if(e.k!=='P'){const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);if(e.k==='CHG')chgBall(e,u);if(e.k==='END')poseFinale(e,u,ei,off,def);return s}
+  if(e.k!=='P'){const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);if(e.k==='CHG'){chgWarmArms(e,u);chgBall(e,u)}if(e.k==='END')poseFinale(e,u,ei,off,def);return s}
   /* pitch */
   pbOn=e.r!=='inplay'&&e.r!=='foul'&&e.r!=='hbp'&&!e.wp&&!e.bk&&!e.po&&!e.sbGo&&!cpOn();if(pbOn&&pbM){const nx=game&&game.ev&&game.ev[ei+1];pbSeed=pbM.pbSeedOf(e.pit?e.pit.join(':'):'');pbEi=ei;pbDur=nx&&nx.t>e.t?nx.t-e.t:12}/* compact showing keeps the old walk (done by PITCH_STILL); the same frames the catcher lobs the ball back (see the ball below) */
   const pp=pitchPose(e.bk?bkU(u):e.po?0:u),tip=pp.tip;
@@ -2132,7 +2139,7 @@ function cpEvents(g){const ev=g.ev;
       for(const [,to,,tl] of q.moves||[])if(to===4)pe=Math.max(pe,Math.min(q.t+PEEL_LOOK,q.t+tl.arriveT+peelLen(off,tl))-e.t)}
     {const w=welNow(ev,i,e.t,off);if(w)pe=Math.max(pe,w[0].end-w[1])}/* #266: teammates of a home run still walking back */
     if(e.k==='VOTE'){head=e.d;tail=0}
-    else if(e.k==='CHG'||e.k==='VIS'){const vp=visitOf(e);if(vp){head=vp.go;tail=vp.end}else if(visitM){head=e.d;tail=0}}/* #81: the manager's walk to the mound and back; module not in yet -> keep it all */
+    else if(e.k==='CHG'||e.k==='VIS'){const vp=visitOf(e);if(vp){head=vp.go;tail=vp.end}else if(visitM){head=e.d;tail=0}if(e.k==='CHG'&&cwM&&cwM.warmEnd&&!OFF.has('chgwarm')){head=Math.min(head,cwM.warmStart());tail=Math.max(tail,cwM.warmEnd(e.d))}}/* #611 part 5: warm-up pitches *//* #81: the manager's walk to the mound and back; module not in yet -> keep it all */
     else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to}),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
     else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),jogEnd([dugout(1-off)[0],INTRO_Z],0,k=>preEndOf(ev,i,k)),stJogEnd(off,0),odEnd(ev,i));
     else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
