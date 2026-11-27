@@ -15,6 +15,7 @@ const src = readFileSync(path.join(ROOT, 'render/game.js'), 'utf8'), a = src.ind
 if (a < 0 || b < a) { console.error('flyPath not found in render/game.js'); process.exit(2) }
 const lerp = (x, y, t) => x + (y - x) * t, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const flyPath = new Function('lerp', 'clamp', src.slice(a, b) + '\nreturn (e,p0,p1,T)=>{const f=flyPath(e,p0,p1,T),t=flyCache.get(e.t);return {f,v0:t.v0}}')(lerp, clamp);
+const pa = src.indexOf('function arc('), pb = src.indexOf('/* ---------- Fielding'), { pitchBreak, PITCH_BRK_IN } = new Function('lerp', src.slice(pa, pb) + ';return{pitchBreak,PITCH_BRK_IN}')(lerp); /* #644 */
 const pct = (arr, q) => { const s = [...arr].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))] };
 const row = (name, arr, d = 2) => console.log(name.padEnd(46), 'n', String(arr.length).padStart(5), ' p5', pct(arr, .05).toFixed(d), ' p50', pct(arr, .5).toFixed(d), ' p95', pct(arr, .95).toFixed(d), ' min', Math.min(...arr).toFixed(d), ' max', Math.max(...arr).toFixed(d));
 const S = { kmh: [], jump: [], gbPk: [], gbStill: [], roll: [], thr: [], thrIn: [], thrOut: [], ev: [], evHR: [], la: [], pkE: [] }, PT = {};
@@ -34,6 +35,7 @@ for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) 
 }
 console.log(`#638 phys_audit, seeds 1..${SEEDS}`);
 row('1 pitch: implied km/h - shown km/h', S.kmh, 1);
+for (const k of Object.keys(PITCH_BRK_IN)) { const [bx, by] = pitchBreak(k, [1, 0, 0]); console.log(`    #644 ${k} break at the plate vs release line: ${(by * 100).toFixed(0)} cm vertical, ${(bx * 100).toFixed(0)} cm arm side (Statcast induced, minus the fastball's rise)`) }
 for (const [k, v] of Object.entries(PT)) console.log(`    ${k} shown km/h ${Math.min(...v)}-${Math.max(...v)} (${v.length})`);
 row('5 contact: plate spot -> HIT0 jump (m)', S.jump);
 row('5 air ball: solved exit velo (km/h)', S.ev, 0);

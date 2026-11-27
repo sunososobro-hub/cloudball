@@ -1294,6 +1294,15 @@ function pmFieldSet(e,u){pmField=null;const P=fielders.P,c=pitchClip;if(!c||!P.s
   if(w>0)pmField={c,t:pmTime(u,c),w,mir:c.release.hand==='right',dz:kf(ARRIVE,PK.dz)}}
 function pmFieldApply(){const m=pmField;if(m)fielders.P.setMocap(m.c,m.t,m.w,m.mir,PM_START,m.dz)}
 function arc(p0,p1,peak,t){return[lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)+peak*4*t*(1-t),lerp(p0[2],p1[2],t)]}
+/* #644: pitch break by type. Metres at the plate beyond the old straight-plus-hump line (the fastball look): [vertical, arm-side horizontal]
+   (vertical + = up, horizontal + = toward the throwing-arm side, flipped for a lefty by the release x). Public Statcast pitch-tracking
+   averages, induced break in inches (vertical vs gravity-only / horizontal): 直球 +16 / 8 arm, 滑球 +2 / 3 glove, 曲球 -10 / 10 glove,
+   變速球 +8 / 14 arm, 指叉球 +4 / 12 arm; vertical here is that minus the fastball's +16 (the hump already draws it), 1 in = .0254 m. */
+const PITCH_BRK_IN={'直球':[0,8],'滑球':[-14,-3],'曲球':[-26,-10],'變速球':[-8,14],'指叉球':[-12,12]},IN_M=.0254;
+const pitchBreak=(pt,hand)=>{const b=PITCH_BRK_IN[pt]||PITCH_BRK_IN['直球'];return[b[1]*IN_M*(hand[0]<0?-1:1),b[0]*IN_M]};
+/* the hump path plus a quadratic bend that is 0 at release and at the plate, so it still ends exactly on the engine's spot: the ball leaves
+   aimed `brk` short of it and is pulled there, so the break at the plate vs its release line is exactly `brk` */
+function pitchArc(p0,p1,peak,t,brk){const q=arc(p0,p1,peak,t),k=t*t-t;return[q[0]+brk[0]*k,q[1]+brk[1]*k,q[2]]}
 
 /* ---------- Fielding: catch / transfer / throw (frame-steppable in the studio) ---------- */
 /* Throw speed by arm strength and distance (m/s): short toss 25-30, infield 34-40, outfield 36-43; transfer (catch to release) 0.6-1.2 s.
@@ -1660,7 +1669,7 @@ function poseScene(e,u,dt,ei){
   const hit0=bunt?buntHit(e,u):HIT0;if(bunt)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<RELEASE||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
-  else if(u<ARRIVE)bp=arc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE));
+  else if(u<ARRIVE)bp=pitchArc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE),pitchBreak(e.pt,hand));
   else if(!contact&&e.wp){bp=wpBall(e,u,plate);wpCatcher(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
