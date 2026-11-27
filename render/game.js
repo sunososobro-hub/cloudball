@@ -939,6 +939,18 @@ let TIPB=null;import(new URL('tipball.js',document.currentScript&&document.curre
 let GBP=null;/* #645: grounder hops (render/gb_path.js gbPath / gbGlove) */
 import(new URL('gb_path.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{GBP=M}).catch(err=>console.warn('gb path off',err));
 import(new URL('bunt_clip.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{BCL=M}).catch(err=>console.warn('bunt clip off',err));
+/* #649 part 4: the mocap swing meets the ball ~1.5 m high wherever the pitch is, so the batter is moved (world shift of his ground frame, like the bunt's
+   knee drop) by the gap between the bat's sweet spot and the pitch's contact point at ARRIVE, clamped per axis (SW_WARP_MAX: x, y, z), weighted by a window
+   around ARRIVE. The gap is measured once per event on the unshifted swing (swRaw guards the re-entry). Only the picture moves: the ball path is unchanged. */
+const SW_WARP_MAX=[.4,.65,.4],SW_WARP_IN=.4,SW_WARP_OUT_AT=.12,SW_WARP_OUT=.25;
+let swRaw=false,swWarpAt=null;const _swc=new THREE.Vector3();
+const swWarpW=u=>ease(sat01((u-(ARRIVE-SW_WARP_IN))/SW_WARP_IN))*(1-ease(sat01((u-ARRIVE-SW_WARP_OUT_AT)/SW_WARP_OUT)));
+function swingWarp(e,u){if(swRaw||OFF.has('swingwarp')||!(e.r==='inplay'||e.r==='foul')||!e.swing||swWarpW(u)<=0)return null;
+  if(!(swWarpAt&&swWarpAt.e===e&&swWarpAt.c===swingClip)){const c=contactPt(e);swRaw=true;
+    poseBatter(e,ARRIVE);batterWalk(e,ARRIVE);batterMocap(e,ARRIVE);batter.g.updateMatrixWorld(true);_swc.set(0,BUNT_SWEET,0);bat.localToWorld(_swc);
+    const d=new THREE.Vector3(c[0]-_swc.x,c[1]-_swc.y,c[2]-_swc.z);for(let i=0;i<3;i++){const m=SW_WARP_MAX[i];d.setComponent(i,clamp(d.getComponent(i),-m,m))}
+    swWarpAt={e,c:swingClip,d};poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);swRaw=false}
+  return swWarpAt.d}
 function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
   const bu=e.r==='inplay'&&e.play&&e.play.bunt;let w;
   if(bu){if(BCL&&!buntClipP&&window.PL&&PL.loadClip)buntClipP=PL.loadClip(BCL.BUNT_CLIP_URL).then(c=>{buntClip=c}).catch(x=>console.warn('mocap',x));
@@ -946,7 +958,8 @@ function batterMocap(e,u){if(!batter.setMocap||OFF.has('mocap'))return;
     batter.setMocap(buntClip,w>0?BCL.buntClipTime(u,ARRIVE,BUNT_SQUARE_LEAD,BUNT_SQUARE_DUR):0,w,false,BCL?BCL.BUNT_CLIP_T0:0,0);if(w<=0)return;
     batter.g.position.y+=buntDrop*w}
   else{if(!swingClipP&&window.PL&&PL.loadClip)swingClipP=PL.loadClip(SWING_CLIP_URL).then(c=>{swingClip=c}).catch(x=>console.warn('mocap',x));
-    w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return}
+    w=swingClip&&batter.g.visible?swW(e,u):0;batter.setMocap(swingClip,swTime(u),w,false,SW_START,0);if(w<=0)return;
+    const sh=swingWarp(e,u);if(sh){batter.g.position.addScaledVector(sh,swWarpW(u));batter.g.updateMatrixWorld(true);batter.setMocap(swingClip,swTime(u),w,false,SW_START,0)}}
   batter.handWorld(1,_sw0);batter.handWorld(0,_sw1);/* bottom hand (arms[1]) holds the handle, top hand (arms[0]) gives the axis */
   const up=batPivot.parent;up.updateMatrixWorld(true);_sw1.sub(_sw0);const L=_sw1.length();
   up.worldToLocal(_sw0);batPivot.position.lerp(_sw0,w);
@@ -1350,14 +1363,18 @@ function throwRelease(e,f,at,xfer,tgt){const key=e.t+':'+xfer;let r=relCache.get
   resetPose(f);f.g.position.set(at[0],0,at[1]);face(f,tgt[0]-at[0],tgt[2]-at[1]);throwPose(f,xfer,xfer,tgt);const q=f.handWorld(1);r=[q.x,q.y,q.z];
   f.g.position.copy(o[0]);f.g.quaternion.copy(o[1]);[R.up,R.hips,R.hg,R.l0,R.l1,R.a0,R.a1].forEach((x,i)=>{x.quaternion.copy(o[2+2*i]);x.scale.copy(o[3+2*i])});
   if(relCache.size>200)relCache.clear();relCache.set(key,r);return r}
-/* Batted-ball path: the simulation already decided the outcome (landing point, hang time); here we solve back for the launch velocity and draw it with a drag integration (Cd ~ .33, an assumed coefficient):
-   steeper rise and straighter fall than a parabola. Solved once per event and stored as a sample table */
-const AIR_K=1.2*.33*Math.PI*.0366*.0366/(2*.145),GRAV=9.81,FLY_DT=1/120,flyCache=new Map();
+/* Batted-ball path: the simulation already decided the outcome (landing point, hang time); here we solve back for the launch velocity and draw it with a drag integration (Cd .33, an assumed coefficient):
+   steeper rise and straighter fall than a parabola. Solved once per event and stored as a sample table.
+   #648: a ball whose solved exit speed would pass EV_MAX (197 km/h = 122.4 mph, the hardest Statcast-tracked ball) gets less drag, the most that keeps it at EV_MAX
+   (CD_MIN 0: the engine's hang and distance for the hardest ~2% of balls need near-vacuum flight, any real Cd leaves 207-227 km/h); it still lands where and when the engine says. Balls under EV_MAX draw as before. */
+const CD_MAX=.33,CD_MIN=0,EV_MAX=197/3.6,airK=cd=>1.2*cd*Math.PI*.0366*.0366/(2*.145),GRAV=9.81,FLY_DT=1/120,flyCache=new Map();
 function flyPath(e,p0,p1,T){const key=e.t;let tab=flyCache.get(key);
-  if(!tab){const n=Math.max(2,Math.ceil(T/FLY_DT)),h=T/n,sim=v=>{const P=p0.slice(),V=v.slice(),out=[P.slice()];for(let i=0;i<n;i++){const sp=Math.hypot(...V);for(let k=0;k<3;k++)V[k]+=h*(-AIR_K*sp*V[k]-(k===1?GRAV:0));for(let k=0;k<3;k++)P[k]+=h*V[k];out.push(P.slice())}return out};
-    let v=[(p1[0]-p0[0])/T,(p1[1]-p0[1])/T+GRAV*T/2,(p1[2]-p0[2])/T];
-    for(let it=0;it<40;it++){const end=sim(v)[n],err=[p1[0]-end[0],p1[1]-end[1],p1[2]-end[2]];if(Math.hypot(...err)<.01)break;for(let k=0;k<3;k++)v[k]+=err[k]/T*(k===1?1:1.3)}
-    tab={pts:sim(v),h,v0:v};if(flyCache.size>200)flyCache.clear();flyCache.set(key,tab)}
+  if(!tab){const n=Math.max(2,Math.ceil(T/FLY_DT)),h=T/n,sim=(v,K)=>{const P=p0.slice(),V=v.slice(),out=[P.slice()];for(let i=0;i<n;i++){const sp=Math.hypot(...V);for(let k=0;k<3;k++)V[k]+=h*(-K*sp*V[k]-(k===1?GRAV:0));for(let k=0;k<3;k++)P[k]+=h*V[k];out.push(P.slice())}return out},
+    solve=cd=>{const K=airK(cd),v=[(p1[0]-p0[0])/T,(p1[1]-p0[1])/T+GRAV*T/2,(p1[2]-p0[2])/T];
+      for(let it=0;it<40;it++){const end=sim(v,K)[n],err=[p1[0]-end[0],p1[1]-end[1],p1[2]-end[2]];if(Math.hypot(...err)<.01)break;for(let k=0;k<3;k++)v[k]+=err[k]/T*(k===1?1:1.3)}return v};
+    let cd=CD_MAX,v=solve(cd);
+    if(Math.hypot(...v)>EV_MAX){let lo=CD_MIN,hi=CD_MAX,vl=solve(lo);if(Math.hypot(...vl)<=EV_MAX){for(let i=0;i<12;i++){const m=(lo+hi)/2,vm=solve(m);if(Math.hypot(...vm)>EV_MAX)hi=m;else{lo=m;vl=vm}}}cd=lo;v=vl}
+    tab={pts:sim(v,airK(cd)),h,v0:v,cd};if(flyCache.size>200)flyCache.clear();flyCache.set(key,tab)}
   return t=>{const x=clamp(t/tab.h,0,tab.pts.length-1),i=Math.min(tab.pts.length-2,Math.floor(x)),a=x-i,P=tab.pts[i],Q=tab.pts[i+1];return[lerp(P[0],Q[0],a),lerp(P[1],Q[1],a),lerp(P[2],Q[2],a)]}}
 
 const INTRO_GAP=.7,INTRO_RUN=4.5,INTRO_X=26,INTRO_Z=-6;

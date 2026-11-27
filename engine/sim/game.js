@@ -13,7 +13,7 @@ import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
 import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
-import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff } from '../rules/fielding.js';
+import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveDroppedThird } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
@@ -115,9 +115,9 @@ export function simGame(seed, decisions, opts) {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
       if (e.swing) add('swing', e.t + K.ARRIVE, { ...who });
       if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder, foul: e.play.foul ? true : undefined });
-      else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], tip: e.tip ? true : undefined, bunt: e.bunt ? true : undefined, count: e.c1 });
+      else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], tip: e.tip ? true : undefined, dropped: e.k3 ? true : undefined, bunt: e.bunt ? true : undefined, count: e.c1 });
     }
-    if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal || e.plan.po ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
+    if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal || e.plan.po || e.plan.k3 ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
     let n = e.s0.outs;
     for (const o of e.outs) add('out', e.t + o.at, { ...o, at: undefined, ballAt: o.ballAt == null ? undefined : round3(e.t + o.ballAt), touchAt: o.touchAt == null ? undefined : round3(e.t + o.touchAt),
       fielderAt: o.fielderAt == null ? undefined : round3(e.t + o.fielderAt), runnerAt: o.runnerAt == null ? undefined : round3(e.t + o.runnerAt), team: off, outs: ++n, steal: e.sbGo ? true : undefined, pickoff: e.po ? true : undefined });
@@ -125,7 +125,7 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
     if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0 });
@@ -336,9 +336,19 @@ export function simGame(seed, decisions, opts) {
           if (runs) { rbi = runs; desc += COPY.forcedIn(runs); }
         } else if (strikes === K.STRIKES_FOR_OUT) {
           /* #614 part 2: a share of the swinging third strikes are foul tips the catcher holds (a label, looks RNG) */
-          if (e.r === 'sstr' && look() < K.FOUL_TIP_OF_WHIFF) e.tip = true;
-          outs.push(strikeout({ batter: name, looking: e.r === 'cstr', strikes, at: K.ARRIVE + K.CATCH_SNAP }));
-          bs.ab++; bs.k++; ps.k++; paDone = true; result = 'strikeout'; desc = COPY.strikeout(name, e.r === 'cstr', e.tip, e.bunt);
+          /* #614 part 4: a third strike the catcher does not hold, first open or two outs: the batter runs, the catcher throws to first */
+          const k3Free = !going && !e.bunt && (e.r === 'sstr' || e.r === 'cstr') && (!B[0] || st.outs === K.OUTS_PER_HALF - 1);
+          if (k3Free && R() < (e.r === 'sstr' && !inZ && zy <= K.MISS_LOW_Y ? K.K3_DROP_DIRT_P : K.K3_DROP_P)) {
+            const k = resolveDroppedThird(ctxOf(null), span(R, K.K3_RETRIEVE));
+            plan = k.plan; outs = k.outs; e.k3 = true; e.big = k.ok ? K.BIG.NOTABLE : K.BIG.NONE;
+            if (k.ok) { const f = forceAdvance(name); moves = f.moves; runs = f.runs; for (const m of moves) if (m[0] === 0) m[3] = k.tl; }
+            desc = COPY.droppedThird(name, e.r === 'cstr', k.ok, runs);
+          } else {
+            if (e.r === 'sstr' && look() < K.FOUL_TIP_OF_WHIFF) e.tip = true;
+            outs.push(strikeout({ batter: name, looking: e.r === 'cstr', strikes, at: K.ARRIVE + K.CATCH_SNAP }));
+            desc = COPY.strikeout(name, e.r === 'cstr', e.tip, e.bunt);
+          }
+          bs.ab++; bs.k++; ps.k++; paDone = true; result = 'strikeout';
         } else if (e.r === 'inplay') {
           paDone = true; bs.ab++;
           /* ---- the batted ball ---- */
@@ -370,7 +380,7 @@ export function simGame(seed, decisions, opts) {
             else if (type === 'LD') { d = res === 'out' ? (R() < K.LD_SHALLOW_P ? span(R, K.LD_SHALLOW_DIST) : span(R, K.LD_DEEP_DIST)) : span(R, K.LD_HIT_DIST); hang = d / K.LD_SPEED; peak = span(R, K.LD_PEAK); }
             else if (type === 'PU') { d = span(R, K.PU_DIST); hang = span(R, K.PU_HANG); peak = span(R, K.PU_PEAK); }
             else { d = span(R, res === 'HR' ? K.FB_HR_DIST : res === 'out' ? K.FB_OUT_DIST : K.FB_HIT_DIST); hang = span(R, K.FB_HANG); peak = span(R, K.FB_PEAK); }
-            if (res === '3B') d = Math.max(d, K.TRIPLE_MIN_DIST);
+            if (res === '3B') { d = Math.max(d, K.TRIPLE_MIN_DIST); hang = Math.max(hang, d / K.HIT_HORIZ_SPEED_MAX); }
           }
           const land = spotXZ(spray, d);
           /* nearest fielder takes it */
@@ -562,7 +572,7 @@ export function simGame(seed, decisions, opts) {
           if (m[3]) continue;
           const [from, to, who] = m, stays = to < HOME && e.s1.b[to - 1] === who, outHere = outs.some(o => o.runner === who && o.base === to);
           const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? outHere || look() < K.HOME_SLIDE_P : stays || outHere));
-          m[3] = runnerTimeline(from, to, { kind: inplay ? (play.res === 'HR' ? 'trot' : 'inplay') : e.wp ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
+          m[3] = runnerTimeline(from, to, { kind: inplay ? (play.res === 'HR' ? 'trot' : 'inplay') : e.wp || e.k3 ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
         }
 
         /* ---- broadcast timing: the result is shown when it has really happened ---- */
@@ -573,6 +583,10 @@ export function simGame(seed, decisions, opts) {
           d = K.INPLAY_BASE_DUR + play.hang + (moves.length ? K.INPLAY_MOVES_DUR : 0) + (runs ? K.INPLAY_RUNS_DUR : 0);
           d = Math.max(d, K.ARRIVE + plan.catchT + K.POST_CATCH_HOLD + walkBack + K.WALK_BACK_PAD, K.ARRIVE + plan.arrive + K.POST_PLAY_HOLD, ...moves.map(m => m[3].arriveT + K.POST_PLAY_HOLD));
           showAt = outs.length ? lastOut + K.OUT_CALL_LAG : play.infield ? moves[0][3].arriveT + K.OUT_CALL_LAG : K.ARRIVE - K.HIT_SHOW_LEAD + play.hang;
+        } else if (e.k3) {
+          /* #614 part 4: the call at first is shown when the throw or the batter gets there */
+          showAt = (outs.length ? lastOut : plan.runnerAt) + K.OUT_CALL_LAG;
+          d = Math.max(d, plan.arrive + K.POST_PLAY_HOLD, showAt + K.POST_PLAY_HOLD, ...moves.map(m => m[3].arriveT + K.POST_PLAY_HOLD));
         } else if (sbGo) {
           showAt = moves[0][3].arriveT + K.OUT_CALL_LAG;
           d = Math.max(d, plan.arrive + K.POST_PLAY_HOLD, showAt + K.POST_PLAY_HOLD);

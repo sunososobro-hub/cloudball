@@ -232,3 +232,20 @@ export function resolvePickoff(ctx, safe = false) {
   plan.actions.push({ t: b0, a: 'throw', f: key, to: 'P' }, { t: b0 + BT, a: 'receive', f: 'P', base: null });
   return { plan, outs: [] };
 }
+
+/* Dropped third strike (#614 part 4): the batter runs to first from the plate; the catcher picks the ball up `retrieve` s after
+ * it reaches the plate and throws to the first baseman, who covers the bag. Out only when the ball held on the bag beats the
+ * batter (forceOut checks it). Times are seconds into the frame. */
+export function resolveDroppedThird(ctx, retrieve) {
+  const batter = ctx.batter, key = '1B', spot = BASES[1], from = FIELD_HOME.C;
+  const tl = runnerTimeline(0, 1, { kind: 'wp' });
+  const coverAt = K.ARRIVE + coverArrival(fielderStart(key, ctx.bases, ctx.outs), spot, K.FIELD_REACT, K.COVER_SPEED);
+  const TD = dist(from, spot), th = throwPlan(ctx.arm('C'), 'C', TD, null);
+  const t0 = K.ARRIVE + retrieve, arrive = t0 + th.flight, touchAt = Math.max(arrive, coverAt);
+  const plan = { k3: true, CV: { key, spot, base: 1, at: coverAt }, from, TD, v: th.v, TT: th.flight, t0, arrive, runnerAt: tl.arriveT,
+    actions: [{ t: coverAt, a: 'cover', f: key, base: 1 }, { t: t0, a: 'throw', f: 'C', to: key }, { t: arrive, a: 'receive', f: key, base: 1 }] };
+  plan.actions.sort((a, b) => a.t - b.t);
+  if (!beats(arrive, coverAt, tl.arriveT)) return { ok: true, plan, outs: [], tl };
+  plan.actions.push({ t: touchAt, a: 'touch', f: key, base: 1 });
+  return { ok: false, plan, tl, outs: [forceOut({ runner: batter, from: 0, base: 1, fielder: key, forced: true, ballAt: arrive, touchAt: coverAt, runnerAt: tl.arriveT })] };
+}

@@ -149,7 +149,12 @@ function checkGame(seed, g) {
     const pre = bases.slice(), preOuts = outsInHalf;
     const contact = F.find(x => x.type === 'contact'), pitch = F.find(x => x.type === 'pitch');
     const actions = F.filter(x => x.type === 'fielder_action');
-    const batterRuns = !!contact || F.some(x => x.type === 'pa_end' && /walk|hit_by_pitch/.test(x.result));
+    /* #614 part 4: a dropped third strike (call `dropped: true`, only on a third strike) lets the batter run, like a batted ball */
+    const dropped = F.find(x => x.type === 'call' && x.dropped);
+    if (dropped && !(dropped.call === 'swinging_strike' || dropped.call === 'called_strike')) bad(`dropped third strike on a ${dropped.call}`);
+    if (dropped && strikes !== 2) bad(`dropped third strike on ${strikes} strikes`);
+    if (dropped && pre[0] && preOuts !== 2) bad('dropped third strike with first occupied and fewer than two outs: the batter is out');
+    const batterRuns = !!contact || !!dropped || F.some(x => x.type === 'pa_end' && /walk|hit_by_pitch/.test(x.result));
 
     /* who holds the ball, replayed from the fielder actions */
     const holderAt = (fielder, time) => {
@@ -232,7 +237,7 @@ function checkGame(seed, g) {
       if (x.reason === 'force' || x.reason === 'tag') {
         if (!x.fielder) return 'no fielder';
         const origin = x.from === 0 ? null : pre[x.from - 1];
-        if (x.from === 0 ? (!contact || contact.batter !== x.runner) : origin !== x.runner) return `${x.runner} was not on base ${x.from}`;
+        if (x.from === 0 ? ((contact || dropped || {}).batter !== x.runner) : origin !== x.runner) return `${x.runner} was not on base ${x.from}`;
         const hold = holderAt(x.fielder, x.t);
         if (hold) return hold;
         if (!(x.t < x.runnerAt + EPS)) return 'runner was already there';
