@@ -9,6 +9,7 @@
 - #378: optional batter `def` (missing = 1, factory games unchanged) scales chase speed, hit and error chance (`DEF_*`); a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 - #610 (0.4.18): real dead-ball time from named steps: `CHANGE_DUR` 121 s (signal, bullpen jog, 8 warm-ups, settle), `BREAK_DUR` 112 s, hbp frame 35 s (trainer check); timing only, `tests/deadball.check.mjs` pins outcomes of 1000 seeds to 0.4.17.
 - #266 (0.4.11): home-run runners trot (kind `'trot'`, `HR_TROT_SPEED`); `tests/hr_trot.check.mjs`. #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
+- #614 part 1 (0.4.19): caught foul flies, `FOUL_OUT_P` of fouls (~1.3/game), fielder and spot from `FOUL_OUT_ZONES` (all in foul ground), hang stretched so he is under it; contact `foul: true`, out `fly_catch`; `tests/foulout.check.mjs`. Left: parts 2-10 of #614.
 - #81 (0.4.10): a "stay" pick on the pitching vote brings the pitching coach out (`VIS` frame, `MOUND_VISIT_DUR`, stream `mound_visit`), once per pitcher; no draw, outcomes unchanged, only later times move.
 
 ## Next
