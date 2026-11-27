@@ -16,9 +16,9 @@ const lerp = (a, b, k) => a + (b - a) * k;
 const arc = (p0, p1, peak, t) => [lerp(p0[0], p1[0], t), lerp(p0[1], p1[1], t) + peak * 4 * t * (1 - t), lerp(p0[2], p1[2], t)];
 
 /* ball position at t seconds after ARRIVE, or null once it is gone. hit0 = the sweet spot at contact, dir = e.foulDir (+1 / -1) */
-export function foulBuntBall(hit0, dir, t, groundY) {
+export function foulBuntBall(hit0, dir, t, groundY, hold) {   /* hold (s): a ball kid comes for it, the ball lies there until then (#612 part 7) */
   const L = [dir * FB_X, groundY, FB_Z], E = [dir * (FB_X + FB_ROLL_X), groundY, FB_Z + FB_ROLL_Z];
   if (t < FB_T) return arc(hit0, L, FB_PEAK, t / FB_T);
   if (t < FB_T + FB_ROLL_T) { const k = (t - FB_T) / FB_ROLL_T; return arc(L, E, 0, 1 - (1 - k) * (1 - k)); }
-  return t < FB_GONE ? E : null;
+  return t < (hold === undefined ? FB_GONE : Math.max(hold, FB_GONE)) ? E : null;
 }
