@@ -2,7 +2,7 @@
 
 
 /* Everything about the game itself (rules, outcomes, timings of plays) comes from engine/. This file only draws it. */
-const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,BK_CALL_AT,
+const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,BK_CALL_AT,CHECK_APPEAL_AT,
   runDist,runTime,leadAt,tagLeadAt,LEAD_PRIMARY,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
 const $=id=>document.getElementById(id);
 /* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park,par
@@ -901,7 +901,7 @@ function hbpBall(e,u){const S=hbpSpot(e),t=u-ARRIVE,sg=S[0]>0?-1:1;/* he stands 
   return t<HBP_BALL_GONE?g2:null}
 function poseBatter(e,u){
   const bn=buntE(e)?ease(sat01((u-(ARRIVE-BUNT_SQUARE_LEAD))/BUNT_SQUARE_DUR))*bfbRel(e,u):0;
-  const ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=e.swing&&!bn?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing&&!bn?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
+  const hs=chkHalf(e,u),ld=ease(sat01((u-(ARRIVE-BAT_LOAD_LEAD))/BAT_LOAD_DUR)),sw=hs&&!bn?Math.min(ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)),hs.cap)*(1-hs.back):e.swing&&!bn?ease(sat01((u-(ARRIVE-BAT_SWING_LEAD))/BAT_SWING_DUR)):0,ft=e.swing&&!bn&&!hs?ease(sat01((u-(ARRIVE+BAT_FT_DELAY))/BAT_FT_DUR)):0;
   const K=(k,c)=>{const a=BK[k];let v=lerp(a[0],a[1],ld);v=lerp(v,c===undefined?a[2]:c,sw);return lerp(v,a[3],ft)};
   const stay=!(e.pa&&e.r!=='ibb'),kOut=batKOut(e),rw=kOut?ease(sat01((u-(ARRIVE+BAT_K_REST_AT[e.r==='sstr'?1:0]))/BAT_K_REST_DUR)):stay?Math.max(ease(sat01((u-(ARRIVE+BAT_REST_AT))/BAT_REST_DUR)),(e.c0[0]+e.c0[1]>0&&e.c0[0]+e.c0[1]!==undefined)?1-ease(sat01(u/BAT_UNREST_DUR)):0):0;
   const lk=kOut?batLookW(e,u):0,oh=kOut&&e.r==='sstr'?ease(sat01((u-(ARRIVE+BAT_ONE_AT))/BAT_ONE_DUR)):0;
@@ -933,7 +933,7 @@ function poseBatter(e,u){
 const SWING_CLIP_URL='assets/mocap/swing_124_07.json',SW_FPS=30,SW_CONTACT=85/SW_FPS,SW_START=1.6,SW_END=3.6,SW_IN=.4,SW_OUT=[ARRIVE+.6,ARRIVE+1.1],SW_OUT_HIT=[ARRIVE+.2,ARRIVE+.35],SW_HAND_GAP_MIN=.03;
 let swingClip=null,swingClipP=null;const _sw0=new THREE.Vector3(),_sw1=new THREE.Vector3(),_swm=new THREE.Matrix4();
 const swTime=u=>Math.max(SW_START,Math.min(SW_END,SW_CONTACT+(u-ARRIVE)));
-function swW(e,u){if(!e.swing||buntE(e))return 0;const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
+function swW(e,u){if(!e.swing||buntE(e)||chkHalf(e,u))return 0;/* #708: a check swing is the keyframe half swing, not the full clip */const a=ARRIVE-BAT_LOAD_LEAD-SW_IN,o=e.r==='inplay'?SW_OUT_HIT:SW_OUT;
   return Math.min(ease(sat01((u-a)/SW_IN)),1-ease(sat01((u-o[0])/(o[1]-o[0]))))}
 /* #303: a bunt plays bunt_124_08.json instead (square 52-64, hold 64-80, time warp and weight in render/bunt_clip.js). The clip has its
    own crouch, so the knee-bend drop of the ground frame (buntDrop) is taken back by the clip weight; the bat follows the hands as on the swing,
@@ -1167,7 +1167,7 @@ const u2End=(ev,i)=>{const q=u2Plan(ev,i);return q&&q.pl?q.pl.go+q.pl.t:0};/* cp
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);chkSigPose(f,i+1,e,u);
     if(i===1&&!mv&&!f.armsHeld&&x===ST_U2_IN[0]&&z===ST_U2_IN[1])u2Watch(f,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
@@ -1453,6 +1453,9 @@ const C_GLOVE_X=-.1,C_SHIFT_K=.8,C_SHIFT_MAX=.25,cShift=e=>clamp((e.zx-C_GLOVE_X
 const PLATE_UP_AT=.25,PLATE_UP_DUR=.45,PLATE_DOWN_AT=1,PLATE_DOWN_DUR=.6,ARM_HANG=[0,BAT_SHOULDER_Y-BAT_ARM_LEN,0];/* hand straight below the shoulder (x = the shoulder's own x) */
 /* #609 part 1: plate signals for foul, hit by pitch, intentional walk and balk (render/umpsig.js, pure function of event and time). Dev switch ?off=umpsig. */
 let sigM=null;const SIG_T={ARRIVE,BK_CALL_AT};import(new URL('umpsig.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpsig'))sigM=M}).catch(err=>console.warn('plate signals off',err));
+/* #708: check-swing appeal (render/chkswing.js, pure function of event and time): half swing, the catcher points at the base umpire, who signals swing / no swing. Dev switch ?off=chkswing. */
+var chkM=null;const CHK_T={ARRIVE,CHECK_APPEAL_AT};import(new URL('chkswing.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('chkswing')&&Number.isFinite(CHECK_APPEAL_AT))chkM=M}).catch(err=>console.warn('check-swing appeal off',err));
+function chkHalf(e,u){return chkM?chkM.halfSwing(e,u,CHK_T):null}
 /* #609 part 2: line umpires (U1 right line, U3 left line) signal foul, a fair ball near the line and a home run (render/umpline.js, pure function of event and time). Dev switch ?off=umpline. */
 let lsM=null;import(new URL('umpline.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpline'))lsM=M}).catch(err=>console.warn('line signals off',err));
 let infM=null;import(new URL('umpinf.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpinf'))infM=M}).catch(err=>console.warn('infield fly signal off',err));
@@ -1473,9 +1476,14 @@ function lineSigPose(f,b,e,u){const s=lsM&&!f.armsHeld&&(b===1||b===3)?lsM.lineS
   f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 /* #609 part 3b infield fly: the nearest base umpire points up while the ball is in the air (render/umpinf.js) */
+function chkSigPose(f,b,e,u){const s=chkM&&!f.armsHeld?chkM.appealSignal(e,u,b,CHK_T):null;if(!s)return;
+  f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
+  aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 function infSigPose(f,b,e,u){const s=infM&&!f.armsHeld?infM.infSignal(e,u,b,SIG_T):null;if(!s)return;
   f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
+const CHK_REACH=.75,CHK_POINT_Y=1.05;/* #708: the catcher's pointing hand: CHK_REACH m from his body toward the base umpire, CHK_POINT_Y m up (world) */
+function chkPointAt(C,b){const s=stUmpAt[b===1?0:2],x=C.g.position.x,z=C.g.position.z,dx=s[0]-x,dz=s[1]-z,d=Math.hypot(dx,dz)||1;return[x+dx/d*CHK_REACH,CHK_POINT_Y,z+dz/d*CHK_REACH]}
 function poseBattery(e,u,prev){
   const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG'||e.k==='VIS',isP=e.k==='P',up=isP&&(e.r==='inplay'||e.wp)?ease(sat01((u-ARRIVE-PLATE_UP_AT)/PLATE_UP_DUR))*(e.d?1-ease(sat01((u-(e.d-PLATE_DOWN_AT))/PLATE_DOWN_DUR)):1):0;
   const py=isP?pitchY(e):MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
@@ -1485,7 +1493,8 @@ function poseBattery(e,u,prev){
   if(isP&&up<1)C.g.position.x+=cShift(e)*k*(1-back)*(1-up);
   if(set&&up<1){const gx=lerp(lerp(0,isP?e.zx:0,k),0,back),gy=lerp(lerp(MITT_REST_Y,py,k),MITT_REST_Y,back);
     const nh=nb&&nb.cat>0?nbM.handSpot(C.g.position.x,C.g.position.z):null,rw=nh?nb.cat:0;/* #612 part 5: bare hand back over his right shoulder for the new ball */
-    aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,lerp(gx*.8,nh?nh[0]:0,rw),lerp(gy-.15,nh?nh[1]:0,rw),lerp(MITT_Z+.2,nh?nh[2]:0,rw))}else armsDown(CR);
+    const cp=isP&&chkM?chkM.catcherPoint(e,u,CHK_T):null,pt=cp?chkPointAt(C,cp.b):null,pw=pt?cp.w:0;/* #708: bare hand points at the base umpire for the appeal */
+    aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,lerp(lerp(gx*.8,nh?nh[0]:0,rw),pt?pt[0]:0,pw),lerp(lerp(gy-.15,nh?nh[1]:0,rw),pt?pt[1]:0,pw),lerp(lerp(MITT_Z+.2,nh?nh[2]:0,rw),pt?pt[2]:0,pw))}else armsDown(CR);
   const cl=isP?umpCall(e,u):UC_NONE,sg=isP&&sigM?sigM.plateSignal(e,u,SIG_T):null,tm=!sg&&tmM?tmM.timeSignal(e,prev,u):null,cu=(set?1:0)*(1-(cl.k?UC_K_STAND:CALL_STAND)*cl.w)*(1-(sg?sigM.SIG_STAND*sg.w:0))*(1-(tm?tmM.TM_STAND*tm.w:0))*(1-(nb?nbM.NB_STAND*nb.stand:0))*(1-up);
   crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.up.rotation.y=UC_K_TURN*cl.turn;UR.hg.rotation.x=-UMP_HEAD_UP*cu;UR.hg.rotation.y=-UC_K_TURN*cl.turn*UC_K_HEAD_KEEP;ump.noAnim=(set||!!tm)&&up<1;
   if((set||tm)&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up),R=umpArms(cl);if(sg)for(let i=0;i<6;i++)R[i]=lerp(R[i],sg.arms[i],sg.w);if(tm)for(let i=0;i<6;i++)R[i]=lerp(R[i],tm.arms[i],tm.w);if(nb&&nb.reach>0){const H=nbM.handSpot(C.g.position.x,C.g.position.z);UR.up.updateWorldMatrix(true,false);_tv.set(H[0],H[1],H[2]);UR.up.worldToLocal(_tv);const hl=[_tv.x,_tv.y,_tv.z];for(let i=0;i<3;i++)R[i]=lerp(lerp(lerp(R[i],nbM.NB_BAG[i],nb.reach),hl[i],nb.give),R[i],nb.drop)}/* #612 part 5: right hand to the ball bag, forward to the catcher, back */aimArmPole(UR.a1,BAT_SHOULDER_X,h(R[0],0,BAT_SHOULDER_X),h(R[1],1),h(R[2],2),UC_HAMMER_POLE,cl.w*(1-cl.k)*(1-up));aimArm(UR.a0,-BAT_SHOULDER_X,h(R[3],0,-BAT_SHOULDER_X),h(R[4],1),h(R[5],2))}else armsDown(UR)}
