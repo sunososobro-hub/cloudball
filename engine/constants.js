@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.22';
+export const ENGINE_VERSION = '0.4.23';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -187,6 +187,7 @@ export const FB_HIT_DIST = [85, 25];
 export const FB_HANG = [3.4, 1.4];
 export const FB_PEAK = [22, 12];
 export const TRIPLE_MIN_DIST = 100;
+export const HIT_HORIZ_SPEED_MAX = 50;       /* m/s (180 km/h): no hit covers its distance faster than this; a triple pushed out to TRIPLE_MIN_DIST stays up for d / this (#690: 100 m in 1.8 s was 200 km/h flat, over EV_MAX) */
 export const HIT_ROLL_FACTOR = 1.08;      /* an air-ball hit rolls this much past its landing point */
 export const HIT_ROLL_TIME = 0.8;
 
