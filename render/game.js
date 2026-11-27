@@ -1667,13 +1667,25 @@ function wpCatcher(e,u){const C=fielders.C,W=wpPlan(e),t=u-ARRIVE-WP_C_REACT;if(
 /* #671 dropped third strike (engine: e.k3, e.plan.k3 with t0 = pickup, arrive = the throw lands in the 1B glove, CV = 1B cover): the pitch glances off
    the mitt and rolls toward the backstop on the wild-pitch path (wpPlan), only as far as the catcher can run by plan.t0; he chases it, picks it up
    at t0, throws to first (arc over plan.TT), and walks back. The batter runs from e.moves like any advance. Pure function of (event, time). */
-const K3_MIN_D=2.5,K3_XFER=.35,K3_BACK_HOLD=.6;
-function k3Plan(e){const W=wpPlan(e),S=e.plan,D=Math.max(K3_MIN_D,Math.min(W.L,(S.t0-ARRIVE-WP_C_REACT)*WP_C_SPEED)),r=wpAt(W,D);return{W,D,rest:[r[0],.04,r[1]],t0:S.t0,back:S.t0+K3_BACK_HOLD}}
+const K3_MIN_D=2.5,K3_XFER=.35,K3_BACK_HOLD=.6,K3_TAG_PICK_D=1.5,K3_TAG_GAP=.5,K3_OUT_HOLD=.6;
+/* #671 k3tag (engine plan.k3tag: pickup at t0, tag by C at tagAt, no throw): the ball dies at his feet K3_TAG_PICK_D m off the plate, he picks it
+   up, runs at the batter (K3_TAG_GAP m short of him) and holds the glove out; the batter is stopped at the tag, gone K3_OUT_HOLD s later */
+function k3Bat(e,u){const m=(e.moves||[]).find(m=>m[0]===0);if(!m)return[0,0];const tl=m[3],prog=runDist(Math.max(0,u-tl.st0),tl.spd)+tl.lead,[x,z]=pathPos(0,1,prog),lf=e.bat&&batOf(e).hand==='L',w=1-ease(sat01(prog/BAT_LEAVE_BLEND));
+  return[x+(lf?-BAT_BOX[0]:BAT_BOX[0])*w,z+BAT_BOX[1]*w-(lf?0:BAT_CROSS_FWD*4*w*(1-w))]}
+function k3TagCatcher(e,u,K){const C=fielders.C,S=e.plan,t=u-ARRIVE-WP_C_REACT;if(t<=0)return;const [P,Q]=[K.P,K.Q],T=k3Bat(e,S.tagAt);let x,z,fx,fz;
+  if(u<K.t0){[x,z,fx,fz]=wpAt(K.W,Math.min(K.D,runDist(t,WP_C_SPEED)));C.g.position.set(x,0,z);C.noAnim=false;face(C,fx,fz)}
+  else if(u<K.back){const k=K.L>0?clamp(runDist(u-K.t0,COVER_SPEED)/K.L,0,1):1;x=lerp(P[0],Q[0],k);z=lerp(P[1],Q[1],k);C.g.position.set(x,0,z);face(C,T[0]-x,T[1]-z);C.noAnim=true;gloveTo(C,lerp(.45,1,ease(sat01((u-(S.tagAt-.3))/.3))),null)}
+  else{const d=Math.max(0,K.Lb-(u-K.back)*WP_BACK_V),k=K.Lb>0?d/K.Lb:0;x=lerp(K.W.c0[0],Q[0],k);z=lerp(K.W.c0[1],Q[1],k);C.g.position.set(x,0,z);C.noAnim=false;if(d>0)face(C,K.W.c0[0]-Q[0],K.W.c0[1]-Q[1]);else face(C,-K.W.c0[0],-K.W.c0[1])}}
+function k3Plan(e){const W=wpPlan(e),S=e.plan;
+  if(S.k3tag){const D=Math.min(W.L,K3_TAG_PICK_D),r=wpAt(W,D),P=[r[0],r[1]],T=k3Bat(e,S.tagAt),n=Math.hypot(T[0]-P[0],T[1]-P[1])||1,L=Math.max(0,n-K3_TAG_GAP),Q=[P[0]+(T[0]-P[0])/n*L,P[1]+(T[1]-P[1])/n*L],back=S.tagAt+K3_BACK_HOLD,Lb=Math.hypot(Q[0]-W.c0[0],Q[1]-W.c0[1]);
+    return{W,D,rest:[P[0],.04,P[1]],t0:S.t0,back,tag:true,P,Q,L,Lb,end:back+Lb/WP_BACK_V}}
+  const D=Math.max(K3_MIN_D,Math.min(W.L,(S.t0-ARRIVE-WP_C_REACT)*WP_C_SPEED)),r=wpAt(W,D);return{W,D,rest:[r[0],.04,r[1]],t0:S.t0,back:S.t0+K3_BACK_HOLD,end:S.t0+K3_BACK_HOLD+D/WP_BACK_V}}
 function k3Ball(e,u,plate,K){const S=e.plan,dirt=[plate[0],plate[1],MITT_Z];
   if(u<ARRIVE)return null;const roll=Math.max(.2,Math.min(WP_ROLL,S.t0-ARRIVE-WP_SKIP-.1));
   if(u<ARRIVE+WP_SKIP)return arc(plate,dirt,0,(u-ARRIVE)/WP_SKIP);
   if(u<ARRIVE+WP_SKIP+roll){const k=(u-ARRIVE-WP_SKIP)/roll;return arc(dirt,K.rest,.3*(1-k),1-(1-k)*(1-k))}
   if(u<S.t0)return K.rest;
+  if(K.tag){if(u>=S.tagAt+2.5)return null;const q=fielders.C.handWorld(0);return[q.x,q.y,q.z]}
   const C=fielders.C,f=fielders[S.CV.key],sp=S.CV.spot,tgt=[sp[0],1.2,sp[1]];
   if(u<S.arrive){const rel=throwRelease(e,C,[C.g.position.x,C.g.position.z],K3_XFER,tgt);return arc(rel,tgt,throwPeak(S.TT),(u-S.t0)/S.TT)}
   if(u<S.arrive+2.5){const q=f.handWorld(0);return[q.x,q.y,q.z]}
@@ -1798,7 +1810,7 @@ function poseScene(e,u,dt,ei){
   if(u<pr||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
   else if(u<ARRIVE)bp=pitchArc(hand,hbp?hbpSpot(e):plate,.3,(u-pr)/(ARRIVE-pr),pitchBreak(e.pt,hand));
   else if(!contact&&e.wp){bp=wpBall(e,u,plate);wpCatcher(e,u)}
-  else if(!contact&&e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);bp=k3Ball(e,u,plate,K);k3Catcher(e,u,K);k3First(e,u)}
+  else if(!contact&&e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);bp=k3Ball(e,u,plate,K);if(K.tag)k3TagCatcher(e,u,K);else{k3Catcher(e,u,K);k3First(e,u)}}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=e.tip&&TIPB?TIPB.tipPath(plate,[q.x,q.y,q.z],e.bat&&batOf(e).hand==='L'?1:-1,(u-ARRIVE)/CATCH_SNAP):arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #631: a foul tip bends once at the bat (render/tipball.js) *//* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],pbGlove(hand),3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
   else if(fbunt&&FBB){bp=FBB.foulBuntBall(hit0,e.foulDir,u-ARRIVE,BUNT_GROUND_Y);if(kidM&&!OFF.has('ballkid')&&!cpOn()){const tt=u-ARRIVE,ka=kidM.kidAt(e.foulDir,tt),T=kidM.kidTrip(e.foulDir);/* #612 part 7: it lies there until the kid picks it up, then rides in his hand */if(ka.ball)bp=ka.ball;else if(tt<T.tPick-kidM.KID_PICK/2&&!bp&&tt>=FBB.FB_GONE){const E=kidM.restSpot(e.foulDir);bp=[E[0],BUNT_GROUND_Y,E[1]]}}}
@@ -1820,7 +1832,8 @@ function poseScene(e,u,dt,ei){
   for(const [from,to,name,tl] of e.moves||[]){
     const {st0,spd,slide,ts,slideTime:ST,arriveT}=tl,lead=from>0&&u<st0?(tl.tag?tagLeadAt(u,st0):leadAt(u)):tl.lead,Ltot=(to-from)*27.43;
     if(from===0)batGone=st0;
-    let prog;if(u<ts)prog=runDist(u-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
+    const k3t=from===0&&e.plan&&e.plan.k3tag?e.plan.tagAt:null,uc=k3t===null?u:Math.min(u,k3t);if(k3t!==null&&u>=k3t+K3_OUT_HOLD)continue;/* #671: tagged by the catcher, he stops there */
+    let prog;if(u<ts)prog=runDist(uc-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
     let [x,z,done]=pathPos(from,to,prog);
     if(from===0&&u<st0)continue;
     if(from===0){const lf=e.bat&&batOf(e).hand==='L',w=1-ease(sat01(prog/BAT_LEAVE_BLEND));x+=(lf?-BAT_BOX[0]:BAT_BOX[0])*w;z+=BAT_BOX[1]*w;/* Leave from the box he stood in, not from the middle of the plate */
@@ -2191,7 +2204,7 @@ function cpEvents(g){const ev=g.ev;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):Math.max(CP_RUNNER_SETTLE,LEAD_WALK_WAIT+LEAD_WALK_DUR)));/* #23: walk-out to the lead */
-      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);tail=Math.max(tail,K.back+K.D/WP_BACK_V)}if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
+      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.k3&&e.plan&&e.plan.k3)tail=Math.max(tail,k3Plan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P'&&e.r!=='inplay')tail=Math.max(tail,retEnd(ev,i));/* #42: fielders walking to the next pitch's depth (retDrift) */
     if(e.k==='P')tail=Math.max(tail,u2End(ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
     {const tc=tmM?tmM.timeCall(e,ev[i-1]):null;/* #638: the plate ump's time / play signal (#609 part 3a) moves him in VOTE/CHG/VIS/SUB and the next pitch */
