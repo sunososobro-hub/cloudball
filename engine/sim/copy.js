@@ -35,6 +35,7 @@ export const COPY = {
   walk: n => `${n} 四壞球保送`,
   hbp: n => `${n} 觸身球上壘`,
   forcedIn: runs => `，擠回 ${runs} 分`,
+  droppedThird: (n, looking, safe, runs) => `${n} ${looking ? '站著不動' : '揮棒落空'}，三振，捕手漏接${safe ? `，不死三振跑上一壘${runs ? `，擠回 ${runs} 分` : ''}` : '，傳一壘刺殺出局'}`,
   strikeout: (n, looking, tip, bunt) => `${n} ${looking ? '站著不動' : tip ? '擦棒被捕' : bunt ? '兩好球短打界外' : '揮棒落空'}，三振出局`,
   homer: (n, runs) => `${n} ${runs === 4 ? '滿貫全壘打！' : runs > 1 ? `${runs} 分砲！` : '陽春全壘打！'}`,
   hit: (n, res) => `${n} ${HIT_NAME[res]}`,

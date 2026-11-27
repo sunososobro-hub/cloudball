@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.21';
+export const ENGINE_VERSION = '0.4.22';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -245,6 +245,19 @@ export const HOME_SLIDE_P = 0.5;
  * Both tuned so WP/game and PB/game match tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
 export const WP_P = 0.025;
 export const PB_P = 0.002;
+/* ---- dropped third strike (#614 part 4, rule 5.09(a)(2)/(3)): with first base open, or with two outs, a third strike the
+ * catcher does not hold leaves the batter free to run to first; the catcher picks the ball up and throws to first (a force,
+ * rules/outs.js forceOut) or the batter is safe (a strikeout for the pitcher and the batter, no out).
+ * K3_DROP_DIRT_P: share of those swinging third strikes on a ball in the dirt (out of the zone, below MISS_LOW_Y) the
+ * catcher only blocks; K3_DROP_P: any other third strike he drops. K3_RETRIEVE: [min, width] s from the ball reaching the
+ * plate to the catcher's throw (a block in front of him .. a ball that kicks away to the backstop); the batter needs about
+ * 4.3 s to first, so roughly one drop in nine (the ball that kicks far away) gets him there.
+ * Data: MLB.com, A. Castrovince, "Odd, but not out: baseball's most bizarre rule" (2018) and Baseball-Reference Bullpen
+ * "Dropped third strike": most uncaught third strikes are a routine K 2-3 and a batter reaching is rare (a few hundredths of a
+ * game per team); the shares here are estimates in that range, not re-measured in this PR. */
+export const K3_DROP_DIRT_P = 0.12;
+export const K3_DROP_P = 0.004;
+export const K3_RETRIEVE = [0.6, 3.3];
 /* Balk: before a pitch with a runner on (no steal on) the pitcher balks with BK_P; no pitch counts, every runner moves
  * up one base. The plate umpire calls it BK_CALL_AT s into the frame (the pitcher stops at the top of his leg lift);
  * runners trot from there. Tuned so BK/game matches tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
