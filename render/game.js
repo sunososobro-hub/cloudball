@@ -1122,7 +1122,7 @@ const u2End=(ev,i)=>{const q=u2Plan(ev,i);return q&&q.pl?q.pl.go+q.pl.t:0};/* cp
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);
     if(i===1&&!mv&&!f.armsHeld&&x===ST_U2_IN[0]&&z===ST_U2_IN[1])u2Watch(f,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
@@ -1392,6 +1392,7 @@ const PLATE_UP_AT=.25,PLATE_UP_DUR=.45,PLATE_DOWN_AT=1,PLATE_DOWN_DUR=.6,ARM_HAN
 let sigM=null;const SIG_T={ARRIVE,BK_CALL_AT};import(new URL('umpsig.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpsig'))sigM=M}).catch(err=>console.warn('plate signals off',err));
 /* #609 part 2: line umpires (U1 right line, U3 left line) signal foul, a fair ball near the line and a home run (render/umpline.js, pure function of event and time). Dev switch ?off=umpline. */
 let lsM=null;import(new URL('umpline.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpline'))lsM=M}).catch(err=>console.warn('line signals off',err));
+let infM=null;import(new URL('umpinf.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpinf'))infM=M}).catch(err=>console.warn('infield fly signal off',err));
 /* #609 part 3a: plate umpire time (VOTE / CHG / VIS / SUB frame starts) and play (the pitch after one) (render/umptime.js, pure function of event, previous event and time). Dev switch ?off=umptime. */
 let tmM=null;import(new URL('umptime.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umptime'))tmM=M}).catch(err=>console.warn('time/play signals off',err));
 /* #620 part 1: on a caught foul pop-up the catcher pulls his mask off and tosses it away from the ball (render/maskoff.js, pure function of event and time); it lies there to the end of the play. Dev switch ?off=maskoff. */
@@ -1403,6 +1404,10 @@ function poseMask(e,u){const C=fielders.C;if(!C.mask)return;const m=maskM&&e.k==
   if(!looseMask){looseMask=C.mask.clone();looseMask.name='maskoff';scene.add(looseMask)}
   looseMask.visible=true;looseMask.position.set(m.pos[0],m.pos[1],m.pos[2]);looseMask.rotation.set(m.ground?-Math.PI/2:-m.spin,0,0)}
 function lineSigPose(f,b,e,u){const s=lsM&&!f.armsHeld&&(b===1||b===3)?lsM.lineSignal(e,u,b,SIG_T):null;if(!s)return;
+  f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
+  aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
+/* #609 part 3b infield fly: the nearest base umpire points up while the ball is in the air (render/umpinf.js) */
+function infSigPose(f,b,e,u){const s=infM&&!f.armsHeld?infM.infSignal(e,u,b,SIG_T):null;if(!s)return;
   f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 function poseBattery(e,u,prev){
