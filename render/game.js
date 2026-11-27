@@ -1875,6 +1875,7 @@ function poseScene(e,u,dt,ei){
   if(e.r==='inplay'){
     /* the whole defensive play (who fields, who covers, every throw and its timing) is e.plan, computed by the engine */
     const p=e.play,PL=e.plan,f=fielders[p.fielder],T=p.hang,u2=u-ARRIVE,hr=p.res==='HR',hit=PL.hit;
+    const nt=hr||!!(p.groundRule&&GRDP);/* #718 part 2: a home run or a ground-rule double is dead at the wall: the fielder pulls up short, no catch, pickup or throw is drawn */
     const land=[p.lx,hr?6+(p.dist-114)*.15:bunt&&BCL?BUNT_GROUND_Y:(hit||p.type==='GB'?.15:1.5),p.lz];
     const rollEnd=[PL.target[0],bunt&&BCL?BUNT_GROUND_Y:.15,PL.target[1]];
     /* #43 item 5: a bunt goes down off the bat, hops low and rolls slowing to the engine's stop point at T (render/bunt_clip.js buntRoll) */
@@ -1891,7 +1892,7 @@ function poseScene(e,u,dt,ei){
     const t0=solo?Infinity:PL.t0,TT=PL.TT,rt=PL.rt,a1=dp?PL.a1:t0+TT,t1=dp?PL.t1:a1,arrive=PL.arrive;
     const rtF=crowd?Math.max(rt,arrive+COVER_BACK_AT+CROWD_CLEAR_T):rt;
     if(u2>0){const tc=catchT-FIELD_REACT,cc=tc<=0?1:tc<RUN_ACCEL?.5*tc*tc/RUN_ACCEL:.5*RUN_ACCEL+(tc-RUN_ACCEL),vCh=clamp(D/cc,CHASE_VMIN,CHASE_VMAX);/* Chase speed: arrive exactly at the catch moment (capped at 9 m/s) */
-      const k=D<.5?1:clamp(runDist(u2-FIELD_REACT,vCh)/D,0,1),kk=hr?Math.min(k,.5):k,tx=lerp(f.pos[0],cx,kk),tz=lerp(f.pos[1],cz,kk);
+      const k=D<.5?1:clamp(runDist(u2-FIELD_REACT,vCh)/D,0,1),kk=hr?Math.min(k,.5):nt?GRDP.grdPull(k):k,tx=lerp(f.pos[0],cx,kk),tz=lerp(f.pos[1],cz,kk);
       if(CV.key){const c=fielders[CV.key],D2=Math.hypot(CV.spot[0]-c.pos[0],CV.spot[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u2-FIELD_REACT-COVER_REACT,COVER_SPEED)/D2,0,1),D2b=Math.hypot(CV.spot[0]-c.ret[0],CV.spot[1]-c.ret[1]),bk=D2b<.3?0:clamp(runDist(u2-(arrive+COVER_BACK_AT),COVER_SPEED)/D2b,0,1);
         c.g.position.set(lerp(lerp(c.pos[0],CV.spot[0],kc),c.ret[0],bk),0,lerp(lerp(c.pos[1],CV.spot[1],kc),c.ret[1],bk));/* #42: back to his pitch spot (the rubber for a pitcher covering first); #526: the next pitch's spot */
         if(tagPlay&&CV.key==='C'){resetPose(c);c.g.position.y=0}
@@ -1909,11 +1910,11 @@ function poseScene(e,u,dt,ei){
       if(solo&&u2>catchT+.15&&back===0){const k2=DB<.3?1:clamp(runDist(u2-catchT-.15,6.5)/DB,0,1);f.g.position.set(lerp(tx,BAG[0],k2),0,lerp(tz,BAG[1],k2));if(k2<1){face(f,BAG[0]-cx,BAG[1]-cz);f.noAnim=false}}
       const fx=f.g.position.x,fz=f.g.position.z;
       if(back>0&&back<1)face(f,f.ret[0]-sx0,f.ret[1]-sz0);
-      else if(!hr&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
+      else if(!nt&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
       else if(crowd&&u2<rtF)face(f,CV.spot[0]-fx,CV.spot[1]-fz);/* Waiting off the bag: watch the coverer */
       else{const fc=chaseM&&chaseM.foulChaseFace(e,u2,catchT,f.pos);if(fc)face(f,fc[0],fc[1]);else if(p.fielder==='P'&&back>=1)face(f,-f.ret[0],-f.ret[1]);/* #687: a pitcher back on the rubber stands as the next frame poses him (facing the plate), not away from where the ball landed */else face(f,-p.lx,-p.lz)}/* #620 part 3: corner fielders drift / run on a foul fly instead of backpedalling */
       /* Catch motion: glove reaches toward the ball in the last .35 s; after the catch both hands come to the chest for the transfer; then arm up and throw */
-      if(!hr&&back===0&&u2>catchT-.35&&(u2<rt||!crowd)){f.noAnim=true;const low=p.type==='GB'||hit;
+      if(!nt&&back===0&&u2>catchT-.35&&(u2<rt||!crowd)){f.noAnim=true;const low=p.type==='GB'||hit;
         if(u2<catchT+.12){const bpos=ballAt(u2+.04);reachGlove(f,bpos||[fx,low?.25:1.6,fz])}
         else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* Glove raised holding the ball while touching the base */
         else throwPose(f,u2-catchT,TH.xfer,tgtF)}}

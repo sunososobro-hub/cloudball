@@ -1,5 +1,6 @@
 /* #718 part 1: the ball of every ground-rule double over seeds 1-200 (render/grd_path.js): it starts at the engine's land point, touches the
  * ground once (the bounce on the warning track), clears the wall top (a ball that lands within GRD_MIN_GAP of the wall is already at it, so its height there is not checked), never jumps (speed <= MAX_V), and ends beyond the wall (engine FENCE_R).
+ * Part 2: grdPull caps the fielder run (he pulls up, no pickup or throw drawn: game.js `nt`).
  * Usage: node tests/grd_path.check.mjs */
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
@@ -29,6 +30,7 @@ for (let s = 1; s <= 200; s++) {
     if (!over) bad(`${at}: ball never gets over the wall`);
   }
 }
+if (G.grdPull(1) !== G.GRD_PULL_K || G.grdPull(.3) !== .3 || G.grdPull(0) !== 0) bad('grdPull must cap the fielder run at GRD_PULL_K and leave shorter runs alone');
 if (n < 10) bad(`only ${n} ground-rule doubles in seeds 1-200`);
 if (errs.length) { console.error('grd_path check FAILED:\n  ' + errs.join('\n  ')); process.exit(1); }
 console.log(`grd_path check ok: ${n} ground-rule doubles, each one bounce over the wall`);
