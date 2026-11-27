@@ -10,6 +10,7 @@ export const GRD_OVER_M = 6;        /* the ball comes to rest this far beyond th
 export const GRD_RUN_V = 18;        /* m/s along the ground from the landing to the bounce */
 export const GRD_MIN_GAP = .3;      /* a ball that lands closer than this to the wall bounces from where it landed, m */
 export const GRD_MIN_TW = .25;      /* s: least time from the bounce to the wall, so a short gap does not make a rocket */
+export const GRD_PULL_K = .6;       /* part 2: the outfielder pulls up after this share of his run to the engine's stand point (the ball is dead, nothing to field) */
 export const GRD_G = 9.81;          /* m/s^2 */
 export const GRD_CLEAR_M = 1.2;     /* the ball passes this much above the wall top, m */
 export const GRD_REST_Y = .15;      /* ball centre height at rest (game.js land / rollEnd y) */
@@ -36,3 +37,5 @@ export function grdAt(P, t) {
   q[1] = s < tFlight ? Math.max(GRD_REST_Y, GRD_REST_Y + P.vy * s - GRD_G * s * s / 2) : GRD_REST_Y;
   return q;
 }
+/* part 2: share of the run toward the stand point the fielder makes on a ground-rule double (k = the normal chase share, 0..1) */
+export const grdPull = k => Math.min(k, GRD_PULL_K);
