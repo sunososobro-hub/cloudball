@@ -2,7 +2,7 @@
  * built from named steps in engine/constants.js. Timing only: no outcome may change. Fails when
  *   - CHANGE_DUR, BREAK_DUR or PITCH_DUR.hbp is not the sum of its named steps,
  *   - over GAMES seeds, the stream with every time stripped (event times, ballAt / touchAt / fielderAt / runnerAt, the engine
- *     version) or any box score differs from OUTCOME_PRINT (engine 0.4.17 = the outcomes before #610's timing change; re-recorded at 0.4.19 for #614 part 1, caught foul flies, and at 0.4.20 for #614 part 2, foul-tip labels: box scores unchanged, and at 0.4.21 for #614 part 3, foul bunts),
+ *     version) or any box score differs from OUTCOME_PRINT (engine 0.4.17 = the outcomes before #610's timing change; re-recorded at 0.4.19 for #614 part 1, caught foul flies, and at 0.4.20 for #614 part 2, foul-tip labels: box scores unchanged, and at 0.4.21 for #614 part 3, foul bunts, and at 0.4.22 for #684, wall-ball pickups),
  *   - a CHG / BRK frame or a hit-by-pitch frame does not take its new length.
  * If outcomes change on purpose later (a new play, a retune): bump ENGINE_VERSION and record the new print here.
  * static.mjs runs this file. Usage: node tests/deadball.check.mjs [--print] */
@@ -13,7 +13,7 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const GAMES = 1000;
-const OUTCOME_PRINT = '835156506a7b8055';   /* engine 0.4.21 (#614 part 3); afa174cb1a4e038c at 0.4.20, c51e555227982ade at 0.4.19, aa29046229aca344 at 0.4.17 / 0.4.18 */
+const OUTCOME_PRINT = '9e76a4760792361e';   /* engine 0.4.22 (#684, hit rolls stop at the wall); 835156506a7b8055 at 0.4.21, afa174cb1a4e038c at 0.4.20, c51e555227982ade at 0.4.19, aa29046229aca344 at 0.4.17 / 0.4.18 */
 const TIME_KEY = /^(t|time|ballAt|touchAt|fielderAt|runnerAt|engine)$/;
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 const near = (a, b) => Math.abs(a - b) < 1e-9;

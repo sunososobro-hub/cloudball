@@ -27,7 +27,8 @@ function chase(ctx) {
   const p = ctx.play, hit = HIT_LIKE.includes(p.res);
   const start = fielderStart(p.fielder, ctx.bases, ctx.outs);
   const roll = hit && p.type !== 'GB' ? K.HIT_ROLL_FACTOR : 1;
-  const target = hit ? [p.lx * roll, p.lz * roll] : [p.lx, p.lz];
+  const r = dist([p.lx, p.lz], [0, 0]) || 1, inWall = hit ? Math.min(roll, (K.FENCE_R - K.WALL_PICKUP) / r) : 1;   /* #684: a roll stops at the wall */
+  const target = [p.lx * inWall, p.lz * inWall];
   const D = dist(target, start);
   const ballDownAt = hit ? p.hang + K.HIT_ROLL_TIME : p.hang;
   const fielderAt = D / (ctx.vavg ? ctx.vavg(p.fielder) : K.FIELD_VAVG) + K.FIELD_REACT;   /* vavg: his chase speed (range, `def`) */
