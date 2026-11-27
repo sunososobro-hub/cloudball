@@ -1576,6 +1576,24 @@ function prRunners(e,u,i,off,standRunner,showRunner){const [bx,bz]=BASES[i+1],[n
   const J=sjM.prJog(spot,dugout(off),u,e.d,[-bx,-bz]),oldN=e.s0.b[i],newN=e.s1.b[i];
   if(J.out&&oldN)showRunner(...J.out,oldN);
   if(J.in&&newN){if(J.in[0]===spot[0]&&J.in[1]===spot[1])standRunner(i,0,newN);else showRunner(...J.in,newN)}}
+/* #613 end of the game: render/finale.js plans it from the END frame (winner from the final score, walk-off = the winners were batting).
+   Winners on the field jog to the ring between mound and plate and slap hands, walk-off winners (the runners' six, the two on-deck men) run
+   out of their dugout and mob the scorer at the plate; then the winners line up behind the plate, bow to the stands, and leave; the losers
+   on the field and the four umpires walk off. Pure function of (event, time) like every pose. */
+let FINM=null;import(new URL('finale.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{FINM=M}).catch(err=>console.warn('finale off',err));
+const FIN_LEAN=.95,FIN_ARMS=-2.6,FIN_PUMP=.25;let finKey=null,finPlan=null;
+function finFig(f,c,u){f.g.visible=c.vis;if(!c.vis)return;f.noAnim=false;f.g.scale.x=1;f.g.position.set(c.x,c.hop,c.z);face(f,c.fx,c.fz);const R=f.rig;R.up.rotation.x=c.bow*FIN_LEAN;f.armsHeld=c.arms>0;
+  if(c.arms>0){R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1;const w=u*8+(f.finI||0);R.a0.rotation.set(FIN_ARMS+FIN_PUMP*Math.sin(w),0,-.3);R.a1.rotation.set(FIN_ARMS+FIN_PUMP*Math.cos(w),0,.3)}}
+function finPlanOf(e,off,def){const k=[e,off];if(finKey&&finKey[0]===k[0]&&finKey[1]===k[1])return finPlan;
+  const winner=FINM.winnerSide(e.s1&&e.s1.sc,off),pool=[...runners,odNext,odDeck];
+  finPlan=FINM.finalePlan({winner,fielders:FIELDER_KEYS.map(k=>fielders[k].pos),nOff:pool.length,dugDef:dugout(def),dugOff:dugout(off),
+    umps:[[UMP_X,UMP_Z],...umpB.map((f,i)=>stUmpAt[i])]});finKey=k;return finPlan}
+function poseFinale(e,u,ei,off,def){if(!FINM)return;const P=finPlanOf(e,off,def),winner=FINM.winnerSide(e.s1&&e.s1.sc,off),pool=[...runners,odNext,odDeck];
+  const fl=FIELDER_KEYS.map(k=>fielders[k]);
+  (winner==='def'?P.W:P.L).forEach((g,i)=>{fl[i].finI=i;finFig(fl[i],g.at(u),u)});
+  if(winner==='off'){const R=ROSTERS[off].bat;P.W.forEach((g,i)=>{const f=pool[i];if(!f)return;resetPose(f);if(f.bend)f.bend.knee[0]=f.bend.knee[1]=0;f.finI=i;if(f.batP)f.batP.visible=false;
+    const pl=R[i%R.length];setNum(f,pl?pl.num:undefined);dress(f,pl);finFig(f,g.at(u),u)})}
+  [ump,...umpB].forEach((f,i)=>{const c=P.U[i].at(u);f.g.visible=c.vis;if(c.vis){f.g.position.set(c.x,0,c.z);face(f,c.fx,c.fz);f.noAnim=false}})}
 function poseScene(e,u,dt,ei){
   pmField=null;/* #274: set again below only for a fielding pitcher */
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
@@ -1593,13 +1611,14 @@ function poseScene(e,u,dt,ei){
     if(tt<1)face(f,h[0]-sx,h[1]-sz);else face(f,-h[0],-h[1])})}
   batter.g.visible=e.k==='P';runners.forEach(r=>r.g.visible=false);ball.visible=false;looseBat.visible=false;
   batter.g.position.set(-.9,0,.15);batter.g.rotation.y=Math.PI/2;
+  odNext.batP.visible=odDeck.batP.visible=true;/* #613: hidden only in the finale mob */
   poseOnDeck(e,u,ei);poseStaff(e,u,ei);poseWelcome(e,u,ei);
   let ri=0;const showRunner=(x,z,fx,fz,nm)=>{const r=runners[ri++];if(!r)return;resetPose(r);if(r.bend)r.bend.knee[0]=r.bend.knee[1]=0;r.noAnim=false;r.g.visible=true;r.g.position.set(x,0,z);setNum(r,numOf(off,nm));dress(r,BODY_OF(off,nm));if(fx!==undefined)face(r,fx,fz)};
   const standRunner=(i,uu,nm)=>{const [x,z]=BASES[i+1],[nx,nz]=BASES[i+2],dx=nx-x,dz=nz-z,L=Math.hypot(dx,dz),ld=leadAt(uu);showRunner(x+dx/L*ld,z+dz/L*ld,-x,-z,nm);leadPose(runners[ri-1],uu,ld,Infinity)};
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
-  if(e.k!=='P'){const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);return s}
+  if(e.k!=='P'){const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);if(e.k==='END')poseFinale(e,u,ei,off,def);return s}
   /* pitch */
   const pp=pitchPose(e.bk?bkU(u):e.po?0:u),tip=pp.tip;
   /* A pitcher who fields the ball or covers first starts from where his delivery stride left him at contact (not from the rubber, which
