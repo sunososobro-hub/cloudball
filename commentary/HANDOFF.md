@@ -6,7 +6,7 @@
 - #108 sheet `ctx`; #82 part 1 people slots, part 2 coach named in `pitching_change` exchanges (bank only; check in `banter.check.mjs`); #115 whole game recorded (351 clips); #129 `--converse` dropped. #171: checks run seed 704 on `OPENING_ROSTERS`.
 - #134 step 1 `banter.js` + check; #175: banter weights tuned to the owner's picks (`CUE_POINTS`: analyst before guest; gag once per gag); check holds his verdict.
 - #140: `tools/post-trial.mjs` free A/B (gain per emotion, silence trim, tempo, turn gaps) on at 30/142/1296; files in `audio/_trial/post/` (force-added; `_trial/` is git-ignored).
-- #603 part 1: bank format v2 (name-free clips): `clips.js`, `clip-id.js`, `clips.check.mjs`; `lines.json` is still v1 (part 2 rewrites it).
+- #603 part 1: bank format v2 (name-free clips): `clips.js`, `clip-id.js`, `clips.check.mjs`; #603 part 2: `lines.json` is v2 (name-free: no player/coach/umpire names, no `{desc}`, scores as `{n:awayScore}`; `{bases}` and `{pos}` unused). Frozen game and `batterPrev`/`pitchCount` lines are gone from the bank.
 
 ## Next (board order, #68 queue wins)
 1. #68 line is empty after #82 part 2: report 「沒單可做」 unless the manager adds an issue.
