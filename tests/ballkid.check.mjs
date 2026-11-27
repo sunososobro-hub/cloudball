@@ -3,7 +3,7 @@
  *   - at least 3 m from the base umpire's post, the base coach's box, both dugouts' fronts and the bullpen benches
  *   - faces the plate (unit vector pointing from the post to home)
  * static.mjs runs this file. Usage: node tests/ballkid.check.mjs */
-import { kidPost, kidFace, KID_S, KID_D } from '../render/ballkid.js';
+import { kidPost, kidFace, kidAt, kidTrip, restSpot, KID_S, KID_D, KID_RUN_V, KID_JOG_V } from '../render/ballkid.js';
 import { PEN_BENCH, penWorld } from '../render/pen.js';
 
 const problems = [], bad = m => problems.push(m), R2 = Math.SQRT1_2;
@@ -21,6 +21,24 @@ for (const side of [1, -1]) {
   const f = kidFace(side), L = Math.hypot(f[0], f[1]);
   if (Math.abs(L - 1) > 1e-9) bad(`side ${side}: facing is not a unit vector`);
   if (f[0] * -P[0] + f[1] * -P[1] <= 0) bad(`side ${side}: not facing the plate`);
+}
+/* part 7: the fetch trip (kidAt is run, not read): starts and ends idle at the post, never faster than the sprint, never jumps, touches the rest spot,
+ * the ball is in his hand only from the pick-up on. */
+for (const side of [1, -1]) {
+  const T = kidTrip(side), E = restSpot(side), P = kidPost(side), STEP = .02;
+  let prev = kidAt(side, 0), touched = false, held = 0;
+  if (prev.k !== 'idle') bad(`side ${side}: not idle before the trip`);
+  for (let t = STEP; t < T.tEnd + 2; t += STEP) {
+    const a = kidAt(side, t), v = Math.hypot(a.x - prev.x, a.z - prev.z) / STEP;
+    if (v > KID_RUN_V + .01) bad(`side ${side}: speed ${v.toFixed(2)} m/s at ${t.toFixed(2)}`);
+    if (a.k === 'back' && v > KID_JOG_V + .01) bad(`side ${side}: jog back too fast ${v.toFixed(2)}`);
+    if (Math.hypot(a.x - E[0], a.z - E[1]) < .05) touched = true;
+    if (a.ball) { held++; if (t < T.tPick - .3) bad(`side ${side}: ball in hand before the pick-up at ${t.toFixed(2)}`); }
+    prev = a;
+  }
+  if (!touched) bad(`side ${side}: never reaches the ball`);
+  if (!held) bad(`side ${side}: never holds the ball`);
+  if (prev.k !== 'idle' || Math.hypot(prev.x - P[0], prev.z - P[1]) > 1e-9) bad(`side ${side}: not back at his post`);
 }
 if (problems.length) { console.log(problems.join('\n')); process.exit(1); }
 console.log('ballkid ok');

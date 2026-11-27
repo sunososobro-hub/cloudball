@@ -1105,8 +1105,10 @@ function posePen(e,u){const M=penM;if(!M)return;const T=e&&Number.isFinite(e.t)?
 /* #612 part 6 (render/ballkid.js): a ball kid sits out on each foul line in the home team's colours, idle, the whole game (nobody appears or vanishes). Off with ?off=ballkid. */
 let kidM=null;const kidFigs=[1,-1].map(()=>{const f=figure(matBn[1],pants,false);f.g.scale.setScalar(.88);f.g.visible=false;return f});
 import(new URL('ballkid.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{kidM=M;kidFigs.forEach(f=>f.g.scale.setScalar(M.KID_SCALE))}).catch(err=>console.warn('ball kids off',err));
-function poseKids(e){kidFigs.forEach((f,i)=>{const on=!!(kidM&&e&&!OFF.has('ballkid'));f.g.visible=on;if(!on)return;const side=i?-1:1,[x,z]=kidM.kidPost(side),[fx,fz]=kidM.kidFace(side);
-  resetPose(f);f.noAnim=true;f.g.position.set(x,0,z);face(f,fx,fz);setNum(f,undefined);f.rig.up.rotation.x=kidM.KID_LEAN})}
+/* #612 part 7: the kid on a foul bunt's side fetches the dribbled ball (ballkid.js kidAt from the seconds since that pitch arrived, read over the last 3 events so the trip runs on into the next frame); showing only, the compact cut keeps him idle */
+function kidFoulTT(e,u,ei){if(cpOn()||!game||!game.ev||!Number.isFinite(ei)||!Number.isFinite(e.t))return null;for(let j=ei;j>=0&&j>=ei-2;j--){const q=game.ev[j];if(q&&q.k==='P'&&q.r==='foul'&&q.bunt&&Number.isFinite(q.t))return{side:q.foulDir,tt:e.t+u-(q.t+ARRIVE)}}return null}
+function poseKids(e,u,ei){const ft=kidM&&e?kidFoulTT(e,u,ei):null;kidFigs.forEach((f,i)=>{const on=!!(kidM&&e&&!OFF.has('ballkid'));f.g.visible=on;if(!on)return;const side=i?-1:1,a=ft&&ft.side===side?kidM.kidAt(side,ft.tt):kidM.kidAt(side,null);
+  resetPose(f);f.noAnim=a.k==='idle';f.g.position.set(a.x,0,a.z);face(f,a.fx,a.fz);setNum(f,undefined);f.rig.up.rotation.x=a.lean})}
 const umpB=stUmpAt.map(()=>{const f=figure(matUmp,matUmp,false);f.g.scale.y=.95;return f}),coaches=ST_ROLE.map(()=>figure(matCo,pants,false));
 /* #81: on a pitching change (CHG) the fielding team's manager (STAFF `<team>-manager`, his number and name) walks from his dugout to the
    mound and back inside the frame: render/visit.js plans it (pure). A mound visit (engine VIS frame) is the same walk by the pitching coach
@@ -1171,7 +1173,7 @@ function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.pla
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
     resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.gw=!walk?1:leave?0:sat01((k-GW_ARRIVE)/(1-GW_ARRIVE));f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
     setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name);if(i===1&&!walk)coachSigPose(f,e,u);if(i===0&&!walk)coachBackPose(f,e,u)});
-  poseRail(e,u);posePen(e,u);poseKids(e);
+  poseRail(e,u);posePen(e,u);poseKids(e,u,ei);
   const vp=visitOf(e),va=visitM&&vp?visitM.visitAt(vp,u):null;mgr.g.visible=!!(va&&va.visible);
   if(mgr.g.visible){const dt=e.def!==undefined?e.def:1-off,m=S.find(q=>q.id===`${teamIdOf(dt)}-${e.k==='VIS'?'pitching':'manager'}`);paintKit(matMgr,dt);resetPose(mgr);mgr.noAnim=false;
     mgr.g.position.set(va.x,0,va.z);face(mgr,va.fx,va.fz);setNum(mgr,m?m.num:undefined);if(mgr.setName)mgr.setName(m&&m.name)}}
@@ -1793,7 +1795,7 @@ function poseScene(e,u,dt,ei){
   else if(!contact&&e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);bp=k3Ball(e,u,plate,K);k3Catcher(e,u,K);k3First(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=e.tip&&TIPB?TIPB.tipPath(plate,[q.x,q.y,q.z],e.bat&&batOf(e).hand==='L'?1:-1,(u-ARRIVE)/CATCH_SNAP):arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #631: a foul tip bends once at the bat (render/tipball.js) *//* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],pbGlove(hand),3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
-  else if(fbunt&&FBB)bp=FBB.foulBuntBall(hit0,e.foulDir,u-ARRIVE,BUNT_GROUND_Y);
+  else if(fbunt&&FBB){bp=FBB.foulBuntBall(hit0,e.foulDir,u-ARRIVE,BUNT_GROUND_Y);if(kidM&&!OFF.has('ballkid')&&!cpOn()){const tt=u-ARRIVE,ka=kidM.kidAt(e.foulDir,tt),T=kidM.kidTrip(e.foulDir);/* #612 part 7: it lies there until the kid picks it up, then rides in his hand */if(ka.ball)bp=ka.ball;else if(tt<T.tPick-kidM.KID_PICK/2&&!bp&&tt>=FBB.FB_GONE){const E=kidM.restSpot(e.foulDir);bp=[E[0],BUNT_GROUND_Y,E[1]]}}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(hit0,[e.foulDir*24,9,22],12,tt);
     else{const nb=nbNow(e,u);if(nb&&nb.ball){const q=nb.ball==='ump'?ump.handWorld(1):fielders.C.handWorld(1);bp=nb.ball==='lob'?arc([q.x,q.y,q.z],hand,3,nb.k):[q.x,q.y,q.z]}}}/* #612 part 5: the new ball from the umpire's bag to the catcher, then to the pitcher */
   /* steal: the engine planned the catcher's throw and who covers the bag (e.plan: SS at second, 3B at third, #38); draw it */
