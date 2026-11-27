@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { simGame, RELEASE, ARRIVE } from '../../engine/index.js';
+import { pitchRelease } from '../pitchtime.js';
 import { rollPlan } from '../roll.js'; /* #646 */
 import { gbPlan, gbPath, gbGlove } from '../gb_path.js';
 import { onDirt } from '../dust.js';
@@ -29,7 +30,7 @@ for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) 
   if (e.k !== 'P' || !e.kmh) continue;
   const swung = (e.r === 'inplay' && !e.play.bunt) || e.r === 'foul', HIT0 = swung ? contactPt(e) : null, end = swung && pitchArc([0, REL_Y, REL_Z], HIT0, .3, 1, pitchBreak(e.pt, [1, REL_Y, REL_Z]));
   const plate = swung ? HIT0 : [e.zx, .45 + e.zy * .75, PLATE_Z], d = Math.hypot(plate[0], plate[1] - REL_Y, plate[2] - REL_Z); /* where the drawn pitch ends */
-  S.kmh.push(d / (ARRIVE - RELEASE) * 3.6 - e.kmh); (PT[e.pt] ??= []).push(e.kmh);
+  S.kmh.push(d / (ARRIVE - pitchRelease(d, e.kmh, RELEASE, ARRIVE)) * 3.6 - e.kmh); /* #643 */ (PT[e.pt] ??= []).push(e.kmh);
   if (e.r === 'foul') S.jump.push(dist(end, arc(HIT0, [e.foulDir * 24, 9, 22], 12, 0))); /* game.js: pitch ends at the contact point, the foul leaves from it */
   if (e.r !== 'inplay' || !e.play || e.play.bunt) continue;
   const p = e.play, PL = e.plan, T = p.hang, hr = p.res === 'HR';
