@@ -72,6 +72,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1
 #bug .ft{padding:3px 10px;font-size:11px;color:#9aa6bd;background:#14171f;border-top:1px solid rgba(255,255,255,.1)}
 /* #292: while the loading bar shows, the score bug (and its footer line) must not sit under it */
 body:has(#warmBar:not([hidden])) #bug{visibility:hidden}
+body.nobug #bug{display:none}#bugTag{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));min-width:44px;min-height:44px;padding:4px 10px;z-index:5;background:#0b0d12;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;font:600 13px/1.2 inherit;font-variant-numeric:tabular-nums}
 body.edit #bug,body.edit #feed,body.edit #who,body.edit #gear,body.edit #tag{cursor:move;touch-action:none;user-select:none}body.edit #feed{min-width:220px;min-height:44px}#lu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto;padding:12px;cursor:pointer}#lu .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}#lu h3{margin:0 0 6px;font-size:15px}#lu table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}#lu td{padding:2px 3px;border-top:1px solid rgba(255,255,255,.12)}#lu td:first-child{color:var(--muted);width:16px}#lu .sp{margin-top:6px;font-size:13px}#lu .hint{margin-top:8px;font-size:12px;color:var(--muted);text-align:center}@media(max-width:520px){#lu .cols{grid-template-columns:1fr}}
 #lbls{position:fixed;inset:0;pointer-events:none;z-index:30}#lbls .bx{position:fixed;border:2px dashed #f2c230;border-radius:6px}#lbls .bx.sel{border-style:solid;background:rgba(242,194,48,.12)}#lbls .lb{position:fixed;background:#f2c230;color:#14110a;font-size:12px;font-weight:700;padding:1px 6px;border-radius:4px;white-space:nowrap}#lbls .lb.sel{background:#fff}#edbar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:40;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 10px;max-width:calc(100vw - 16px)}#edbar #edTxt{font-size:13px;margin-right:4px}.mas{display:flex;gap:18px;justify-content:center;margin:0 0 10px}.mas svg{width:84px;height:84px}
 #pinfo{position:fixed;left:max(12px,env(safe-area-inset-left));top:calc(max(12px,env(safe-area-inset-top)) + 170px);padding:6px 10px;font-size:13px;line-height:1.5;max-width:min(300px,58vw)}#pinfo b{color:#f2c230}#pinfo .spd{font-size:20px;font-weight:700;color:#fff}#pinfo small{color:var(--muted);font-size:12px}
@@ -169,6 +170,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
 <div id="big"></div>
 <div id="note" class="panel"></div>
 <div id="vote" class="panel" hidden></div>
+<button id="bugTag" aria-label="顯示記分板" hidden></button>
 <button id="gear" aria-label="設定">⚙ 設定</button>
 <button id="report" class="dev-only" title="複製這一刻給 Claude">🐞 回報</button>
 <button id="land" aria-label="全螢幕橫向">⛶ 橫向</button>
@@ -186,6 +188,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
   <div class="seg g2">
     <button id="zone" aria-pressed="true">好球帶</button>
     <button id="hist" aria-pressed="false">戰況紀錄</button>
+    <button id="sbToggle" aria-pressed="true">記分板：顯示</button>
     <button id="lineup" class="wide">先發名單</button>
     <button id="gfx" title="卡卡的就選順暢">畫面：精緻<small>卡卡的就選順暢</small></button>
     <button id="compat" aria-pressed="false">畫面怪怪的？點這裡</button>
