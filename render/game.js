@@ -1085,6 +1085,18 @@ function poseRail(e,u){const R=railM;for(const t of [0,1]){const n=!R||OFF.has('
   railFigs[t].forEach((f,i)=>{f.g.visible=i<n;if(i>=n)return;const sl=R.railSlot(dugout(t),i),h=R.handsAt(sl,c.w,c.phase),b=P[i];
     resetPose(f);f.noAnim=true;f.g.position.set(sl.x,0,sl.z);face(f,sl.fx,sl.fz);setNum(f,b?b.num:undefined);
     if(h){f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h[0],h[1],h[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h[0],h[1],h[2])}else f.armsHeld=false})}}
+/* #612 part 4 (render/pen.js): two relievers and a bullpen catcher in each pen (max tier only, like the pen props). From a pitching vote (VOTE kind P) one reliever walks to the
+   rubber, throws to the crouched catcher until the change or a "stay", then walks back / on to the gate where the reliever of #611 takes over. Off with ?off=pen. */
+let penM=null;import(new URL('pen.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{penM=M}).catch(err=>console.warn('pen people off',err));
+const penFigs=[0,1].map(t=>[0,1,2].map(()=>figure(matBn[t],pants,false)));
+function posePen(e,u){const M=penM;if(!M)return;const T=e&&Number.isFinite(e.t)?e.t+u:0;
+  for(const t of [0,1]){const side=M.sideOf(t);penFigs[t].forEach((f,i)=>{const on=gfxMax&&!OFF.has('pen')&&e;f.g.visible=!!on;if(!on)return;resetPose(f);f.noAnim=true;
+    if(i===2){const [x,z]=M.penWorld(side,M.PEN_CATCHER[0],M.PEN_CATCHER[1]),[fx,fz]=M.penDir(side,-1,0);f.g.position.set(x,0,z);face(f,fx,fz);setNum(f,undefined);
+      crouch(f,f.rig,1,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);aimArm(f.rig.a0,-BAT_SHOULDER_X,-.3,.5,.6);return}
+    const st=M.warmAt(game&&game.ev,t,i,T);if(st&&st.over){f.g.visible=false;return}
+    const r=M.relieverAt(i,st),[x,z]=M.penWorld(side,r.p[0],r.p[1]),[fx,fz]=M.penDir(side,r.face[0],r.face[1]);f.g.position.set(x,0,z);face(f,fx,fz);setNum(f,undefined);
+    if(st&&st.k==='throw'){const h=M.throwHands(st.tt);f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h.r[0],h.r[1],h.r[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h.l[0],h.l[1],h.l[2])}
+    else if(st&&st.f<1&&st.f>0){f.noAnim=false;f.armsHeld=false}else f.armsHeld=false})}}
 const umpB=stUmpAt.map(()=>{const f=figure(matUmp,matUmp,false);f.g.scale.y=.95;return f}),coaches=ST_ROLE.map(()=>figure(matCo,pants,false));
 /* #81: on a pitching change (CHG) the fielding team's manager (STAFF `<team>-manager`, his number and name) walks from his dugout to the
    mound and back inside the frame: render/visit.js plans it (pure). A mound visit (engine VIS frame) is the same walk by the pitching coach
@@ -1148,7 +1160,7 @@ function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.pla
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
     resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.gw=!walk?1:leave?0:sat01((k-GW_ARRIVE)/(1-GW_ARRIVE));f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
     setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name);if(i===1&&!walk)coachSigPose(f,e,u);if(i===0&&!walk)coachBackPose(f,e,u)});
-  poseRail(e,u);
+  poseRail(e,u);posePen(e,u);
   const vp=visitOf(e),va=visitM&&vp?visitM.visitAt(vp,u):null;mgr.g.visible=!!(va&&va.visible);
   if(mgr.g.visible){const dt=e.def!==undefined?e.def:1-off,m=S.find(q=>q.id===`${teamIdOf(dt)}-${e.k==='VIS'?'pitching':'manager'}`);paintKit(matMgr,dt);resetPose(mgr);mgr.noAnim=false;
     mgr.g.position.set(va.x,0,va.z);face(mgr,va.fx,va.fz);setNum(mgr,m?m.num:undefined);if(mgr.setName)mgr.setName(m&&m.name)}}
