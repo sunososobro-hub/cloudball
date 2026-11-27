@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.21';
+export const ENGINE_VERSION = '0.4.25';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -187,8 +187,11 @@ export const FB_HIT_DIST = [85, 25];
 export const FB_HANG = [3.4, 1.4];
 export const FB_PEAK = [22, 12];
 export const TRIPLE_MIN_DIST = 100;
+export const HIT_HORIZ_SPEED_MAX = 50;       /* m/s (180 km/h): no hit covers its distance faster than this; a triple pushed out to TRIPLE_MIN_DIST stays up for d / this (#690: 100 m in 1.8 s was 200 km/h flat, over EV_MAX) */
 export const HIT_ROLL_FACTOR = 1.08;      /* an air-ball hit rolls this much past its landing point */
 export const HIT_ROLL_TIME = 0.8;
+export const FENCE_R = 110;              /* #684: outfield wall radius from home, m (render/game.js fence CylinderGeometry(110, ...)) */
+export const WALL_PICKUP = 1;            /* #684: a hit rolling to the wall stops at its base; the fielder picks it up this far in front of it, m */
 
 /* ---- baserunning choices ---- */
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;
@@ -245,6 +248,27 @@ export const HOME_SLIDE_P = 0.5;
  * Both tuned so WP/game and PB/game match tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
 export const WP_P = 0.025;
 export const PB_P = 0.002;
+/* ---- dropped third strike (#614 part 4, rule 5.09(a)(2)/(3)): with first base open, or with two outs, a third strike the
+ * catcher does not hold leaves the batter free to run to first; the catcher picks the ball up and throws to first (a force,
+ * rules/outs.js forceOut) or the batter is safe (a strikeout for the pitcher and the batter, no out).
+ * K3_DROP_DIRT_P: share of those swinging third strikes on a ball in the dirt (out of the zone, below MISS_LOW_Y) the
+ * catcher only blocks; K3_DROP_P: any other third strike he drops. K3_RETRIEVE: [min, width] s from the ball reaching the
+ * plate to the catcher's throw (a block in front of him .. a ball that kicks away to the backstop); the batter needs about
+ * 4.3 s to first, so roughly one drop in nine (the ball that kicks far away) gets him there.
+ * Data: MLB.com, A. Castrovince, "Odd, but not out: baseball's most bizarre rule" (2018) and Baseball-Reference Bullpen
+ * "Dropped third strike": most uncaught third strikes are a routine K 2-3 and a batter reaching is rare (a few hundredths of a
+ * game per team); the shares here are estimates in that range, not re-measured in this PR. */
+export const K3_DROP_DIRT_P = 0.12;
+export const K3_DROP_P = 0.004;
+export const K3_RETRIEVE = [0.6, 3.3];
+/* #614 part 5: the catcher tags the batter instead of throwing when the ball stays in front of the plate (rule 5.09(a)(2):
+ * "tagged ... before he touches first base"). After picking it up he runs K3_TAG_STEP s up the line at COVER_SPEED and tags
+ * the batter if the batter is still within K3_TAG_REACH m (arm and glove). With WP_BREAK and RUN_ACCEL this is a pickup within
+ * about 0.25 s of the shortest K3_RETRIEVE (a ball blocked at his feet), so roughly one drop in thirteen ends in a tag.
+ * Data: Baseball-Reference Bullpen "Dropped third strike" (the catcher "tags the batter or throws to first"); MLB video of
+ * blocked third strikes shows a tag one or two strides out of the box. Step and reach are estimates, not re-measured here. */
+export const K3_TAG_STEP = 0.6;
+export const K3_TAG_REACH = 1.0;
 /* Balk: before a pitch with a runner on (no steal on) the pitcher balks with BK_P; no pitch counts, every runner moves
  * up one base. The plate umpire calls it BK_CALL_AT s into the frame (the pitcher stops at the top of his leg lift);
  * runners trot from there. Tuned so BK/game matches tests/replay/run.mjs REFERENCE (MLB 2025, see there). */

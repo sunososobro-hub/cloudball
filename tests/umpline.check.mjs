@@ -5,7 +5,7 @@
  *   - same input = same output (pure in time); hand targets finite; foul both hands up; the pointing arm of a fair call goes out to the fair side
  * static.mjs runs this file. Usage: node tests/umpline.check.mjs */
 import { simGame, ARRIVE } from '../engine/index.js';
-import { lineCall, lineSignal, lineEnd, LS_LINE_DEG, LS_NEAR_DEG, LS_OUT_AT } from '../render/umpline.js';
+import { lineCall, lineSignal, lineEnd, LS_LINE_DEG, LS_NEAR_DEG, LS_OUT_AT, LS_BAG_M } from '../render/umpline.js';
 
 const T = { ARRIVE }, problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 const seen = { foul: 0, fair: 0, hr: 0, out: 0 }, OUT_B = { '1B': 1, RF: 1, '3B': 3, LF: 3 }, farFair = { n: 0 };
@@ -16,7 +16,7 @@ for (let seed = 1; seed <= 80; seed++) for (const e of simGame(seed, {}, {}).ev)
   else if (e.k === 'P' && e.r === 'inplay' && p) {
     if (p.foul) { if (OUT_B[p.fielder]) want = { kind: 'out', b: OUT_B[p.fielder] }; }
     else if (p.res === 'HR') want = { kind: 'hr', b: p.spray >= 0 ? 1 : 3 };
-    else if (!p.bunt && Math.abs(p.spray) >= LS_LINE_DEG - LS_NEAR_DEG && Math.abs(p.spray) <= LS_LINE_DEG) want = { kind: 'fair', b: p.spray >= 0 ? 1 : 3 };
+    else if (!p.bunt && !(p.dist < LS_BAG_M) && Math.abs(p.spray) >= LS_LINE_DEG - LS_NEAR_DEG && Math.abs(p.spray) <= LS_LINE_DEG) want = { kind: 'fair', b: p.spray >= 0 ? 1 : 3 };
     else farFair.n++;
   }
   if ((c && c.kind) !== (want && want.kind) || (c && c.b) !== (want && want.b)) { bad(`seed ${seed}: call ${JSON.stringify(c)}, want ${JSON.stringify(want)}`); continue; }

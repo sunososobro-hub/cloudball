@@ -17,7 +17,7 @@ const lerp = (x, y, t) => x + (y - x) * t, clamp = (v, lo, hi) => Math.max(lo, M
 const slice = (from, to) => { const a = src.indexOf(from), b = to(a); if (a < 0 || b < a) { console.error(`contact_point: ${from} not found in render/game.js`); process.exit(2) } return src.slice(a, b) };
 const { CONTACT_Z, contactPt } = new Function(slice('const CONTACT_Z=', a => src.indexOf('\n', a)) + ';return{CONTACT_Z,contactPt}')();
 const { arc, pitchArc, pitchBreak } = new Function('lerp', slice('function arc(', () => src.indexOf('/* ---------- Fielding')) + ';return{arc,pitchArc,pitchBreak}')(lerp);
-const flyPath = new Function('lerp', 'clamp', slice('const AIR_K=', a => src.indexOf('\n', src.indexOf('return t=>', a))) + ';return flyPath')(lerp, clamp);
+const flyPath = new Function('lerp', 'clamp', slice('const CD_MAX=', a => src.indexOf('\n', src.indexOf('return t=>', a))) + ';return flyPath')(lerp, clamp);
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m) };
 let n = 0, worst = 0; const spots = new Set();
