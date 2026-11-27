@@ -1344,7 +1344,7 @@ function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,
    the same point whatever the warp, so one call at RELEASE gives it. Cached per event; balk / pickoff / module not loaded: RELEASE. */
 const prCache=new WeakMap();
 function pitchRel(e){if(!PTM||e.bk||e.po||!e.kmh||e.r==='ibb')return RELEASE;let r=prCache.get(e);if(r!==undefined)return r;
-  const hbp=e.r==='hbp',T=hbp?hbpSpot(e):[e.zx,.45+e.zy*.75,.6],P=fielders.P,z0=P.g.position.z,h=pitchPose(RELEASE).rel;P.g.position.z=z0;r=PTM.pitchRelease(Math.hypot(T[0]-h[0],T[1]-h[1],T[2]-h[2]),e.kmh,RELEASE,ARRIVE);prCache.set(e,r);return r}
+  const hbp=e.r==='hbp',T=hbp?hbpSpot(e):[e.zx,.45+e.zy*.75,.6],P=fielders.P,z0=P.g.position.z,h=pitchPose(RELEASE).rel;P.g.position.z=z0;r=PTM.pitchRelease(Math.hypot(T[0]-h[0],T[1]-h[1],T[2]-h[2]),e.kmh,RELEASE,ARRIVE);if(pitchClip||!fielders.P.setMocap||OFF.has('mocap'))prCache.set(e,r);return r}/* the mocap hand is known only once the clip is in: no cache before it */
 /* #274 item 2: a pitcher who fields the ball or covers a bag used to drop the clip at ARRIVE (the run code moves his proxies, which
    unkeys setMocap): a snap from the follow-through to the proxy pose. Now the clip stays on, at pmW(u) times a fade from 1 at ARRIVE to
    0 after PF_FADE s (FIELD_REACT + P_RUN_BLEND, the same span his trunk and limbs grow into the run) or at his first plan action (tP,
