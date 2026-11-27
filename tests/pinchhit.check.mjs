@@ -80,7 +80,7 @@ for (let s = 1; s <= GAMES; s++) {
     }
   }
   const paEnds = g.stream.filter(x => x.type === 'pa_end').length;
-  const paRows = g.stats.flat().reduce((n, b) => n + b.ab + b.bb, 0) + g.stream.filter(x => x.type === 'pa_end' && /^sac_/.test(x.result)).length;
+  const paRows = g.stats.flat().reduce((n, b) => n + b.ab + b.bb, 0) + g.stream.filter(x => x.type === 'pa_end' && /^sac_|^catcher_interference$/.test(x.result)).length;
   if (paEnds !== paRows) bad(`seed ${s}: ${paEnds} PA in the stream, ${paRows} in the stats`);
 
   /* 'stay' on the first pinch-hit question keeps the batter */
