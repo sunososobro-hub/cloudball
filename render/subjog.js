@@ -43,3 +43,8 @@ export function prJog(base, dug, u, d, face) {
   }
   return { out, in: inn };
 }
+
+/* #611 part 2: a defensive replacement (SUB frame with role 'defensive', engine DS_DUR long) is the same walk: the new fielder jogs
+   from his dugout to the position, the replaced one jogs off to the dugout. pos = [x, z] of the position (the fielder's start spot);
+   he faces home while he waits. Same result shape as prJog: { out, in }, each [x, z, faceX, faceZ] or null. */
+export const dsJog = (pos, dug, u, d) => prJog(pos, dug, u, d);
