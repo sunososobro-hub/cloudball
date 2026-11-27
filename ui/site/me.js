@@ -2,10 +2,15 @@
 import { esc, empty, teamName, pos, abilityText, TIER_LABEL } from './shared.js';
 import { trainShell, callupText } from './train.js';
 import { minorsDays } from '../../league/minors_report.js';
-/* #586: 二軍 daily text report; `d.day` (a whole number, from the data) is today, else REPORT_DAY. Text only. */
-export const REPORT_DAY = 30;
+import { farmGameOn, farmUrl } from '../../league/farm.js';
+import { TEAMS } from '../../league/teams.js';
+/* #586: 二軍 daily text report; `d.day` (a whole number, from the data) is today, else REPORT_DAY. Text only.
+ * #600 part 3: report day N (1-based) is 二軍 night N - 1 of league/site/farm_games.json (`d.farm`); a day whose team played a
+ * recorded game links to its 3D replay (play.html?f=<id>), a day without a record stays plain text. */
+export const REPORT_DAY = 30, REPLAY_LABEL = '看重播';
+const replayOf = (d, p, day) => { const g = farmGameOn(d.farm, TEAMS.findIndex(t => t.id === p.team), day - 1); return g ? ` <a class="farm-replay" href="${esc(farmUrl(g.id))}">${REPLAY_LABEL}</a>` : ''; };
 const reportBox = (d, id, p) => { if (p.tier !== 2) return ''; const day = Number.isInteger(d.day) && d.day >= 1 ? d.day : REPORT_DAY;
-  return `<section class="minors-report"><h3>二軍日報（最近 7 天）</h3><ul>${minorsDays(id, p, day).map(l => `<li>第 ${l.day} 天　${esc(l.text)}</li>`).join('')}</ul></section>`; };
+  return `<section class="minors-report"><h3>二軍日報（最近 7 天）</h3><ul>${minorsDays(id, p, day).map(l => `<li>第 ${l.day} 天　${esc(l.text)}${replayOf(d, p, l.day)}</li>`).join('')}</ul></section>`; };
 /* the create/edit entry (#341): the 我的球員 tab always links to the fan-agent page, whether or not a player exists yet */
 export const AGENT_PAGE = 'agent.html';
 const agentEntry = label => `<p class="agent-entry"><a href="${AGENT_PAGE}">${esc(label)}</a></p>`;

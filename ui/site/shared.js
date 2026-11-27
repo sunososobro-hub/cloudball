@@ -15,9 +15,9 @@ export function normalize(raw) {
   const teams = Array.isArray(raw) ? raw : raw && Array.isArray(raw.teams) ? raw.teams : [];
   return { season: raw && !Array.isArray(raw) && raw.season != null ? String(raw.season) : '', teams };
 }
-export function combine({ teams, players, games } = {}) {
+export function combine({ teams, players, games, farm } = {}) {
   const n = normalize(teams);
-  return { season: n.season, teams: n.teams, players: players && typeof players === 'object' && !Array.isArray(players) ? players : {}, games: Array.isArray(games) ? games : [] };
+  return { season: n.season, teams: n.teams, players: players && typeof players === 'object' && !Array.isArray(players) ? players : {}, games: Array.isArray(games) ? games : [], farm: Array.isArray(farm) ? farm : [] };
 }
 /* season "0" is the pre-season: on screen it reads 熱身賽 (#343); the data key stays "0". Later seasons read 第 N 季. */
 export const seasonLabel = d => (d.season === '' || d.season == null ? '' : String(d.season) === '0' ? '熱身賽' : `第 ${esc(d.season)} 季`);

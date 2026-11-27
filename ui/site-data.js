@@ -14,7 +14,7 @@ export { replayLink, GAME_PAGE } from './site/games.js';
 export { AGENT_PAGE } from './site/me.js';
 export { home as homeView, teams as teamsView, games as gamesView, me as myPlayerView, minors as minorsView, fa as freeAgentsView };
 
-export const DATA_FILES = { teams: 'league/site/teams.json', players: 'league/site/players.json', games: 'league/site/games.json' };
+export const DATA_FILES = { teams: 'league/site/teams.json', players: 'league/site/players.json', games: 'league/site/games.json', farm: 'league/site/farm_games.json' };
 export const TABS = [['home', '首頁'], ['teams', '球團'], ['games', '比賽影片'], ['me', '我的球員'], ['minors', '二軍'], ['fa', '自由市場']];
 export const VIEWS = { home, teams, games, me, minors, fa };
 /* `args` are the hash segments after the tab. 球團: #teams/<team id>/<filter>/<player id>; 二軍 and 自由市場: #<tab>/<filter>/<player id> (#353); other tabs ignore them */
