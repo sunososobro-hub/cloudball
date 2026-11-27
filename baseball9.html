@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>九宮格棒球練習・雲端職棒</title>
 <link rel="stylesheet" href="ui/baseball9/screen.css">
+<!-- the 3D field (#543) uses the same three.js build as agent.html and the match page; the import map must come before any module script -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js"}}</script>
 </head>
 <body>
 <main>
   <p><a href="guide.html">← 球隊與球員介紹</a></p>
+  <p><a id="me-link" href="index.html#me" hidden>← 回我的球員</a></p>
   <h1>九宮格棒球練習</h1>
   <p class="lead">各 10 球，成績只留在這個頁面，不會改任何球員的能力或聯盟紀錄。</p>
   <section id="menu">

@@ -29,9 +29,12 @@ export function mergeCreated(d, rows) {
   for (const r of Array.isArray(rows) ? rows : []) {
     const p = r && r.player, R = r && r.ratings, id = r && (r.id ?? (p && p.id));
     if (!p || !R || typeof p !== 'object' || id == null || id === '' || players[id]) continue;
-    const pit = r.kind === 'pit', keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
+    const pit = r.kind === 'pit';
+    /* #437: a real fan (not a 系統 row) takes the place of the first 系統 二軍 player of his kind published in the site files, never a 一軍 player (display only, rule 10) */
+    if (p.system !== true) { const at = Object.keys(players).find(k => players[k].system === true && players[k].tier === 2 && (players[k].role === 'P') === pit); if (at !== undefined) delete players[at]; }
+    const keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
     players[id] = { name: p.name, num: p.num, age: p.age, role: pit ? 'P' : 'B', pos: pit ? (p.role === 'SP' ? 'SP' : 'RP') : p.pos, hand: pit ? p.throws : p.hand,
-      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3 };
+      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3, ...(p.system === true ? { system: true } : {}) };
   }
   return { ...d, players };
 }
@@ -68,7 +71,7 @@ function card(id, p, base, f, open) {
   const abilities = Object.entries(p.abilities || {}).filter(([, v]) => v != null);
   const panel = open ? `<dl class="ab">${abilities.map(([k, v]) => `<div><dt>${esc(ABILITY_LABEL[k] || k)}</dt><dd class="num">${esc(v)}</dd><span class="bar"><i style="width:${Math.max(0, Math.min(100, Number(v) || 0))}%"></i></span></div>`).join('') || `<div><dt>能力</dt><dd>—</dd></div>`}</dl>` : '';
   /* the open card links back to the list without it (tap again closes); the others link to themselves */
-  return `<div class="pc${open ? ' open' : ''}" data-id="${esc(id)}"><a class="pt" href="${esc(base)}/${f}${open ? '' : '/' + encodeURIComponent(id)}" aria-expanded="${open}"><span class="tile" style="--tc:${teamCss(p.team)}">${p.num != null ? `<span class="no">#${esc(p.num)}</span>` : ''}<b class="ov num">${esc(p.overall)}</b><small>評價</small></span><span class="info"><b class="nm">${esc(p.name)}</b><span class="meta">${meta}</span></span></a>${panel}</div>`;
+  return `<div class="pc${open ? ' open' : ''}" data-id="${esc(id)}"><a class="pt" href="${esc(base)}/${f}${open ? '' : '/' + encodeURIComponent(id)}" aria-expanded="${open}"><span class="tile" style="--tc:${teamCss(p.team)}">${p.num != null ? `<span class="no">#${esc(p.num)}</span>` : ''}<b class="ov num">${esc(p.overall)}</b><small>評價</small></span><span class="info"><b class="nm">${esc(p.name)}${p.system === true ? '<i class="sys">系統</i>' : ''}</b><span class="meta">${meta}</span></span></a>${panel}</div>`;
 }
 /* rows: [id, player] pairs; `filter` and `openId` come from the hash. Returns the groups (or the one filtered list); '' when nobody shows. */
 export function rosterCards(rows, { base, filter, openId } = {}) {

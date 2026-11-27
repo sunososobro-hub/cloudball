@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.10';
+export const ENGINE_VERSION = '0.4.17';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -147,8 +147,31 @@ export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
  * with this chance (he is safe: the throw arrives after him) and the batter, with second open, takes it on the throw.
  * First guess, not tuned: about one try in three; it only moves a runner, never adds an out. */
 export const THROW_HOME_ON_SINGLE_P = 0.35;
+/* Out on the bases (#38): on an outfield single with fewer than two outs, a runner from second who would be held at
+ * third is sent home anyway with this chance; the outfielder's throw to the catcher decides (rules/fielding.js): out
+ * when the ball beats him, else he scores. First guess, not tuned (MLB sends about 60% and loses a few percent of them). */
+export const SEND_FROM_2ND_ON_SINGLE_P = 0.12;
+/* Out on the bases (#38): on an outfield single with fewer than two outs and second open, the batter tries to stretch it
+ * into a double with this chance; the throw to second decides: tagged out when the ball beats him, else a double.
+ * First guess, not tuned (MLB: a few hundred batters a season are thrown out stretching, about 0.1 a game). */
+export const STRETCH_1B_P = 0.03;
+/* Advancing on an error (#38): on an outfield single the outfielder bobbles the ball with this chance, loses
+ * OF_BOBBLE_TIME seconds securing it, and the batter and every runner take one base more than the single gives them.
+ * Scored a single plus an error on that fielder. First guess, not tuned (MLB outfielders make roughly 0.1-0.15 errors
+ * a game between both teams; only some of those are bobbles on a single). */
+export const OF_BOBBLE_1B_P = 0.012;
+export const OF_BOBBLE_TIME = 1.6;
+/* Advancing on an error (#38): a reached-on-error ground ball to an infielder other than the first baseman is a wild
+ * throw past first with this chance: the ball ends WILD_THROW_PAST metres (x, z) beyond the bag in foul territory, the
+ * batter takes second and every runner two bases. First guess, not tuned (MLB infield errors split roughly evenly
+ * between fielding and throwing errors; not every bad throw gets past the first baseman). */
+export const WILD_THROW_SHARE = 0.4;
+export const WILD_THROW_PAST = [6, 6];
 export const DP_TRY_P = 0.44;
-export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
+/* Runner on third, fewer than two outs, ball caught by an outfielder (fly or liner): he tags and scores with this chance.
+ * Tuned so SF/game approaches tests/replay/run.mjs REFERENCE (MLB 2025 0.54, #38): 0.8 gave 0.40, 0.9 gives 0.45 on 10,000
+ * games. The rest of the gap is chances, not this rate (about 0.5 outfield catches a game with a runner on third). */
+export const SAC_FLY_P = 0.9;
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
 export const GB_ADVANCE_P = 0.5;
 export const STEAL_CONSIDER_P = 0.4;       /* 0.48 before #38 part 4: steals of third now take their share of SB/game */
@@ -219,6 +242,24 @@ export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
 export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
 export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
+/* pinch hit (#436 part 2, on since part 5 / 0.4.15); simGame opts.pinchHit overrides */
+export const PINCH_HIT_ON = true;
+export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
+export const PH_EDGE = 0.3;               /* coach's own pick is the pinch hitter when his bat value (con x pow) is this much higher */
+export const PH_DUR = 10;                 /* seconds of the pinch-hit frame (walk from the dugout) */
+/* pinch run (#436 part 3, on since part 5 / 0.4.15); simGame opts.pinchRun overrides */
+export const PINCH_RUN_ON = true;
+export const PR_MIN_INNING = 8;           /* asked only from this inning on, for the lead runner */
+export const PR_EDGE = 0.15;              /* asked only when the fastest bench man's spd is this much higher (bench x3 runners ~1.3 vs ~0.95) */
+export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runner only within this many runs */
+export const PR_DUR = 8;                  /* seconds of the pinch-run frame (jog out from the dugout) */
+/* defensive replacement (#436 part 7, on since part 8 / 0.4.17); simGame opts.defSub overrides */
+export const DEF_SUB_ON = true;
+export const DS_MIN_INNING = 8;           /* asked only from this inning on, at the start of the half the leading team fields */
+export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
+export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
+export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */
+export const DS_DUR = 8;                  /* seconds of the defensive-replacement frame (jog out to the position) */
 export const BUNT_POW_MAX = 1.0;
 export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;
@@ -290,12 +331,30 @@ export const RETURN_AFTER_THROW = 0.7;
 /* ---- running ---- */
 export const RUN_SPEED = 7.8;
 export const WALK_SPEED = 4.5;            /* trot on a walk */
+/* #266: home-run trot. MLB trots run about 22-23 s home to home (Statcast / Tater Trot Tracker averages, 2015-2024);
+ * 4 x 27.43 m at 5.0 m/s with RUN_ACCEL is 22.4 s. Every runner of a home run trots at this pace. */
+export const HR_TROT_SPEED = 5.0;
 export const RUN_ACCEL = 0.9;             /* seconds to reach full speed */
 export const BAT_RUN_DELAY = 0.1;         /* batter leaves the box this long after contact */
 export const STEAL_JUMP = 0.3;            /* a stealing runner breaks this long before release */
+/* #23 part 2: a steal's break is fitted to the draw between the pitcher's first move (render: the delivery clip starts at
+ * u 0, leg lift at 0.6 s) and the old fixed break (RELEASE - STEAL_JUMP). STEAL_SPEED 8.7 m/s = 28.5 ft/s, between the
+ * Statcast sprint-speed league average (27 ft/s) and elite (30 ft/s): the runners who try steals are the faster ones.
+ * First guess without per-runner data; SB/CS rates still come from the draw (stealOkP), not from these times. */
+export const STEAL_FIRST_MOVE = 0.4;
+export const STEAL_BREAK_LAST = 1.3;
+export const STEAL_SPEED = 8.7;
+/* steal of third: the runner at second is not held on, he walks off with the set (walking lead), so he may break at u 0 */
+export const STEAL3_FIRST_MOVE = 0;
+export const STEAL_SAFE_BY = 0.1;          /* good jump: the ball reaches the bag this long after the runner (a close play; TAG_LATE elsewhere) */
+export const STEAL_OUT_BY = 0.35;          /* bad jump: the runner arrives this long after the ball (> TAG_EARLY) */
+export const STEAL_FIT_ITER = 3;           /* the lead grows after the break, so the fit is refined a few times */
 export const WALK_DELAY = 0.8;
 export const SLIDE_D = 3;
 export const LEAD_STAND = 0;
+/* #23 part 1: primary lead a runner keeps between pitches (before the first move and after the pitch); same as the lead a
+ * held runner takes on a pickoff (PO_LEAD). A runner who tags up on a caught fly goes back to the bag (LEAD_STAND). */
+export const LEAD_PRIMARY = 3.4;
 export const LEAD_PITCH = 3.8;
 export const LEAD_OPEN = 0.6;
 export const LEAD_GROW = 0.9;
