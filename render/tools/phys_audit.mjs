@@ -21,6 +21,7 @@ const flyPath = new Function('lerp', 'clamp', src.slice(a, b) + '\nreturn (e,p0,
 const pa = src.indexOf('function arc('), pb = src.indexOf('/* ---------- Fielding'), { arc, pitchArc, pitchBreak, PITCH_BRK_IN } = new Function('lerp', src.slice(pa, pb) + ';return{arc,pitchArc,pitchBreak,PITCH_BRK_IN}')(lerp); /* #644 */
 const ca = src.indexOf('const CONTACT_Z='), contactPt = new Function(src.slice(ca, src.indexOf('\n', ca)) + ';return contactPt')(); /* #649: game.js contact point, run as is */
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const { throwPeak } = new Function('lerp', src.slice(pa, pb) + ';return{throwPeak}')(lerp), drawnPeak = TT => { let pk = 0; for (let i = 0; i <= 120; i++) pk = Math.max(pk, arc([0, 0, 0], [0, 0, 1], throwPeak(TT), i / 120)[1]); return pk }; /* #647 */
 const pct = (arr, q) => { const s = [...arr].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))] };
 const row = (name, arr, d = 2) => console.log(name.padEnd(46), 'n', String(arr.length).padStart(5), ' p5', pct(arr, .05).toFixed(d), ' p50', pct(arr, .5).toFixed(d), ' p95', pct(arr, .95).toFixed(d), ' min', Math.min(...arr).toFixed(d), ' max', Math.max(...arr).toFixed(d));
 const S = { kmh: [], jump: [], gbPk: [], gbStill: [], roll: [], rollV: [], rollA: [], thr: [], thrIn: [], thrOut: [], ev: [], evHR: [], la: [], pkE: [] }, PT = {};
@@ -43,7 +44,7 @@ for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) 
     S.jump.push(dist(end, r.f(0))); S.ev.push(kmh); if (hr) S.evHR.push(kmh); S.la.push(Math.atan2(v[1], Math.hypot(v[0], v[2])) * 180 / Math.PI);
     let pk = 0; for (let t = 0; t <= T; t += 1 / 60) pk = Math.max(pk, r.f(t)[1]); S.pkE.push(pk - p.peak) }
   if (PL.hit && !hr) { const r = rollPlan([p.lx, .15, p.lz], [PL.target[0], .15, PL.target[1]], PL.catchT - T, onDirt(p.lx, p.lz)); S.roll.push(r.dur > 0 ? r.v0 - r.a * r.dur : 0); S.rollV.push(r.v0); S.rollA.push(r.a) } /* #646: friction roll */
-  if (PL.TT > 0 && isFinite(PL.t0) && PL.TD > 0) { const k = Math.min(3, PL.TD * THROW_ARC * (32 / PL.v)) / (G * PL.TT * PL.TT / 8); S.thr.push(k); (PL.TD < 35 ? S.thrIn : PL.TD > 50 ? S.thrOut : []).push(k) }
+  if (PL.TT > 0 && isFinite(PL.t0) && PL.TD > 0) { const k = drawnPeak(PL.TT) / (G * PL.TT * PL.TT / 8); /* #647: the drawn arc is game.js arc() with throwPeak(TT) */ S.thr.push(k); (PL.TD < 35 ? S.thrIn : PL.TD > 50 ? S.thrOut : []).push(k) }
 }
 console.log(`#638 phys_audit, seeds 1..${SEEDS}`);
 row('1 pitch: implied km/h - shown km/h', S.kmh, 1);
