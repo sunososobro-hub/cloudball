@@ -81,3 +81,55 @@ export function rank(table) {
   }
   return out;
 }
+
+/* Part 2 (#599): the starting-pitcher rotation. A lineup decision handed to the engine as `opts.starters` (an index into
+ * the team's `pit` list, which is what engine/sim/game.js reads); it never touches an outcome (rules 10, 11).
+ *
+ *   ROTATION_SIZE   five starters, the MLB standard rotation (and the engine's own ROTATION_SIZE).
+ *   MIN_REST_DAYS   four full days between two starts of one pitcher, the MLB "regular rest" of a five-man rotation.
+ *
+ *   rotationOf(pit)                   the indices in `pit` of the team's starters: role 'SP' in roster order, at most
+ *                                     ROTATION_SIZE. Fewer than ROTATION_SIZE throws (the rest rule could not hold).
+ *   newRotation(teamIds)              empty record: nobody has started yet.
+ *   restDays(rot, teamId, idx, day)   full days since his last start (day - last - 1); Infinity if he has not started.
+ *   pickStarter(rot, teamId, pit, day)  tonight's starter: among the rotation, those with at least MIN_REST_DAYS, the
+ *                                     most rested; a tie (two fresh arms) goes to rotation order. Nobody rested throws.
+ *   recordStart(rot, teamId, idx, day)  writes the start; one start per team per day (a second one throws).
+ * `day` is a whole-number calendar day (a season night is one day); same calls, same answers. */
+export const ROTATION_SIZE = 5;
+export const MIN_REST_DAYS = 4;
+
+export function rotationOf(pit) {
+  const idx = (pit || []).map((p, i) => (p.role === 'SP' ? i : -1)).filter(i => i >= 0).slice(0, ROTATION_SIZE);
+  if (idx.length < ROTATION_SIZE) throw new Error(`rotationOf: need ${ROTATION_SIZE} starters (role SP), got ${idx.length}`);
+  return idx;
+}
+
+export function newRotation(teamIds) {
+  const last = {};
+  for (const id of teamIds) last[id] = {};
+  return { last, days: Object.fromEntries(teamIds.map(id => [id, -1])) };
+}
+
+export function restDays(rot, teamId, idx, day) {
+  const l = rot.last[teamId];
+  if (!l) throw new Error(`restDays: unknown team ${teamId}`);
+  return idx in l ? day - l[idx] - 1 : Infinity;
+}
+
+export function pickStarter(rot, teamId, pit, day) {
+  let best = -1, bestRest = -1;
+  for (const i of rotationOf(pit)) {
+    const r = restDays(rot, teamId, i, day);
+    if (r >= MIN_REST_DAYS && r > bestRest) { best = i; bestRest = r; }
+  }
+  if (best < 0) throw new Error(`pickStarter: no starter of ${teamId} has ${MIN_REST_DAYS} days of rest on day ${day}`);
+  return best;
+}
+
+export function recordStart(rot, teamId, idx, day) {
+  if (!rot.last[teamId]) throw new Error(`recordStart: unknown team ${teamId}`);
+  if (!Number.isInteger(day) || day <= rot.days[teamId]) throw new Error(`recordStart: ${teamId} already started a pitcher on day ${rot.days[teamId]}, got day ${day}`);
+  rot.last[teamId][idx] = day; rot.days[teamId] = day;
+  return rot;
+}
