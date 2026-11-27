@@ -1,6 +1,6 @@
 /* Plays one whole season-0 from a seed and prints it (#599 part 3). Hand-run, engine only, no network, writes nothing.
  *
- *   node league/tools/season_run.mjs [--seed N] [--json]
+ *   node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write]]
  *
  * League: the 4 factory teams (league/players.js ROSTERS), no fan file and no 二軍: the league runs with zero fan players
  * (owner 2026-11-27). Season = league/season.js: the 12-game schedule, a starter per team and night by rest days (the lineup
@@ -9,7 +9,12 @@
  * with the next sub-seed, at most TIE_REPLAYS times. Nothing is written to cloudball-league (rule 24). */
 import { fileURLToPath } from 'node:url';
 import { simGame, TEAMS, ROSTERS } from '../../engine/index.js';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import * as S from '../season.js';
+import { ENGINE_VERSION, boxFromStream } from '../../engine/index.js';
+import { farmRecord } from '../farm.js';
+import { OUT as FARM_OUT, serialize as farmSerialize } from './farm_record.mjs';
 
 export const TIE_REPLAYS = 10;
 const GAME_SEED_STEP = 10, SUBSEED_STEP = 1;      /* seed of a game = seed*1000 + day*10 + slot (+ replay number) */
@@ -38,9 +43,32 @@ export function runSeason(seed) {
   return { seed, schedule, standings: S.rank(table).map(id => ({ id, ...table.teams[id] })), final: fin, champion: S.champion(fin), log, rot };
 }
 
+/* 二軍 day runner (#600 part 4): one 二軍 game per 一軍 pairing on every season night, same teams, own seed block
+ * (FARM_SEED_BASE keeps them apart from the 一軍 seeds above). The engine plays them; the record keeps seed + commit +
+ * result (farm.js). Lineups: the default rosters (系統 players, no fan file). Ids continue after `startId`. Pure but for the engine. */
+export const FARM_SEED_BASE = 1_000_000_000;
+export function farmGames(seed, { commit, startId = 1 } = {}) {
+  const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i])), out = [];
+  S.makeSchedule(ids).forEach((night, day) => night.forEach((g, slot) => {
+    const teams = [g.away, g.home].map(id => ix[id]), gseed = (FARM_SEED_BASE + seed * 1000 + day * GAME_SEED_STEP + slot) >>> 0;
+    const b = boxFromStream(simGame(gseed, {}, { teams }).stream);
+    out.push(farmRecord({ id: `f-${startId + out.length}`, day, seed: gseed, commit, version: ENGINE_VERSION, teams, score: b.score, line: b.line }));
+  }));
+  return out;
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const a = process.argv.slice(2), seed = a.includes('--seed') ? Number(a[a.indexOf('--seed') + 1]) : 1;
-  if (!Number.isInteger(seed)) { console.error('usage: node league/tools/season_run.mjs [--seed N] [--json]'); process.exit(2); }
+  if (!Number.isInteger(seed)) { console.error('usage: node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write]]'); process.exit(2); }
+  if (a.includes('--farm')) {   /* node season_run.mjs --seed N --farm [--commit sha] [--write]: the commit must be pushed (jsDelivr) */
+    const list = existsSync(FARM_OUT) ? JSON.parse(readFileSync(FARM_OUT, 'utf8')) : [];
+    const next = list.reduce((m, r) => Math.max(m, Number(String(r.id).slice(2)) || 0), 0) + 1;
+    const commit = a.includes('--commit') ? a[a.indexOf('--commit') + 1] : execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+    const recs = farmGames(seed, { commit, startId: next });
+    for (const r of recs) console.log(JSON.stringify(r));
+    if (a.includes('--write')) { writeFileSync(FARM_OUT, farmSerialize(list.concat(recs))); console.log(`wrote ${recs.length} records (f-${next}..)`); }
+    process.exit(0);
+  }
   const r = runSeason(seed);
   if (a.includes('--json')) console.log(JSON.stringify({ ...r, rot: undefined }, null, 1));
   else {
