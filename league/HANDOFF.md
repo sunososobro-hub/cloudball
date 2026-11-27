@@ -30,3 +30,6 @@
   budget divisible by its ability count: the UI splits it evenly), never the check; fixtures in agent/freeagents checks.
 - Free agents may share names (uniqueness is the store's job, #179). Staff and bio lines: change only with the owner's strike list.
 - Team names (#60) belong to the interface window; do not touch `teams.js` strings.
+
+## #599 season-0 loop
+- Part 1 done: `season.js` (makeSchedule, tonight, applyResult, rank) + `tests/season.check.mjs`. Next: part 2 rotation, part 3 final, `tools/season_run.mjs`.
