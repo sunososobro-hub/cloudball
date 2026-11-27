@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.26';
+export const ENGINE_VERSION = '0.4.27';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -203,6 +203,10 @@ export const HIT_ROLL_FACTOR = 1.08;      /* an air-ball hit rolls this much pas
 export const HIT_ROLL_TIME = 0.8;
 export const FENCE_R = 110;              /* #684: outfield wall radius from home, m (render/game.js fence CylinderGeometry(110, ...)) */
 export const WALL_PICKUP = 1;            /* #684: a hit rolling to the wall stops at its base; the fielder picks it up this far in front of it, m */
+/* #614 part 7: share of air-ball doubles whose roll reaches the wall (FENCE_R) that bounce over it: a ground-rule double, every
+ * runner gets two bases. Estimate, not a fit: MLB scores roughly 0.2 ground-rule doubles a game (a few percent of its ~3.3
+ * doubles; Retrosheet event files mark them `DGR`); this engine has ~0.35 wall-reaching doubles a game (seeds 1-2000), 0.6 of them -> ~0.21 */
+export const GRD_OF_WALL_2B_P = 0.6;
 
 /* ---- baserunning choices ---- */
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;
