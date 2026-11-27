@@ -935,6 +935,7 @@ function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT
 let buntClip=null,buntClipP=null,BCL=null;
 /* #646: base-hit roll under friction (render/roll.js); null until loaded -> the old fixed .8 s arc */
 let RL=null;import(new URL('roll.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{RL=M}).catch(err=>console.warn('roll off',err));
+let TIPB=null;import(new URL('tipball.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{TIPB=M}).catch(err=>console.warn('tip ball off',err));/* #631 */
 let GBP=null;/* #645: grounder hops (render/gb_path.js gbPath / gbGlove) */
 import(new URL('gb_path.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{GBP=M}).catch(err=>console.warn('gb path off',err));
 import(new URL('bunt_clip.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{BCL=M}).catch(err=>console.warn('bunt clip off',err));
@@ -1686,7 +1687,7 @@ function poseScene(e,u,dt,ei){
   else if(u<ARRIVE)bp=pitchArc(hand,hbp?hbpSpot(e):plate,.3,(u-RELEASE)/(ARRIVE-RELEASE),pitchBreak(e.pt,hand));
   else if(!contact&&e.wp){bp=wpBall(e,u,plate);wpCatcher(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
-    else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
+    else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=e.tip&&TIPB?TIPB.tipPath(plate,[q.x,q.y,q.z],e.bat&&batOf(e).hand==='L'?1:-1,(u-ARRIVE)/CATCH_SNAP):arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #631: a foul tip bends once at the bat (render/tipball.js) *//* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
   else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(hit0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers the bag (e.plan: SS at second, 3B at third, #38); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),D2b=Math.hypot(sp[0]-c.ret[0],sp[1]-c.ret[1]),bk=D2b<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2b,0,1);
