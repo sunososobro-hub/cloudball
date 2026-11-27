@@ -3,7 +3,7 @@
 
 /* Everything about the game itself (rules, outcomes, timings of plays) comes from engine/. This file only draws it. */
 const {simGame,ROSTERS,TEAMS,ENGINE_VERSION,mulberry32,FIELD_VAVG,FIELD_REACT,VOTE_WINDOW,FIELD_SPOTS,FIELDER_KEYS,spotXZ,BASES,RELEASE,ARRIVE,CATCH_SNAP,CATCHER_POP,BK_CALL_AT,
-  runDist,runTime,leadAt,tagLeadAt,LEAD_PRIMARY,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED}=window.ENGINE;
+  runDist,runTime,leadAt,tagLeadAt,LEAD_PRIMARY,fielderStart,SLIDE_D,THROW_MIN,RUN_ACCEL,COVER_REACT,COVER_SPEED,PIVOT_SPEED,runnerTimeline}=window.ENGINE;
 const $=id=>document.getElementById(id);
 /* #162: dev-site switches, one per boot suspect, so each can be timed on a real GPU without a PR: ?off=shadows,faces,warm,prog,post,shadowmap,park,par
    par = the serial compile (no WARM_PARALLEL phase),
@@ -861,7 +861,7 @@ const BAT_K_REST_AT=[.35,.8],BAT_K_REST_DUR=.6,BAT_K_WALK_V=1.3,BAT_K_RAMP=1.8;
 const BAT_LOOK_AT=.45,BAT_LOOK_IN=.3,BAT_LOOK_OUT=.35,BAT_LOOK_HEAD=-.8,BAT_LOOK_YAW=-.3;
 const BAT_ONE={hx:.33,hy:-.02,hz:.12,bx:.08,by:-.8,bz:.5},BAT_ONE_AT=1.15,BAT_ONE_DUR=.45,BAT_FREE_HAND=[-.32,-.02,.04];
 const batLookW=(e,u)=>e.r!=='cstr'?0:Math.min(ease(sat01((u-(ARRIVE+BAT_LOOK_AT))/BAT_LOOK_IN)),1-ease(sat01((u-(BAT_AWAY_AT-BAT_LOOK_OUT))/BAT_LOOK_OUT)));
-const batKOut=e=>!!(e.pa&&e.bat&&(e.r==='cstr'||e.r==='sstr')&&!(e.moves||[]).some(m=>m[0]===0));
+const batKOut=e=>!!(e.pa&&e.bat&&(e.r==='cstr'||e.r==='sstr')&&!k3Moves(e).some(m=>m[0]===0));
 const BAT_LOAD_LEAD=.9,BAT_LOAD_DUR=.6,BAT_SWING_LEAD=.22,BAT_SWING_DUR=.3,BAT_FT_DELAY=.06,BAT_FT_DUR=.3,BAT_ARM_LEN=.6,BAT_SHOULDER_X=.3,BAT_SHOULDER_Y=.57;
 const _bv=new THREE.Vector3(),_bq=new THREE.Quaternion(),_dn=new THREE.Vector3(0,-1,0),_up=new THREE.Vector3(0,1,0),sat01=t=>Math.max(0,Math.min(1,t)),ease=t=>t*t*(3-2*t);
 function aimArm(a,sx,tx,ty,tz){_bv.set(tx-sx,ty-BAT_SHOULDER_Y,tz);const d=_bv.length();_bq.setFromUnitVectors(_dn,_bv.normalize());a.quaternion.copy(_bq);a.scale.y=Math.max(ARM_S_MIN,Math.min(1.2,d/BAT_ARM_LEN))}
@@ -1263,7 +1263,7 @@ function batterWalk(e,u){
   if(e.c0[0]===0&&e.c0[1]===0&&u<BAT_WALK_DUR){
     const t=ease(sat01(u/BAT_WALK_DUR)),k=sat01((u-(BAT_WALK_DUR-BAT_TURN))/BAT_TURN),wy=Math.atan2(BAT_BOX[0]-BAT_FROM[0],BAT_BOX[1]-BAT_FROM[1]);
     x=lerp(BAT_FROM[0],BAT_BOX[0],t);z=lerp(BAT_FROM[1],BAT_BOX[1],t);yaw=lerp(wy,Math.PI/2,k);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP*(1-k)}
-  else if(e.pa&&e.bat&&!(e.moves||[]).some(m=>m[0]===0)&&u>=(e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT)){
+  else if(e.pa&&e.bat&&!k3Moves(e).some(m=>m[0]===0)&&u>=(e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT)){
     const at=e.r==='inplay'?BAT_AWAY_AT_HIT:BAT_AWAY_AT,P=batAway(e),[d,v]=batAwayD(e,u-at),t=d/P.L;
     if(t>=1)batter.g.visible=false;
     const [px,pz,dx,dz]=odAt(P,Math.min(t,1));x=px;z=pz;yaw=Math.atan2(dx,dz);sw=Math.sin(u*2*Math.PI*BAT_STEP_HZ)*BAT_STEP_AMP*Math.min(1,v/BAT_AWAY_SPEED)}
@@ -1667,26 +1667,44 @@ function wpCatcher(e,u){const C=fielders.C,W=wpPlan(e),t=u-ARRIVE-WP_C_REACT;if(
 /* #671 dropped third strike (engine: e.k3, e.plan.k3 with t0 = pickup, arrive = the throw lands in the 1B glove, CV = 1B cover): the pitch glances off
    the mitt and rolls toward the backstop on the wild-pitch path (wpPlan), only as far as the catcher can run by plan.t0; he chases it, picks it up
    at t0, throws to first (arc over plan.TT), and walks back. The batter runs from e.moves like any advance. Pure function of (event, time). */
-const K3_MIN_D=2.5,K3_XFER=.35,K3_BACK_HOLD=.6;
-function k3Plan(e){const W=wpPlan(e),S=e.plan,D=Math.max(K3_MIN_D,Math.min(W.L,(S.t0-ARRIVE-WP_C_REACT)*WP_C_SPEED)),r=wpAt(W,D);return{W,D,rest:[r[0],.04,r[1]],t0:S.t0,back:S.t0+K3_BACK_HOLD}}
+const K3_MIN_D=2.5,K3_XFER=.35,K3_BACK_HOLD=.6,K3_TAG_HOLD=.7,K3_TAG_BEHIND=.45;
+/* The batter's run to first on a dropped third strike: the engine gives him no move when he is out (tag or force), so he is drawn from the same
+   timeline the engine used (runnerTimeline wp); a tagged batter stops where the catcher's tag lands (plan.tagAt) and goes off like any out. */
+function k3Moves(e){const m=e.moves||[];if(!(e.k3&&e.plan&&e.plan.k3)||m.some(x=>x[0]===0)||!e.bat)return m;
+  if(!e._k3mv){const tl={...runnerTimeline(0,1,{kind:'wp'})};if(e.plan.k3tag){tl.arriveT=e.plan.tagAt;tl.tagStop=e.plan.tagAt}e._k3mv=[...m,[0,1,batOf(e).name,tl]]}
+  return e._k3mv}
+/* Where he leaves the box: from the box he stood in, not from the middle of the plate. Walk / hit by pitch from the third-base-side box: he crosses the plate in an arc BAT_CROSS_FWD out in front of it, clear of the crouched catcher (#43) */
+function batLeave(e,prog,x,z){const lf=e.bat&&batOf(e).hand==='L',w=1-ease(sat01(prog/BAT_LEAVE_BLEND));x+=(lf?-BAT_BOX[0]:BAT_BOX[0])*w;z+=BAT_BOX[1]*w;
+  if(e.r!=='inplay'&&!lf)z-=BAT_CROSS_FWD*4*w*(1-w);return[x,z]}
+function k3Plan(e){const W=wpPlan(e),S=e.plan,D=Math.max(K3_MIN_D,Math.min(W.L,(S.t0-ARRIVE-WP_C_REACT)*WP_C_SPEED)),r=wpAt(W,D),K={W,D,Db:D,rest:[r[0],.04,r[1]],t0:S.t0,back:S.t0+K3_BACK_HOLD};
+  if(S.k3tag){/* #671 part: he picks it up and runs up the line to tag the batter (plan.k3tag: pickup t0, tag at tagAt, no throw) */
+    const tl=runnerTimeline(0,1,{kind:'wp'}),pr=runDist(S.tagAt-tl.st0,tl.spd),[px,pz]=pathPos(0,1,pr),[qx,qz]=pathPos(0,1,pr+1),[bx,bz]=batLeave(e,pr,px,pz),L=Math.hypot(qx-px,qz-pz)||1,ux=(qx-px)/L,uz=(qz-pz)/L,
+      P=[bx-ux*K3_TAG_BEHIND,bz-uz*K3_TAG_BEHIND],s0=wpAt(W,0);
+    Object.assign(K,{tag:{P,u:[ux,uz],r:[r[0],r[1]],s0:[s0[0],s0[1]]},back:S.tagAt+K3_TAG_HOLD,Db:Math.hypot(P[0]-s0[0],P[1]-s0[1])})}
+  return K}
 function k3Ball(e,u,plate,K){const S=e.plan,dirt=[plate[0],plate[1],MITT_Z];
   if(u<ARRIVE)return null;const roll=Math.max(.2,Math.min(WP_ROLL,S.t0-ARRIVE-WP_SKIP-.1));
   if(u<ARRIVE+WP_SKIP)return arc(plate,dirt,0,(u-ARRIVE)/WP_SKIP);
   if(u<ARRIVE+WP_SKIP+roll){const k=(u-ARRIVE-WP_SKIP)/roll;return arc(dirt,K.rest,.3*(1-k),1-(1-k)*(1-k))}
   if(u<S.t0)return K.rest;
+  if(K.tag){const q=fielders.C.handWorld(1);return[q.x,q.y,q.z]}/* in his hand until the tag is made */
   const C=fielders.C,f=fielders[S.CV.key],sp=S.CV.spot,tgt=[sp[0],1.2,sp[1]];
   if(u<S.arrive){const rel=throwRelease(e,C,[C.g.position.x,C.g.position.z],K3_XFER,tgt);return arc(rel,tgt,throwPeak(S.TT),(u-S.t0)/S.TT)}
   if(u<S.arrive+2.5){const q=f.handWorld(0);return[q.x,q.y,q.z]}
   return null}
 function k3Catcher(e,u,K){const C=fielders.C,S=e.plan,W=K.W,t=u-ARRIVE-WP_C_REACT;if(t<=0)return;
   const [hx,hz]=W.c0;let d;
+  if(K.tag&&u>=K.t0){const T=K.tag,k=ease(sat01((u-K.t0)/(S.tagAt-K.t0))),w=sat01((u-K.back)*WP_BACK_V/(K.Db||1));let x,z;C.noAnim=false;
+    if(u<K.back){x=lerp(T.r[0],T.P[0],k);z=lerp(T.r[1],T.P[1],k);C.g.position.set(x,0,z);face(C,T.u[0],T.u[1]);tagPose(C,u,K.t0,S.tagAt,0,true,1)}
+    else{x=lerp(T.P[0],T.s0[0],w);z=lerp(T.P[1],T.s0[1],w);C.g.position.set(x,0,z);if(w<1)face(C,T.s0[0]-T.P[0],T.s0[1]-T.P[1]);else face(C,-hx,-hz)}
+    return}
   if(u<K.t0)d=Math.min(K.D,runDist(t,WP_C_SPEED));else if(u<K.back)d=K.D;else d=Math.max(0,K.D-(u-K.back)*WP_BACK_V);
   const [x,z,dx,dz]=wpAt(W,d);C.g.position.set(x,0,z);C.noAnim=false;
   if(u<K.t0-K3_XFER)face(C,dx,dz);
   else if(u<K.back){const sp=S.CV.spot;face(C,sp[0]-x,sp[1]-z);C.noAnim=true;throwPose(C,Math.max(0,u-(K.t0-K3_XFER)),K3_XFER,[sp[0],1.2,sp[1]])}
   else if(d>0)face(C,-dx,-dz);else face(C,-hx,-hz)}
 /* #671: the first baseman breaks for the bag (the engine's cover time) and takes the throw with the glove out */
-function k3First(e,u){const S=e.plan,f=fielders[S.CV.key],sp=S.CV.spot,D=Math.hypot(sp[0]-f.pos[0],sp[1]-f.pos[1]),k=D<.3?1:clamp(runDist(u-ARRIVE-FIELD_REACT,COVER_SPEED)/D,0,1);
+function k3First(e,u){const S=e.plan;if(!S.CV)return;const f=fielders[S.CV.key],sp=S.CV.spot,D=Math.hypot(sp[0]-f.pos[0],sp[1]-f.pos[1]),k=D<.3?1:clamp(runDist(u-ARRIVE-FIELD_REACT,COVER_SPEED)/D,0,1);
   f.g.position.set(lerp(f.pos[0],sp[0],k),0,lerp(f.pos[1],sp[1],k));if(k>=1&&u<S.arrive+.5){face(f,-sp[0],-sp[1]);f.noAnim=true;gloveTo(f,lerp(.45,1,ease(sat01((u-(S.arrive-.45))/.3))),null)}}
 /* #526: a pitch followed by a pitch of the same half ends on the spot the NEXT pitch poses each fielder on (fielderStart of its s0: holding a
    runner, double-play depth), not the spot of its own start, so no one pops 1-4 m at the boundary (render/tools/edge_probe.py). Anyone the
@@ -1789,7 +1807,7 @@ function poseScene(e,u,dt,ei){
     P.pos=[P.pos[0],P.pos[1]+kf(ARRIVE,PK.dz)];P.noAnim=false;PR.up.rotation.x*=k;PR.up.rotation.y*=k;PR.hg.rotation.y*=k;
     P.mix={k,l0:P.legs[0].rotation.x,l1:P.legs[1].rotation.x,a0:P.arms[0].rotation.x,a1:wrapA(P.arms[1].rotation.x)}}
   const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp',fbunt=e.r==='foul'&&!!e.bunt;
-  const moving=new Set((e.moves||[]).map(m=>m[2]));
+  const moving=new Set(k3Moves(e).map(m=>m[2]));
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
@@ -1817,15 +1835,13 @@ function poseScene(e,u,dt,ei){
   if(e.po&&e.plan)bp=poField(e,u);/* #38 pickoff: the pitcher's throw to first, the first baseman's catch and tag */
   /* runner moves: when each runner starts, slides and arrives is decided by the engine (4th element of a move) */
   const flyOut=e.r==='inplay'&&e.play.res==='out'&&e.play.type!=='GB';let batGone=Infinity;
-  for(const [from,to,name,tl] of e.moves||[]){
+  for(const [from,to,name,tl] of k3Moves(e)){
     const {st0,spd,slide,ts,slideTime:ST,arriveT}=tl,lead=from>0&&u<st0?(tl.tag?tagLeadAt(u,st0):leadAt(u)):tl.lead,Ltot=(to-from)*27.43;
     if(from===0)batGone=st0;
-    let prog;if(u<ts)prog=runDist(u-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
+    let prog;if(u<ts)prog=runDist(Math.min(u,tl.tagStop??Infinity)-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
     let [x,z,done]=pathPos(from,to,prog);
     if(from===0&&u<st0)continue;
-    if(from===0){const lf=e.bat&&batOf(e).hand==='L',w=1-ease(sat01(prog/BAT_LEAVE_BLEND));x+=(lf?-BAT_BOX[0]:BAT_BOX[0])*w;z+=BAT_BOX[1]*w;/* Leave from the box he stood in, not from the middle of the plate */
-      /* Walk / hit by pitch from the third-base-side box: he crosses the plate in an arc BAT_CROSS_FWD out in front of it, clear of the crouched catcher (#43) */
-      if(e.r!=='inplay'&&!lf)z-=BAT_CROSS_FWD*4*w*(1-w)}
+    if(from===0)[x,z]=batLeave(e,prog,x,z);
     if(to===4&&u>=arriveT){const P=peelAt(off,tl,u-arriveT);if(!P)continue;showRunner(...P,name);const r=runners[ri-1];
       if(r&&slide){const k=ease(sat01((u-ts)/(ST*.35)))*(1-ease(sat01((u-arriveT-SLIDE_HOLD)/SLIDE_UP)));if(k>0)slidePose(r,k)}continue}
     const stays=to<4&&e.s1.b[to-1]===name;
@@ -2187,11 +2203,11 @@ function cpEvents(g){const ev=g.ev;
     else if(e.k==='CHG'||e.k==='VIS'){const vp=visitOf(e);if(vp){head=vp.go;tail=vp.end}else if(visitM){head=e.d;tail=0}if(e.k==='CHG'&&cwM&&cwM.warmEnd&&!OFF.has('chgwarm')){head=Math.min(head,cwM.warmStart());tail=Math.max(tail,cwM.warmEnd(e.d))}}/* #611 part 5: warm-up pitches *//* #81: the manager's walk to the mound and back; module not in yet -> keep it all */
     else if(e.k==='BRK'){head=BRK_OFF_AT;tail=Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to}),stJogEnd(1-off,BRK_ON_AT),odEnd(ev,i),u2End(ev,i))}/* #42: base coaches, leadoff and on-deck men too */
     else if(e.k==='PRE')tail=Math.max(jogEnd([dugout(1-off)[0],INTRO_Z],0),jogEnd([dugout(1-off)[0],INTRO_Z],0,k=>preEndOf(ev,i,k)),stJogEnd(off,0),odEnd(ev,i));
-    else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=e.moves||[];tail=PITCH_STILL;
+    else if(e.k==='P'&&e.r!=='inplay'&&e.r!=='hbp'&&!e.sbGo){const mv=k3Moves(e);tail=PITCH_STILL;
       if(e.pa&&e.bat&&!mv.some(m=>m[0]===0))tail=Math.max(tail,BAT_AWAY_AT+batAwayT(e,batAway(e).L));/* strikeout: he walks off to his dugout */
       const od=odPlan(ev,i);if(od)tail=Math.max(tail,od.go+Math.max(od.t1,od.t2));/* #42: next batter walks up, the one after him to the circle */
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):Math.max(CP_RUNNER_SETTLE,LEAD_WALK_WAIT+LEAD_WALK_DUR)));/* #23: walk-out to the lead */
-      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);tail=Math.max(tail,K.back+K.D/WP_BACK_V)}if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
+      if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);tail=Math.max(tail,K.back+K.Db/WP_BACK_V)}if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P'&&e.r!=='inplay')tail=Math.max(tail,retEnd(ev,i));/* #42: fielders walking to the next pitch's depth (retDrift) */
     if(e.k==='P')tail=Math.max(tail,u2End(ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
     {const tc=tmM?tmM.timeCall(e,ev[i-1]):null;/* #638: the plate ump's time / play signal (#609 part 3a) moves him in VOTE/CHG/VIS/SUB and the next pitch */
