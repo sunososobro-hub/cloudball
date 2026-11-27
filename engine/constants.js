@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.19';
+export const ENGINE_VERSION = '0.4.20';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -132,6 +132,13 @@ export const FOUL_OUT_ZONES = [
 export const FOUL_OUT_FB_KEYS = ['LF', 'RF'];
 export const FOUL_OUT_HANG_PAD = 0.05;
 export const FOUL_LINE_DEG = 45;
+/* ---- foul tips (#614 part 2): a swing that ticks the ball straight into the catcher's mitt is a strike, the ball stays live,
+ * and with two strikes it is a (swinging) strikeout. FOUL_TIP_OF_WHIFF: share of the swinging strikes the catcher holds
+ * that are foul tips. Data: Baseball Savant pitch descriptions (MLB 2023-2025), `foul_tip` is about 1% of all pitches
+ * against about 11% for `swinging_strike` + `swinging_strike_blocked` + `foul_tip`; an estimate, not re-measured in this PR.
+ * Only a label on a swinging strike: it is drawn from the looks RNG after the wild-pitch / passed-ball draw, so no
+ * outcome changes (a ball that got by is never a tip). */
+export const FOUL_TIP_OF_WHIFF = 0.08;
 
 /* ---- batted ball mix and results ---- */
 export const GB_SHARE = 0.43;
