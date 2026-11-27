@@ -33,7 +33,8 @@
 
 ## #599 season-0 loop
 - Part 1 done: `season.js` (makeSchedule, tonight, applyResult, rank) + `tests/season.check.mjs`.
-- Part 2 done: rotation in `season.js` (`ROTATION_SIZE` 5, `MIN_REST_DAYS` 4; `rotationOf`, `pickStarter`, `recordStart`; the index goes to `simGame` as `opts.starters`) + `tests/rotation.check.mjs` (20 seasons played). Next: part 3 final, `tools/season_run.mjs` (feed `pickStarter` per game; `day` keeps counting into the final). Trap: engine/sim/season.js is the old dev simulator, not this loop.
+- Part 2 done: rotation in `season.js` (`ROTATION_SIZE` 5, `MIN_REST_DAYS` 4; `rotationOf`, `pickStarter`, `recordStart`; the index goes to `simGame` as `opts.starters`) + `tests/rotation.check.mjs` (20 seasons played). Trap: engine/sim/season.js is the old dev simulator, not this loop.
+- Part 3 done: `finalSeeds`, `finalHome`, `seriesState` (best of 3, top seed hosts games 1 and 3) in `season.js`; `tools/season_run.mjs` (`playSeason(seed)`, factory 一軍 only, no file read or written, `day` keeps counting into the final) + `tests/final.check.mjs` (20 whole seasons, no fan file). Left: writing records from the loop (rule 24, owner decides when), 二軍/fan players in the loop.
 
 ## #600 二軍 replay
 - Part 1: `farm.js` (pure) + `league/site/farm_games.json` (records `f-<n>`, shape of `replay.js` + `id`/`tier`/`day`) + `tools/farm_record.mjs` (append a record) + `tests/farm.check.mjs`. 231 B a record; lineups of a 二軍 side would go in `opts.rosters` (~8.6 KB a pair). Part 2: `play.html?f=<id>` loads the file, `farmOpening` (replay with the CDN loader) sets `window.OPENING` + `window.FARM`; `loadScript` rejects for a farm game, so no clip, booth silent. Not seen on a real device. Next: the daily report links (`farmUrl`); the season loop (#599) writes the records. Trap: a record's commit must be pushed (jsDelivr) and the engine files must match it.

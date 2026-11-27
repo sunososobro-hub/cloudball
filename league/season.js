@@ -133,3 +133,38 @@ export function recordStart(rot, teamId, idx, day) {
   rot.last[teamId][idx] = day; rot.days[teamId] = day;
   return rot;
 }
+
+/* Part 3 (#599): the final. Pure like the rest: it reads the standings and the final's results, plays nothing.
+ *
+ *   finalSeeds(table)              [top, second] of rank(table): the two teams that meet in the final.
+ *   finalHome(seeds, game)         the host of final game 0, 1, 2: the top seed hosts games 1 and 3 (indices 0, 2).
+ *   seriesState(seeds, games)      games = [{ home, away, homeRuns, awayRuns }] played so far; returns
+ *                                  { wins: { id: n }, winner: id | null, next: index of the next game | null }.
+ *                                  Best of FINAL_BEST_OF: the first to FINAL_WINS wins, so exactly 2 or 3 games.
+ *                                  A game of two other teams, a tie, or a game after the winner is known throws. */
+export const FINAL_BEST_OF = 3;
+export const FINAL_WINS = (FINAL_BEST_OF + 1) / 2;
+
+export function finalSeeds(table) {
+  const r = rank(table);
+  if (r.length < 2) throw new Error('finalSeeds: need two teams');
+  return [r[0], r[1]];
+}
+
+export function finalHome(seeds, game) {
+  if (!Number.isInteger(game) || game < 0 || game >= FINAL_BEST_OF) throw new Error(`finalHome: game ${game} is outside the best of ${FINAL_BEST_OF}`);
+  return game % 2 === 0 ? seeds[0] : seeds[1];
+}
+
+export function seriesState(seeds, games) {
+  const wins = { [seeds[0]]: 0, [seeds[1]]: 0 };
+  let winner = null;
+  games.forEach((g, i) => {
+    if (winner) throw new Error(`seriesState: game ${i + 1} after ${winner} had won`);
+    if (!(g.home in wins) || !(g.away in wins) || g.home === g.away) throw new Error(`seriesState: game ${i + 1} is not between ${seeds[0]} and ${seeds[1]}`);
+    if (g.homeRuns === g.awayRuns) throw new Error(`seriesState: game ${i + 1} is tied`);
+    const w = g.homeRuns > g.awayRuns ? g.home : g.away;
+    if (++wins[w] >= FINAL_WINS) winner = w;
+  });
+  return { wins, winner, next: winner ? null : games.length };
+}
