@@ -246,6 +246,13 @@ if (/engine\//.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))) bad('functions/lib/ag
   if (idb.sql.prepare('SELECT COUNT(*) n FROM releases').get().n !== 3) bad('a second sweep wrote release notes');
   const row = idb.sql.prepare('SELECT ratings FROM players WHERE pid = ?').get(ps[1].id); if (JSON.parse(row.ratings).ovr !== ps[1].ratings.ovr) bad('a released player must keep his ratings');
   is('the old agent reclaims after the sweep', await post(lib.reclaim, ks[1], { id: ps[1].id }), 200);
+  /* #628 part 3: a stranger is refused inside RECLAIM_DAYS and may take the player after it */
+  is('a stranger inside RECLAIM_DAYS', await post(lib.reclaim, ks[0], { id: ps[2].id }), 403, 'notyours');
+  idb.sql.prepare('UPDATE releases SET released_at = ? WHERE pid = ?').run(Date.now() - 29 * DMS, ps[2].id);
+  is('a stranger on day 29', await post(lib.reclaim, ks[0], { id: ps[2].id }), 403, 'notyours');
+  idb.sql.prepare('UPDATE releases SET released_at = ? WHERE pid = ?').run(Date.now() - 31 * DMS, ps[2].id);
+  is('a stranger after RECLAIM_DAYS', await post(lib.reclaim, ks[0], { id: ps[2].id }), 200);
+  if (owner(ps[2].id) !== ids[0]) bad('after RECLAIM_DAYS the stranger must own the player');
   const wasSeen = day => idb.sql.prepare('SELECT day FROM agent_seen WHERE agent_id = ?').get(ids[1])?.day;
   await call(lib.mine, ienv, { k: ks[1] }); if (wasSeen() !== Math.floor(Date.now() / DMS)) bad('a keyed call must record today as the last seen day');
   if (JSON.stringify(idb.sql.prepare('PRAGMA table_info(agent_seen)').all().map(c => c.name)) !== '["agent_id","day"]') bad('agent_seen must hold only agent_id and day');
