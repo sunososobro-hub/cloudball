@@ -1,0 +1,48 @@
+/* #638 step 1: ball-physics audit of what the renderer draws, from the engine stream alone (plain Node, no browser, no GPU).
+ *   node render/tools/phys_audit.mjs [seeds=40]
+ * flyPath (batted air balls) is sliced out of render/game.js and run as is; the pitch, grounder, roll and throw lines
+ * mirror the one-line formulas in game.js (ball code after `if(u<RELEASE||e.bk)` and in the `e.r==='inplay'` block):
+ * a fix PR that changes one of them updates its mirror here in the same PR and puts the before/after numbers in its body.
+ * The pitch release point is an estimate (REL_Z, REL_Y: rubber -18.4 + ~1.6 m stride, hand ~1.8 m up), not read from the rig. */
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { simGame, RELEASE, ARRIVE } from '../../engine/index.js';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const SEEDS = Number(process.argv[2] || 40);
+const G = 9.81, REL_Z = -16.8, REL_Y = 1.8, PLATE_Z = .6, THROW_ARC = .05, HIT0 = [0, 1, .3], ROLL_DUR = .8;
+const src = readFileSync(path.join(ROOT, 'render/game.js'), 'utf8'), a = src.indexOf('const AIR_K='), b = src.indexOf('\n', src.indexOf('return t=>', a));
+if (a < 0 || b < a) { console.error('flyPath not found in render/game.js'); process.exit(2) }
+const lerp = (x, y, t) => x + (y - x) * t, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const flyPath = new Function('lerp', 'clamp', src.slice(a, b) + '\nreturn (e,p0,p1,T)=>{const f=flyPath(e,p0,p1,T),t=flyCache.get(e.t);return {f,v0:t.v0}}')(lerp, clamp);
+const pct = (arr, q) => { const s = [...arr].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))] };
+const row = (name, arr, d = 2) => console.log(name.padEnd(46), 'n', String(arr.length).padStart(5), ' p5', pct(arr, .05).toFixed(d), ' p50', pct(arr, .5).toFixed(d), ' p95', pct(arr, .95).toFixed(d), ' min', Math.min(...arr).toFixed(d), ' max', Math.max(...arr).toFixed(d));
+const S = { kmh: [], jump: [], gbPk: [], gbStill: [], roll: [], thr: [], thrIn: [], thrOut: [], ev: [], evHR: [], la: [], pkE: [] }, PT = {};
+for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) {
+  if (e.k !== 'P' || !e.kmh) continue;
+  const plate = [e.zx, .45 + e.zy * .75, PLATE_Z], d = Math.hypot(plate[0], plate[1] - REL_Y, plate[2] - REL_Z);
+  S.kmh.push(d / (ARRIVE - RELEASE) * 3.6 - e.kmh); (PT[e.pt] ??= []).push(e.kmh);
+  if (e.r === 'inplay' || e.r === 'foul') S.jump.push(Math.hypot(plate[0] - HIT0[0], plate[1] - HIT0[1], plate[2] - HIT0[2]));
+  if (e.r !== 'inplay' || !e.play || e.play.bunt) continue;
+  const p = e.play, PL = e.plan, T = p.hang, hr = p.res === 'HR';
+  if (p.type === 'GB') { S.gbPk.push(G * T * T / 8 / p.peak); if (!PL.hit) S.gbStill.push(PL.catchT - T) }
+  else { const land = [p.lx, hr ? 6 + (p.dist - 114) * .15 : PL.hit ? .15 : 1.5, p.lz], r = flyPath({ t: seed * 1e5 + e.t }, HIT0, land, T), v = r.v0, kmh = Math.hypot(...v) * 3.6;
+    S.ev.push(kmh); if (hr) S.evHR.push(kmh); S.la.push(Math.atan2(v[1], Math.hypot(v[0], v[2])) * 180 / Math.PI);
+    let pk = 0; for (let t = 0; t <= T; t += 1 / 60) pk = Math.max(pk, r.f(t)[1]); S.pkE.push(pk - p.peak) }
+  if (PL.hit) S.roll.push(Math.hypot(PL.target[0] - p.lx, PL.target[1] - p.lz) / ROLL_DUR);
+  if (PL.TT > 0 && isFinite(PL.t0) && PL.TD > 0) { const k = Math.min(3, PL.TD * THROW_ARC * (32 / PL.v)) / (G * PL.TT * PL.TT / 8); S.thr.push(k); (PL.TD < 35 ? S.thrIn : PL.TD > 50 ? S.thrOut : []).push(k) }
+}
+console.log(`#638 phys_audit, seeds 1..${SEEDS}`);
+row('1 pitch: implied km/h - shown km/h', S.kmh, 1);
+for (const [k, v] of Object.entries(PT)) console.log(`    ${k} shown km/h ${Math.min(...v)}-${Math.max(...v)} (${v.length})`);
+row('5 contact: plate spot -> HIT0 jump (m)', S.jump);
+row('5 air ball: solved exit velo (km/h)', S.ev, 0);
+row('5 home run: solved exit velo (km/h)', S.evHR, 0);
+row('5 air ball: launch angle (deg)', S.la, 0);
+row('5 air ball: drawn peak - engine peak (m)', S.pkE, 1);
+row('4 grounder: gravity peak / drawn one-arc peak', S.gbPk);
+row('4 grounder: ball frozen at land before catch (s)', S.gbStill);
+row('4 hit roll: constant speed over .8 s (m/s)', S.roll, 1);
+row('3 throw: drawn peak / gravity peak, all', S.thr);
+row('3 throw: same, infield < 35 m', S.thrIn);
+row('3 throw: same, outfield > 50 m', S.thrOut);
