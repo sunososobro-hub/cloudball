@@ -85,7 +85,7 @@ belongs to), `t` (seconds on the broadcast timeline) and `type`:
 | `call` | `call`: `ball`, `called_strike`, `swinging_strike`, `foul`, `hit_by_pitch`; `count` after it |
 | `contact` | `ball` (`GB`/`LD`/`FB`/`PU`), `bunt`, `spray`, `dist`, `hang`, `land`, `fielder` |
 | `fielder_action` | `action`: `field`, `catch`, `throw`, `cover`, `receive`, `touch`, `tag`; `fielder`, `base`, `to` |
-| `out` | `reason` (`force`, `tag`, `fly_catch`, `strikeout_swinging`, `strikeout_looking`), `runner`, `base`, `fielder`, `ballAt`, `touchAt`/`fielderAt`, `runnerAt`, `outs` |
+| `out` | `reason` (`force`, `tag`, `fly_catch`, `strikeout_swinging`, `strikeout_looking`), `runner`, `base` (0 on a `tag` = the catcher tagging the batter near home on a dropped third strike), `fielder`, `ballAt`, `touchAt`/`fielderAt`, `runnerAt`, `outs` |
 | `runner_advance` | `runner`, `from`, `to`, `how` (`batted`, `walk`, `steal`) |
 | `run_scored` | `runner`, `team`, `runs` (team total) |
 | `intentional_walk` | `batter`, `pitcher` |

@@ -49,3 +49,41 @@ export function holdAt(hasManager, u) {
   if (u < t) return { who: 'mgr' };
   return { who: 'move', k: sat((u - t) / CW_HAND) };
 }
+
+/* #611 part 5: the reliever's warm-up pitches on the mound (engine RELIEF_WARMUP_PITCHES x WARMUP_PITCH_GAP, OBR 5.07(b)), right after the
+ * hand-over. Each cycle of CW_WARM_GAP s: wind-up (game.js plays pen.js throwHands, its release at CW_WARM_REL), the ball flies to the
+ * crouched catcher, he holds it, lobs it back to the reliever's glove. Only whole cycles that end inside the frame are drawn.
+ *   warmAt(u, d) -> null (no warm-up now) | {n: 0..CW_WARM_N-1, tt: s into the cycle, ball: 'P' | 'fly' | 'C' | 'back', k: 0..1 along a flight}
+ *   warmBall(st, rel, mitt, glove) -> [x, y, z] | null (null = in the pitcher's hand, game.js draws it there)
+ *   warmEnd(d) -> s into the frame when the last warm-up ball is back in the glove */
+export const CW_WARM_N = 8;       /* warm-up pitches (= engine RELIEF_WARMUP_PITCHES) */
+export const CW_WARM_GAP = 9;     /* s per warm-up pitch (= engine WARMUP_PITCH_GAP) */
+export const CW_WARM_REL = 2.62;  /* s into a cycle when the ball leaves his hand: pen.js throwHands reaches THROW_OUT at .82 of PEN_THROW_PERIOD 3.2 */
+export const CW_WARM_FLY = .65;   /* s release -> mitt: ~18 m at ~28 m/s, an easy warm-up toss */
+export const CW_WARM_HOLD = 1.5;  /* s the catcher holds the ball before throwing it back */
+export const CW_WARM_RET = 1.2;   /* s of the catcher's lob back to the mound */
+export const CW_WARM_PEAK = .3;   /* m the warm-up pitch rises above the straight line */
+export const CW_WARM_LOB = 1.2;   /* m the return lob rises above the straight line */
+
+export const warmStart = () => CW_SIGNAL + CW_JOG + CW_HAND;
+export const warmEnd = d => { const n = Math.min(CW_WARM_N, Math.floor((d - warmStart()) / CW_WARM_GAP + 1e-9)); return n > 0 ? warmStart() + (n - 1) * CW_WARM_GAP + CW_WARM_REL + CW_WARM_FLY + CW_WARM_HOLD + CW_WARM_RET : warmStart(); };
+
+export function warmAt(u, d) {
+  const s = u - warmStart();
+  if (!(s >= 0)) return null;
+  const n = Math.floor(s / CW_WARM_GAP);
+  if (n >= CW_WARM_N || warmStart() + (n + 1) * CW_WARM_GAP > d) return null;
+  const tt = s - n * CW_WARM_GAP, a = CW_WARM_REL, b = a + CW_WARM_FLY, c = b + CW_WARM_HOLD, e = c + CW_WARM_RET;
+  if (tt < a || tt >= e) return { n, tt, ball: 'P', k: 0 };
+  if (tt < b) return { n, tt, ball: 'fly', k: (tt - a) / CW_WARM_FLY };
+  if (tt < c) return { n, tt, ball: 'C', k: 0 };
+  return { n, tt, ball: 'back', k: (tt - c) / CW_WARM_RET };
+}
+
+const arcPt = (p, q, k, h) => [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k + 4 * h * k * (1 - k), p[2] + (q[2] - p[2]) * k];
+export function warmBall(st, rel, mitt, glove) {
+  if (!st || st.ball === 'P') return null;
+  if (st.ball === 'fly') return arcPt(rel, mitt, st.k, CW_WARM_PEAK);
+  if (st.ball === 'C') return [mitt[0], mitt[1], mitt[2]];
+  return arcPt(mitt, glove, st.k, CW_WARM_LOB);
+}

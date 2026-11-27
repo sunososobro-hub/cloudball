@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.24';
+export const ENGINE_VERSION = '0.4.25';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -261,6 +261,14 @@ export const PB_P = 0.002;
 export const K3_DROP_DIRT_P = 0.12;
 export const K3_DROP_P = 0.004;
 export const K3_RETRIEVE = [0.6, 3.3];
+/* #614 part 5: the catcher tags the batter instead of throwing when the ball stays in front of the plate (rule 5.09(a)(2):
+ * "tagged ... before he touches first base"). After picking it up he runs K3_TAG_STEP s up the line at COVER_SPEED and tags
+ * the batter if the batter is still within K3_TAG_REACH m (arm and glove). With WP_BREAK and RUN_ACCEL this is a pickup within
+ * about 0.25 s of the shortest K3_RETRIEVE (a ball blocked at his feet), so roughly one drop in thirteen ends in a tag.
+ * Data: Baseball-Reference Bullpen "Dropped third strike" (the catcher "tags the batter or throws to first"); MLB video of
+ * blocked third strikes shows a tag one or two strides out of the box. Step and reach are estimates, not re-measured here. */
+export const K3_TAG_STEP = 0.6;
+export const K3_TAG_REACH = 1.0;
 /* Balk: before a pitch with a runner on (no steal on) the pitcher balks with BK_P; no pitch counts, every runner moves
  * up one base. The plate umpire calls it BK_CALL_AT s into the frame (the pitcher stops at the top of his leg lift);
  * runners trot from there. Tuned so BK/game matches tests/replay/run.mjs REFERENCE (MLB 2025, see there). */

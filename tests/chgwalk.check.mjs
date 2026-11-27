@@ -4,11 +4,14 @@
  *     bullpen gate (null) before CW_SIGNAL and on the rubber from CW_SIGNAL + CW_JOG; nobody appears or vanishes half way
  *   - no step faster than MAX_V m/s; the two men never closer than MIN_GAP m while both are moving
  *   - every CHG frame of 60 simulated games is CHANGE_DUR long and unchanged by drafting the walk (rule 10); same input = same output
+ *   - #611 part 5: CW_WARM_N / CW_WARM_GAP equal the engine's RELIEF_WARMUP_PITCHES / WARMUP_PITCH_GAP; all of them fit the frame after the
+ *     hand-over; the ball goes hand -> mitt -> glove without a jump; the release matches the pen.js wind-up (throwHands at CW_WARM_REL = THROW_OUT)
  * static.mjs runs this file. Usage: node tests/chgwalk.check.mjs */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { oldAt, newAt, bullpenGate, holdAt, CW_SIGNAL, CW_JOG, CW_OLD_END_GAP, CW_OLD_GO, CW_HAND } from '../render/chgwalk.js';
+import { oldAt, newAt, bullpenGate, holdAt, CW_SIGNAL, CW_JOG, CW_OLD_END_GAP, CW_OLD_GO, CW_HAND, warmAt, warmBall, warmStart, warmEnd, CW_WARM_N, CW_WARM_GAP, CW_WARM_REL } from '../render/chgwalk.js';
+import { throwHands, THROW_OUT } from '../render/pen.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), bad = [];
 const E = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const { simGame, CHANGE_DUR, FIELD_SPOTS, spotXZ } = E;
@@ -61,6 +64,31 @@ for (const side of [1, -1]) {
     last = r;
   }
   if (!/chgBall\(e,u\)/.test(game)) bad.push('render/game.js does not call chgBall on a CHG frame');
+}
+/* #611 part 5: warm-up pitches after the hand-over */
+{
+  if (CW_WARM_N !== K.RELIEF_WARMUP_PITCHES) bad.push(`CW_WARM_N ${CW_WARM_N} != RELIEF_WARMUP_PITCHES ${K.RELIEF_WARMUP_PITCHES}`);
+  if (CW_WARM_GAP !== K.WARMUP_PITCH_GAP) bad.push(`CW_WARM_GAP ${CW_WARM_GAP} != WARMUP_PITCH_GAP ${K.WARMUP_PITCH_GAP}`);
+  if (warmStart() !== CW_SIGNAL + CW_JOG + CW_HAND) bad.push('warm-ups do not start right after the hand-over');
+  if (warmEnd(CHANGE_DUR) > CHANGE_DUR) bad.push(`last warm-up ball back at ${warmEnd(CHANGE_DUR)} s, after the frame end`);
+  const hd = throwHands(CW_WARM_REL).r, rd = Math.hypot(hd[0] - THROW_OUT[0], hd[1] - THROW_OUT[1], hd[2] - THROW_OUT[2]);
+  if (rd > .05) bad.push(`release CW_WARM_REL ${CW_WARM_REL} s is ${rd.toFixed(3)} m off the wind-up's THROW_OUT`);
+  const rel = [0, 1.75, -17.5], mitt = [0, .7, 1.4], glove = [.3, 1.2, -18.2], seen = new Set();
+  let prev = null, pn = -1;
+  for (let u = 0; u <= CHANGE_DUR; u += .01) {
+    const w = warmAt(u, CHANGE_DUR);
+    if (u < warmStart() - 1e-9 && w) bad.push(`u ${u.toFixed(2)}: warm-up before the hand-over`);
+    if (!w) { prev = null; continue; }
+    if (w.n < pn) bad.push(`u ${u.toFixed(2)}: warm-up count goes back`); pn = w.n; seen.add(w.n);
+    const b = warmBall(w, rel, mitt, glove), d3 = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+    if (b && !prev && d3(b, rel) > .3) bad.push(`u ${u.toFixed(2)}: the pitch does not leave from the release point`);
+    if (b && prev && d3(b, prev) > .5) bad.push(`u ${u.toFixed(2)}: warm-up ball jumps ${d3(b, prev).toFixed(2)} m (${w.ball})`);
+    if (!b && prev && d3(prev, glove) > .3) bad.push(`u ${u.toFixed(2)}: the return throw ends ${d3(prev, glove).toFixed(2)} m from the glove`);
+    prev = b;
+  }
+  if (seen.size !== CW_WARM_N) bad.push(`${seen.size} warm-up pitches drawn in a CHANGE_DUR frame, not ${CW_WARM_N}`);
+  if (warmAt(warmStart() + 1, warmStart() + CW_WARM_GAP - 1)) bad.push('a warm-up cycle that cannot finish in the frame is drawn');
+  if (!/chgWarmArms\(e,u\)/.test(game)) bad.push('render/game.js does not call chgWarmArms on a CHG frame');
 }
 let frames = 0;
 for (let seed = 1; seed <= 60; seed++) {
