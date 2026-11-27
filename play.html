@@ -273,7 +273,10 @@ window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
 const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await st('gpu',R.init())}catch(e){console.error(e)}window.RENDERER=R;
 /* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
-window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
+window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;
+/* #600: play.html?f=<id> replays a 二軍 game (league/site/farm_games.json) with the engine of its own commit, in place of the frozen game. Failure: a note, then the frozen game as usual. */
+{const fid=new URLSearchParams(location.search).get('f');if(fid){try{const [F,list]=await Promise.all([import('./league/farm.js'),fetch('league/site/farm_games.json').then(r=>r.ok?r.json():[])]);const r=await F.farmOpening(list,fid);if(r.opening){window.OPENING=r.opening;window.FARM=r.rec}else{window.FARM_NOTE=`找不到這場二軍比賽的重播（${r.status}）`;console.warn('二軍重播失敗',r.status,r.reason)}}catch(e){window.FARM_NOTE='二軍重播載入失敗';console.warn('二軍重播載入失敗',e)}}}
+window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
 await load('render/game.js').catch(halt);B.mark('game');
 /* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
 await window.READY;document.getElementById('enter').textContent='進場（開聲音）';

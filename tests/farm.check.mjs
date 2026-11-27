@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as engine from '../engine/index.js';
 import { ROSTERS } from '../league/players.js';
-import { farmProblem, farmRecord, findFarm, replayFarm, farmUrl, recordBytes, yearBytes } from '../league/farm.js';
+import { farmProblem, farmRecord, findFarm, replayFarm, farmOpening, farmUrl, recordBytes, yearBytes } from '../league/farm.js';
 import { serialize } from '../league/tools/farm_record.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -49,6 +49,18 @@ if ((await replayFarm(t, first.id, local)).status !== 'mismatch') fail('tampered
 if ((await replayFarm(list, 'f-999999', local)).status !== 'unknown') fail('missing id is not unknown');
 if ((await replayFarm(list, first.id, async () => { throw new Error('404'); })).status !== 'unavailable') fail('throwing loader is not unavailable');
 if (findFarm(list, first.id) !== first || findFarm(null, 'f-1') !== null) fail('findFarm');
+{   /* play.html?f=<id> (#600 part 2): ok gives the game the page plays as OPENING, anything else gives none and a reason */
+  const o = await farmOpening(list, first.id, local), bad1 = await farmOpening(t, first.id, local), none = await farmOpening(list, 'f-999999', local);
+  if (first.engine.version === engine.ENGINE_VERSION && !(o.status === 'ok' && o.opening && o.opening.seed === first.seed && o.opening.farm === first.id && Array.isArray(o.opening.game.ev))) fail(`farmOpening ok: ${o.status}`);
+  if (bad1.opening !== null || bad1.status !== 'mismatch' || !bad1.reason) fail('farmOpening on a tampered record gives a picture');
+  if (none.opening !== null || none.status !== 'unknown') fail('farmOpening on a missing id');
+  const g = engine.simGame(7001, {}, { teams: [0, 1] }), bx = engine.boxFromStream(g.stream);   /* a record of the current engine: the picture path */
+  const mine = [farmRecord({ id: 'f-1', day: 0, seed: 7001, commit: 'abcdef1', version: engine.ENGINE_VERSION, score: bx.score, line: bx.line })];
+  const m = await farmOpening(mine, 'f-1', local);
+  if (m.status !== 'ok' || !m.opening || m.opening.seed !== 7001 || JSON.stringify(m.opening.game.stream) !== JSON.stringify(g.stream)) fail(`farmOpening picture path: ${m.status} ${m.reason}`);
+  const pg = readFileSync(path.join(ROOT, 'play.html'), 'utf8');
+  if (!/get\('f'\)/.test(pg) || !pg.includes('farmOpening') || !pg.includes('farm_games.json')) fail('play.html does not wire ?f=<id>');
+}
 if (farmUrl('f-3') !== 'play.html?f=f-3') fail(`farmUrl ${farmUrl('f-3')}`);
 
 const cases = [
