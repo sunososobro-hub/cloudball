@@ -8,6 +8,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { simGame, RELEASE, ARRIVE } from '../../engine/index.js';
+import { gbPlan, gbPath, gbGlove } from '../gb_path.js';
+import { onDirt } from '../dust.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SEEDS = Number(process.argv[2] || 40);
 const G = 9.81, REL_Z = -16.8, REL_Y = 1.8, PLATE_Z = .6, THROW_ARC = .05, HIT0 = [0, 1, .3], ROLL_DUR = .8;
@@ -26,7 +28,12 @@ for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) 
   if (e.r === 'inplay' || e.r === 'foul') S.jump.push(Math.hypot(plate[0] - HIT0[0], plate[1] - HIT0[1], plate[2] - HIT0[2]));
   if (e.r !== 'inplay' || !e.play || e.play.bunt) continue;
   const p = e.play, PL = e.plan, T = p.hang, hr = p.res === 'HR';
-  if (p.type === 'GB') { S.gbPk.push(G * T * T / 8 / p.peak); if (!PL.hit) S.gbStill.push(PL.catchT - T) }
+  if (p.type === 'GB') { /* #645: game.js draws render/gb_path.js (imported, not mirrored): gravity / drawn vertical accel per airborne piece, still time before the catch */
+    const land = [p.lx, .15, p.lz], dirt = onDirt(p.lx, p.lz), P = gbPlan(HIT0, land, T, dirt), dt = 1 / 240, y = t => gbPath(HIT0, land, T, t, dirt, P)[1];
+    for (const q of P.segs) { const t = q.a + q.d / 2; S.gbPk.push(G / (-(y(t + dt) - 2 * y(t) + y(t - dt)) / (dt * dt))) }
+    if (!PL.hit) { let still = 0; const at = t => t <= T ? gbPath(HIT0, land, T, t, dirt, P) : gbGlove(land, PL.stand, T, PL.catchT, t);
+      for (let t = 1 / 60; t <= PL.catchT; t += 1 / 60) { const a = at(t - 1 / 60), b = at(t); if (Math.hypot(b[0] - a[0], b[2] - a[2]) * 60 < .05) still += 1 / 60 }
+      S.gbStill.push(still) } }
   else { const land = [p.lx, hr ? 6 + (p.dist - 114) * .15 : PL.hit ? .15 : 1.5, p.lz], r = flyPath({ t: seed * 1e5 + e.t }, HIT0, land, T), v = r.v0, kmh = Math.hypot(...v) * 3.6;
     S.ev.push(kmh); if (hr) S.evHR.push(kmh); S.la.push(Math.atan2(v[1], Math.hypot(v[0], v[2])) * 180 / Math.PI);
     let pk = 0; for (let t = 0; t <= T; t += 1 / 60) pk = Math.max(pk, r.f(t)[1]); S.pkE.push(pk - p.peak) }
@@ -42,7 +49,7 @@ row('5 air ball: solved exit velo (km/h)', S.ev, 0);
 row('5 home run: solved exit velo (km/h)', S.evHR, 0);
 row('5 air ball: launch angle (deg)', S.la, 0);
 row('5 air ball: drawn peak - engine peak (m)', S.pkE, 1);
-row('4 grounder: gravity peak / drawn one-arc peak', S.gbPk);
+row('4 grounder: gravity / drawn vertical accel per hop', S.gbPk);
 row('4 grounder: ball frozen at land before catch (s)', S.gbStill);
 row('4 hit roll: constant speed over .8 s (m/s)', S.roll, 1);
 row('3 throw: drawn peak / gravity peak, all', S.thr);
