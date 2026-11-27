@@ -48,6 +48,7 @@ try{
     await page.click('#enter');
     await page.waitForTimeout(PLAY_MS);
     if(await page.evaluate(()=>{const i=document.getElementById('intro');return !!i&&!i.hidden}))bad.push('the entry card is still up after 開始');
+    if(!await page.evaluate(()=>typeof window.plateUmpVisible==='function'&&window.plateUmpVisible()))bad.push('the plate umpire is hidden after the entry card closed (#81)');
     const vp=page.viewportSize(),w=Math.round(vp.width/3),h=Math.round(vp.height/3);
     let shot;   /* #534: a software-GL frame can take long; retry, and let each try wait for it */
     for(let k=1;;k++){try{shot=await page.screenshot({clip:{x:w,y:h,width:w,height:h},timeout:SHOT_MS});break}

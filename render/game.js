@@ -1359,6 +1359,7 @@ const C_GLOVE_X=-.1,C_SHIFT_K=.8,C_SHIFT_MAX=.25,cShift=e=>clamp((e.zx-C_GLOVE_X
    They sink back into the crouch PLATE_DOWN_AT s before the play ends, so the next pitch does not start with a jump into the crouch */
 const PLATE_UP_AT=.25,PLATE_UP_DUR=.45,PLATE_DOWN_AT=1,PLATE_DOWN_DUR=.6,ARM_HANG=[0,BAT_SHOULDER_Y-BAT_ARM_LEN,0];/* hand straight below the shoulder (x = the shoulder's own x) */
 function poseBattery(e,u){
+  ump.g.visible=true;/* #81: introScene hides him with the card; nothing else ever showed him again, so the plate umpire was missing all game */
   const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG'||e.k==='VIS',isP=e.k==='P',up=isP&&(e.r==='inplay'||e.wp)?ease(sat01((u-ARRIVE-PLATE_UP_AT)/PLATE_UP_DUR))*(e.d?1-ease(sat01((u-(e.d-PLATE_DOWN_AT))/PLATE_DOWN_DUR)):1):0;
   const py=isP?pitchY(e):MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
     back=isP&&!e.sbGo?Math.max(up,ease(sat01((u-(ARRIVE+CATCH_SNAP+MITT_HOLD))/MITT_BACK))):0,rk=isP?ease(sat01((u-(ARRIVE-C_RISE_LEAD))/C_RISE_LEAD)):0,rise=C_HIGH_RISE*sat01((py-C_HIGH_Y)/C_HIGH_SPAN)*rk*(1-back),c=set?(1-rise)*(1-up):0;
@@ -2131,6 +2132,7 @@ let gfxTier=IS_MOBILE?1:0,fpsAcc=0,fpsN=0,fpsAvg=0,tierT0=performance.now();try{
    towers, as a night game shows: what keeps players from looking pasted on the grass. Two instanced meshes, no depth write, matrices set each
    frame from the figures' positions; fan length follows the lamp height. Replaces the old tier-3 round blobs. */
 const CS_R=.3,CS_R_CROUCH=.42,CS_PATCH_A=.45,CS_FAN_OP=.12,CS_FAN_W=.5,CS_BODY_H=1.85,LAMP_H=46,CS_FAN_MIN=1.2,CS_FAN_MAX=5,CS_Y=.02,CS_TEX=64;
+window.plateUmpVisible=()=>ump.g.visible;/* #81: read-only hook for tests/smoke/play.mjs */
 const csFigs=[...Object.values(fielders),batter,ump,...runners,...umpB,...coaches,mgr],csBig=new Set([fielders.C,ump]);
 const csTex=draw=>{const c=document.createElement('canvas');c.width=c.height=CS_TEX;draw(c.getContext('2d'),CS_TEX);return new THREE.CanvasTexture(c)};
 /* #267: three gives the scene pass's side targets (normal for AO/SSGI, diffuse for SSGI, velocity for TRAA) no blending by default, so each
