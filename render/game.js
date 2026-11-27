@@ -1062,6 +1062,9 @@ let railM=null;import(new URL('rail.js',document.currentScript&&document.current
 let csigM=null;import(new URL('coachsig.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{csigM=M}).catch(err=>console.warn('coach signals off',err));
 function coachSigPose(f,e,u){if(!csigM||OFF.has('coachsig')||!e||e.k!=='P')return;const g=csigM.signalAt(csigM.coachSignals(e),u),h=g&&csigM.handsFor(g);if(!h)return;
   f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h.r[0],h.r[1],h.r[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h.l[0],h.l[1],h.l[2])}
+/* #612 part 3: the first-base coach pumps both palms down ("back!") on a pickoff throw (P event with po), same switch. */
+function coachBackPose(f,e,u){if(!csigM||OFF.has('coachsig')||!e||e.k!=='P'||!e.po)return;const g=csigM.signalAt(csigM.backSignals(e),u),h=g&&csigM.handsFor(g);if(!h)return;
+  f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h.r[0],h.r[1],h.r[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h.l[0],h.l[1],h.l[2])}
 const railFigs=[0,1].map(t=>[0,1,2,3].map(()=>figure(matBn[t],pants,false)));
 function poseRail(e,u){const R=railM;for(const t of [0,1]){const n=!R||OFF.has('rail')?0:gfxMax?R.RAIL_N:2,P=ROSTERS[t].bench||[],c=R&&e&&e.s0&&e.s0.half===t?R.clapAt(R.scoreTimes(e),u):{w:0,phase:0};
   if(R)paintKit(matBn[t],t);
@@ -1128,7 +1131,7 @@ function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.pla
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
     resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.gw=!walk?1:leave?0:sat01((k-GW_ARRIVE)/(1-GW_ARRIVE));f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
-    setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name);if(i===1&&!walk)coachSigPose(f,e,u)});
+    setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name);if(i===1&&!walk)coachSigPose(f,e,u);if(i===0&&!walk)coachBackPose(f,e,u)});
   poseRail(e,u);
   const vp=visitOf(e),va=visitM&&vp?visitM.visitAt(vp,u):null;mgr.g.visible=!!(va&&va.visible);
   if(mgr.g.visible){const dt=e.def!==undefined?e.def:1-off,m=S.find(q=>q.id===`${teamIdOf(dt)}-${e.k==='VIS'?'pitching':'manager'}`);paintKit(matMgr,dt);resetPose(mgr);mgr.noAnim=false;
