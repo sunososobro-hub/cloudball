@@ -48,33 +48,3 @@ export function prJog(base, dug, u, d, face) {
    from his dugout to the position, the replaced one jogs off to the dugout. pos = [x, z] of the position (the fielder's start spot);
    he faces home while he waits. Same result shape as prJog: { out, in }, each [x, z, faceX, faceZ] or null. */
 export const dsJog = (pos, dug, u, d) => prJog(pos, dug, u, d);
-
-/* #611 part 3: a pitching change (engine `k: 'CHG'`, CHANGE_DUR long) is a walk off and a jog on: the old pitcher walks from the mound to his
-   dugout after the manager has reached the mound (render/visit.js), the reliever jogs in from his bullpen gate (BP in props/bullpens.js:
-   S1 m along the foul line, D1-ish across) and waits on the mound facing home. Nobody appears or vanishes on the mound; the warm-up pitches
-   and the ball hand-over are #610's. Same result shape as prJog: { out, in } = old pitcher, reliever; each [x, z, faceX, faceZ] or null. */
-export const PO_GO = 6;         /* s into the frame when the old pitcher turns for the dugout (the manager is on the mound by ~5 s) */
-export const PO_V = 2;          /* m/s: a walk (game.js OD_WALK_V is 1.8); faster only when the frame is short */
-export const RL_GO = 14;        /* s: the reliever leaves the gate (engine RELIEF_SIGNAL_DUR) */
-export const RL_V = 4.2;        /* m/s: his jog in (engine RELIEF_JOG_SPEED); faster only when the frame is short */
-export const RL_HOLD = .4;      /* s he stands on the mound before the frame ends, at the latest */
-export const RL_GATE_S = 86, RL_GATE_D = 11.4;  /* the pen's gate: m along the line from home, m off the line (BP.S1, middle of BP.LANES) */
-/* team 0 fields on the +x side (dugout x = +26), team 1 on -x */
-export const reliefGate = team => { const k = Math.SQRT1_2, s = RL_GATE_S, d = RL_GATE_D; return [(team === 0 ? 1 : -1) * k * (s + d), -k * (s - d)]; };
-
-export function pitChange(mound, dug, gate, u, d) {
-  const Lo = Math.hypot(dug[0] - mound[0], dug[1] - mound[1]), Lg = Math.hypot(mound[0] - gate[0], mound[1] - gate[1]);
-  const vo = Math.max(PO_V, Lo / Math.max(d - PO_GO - .5, 1e-3)), so = Math.max(0, u - PO_GO) * vo;
-  let out = null;
-  if (so < Lo) {
-    const k = so / Lo, x = mound[0] + (dug[0] - mound[0]) * k, z = mound[1] + (dug[1] - mound[1]) * k;
-    out = u < PO_GO ? [x, z, -mound[0], -mound[1]] : [x, z, dug[0] - mound[0], dug[1] - mound[1]];
-  }
-  const vi = Math.max(RL_V, Lg / Math.max(d - RL_GO - RL_HOLD, 1e-3)), si = (u - RL_GO) * vi;
-  let inn = null;
-  if (si > 0) {
-    if (si >= Lg) inn = [mound[0], mound[1], -mound[0], -mound[1]];
-    else { const k = si / Lg, x = gate[0] + (mound[0] - gate[0]) * k, z = gate[1] + (mound[1] - gate[1]) * k; inn = [x, z, mound[0] - gate[0], mound[1] - gate[1]]; }
-  }
-  return { out, in: inn };
-}
