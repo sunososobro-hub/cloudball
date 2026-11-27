@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { oldAt, newAt, bullpenGate, holdAt, CW_SIGNAL, CW_JOG, CW_OLD_END_GAP, CW_OLD_GO, CW_HAND, warmAt, warmBall, warmStart, warmEnd, CW_WARM_N, CW_WARM_GAP, CW_WARM_REL } from '../render/chgwalk.js';
+import { oldAt, newAt, bullpenGate, holdAt, bullpenExit, CW_EXIT_S, CW_EXIT_D, CW_SIGNAL, CW_JOG, CW_OLD_END_GAP, CW_OLD_GO, CW_HAND, warmAt, warmBall, warmStart, warmEnd, CW_WARM_N, CW_WARM_GAP, CW_WARM_REL } from '../render/chgwalk.js';
 import { throwHands, THROW_OUT } from '../render/pen.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), bad = [];
 const E = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
@@ -37,13 +37,26 @@ for (const side of [1, -1]) {
   if (!n1 || dist(n1, mound) > 1e-6 || !n2 || dist(n2, mound) > 1e-6) bad.push(`${tag}: reliever not on the rubber from CW_SIGNAL + CW_JOG`);
   let po = null, pn = null, gone = false;
   for (let u = 0; u <= d; u += DT) {
-    const o = oldAt(mound, dug, u, d), n = newAt(mound, gate, u);
+    const o = oldAt(mound, dug, u, d), n = newAt(mound, gate, u, bullpenExit(dug));
     if (o && gone) bad.push(`${tag} u ${u}: old pitcher comes back after he left`);
     if (!o) gone = true;
     if (o && po && dist(o, po) > MAX_V * DT) bad.push(`${tag} u ${u}: old pitcher steps ${dist(o, po).toFixed(2)} m`);
     if (n && pn && dist(n, pn) > MAX_V * DT) bad.push(`${tag} u ${u}: reliever steps ${dist(n, pn).toFixed(2)} m`);
     if (o && n && dist(o, mound) > .01 && dist(n, mound) > .01 && dist(o, n) < MIN_GAP) bad.push(`${tag} u ${u}: the two men ${dist(o, n).toFixed(2)} m apart`);
     po = o; pn = n;
+  }
+  /* #611 part 6: the jog passes the pen exit (aisle between the lanes), is even in pace, and ends on the rubber on time */
+  {
+    const ex = bullpenExit(dug), seg1 = dist(gate, ex), L = seg1 + dist(ex, mound);
+    if (Math.sign(ex[0]) !== side) bad.push(`${tag}: pen exit on the wrong side ${ex}`);
+    const k1 = seg1 / L, pe = newAt(mound, gate, CW_SIGNAL + CW_JOG * k1, ex);
+    if (!pe || dist(pe, ex) > 1e-6) bad.push(`${tag}: reliever does not pass the pen exit (${pe})`);
+    const half = newAt(mound, gate, CW_SIGNAL + CW_JOG * k1 / 2, ex), mid = [(gate[0] + ex[0]) / 2, (gate[1] + ex[1]) / 2];
+    if (!half || dist(half, mid) > 1e-6) bad.push(`${tag}: first leg is not straight along the pen`);
+    const v = L / CW_JOG;
+    if (v > MAX_V) bad.push(`${tag}: route pace ${v.toFixed(2)} m/s too fast`);
+    if (!(CW_EXIT_D > 9.9 && CW_EXIT_D < 12.9)) bad.push(`CW_EXIT_D ${CW_EXIT_D} is not between the lanes`);
+    if (!(CW_EXIT_S < 62.6)) bad.push(`CW_EXIT_S ${CW_EXIT_S} is not past the strip's home end`);
   }
   if (JSON.stringify(oldAt(mound, dug, 20, d)) !== JSON.stringify(oldAt(mound, dug, 20, d))) bad.push(`${tag}: not deterministic`);
 }
