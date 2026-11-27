@@ -12,12 +12,13 @@ import { gbPlan, gbPath, gbGlove } from '../gb_path.js';
 import { onDirt } from '../dust.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SEEDS = Number(process.argv[2] || 40);
-const G = 9.81, REL_Z = -16.8, REL_Y = 1.8, PLATE_Z = .6, THROW_ARC = .05, HIT0 = [0, 1, .3], ROLL_DUR = .8;
+const G = 9.81, REL_Z = -16.8, REL_Y = 1.8, PLATE_Z = .6, HIT0 = [0, 1, .3], ROLL_DUR = .8;
 const src = readFileSync(path.join(ROOT, 'render/game.js'), 'utf8'), a = src.indexOf('const AIR_K='), b = src.indexOf('\n', src.indexOf('return t=>', a));
 if (a < 0 || b < a) { console.error('flyPath not found in render/game.js'); process.exit(2) }
 const lerp = (x, y, t) => x + (y - x) * t, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const flyPath = new Function('lerp', 'clamp', src.slice(a, b) + '\nreturn (e,p0,p1,T)=>{const f=flyPath(e,p0,p1,T),t=flyCache.get(e.t);return {f,v0:t.v0}}')(lerp, clamp);
 const pa = src.indexOf('function arc('), pb = src.indexOf('/* ---------- Fielding'), { pitchBreak, PITCH_BRK_IN } = new Function('lerp', src.slice(pa, pb) + ';return{pitchBreak,PITCH_BRK_IN}')(lerp); /* #644 */
+const { arc, throwPeak } = new Function('lerp', src.slice(pa, pb) + ';return{arc,throwPeak}')(lerp), drawnPeak = TT => { let pk = 0; for (let i = 0; i <= 120; i++) pk = Math.max(pk, arc([0, 0, 0], [0, 0, 1], throwPeak(TT), i / 120)[1]); return pk };
 const pct = (arr, q) => { const s = [...arr].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))] };
 const row = (name, arr, d = 2) => console.log(name.padEnd(46), 'n', String(arr.length).padStart(5), ' p5', pct(arr, .05).toFixed(d), ' p50', pct(arr, .5).toFixed(d), ' p95', pct(arr, .95).toFixed(d), ' min', Math.min(...arr).toFixed(d), ' max', Math.max(...arr).toFixed(d));
 const S = { kmh: [], jump: [], gbPk: [], gbStill: [], roll: [], thr: [], thrIn: [], thrOut: [], ev: [], evHR: [], la: [], pkE: [] }, PT = {};
@@ -38,7 +39,7 @@ for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) 
     S.ev.push(kmh); if (hr) S.evHR.push(kmh); S.la.push(Math.atan2(v[1], Math.hypot(v[0], v[2])) * 180 / Math.PI);
     let pk = 0; for (let t = 0; t <= T; t += 1 / 60) pk = Math.max(pk, r.f(t)[1]); S.pkE.push(pk - p.peak) }
   if (PL.hit) S.roll.push(Math.hypot(PL.target[0] - p.lx, PL.target[1] - p.lz) / ROLL_DUR);
-  if (PL.TT > 0 && isFinite(PL.t0) && PL.TD > 0) { const k = Math.min(3, PL.TD * THROW_ARC * (32 / PL.v)) / (G * PL.TT * PL.TT / 8); S.thr.push(k); (PL.TD < 35 ? S.thrIn : PL.TD > 50 ? S.thrOut : []).push(k) }
+  if (PL.TT > 0 && isFinite(PL.t0) && PL.TD > 0) { const k = drawnPeak(PL.TT) / (G * PL.TT * PL.TT / 8); /* #647: the drawn arc is game.js arc() with throwPeak(TT) */ S.thr.push(k); (PL.TD < 35 ? S.thrIn : PL.TD > 50 ? S.thrOut : []).push(k) }
 }
 console.log(`#638 phys_audit, seeds 1..${SEEDS}`);
 row('1 pitch: implied km/h - shown km/h', S.kmh, 1);
