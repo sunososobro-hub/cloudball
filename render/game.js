@@ -1162,6 +1162,8 @@ function u2Plan(ev,i){const e=ev[i];if(!e)return null;if(u2Cache.has(e))return u
     pl={go,t:T,path:odPath([u2Spot(a),u2Spot(b)])}}
   const r={a,b,pl};u2Cache.set(e,r);return r}
 /* #42: from inside he turns to watch the play at first while U1 calls it (render/u2watch.js; no turn until the module is in) */
+/* #612 part 8: U1 / U3 go out on a fair outfield fly (render/umpgo.js, pure function of event and time). Dev switch ?off=umpgo. */
+let goM=null;import(new URL('umpgo.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpgo'))goM=M}).catch(err=>console.warn('umpire go-out off',err));
 let u2wM=null;import(new URL('u2watch.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{u2wM=M}).catch(err=>console.warn('u2 watch off',err));
 function u2Watch(f,e,u){if(!u2wM)return;const w=u2wM.watchWeight(bcCalls(e),1,u,{up:BC_UP,hold:BC_HOLD,down:BC_DOWN});if(w<=0)return;
   const p=f.g.position,[bx,bz]=BASES[1];f.g.rotation.y=u2wM.turnYaw(f.g.rotation.y,p.x,p.z,bx,bz,u2wM.U2_WATCH.TURN*w)}
@@ -1169,7 +1171,8 @@ const u2End=(ev,i)=>{const q=u2Plan(ev,i);return q&&q.pl?q.pl.go+q.pl.t:0};/* cp
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);chkSigPose(f,i+1,e,u);
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null,goFace=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}
+    if(i!==1&&goM){const g=goM.umpGoAt(e,SIG_T,u,[x,z]);if(g){x=g.x;z=g.z;mv=[x,z,g.dx,g.dz,g.moving];goFace=g.moving?null:[g.dx,g.dz]}}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(goFace)face(f,goFace[0],goFace[1]);else if(mv&&mv[4]!==false)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);chkSigPose(f,i+1,e,u);
     if(i===1&&!mv&&!f.armsHeld&&x===ST_U2_IN[0]&&z===ST_U2_IN[1])u2Watch(f,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
@@ -2222,7 +2225,7 @@ function cpEvents(g){const ev=g.ev;
       for(const [,to,,tl] of mv)tail=Math.max(tail,tl.arriveT+(to===4?peelLen(off,tl):Math.max(CP_RUNNER_SETTLE,LEAD_WALK_WAIT+LEAD_WALK_DUR)));/* #23: walk-out to the lead */
       if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.k3&&e.plan&&e.plan.k3){const K=k3Plan(e);tail=Math.max(tail,K.back+K.Db/WP_BACK_V)}if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P'&&e.r!=='inplay')tail=Math.max(tail,retEnd(ev,i));/* #42: fielders walking to the next pitch's depth (retDrift) */
-    if(e.k==='P')tail=Math.max(tail,u2End(ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
+    if(e.k==='P')tail=Math.max(tail,u2End(ev,i),goM?goM.umpGoEnd(e,SIG_T,stUmpAt):0);if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
     {const tc=tmM?tmM.timeCall(e,ev[i-1]):null;/* #638: the plate ump's time / play signal (#609 part 3a) moves him in VOTE/CHG/VIS/SUB and the next pitch */
       if(tc){head=0;/* not tc.at: a figure can still settle in the frame's first steps (pitcher after a strikeout, edge_probe) */tail=Math.max(tail,tmM.timeEnd(e,ev[i-1]))}else if(!tmM&&!OFF.has('umptime')&&TIME_FRAMES.has(e.k)){head=0;tail=e.d}}/* module not in yet -> keep it all */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
