@@ -1581,6 +1581,14 @@ function prRunners(e,u,i,off,standRunner,showRunner){const [bx,bz]=BASES[i+1],[n
   const J=sjM.prJog(spot,dugout(off),u,e.d,[-bx,-bz]),oldN=e.s0.b[i],newN=e.s1.b[i];
   if(J.out&&oldN)showRunner(...J.out,oldN);
   if(J.in&&newN){if(J.in[0]===spot[0]&&J.in[1]===spot[1])standRunner(i,0,newN);else showRunner(...J.in,newN)}}
+/* #611 part 2: a defensive replacement (SUB frame, role 'defensive') jogs the new fielder out from the dugout to his position while
+   the man he replaces jogs off (dsOut, a spare fielder-kit figure); paths in render/subjog.js dsJog; lineup or module missing -> old swap */
+const dsOut=figure(matDef,pants,true);dsOut.g.visible=false;
+function dsFielders(e,u,ei,def){const L=luOf();if(!sjM||!sjM.dsJog||!L||ei<1)return;
+  const nw=(L.lineupAt(e,def)||[])[e.lineup],od=(L.lineupAt(game.ev[ei-1],def)||[])[e.lineup],f=nw&&fielders[nw.pos];if(!f||!od)return;
+  const J=sjM.dsJog(f.pos,dugout(def),u,e.d),bob=Math.abs(Math.sin(u*9))*.07;
+  if(J.in){f.g.position.set(J.in[0],bob,J.in[1]);face(f,J.in[2],J.in[3])}else f.g.visible=false;
+  if(J.out){resetPose(dsOut);dsOut.noAnim=false;dsOut.g.visible=true;dsOut.g.position.set(J.out[0],bob,J.out[1]);setNum(dsOut,od.num);dress(dsOut,od);face(dsOut,J.out[2],J.out[3])}}
 /* #613 end of the game: render/finale.js plans it from the END frame (winner from the final score, walk-off = the winners were batting).
    Winners on the field jog to the ring between mound and plate and slap hands, walk-off winners (the runners' six, the two on-deck men) run
    out of their dugout and mob the scorer at the plate; then the winners line up behind the plate, bow to the stands, and leave; the losers
@@ -1600,13 +1608,14 @@ function poseFinale(e,u,ei,off,def){if(!FINM)return;const P=finPlanOf(e,off,def)
     const pl=R[i%R.length];setNum(f,pl?pl.num:undefined);dress(f,pl);finFig(f,g.at(u),u)})}
   [ump,...umpB].forEach((f,i)=>{const c=P.U[i].at(u);f.g.visible=c.vis;if(c.vis){f.g.position.set(c.x,0,c.z);face(f,c.fx,c.fz);f.noAnim=false}})}
 function poseScene(e,u,dt,ei){
-  pmField=null;/* #274: set again below only for a fielding pitcher */
+  dsOut.g.visible=false;pmField=null;/* #274: set again below only for a fielding pitcher */
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
   paintKit(matDef,defT);paintKit(matOff,e.k==='BRK'&&u>=BRK_ON_AT?def:off);/* #42: after the change the walkers out of the dugout are the new batting side */
   applyNums(e,off,defT);
   /* fielders default */
   for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=f.ret=fielderStart(k,e.s0.b,e.s0.outs);if(k!=='P')f.ret=retSpot(e,ei,k,f.pos);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
   retDrift(e,u,ei);
+  if(e.k==='SUB'&&e.role==='defensive')dsFielders(e,u,ei,def);
   ump.auto=true;ump.armsHeld=false;/* ump never gets resetPose: undo a call of the last frame (#42 slice 8) */ump.g.visible=e.k!=='END'&&e.k!=='PRE';/* #81: introScene hides every figure under the entry card; like the catcher, the plate umpire is shown again by his own pose every frame */poseBattery(e,u);
   if(e.k==='BRK')brkSwap(e,u,off,def,ei);
   const P=fielders.P;P.arms[1].rotation.x=0;PR.up.rotation.set(0,0,0);PR.hg.rotation.set(0,0,0);P.noAnim=e.k==='P';
