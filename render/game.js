@@ -1338,14 +1338,18 @@ function throwRelease(e,f,at,xfer,tgt){const key=e.t+':'+xfer;let r=relCache.get
   resetPose(f);f.g.position.set(at[0],0,at[1]);face(f,tgt[0]-at[0],tgt[2]-at[1]);throwPose(f,xfer,xfer,tgt);const q=f.handWorld(1);r=[q.x,q.y,q.z];
   f.g.position.copy(o[0]);f.g.quaternion.copy(o[1]);[R.up,R.hips,R.hg,R.l0,R.l1,R.a0,R.a1].forEach((x,i)=>{x.quaternion.copy(o[2+2*i]);x.scale.copy(o[3+2*i])});
   if(relCache.size>200)relCache.clear();relCache.set(key,r);return r}
-/* Batted-ball path: the simulation already decided the outcome (landing point, hang time); here we solve back for the launch velocity and draw it with a drag integration (Cd ~ .33, an assumed coefficient):
-   steeper rise and straighter fall than a parabola. Solved once per event and stored as a sample table */
-const AIR_K=1.2*.33*Math.PI*.0366*.0366/(2*.145),GRAV=9.81,FLY_DT=1/120,flyCache=new Map();
+/* Batted-ball path: the simulation already decided the outcome (landing point, hang time); here we solve back for the launch velocity and draw it with a drag integration (Cd .33, an assumed coefficient):
+   steeper rise and straighter fall than a parabola. Solved once per event and stored as a sample table.
+   #648: a ball whose solved exit speed would pass EV_MAX (197 km/h = 122.4 mph, the hardest Statcast-tracked ball) gets less drag, the most that keeps it at EV_MAX
+   (CD_MIN 0: the engine's hang and distance for the hardest ~2% of balls need near-vacuum flight, any real Cd leaves 207-227 km/h); it still lands where and when the engine says. Balls under EV_MAX draw as before. */
+const CD_MAX=.33,CD_MIN=0,EV_MAX=197/3.6,airK=cd=>1.2*cd*Math.PI*.0366*.0366/(2*.145),GRAV=9.81,FLY_DT=1/120,flyCache=new Map();
 function flyPath(e,p0,p1,T){const key=e.t;let tab=flyCache.get(key);
-  if(!tab){const n=Math.max(2,Math.ceil(T/FLY_DT)),h=T/n,sim=v=>{const P=p0.slice(),V=v.slice(),out=[P.slice()];for(let i=0;i<n;i++){const sp=Math.hypot(...V);for(let k=0;k<3;k++)V[k]+=h*(-AIR_K*sp*V[k]-(k===1?GRAV:0));for(let k=0;k<3;k++)P[k]+=h*V[k];out.push(P.slice())}return out};
-    let v=[(p1[0]-p0[0])/T,(p1[1]-p0[1])/T+GRAV*T/2,(p1[2]-p0[2])/T];
-    for(let it=0;it<40;it++){const end=sim(v)[n],err=[p1[0]-end[0],p1[1]-end[1],p1[2]-end[2]];if(Math.hypot(...err)<.01)break;for(let k=0;k<3;k++)v[k]+=err[k]/T*(k===1?1:1.3)}
-    tab={pts:sim(v),h,v0:v};if(flyCache.size>200)flyCache.clear();flyCache.set(key,tab)}
+  if(!tab){const n=Math.max(2,Math.ceil(T/FLY_DT)),h=T/n,sim=(v,K)=>{const P=p0.slice(),V=v.slice(),out=[P.slice()];for(let i=0;i<n;i++){const sp=Math.hypot(...V);for(let k=0;k<3;k++)V[k]+=h*(-K*sp*V[k]-(k===1?GRAV:0));for(let k=0;k<3;k++)P[k]+=h*V[k];out.push(P.slice())}return out},
+    solve=cd=>{const K=airK(cd),v=[(p1[0]-p0[0])/T,(p1[1]-p0[1])/T+GRAV*T/2,(p1[2]-p0[2])/T];
+      for(let it=0;it<40;it++){const end=sim(v,K)[n],err=[p1[0]-end[0],p1[1]-end[1],p1[2]-end[2]];if(Math.hypot(...err)<.01)break;for(let k=0;k<3;k++)v[k]+=err[k]/T*(k===1?1:1.3)}return v};
+    let cd=CD_MAX,v=solve(cd);
+    if(Math.hypot(...v)>EV_MAX){let lo=CD_MIN,hi=CD_MAX,vl=solve(lo);if(Math.hypot(...vl)<=EV_MAX){for(let i=0;i<12;i++){const m=(lo+hi)/2,vm=solve(m);if(Math.hypot(...vm)>EV_MAX)hi=m;else{lo=m;vl=vm}}}cd=lo;v=vl}
+    tab={pts:sim(v,airK(cd)),h,v0:v,cd};if(flyCache.size>200)flyCache.clear();flyCache.set(key,tab)}
   return t=>{const x=clamp(t/tab.h,0,tab.pts.length-1),i=Math.min(tab.pts.length-2,Math.floor(x)),a=x-i,P=tab.pts[i],Q=tab.pts[i+1];return[lerp(P[0],Q[0],a),lerp(P[1],Q[1],a),lerp(P[2],Q[2],a)]}}
 
 const INTRO_GAP=.7,INTRO_RUN=4.5,INTRO_X=26,INTRO_Z=-6;

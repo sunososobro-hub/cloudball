@@ -13,14 +13,14 @@ import { onDirt } from '../dust.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SEEDS = Number(process.argv[2] || 40);
 const G = 9.81, REL_Z = -16.8, REL_Y = 1.8, PLATE_Z = .6, THROW_ARC = .05, HIT0 = [0, 1, .3], ROLL_DUR = .8;
-const src = readFileSync(path.join(ROOT, 'render/game.js'), 'utf8'), a = src.indexOf('const AIR_K='), b = src.indexOf('\n', src.indexOf('return t=>', a));
+const src = readFileSync(path.join(ROOT, 'render/game.js'), 'utf8'), a = src.indexOf('const CD_MAX='), b = src.indexOf('\n', src.indexOf('return t=>', a));
 if (a < 0 || b < a) { console.error('flyPath not found in render/game.js'); process.exit(2) }
 const lerp = (x, y, t) => x + (y - x) * t, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const flyPath = new Function('lerp', 'clamp', src.slice(a, b) + '\nreturn (e,p0,p1,T)=>{const f=flyPath(e,p0,p1,T),t=flyCache.get(e.t);return {f,v0:t.v0}}')(lerp, clamp);
+const flyPath = new Function('lerp', 'clamp', src.slice(a, b) + '\nreturn (e,p0,p1,T)=>{const f=flyPath(e,p0,p1,T),t=flyCache.get(e.t);return {f,v0:t.v0,cd:t.cd}}')(lerp, clamp);
 const pa = src.indexOf('function arc('), pb = src.indexOf('/* ---------- Fielding'), { pitchBreak, PITCH_BRK_IN } = new Function('lerp', src.slice(pa, pb) + ';return{pitchBreak,PITCH_BRK_IN}')(lerp); /* #644 */
 const pct = (arr, q) => { const s = [...arr].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))] };
 const row = (name, arr, d = 2) => console.log(name.padEnd(46), 'n', String(arr.length).padStart(5), ' p5', pct(arr, .05).toFixed(d), ' p50', pct(arr, .5).toFixed(d), ' p95', pct(arr, .95).toFixed(d), ' min', Math.min(...arr).toFixed(d), ' max', Math.max(...arr).toFixed(d));
-const S = { kmh: [], jump: [], gbPk: [], gbStill: [], roll: [], thr: [], thrIn: [], thrOut: [], ev: [], evHR: [], la: [], pkE: [] }, PT = {};
+const S = { miss: [], kmh: [], jump: [], gbPk: [], gbStill: [], roll: [], thr: [], thrIn: [], thrOut: [], ev: [], evHR: [], la: [], pkE: [] }, PT = {};
 for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) {
   if (e.k !== 'P' || !e.kmh) continue;
   const plate = [e.zx, .45 + e.zy * .75, PLATE_Z], d = Math.hypot(plate[0], plate[1] - REL_Y, plate[2] - REL_Z);
@@ -35,7 +35,7 @@ for (let seed = 1; seed <= SEEDS; seed++) for (const e of simGame(seed, {}).ev) 
       for (let t = 1 / 60; t <= PL.catchT; t += 1 / 60) { const a = at(t - 1 / 60), b = at(t); if (Math.hypot(b[0] - a[0], b[2] - a[2]) * 60 < .05) still += 1 / 60 }
       S.gbStill.push(still) } }
   else { const land = [p.lx, hr ? 6 + (p.dist - 114) * .15 : PL.hit ? .15 : 1.5, p.lz], r = flyPath({ t: seed * 1e5 + e.t }, HIT0, land, T), v = r.v0, kmh = Math.hypot(...v) * 3.6;
-    S.ev.push(kmh); if (hr) S.evHR.push(kmh); S.la.push(Math.atan2(v[1], Math.hypot(v[0], v[2])) * 180 / Math.PI);
+    S.miss.push(Math.hypot(...r.f(T).map((x, i) => x - land[i]))); S.ev.push(kmh); if (hr) S.evHR.push(kmh); S.la.push(Math.atan2(v[1], Math.hypot(v[0], v[2])) * 180 / Math.PI);
     let pk = 0; for (let t = 0; t <= T; t += 1 / 60) pk = Math.max(pk, r.f(t)[1]); S.pkE.push(pk - p.peak) }
   if (PL.hit) S.roll.push(Math.hypot(PL.target[0] - p.lx, PL.target[1] - p.lz) / ROLL_DUR);
   if (PL.TT > 0 && isFinite(PL.t0) && PL.TD > 0) { const k = Math.min(3, PL.TD * THROW_ARC * (32 / PL.v)) / (G * PL.TT * PL.TT / 8); S.thr.push(k); (PL.TD < 35 ? S.thrIn : PL.TD > 50 ? S.thrOut : []).push(k) }
@@ -47,6 +47,7 @@ for (const [k, v] of Object.entries(PT)) console.log(`    ${k} shown km/h ${Math
 row('5 contact: plate spot -> HIT0 jump (m)', S.jump);
 row('5 air ball: solved exit velo (km/h)', S.ev, 0);
 row('5 home run: solved exit velo (km/h)', S.evHR, 0);
+row('5 air ball: landing miss at T (m, #648)', S.miss, 3);
 row('5 air ball: launch angle (deg)', S.la, 0);
 row('5 air ball: drawn peak - engine peak (m)', S.pkE, 1);
 row('4 grounder: gravity / drawn vertical accel per hop', S.gbPk);
