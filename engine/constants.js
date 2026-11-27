@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.27';
+export const ENGINE_VERSION = '0.4.28';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -300,6 +300,21 @@ export const PO_LEAD_AT = 1.0;
 export const PO_THROW_AT = 1.3;
 export const PO_THROW_V = 30;
 export const PO_REACT = 0.3;
+/* #614 part 8: rundown on a pickoff. RD_OF_PO_P of the pickoffs above (a label from the looks RNG: the same runner is out,
+ * box scores unchanged) catch the runner leaning: he breaks for second PO_REACT after the throw, the first baseman throws to
+ * the shortstop covering second (RD_RELEASE after his catch, never before the shortstop is on the bag), the runner stops and
+ * turns back (RD_TURN), the shortstop runs him back RD_CHASE s and tosses to the first baseman, who has stepped RD_1B_UP m up
+ * the line; he runs at the runner and tags him within RD_TAG_REACH before he gets back to first. Both throws at RD_THROW_V
+ * (a short infield toss, under run.mjs MAX_THROW). Estimate, not a fit: Retrosheet scores about a third of MLB pickoffs at
+ * first as "picked off, caught stealing" (POCS: the runner broke for second), most of them run down between the bases. */
+export const RD_OF_PO_P = 0.3;
+export const RD_RELEASE = 0.4;
+export const RD_THROW_V = 25;
+export const RD_TURN = 0.5;
+export const RD_CHASE = 0.8;
+export const RD_1B_UP = 4;
+export const RD_TAG_REACH = 1.0;
+export const RD_STEP = 0.01;      /* s: time step when finding where the first baseman meets the runner */
 /* Throw-over that does not get him (#38): same set-up, drawn with POF_P after the pickoff draw, at most POF_MAX_PA times
  * in one plate appearance (MLB rule since 2023: two disengagements per plate appearance; a third that does not get the
  * runner is a balk, so pitchers stop at two). The runner keeps a shorter lead (POF_LEAD m), reads the step-off and breaks

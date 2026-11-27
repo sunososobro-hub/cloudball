@@ -13,7 +13,7 @@ import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
 import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
-import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveDroppedThird } from '../rules/fielding.js';
+import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
@@ -109,7 +109,7 @@ export function simGame(seed, decisions, opts) {
     const [off, bi] = e.bat, bat = RR[off].bat[bi], out = [], add = (type, time, data) => out.push({ type, time, data });
     const who = { batter: bat.name, team: off, lineup: bi };
     if (e.r === 'ibb') add('intentional_walk', e.t + e.showAt, { ...who, pitcher: x.pitcher });
-    else if (e.po) add('pickoff', e.t + K.PO_THROW_AT, { ...who, pitcher: x.pitcher, runner: e.s0.b[0], base: 1, count: e.c0, safe: e.pof ? true : undefined, runnerAt: e.pof ? round3(e.t + e.plan.runnerAt) : undefined });
+    else if (e.po) add('pickoff', e.t + K.PO_THROW_AT, { ...who, pitcher: x.pitcher, runner: e.s0.b[0], base: 1, count: e.c0, safe: e.pof ? true : undefined, rundown: e.rd ? true : undefined, runnerAt: e.pof ? round3(e.t + e.plan.runnerAt) : undefined });
     else if (e.r === 'bk') add('balk', e.t + e.showAt, { ...who, pitcher: x.pitcher, count: e.c0 });
     else {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
@@ -522,9 +522,11 @@ export function simGame(seed, decisions, opts) {
           if (runs && outs.length) desc += COPY.runsNote(runs);
           rbi = res === 'E' || play.dp ? 0 : play.errAdvance ? (B[2] ? 1 : 0) : runs;   /* on a bobble only the runner from third is driven in by the single */
         } else if (e.r === 'po') {
-          const runner = B[0], p = resolvePickoff(ctxOf(null));
+          /* #614 part 8: a share of the pickoffs are run down between first and second (a label, looks RNG: same out) */
+          const runner = B[0], rd = look() < K.RD_OF_PO_P, p = rd ? resolveRundown(ctxOf(null)) : resolvePickoff(ctxOf(null));
           plan = p.plan; outs = p.outs; st.b = [null, null, B[2]]; e.po = true; e.big = K.BIG.NOTABLE;
-          desc = COPY.pickoff(runner);
+          if (rd) e.rd = true;
+          desc = rd ? COPY.pickoffRundown(runner) : COPY.pickoff(runner);
         } else if (e.r === 'pof') {
           /* e.po marks every pickoff-throw frame, e.pof the ones where the runner is safe */
           plan = resolvePickoff(ctxOf(null), true).plan; e.po = true; e.pof = true; e.big = K.BIG.NONE;
