@@ -1085,6 +1085,18 @@ function poseRail(e,u){const R=railM;for(const t of [0,1]){const n=!R||OFF.has('
   railFigs[t].forEach((f,i)=>{f.g.visible=i<n;if(i>=n)return;const sl=R.railSlot(dugout(t),i),h=R.handsAt(sl,c.w,c.phase),b=P[i];
     resetPose(f);f.noAnim=true;f.g.position.set(sl.x,0,sl.z);face(f,sl.fx,sl.fz);setNum(f,b?b.num:undefined);
     if(h){f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h[0],h[1],h[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h[0],h[1],h[2])}else f.armsHeld=false})}}
+/* #612 part 4 (render/pen.js): two relievers and a bullpen catcher in each pen (max tier only, like the pen props). From a pitching vote (VOTE kind P) one reliever walks to the
+   rubber, throws to the crouched catcher until the change or a "stay", then walks back / on to the gate where the reliever of #611 takes over. Off with ?off=pen. */
+let penM=null;import(new URL('pen.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{penM=M}).catch(err=>console.warn('pen people off',err));
+const penFigs=[0,1].map(t=>[0,1,2].map(()=>figure(matBn[t],pants,false)));
+function posePen(e,u){const M=penM;if(!M)return;const T=e&&Number.isFinite(e.t)?e.t+u:0;
+  for(const t of [0,1]){const side=M.sideOf(t);penFigs[t].forEach((f,i)=>{const on=gfxMax&&!OFF.has('pen')&&e;f.g.visible=!!on;if(!on)return;resetPose(f);f.noAnim=true;
+    if(i===2){const [x,z]=M.penWorld(side,M.PEN_CATCHER[0],M.PEN_CATCHER[1]),[fx,fz]=M.penDir(side,-1,0);f.g.position.set(x,0,z);face(f,fx,fz);setNum(f,undefined);
+      crouch(f,f.rig,1,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);aimArm(f.rig.a0,-BAT_SHOULDER_X,-.3,.5,.6);return}
+    const st=M.warmAt(game&&game.ev,t,i,T);if(st&&st.over){f.g.visible=false;return}
+    const r=M.relieverAt(i,st),[x,z]=M.penWorld(side,r.p[0],r.p[1]),[fx,fz]=M.penDir(side,r.face[0],r.face[1]);f.g.position.set(x,0,z);face(f,fx,fz);setNum(f,undefined);
+    if(st&&st.k==='throw'){const h=M.throwHands(st.tt);f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h.r[0],h.r[1],h.r[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h.l[0],h.l[1],h.l[2])}
+    else if(st&&st.f<1&&st.f>0){f.noAnim=false;f.armsHeld=false}else f.armsHeld=false})}}
 const umpB=stUmpAt.map(()=>{const f=figure(matUmp,matUmp,false);f.g.scale.y=.95;return f}),coaches=ST_ROLE.map(()=>figure(matCo,pants,false));
 /* #81: on a pitching change (CHG) the fielding team's manager (STAFF `<team>-manager`, his number and name) walks from his dugout to the
    mound and back inside the frame: render/visit.js plans it (pure). A mound visit (engine VIS frame) is the same walk by the pitching coach
@@ -1109,7 +1121,8 @@ function poseWelcome(e,u,ei){welF.forEach(f=>f.g.visible=false);if(!game||!welM|
     setNum(f,p?p.num:undefined);dress(f,p);face(f,a.fx,a.fz);if(a.arms>0){const R=f.rig;R.a0.quaternion.identity();R.a1.quaternion.identity();R.a0.scale.y=R.a1.scale.y=1;R.a0.rotation.set(-2.8*a.arms,0,-.35*a.arms);R.a1.rotation.set(-2.8*a.arms,0,.35*a.arms)}})}
 
 import(new URL('visit.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{visitM=M}).catch(err=>console.warn('mound visit off',err));
-let pbM=null,pbOn=false,pbS=0;const pbGlove=h=>{if(!pbOn||!pbM||OFF.has('pbback'))return h;const g=fielders.P.handWorld(0);return[g.x,g.y,g.z]};/* #642 part 1: the pitcher's return-throw routine (pitchback.js); pbOn = this frame is a pitch the catcher lobs back */
+let pbM=null,pbOn=false,pbS=0,pbSeed=0,pbEi=0,pbDur=12;/* #642 part 2: pitcher seed (id hash), event index and frame length for the rubber routine */
+const pbGlove=h=>{if(!pbOn||!pbM||OFF.has('pbback'))return h;const g=fielders.P.handWorld(0);return[g.x,g.y,g.z]};/* #642 part 1: the pitcher's return-throw routine (pitchback.js); pbOn = this frame is a pitch the catcher lobs back */
 import(new URL('pitchback.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{pbM=M}).catch(err=>console.warn('pitcher routine off',err));
 const visitOf=e=>visitM&&e&&(e.k==='CHG'||e.k==='VIS')?visitM.visitPlan(dugout(e.def!==undefined?e.def:1-e.s0.half),fielders.P.home,e.d):null;
 let staffM=null;const stHere=document.currentScript&&document.currentScript.src;
@@ -1148,7 +1161,7 @@ function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.pla
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
     resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.gw=!walk?1:leave?0:sat01((k-GW_ARRIVE)/(1-GW_ARRIVE));f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
     setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name);if(i===1&&!walk)coachSigPose(f,e,u);if(i===0&&!walk)coachBackPose(f,e,u)});
-  poseRail(e,u);
+  poseRail(e,u);posePen(e,u);
   const vp=visitOf(e),va=visitM&&vp?visitM.visitAt(vp,u):null;mgr.g.visible=!!(va&&va.visible);
   if(mgr.g.visible){const dt=e.def!==undefined?e.def:1-off,m=S.find(q=>q.id===`${teamIdOf(dt)}-${e.k==='VIS'?'pitching':'manager'}`);paintKit(matMgr,dt);resetPose(mgr);mgr.noAnim=false;
     mgr.g.position.set(va.x,0,va.z);face(mgr,va.fx,va.fz);setNum(mgr,m?m.num:undefined);if(mgr.setName)mgr.setName(m&&m.name)}}
@@ -1302,6 +1315,10 @@ function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,
     P.legs[1].scale.y=1-PM_LIFT_B*Math.sin(Math.PI*o)}
   P.g.position.z+=B?B.z:PB&&u>=PM_OUT[0]?PB.z:dz;
   if(PB){PR.up.rotation.x+=PB.look*pbM.PB_LOOK_LEAN;P.g.rotation.y+=PB.yaw;if(PB.glove>0)gloveTo(P,PB.glove,null)}
+  if(PB&&!OFF.has('pbrubber')){const Q=pbM.pbRubberAt(u,pbM.pbRubberPlan(pbM.pbPlan(BALL_BACK_AT+BALL_BACK_DUR,S).end,pbDur,pbSeed,pbEi)),W=pbM.PB_POLE;/* #642 part 2: habit, sign, set */
+    PR.up.rotation.x+=Q.lean;PR.hg.rotation.y+=Q.headYaw;PR.hg.rotation.x+=Q.headPitch;
+    if(Q.handW>0){P.auto=false;pbArm(P.rig.a1,T_SX,Q.hand,Q.handW,Q.hand===pbM.PB_HAND.cap?W.cap:null)}
+    if(Q.set>0){P.auto=false;pbArm(P.rig.a1,T_SX,pbM.PB_SET_T,Q.set,W.setT);pbArm(P.rig.a0,G_SX,pbM.PB_SET_G,Q.set,W.setG)}}
   let rel=pitchTipAt(RELEASE,bx,bz);
   if(mo){if(!pitchClipP&&window.PL&&PL.loadClip)pitchClipP=PL.loadClip(PITCH_CLIP_URL).then(c=>{pitchClip=c}).catch(e=>console.warn('mocap',e));
     if(c){const mir=c.release.hand==='right',key=[bx,bz,P.buildKey,P.throws].join();let r=pmRel.get(key);
@@ -1340,6 +1357,8 @@ const resetPose=f=>{const R=f.rig;f.auto=true;f.mix=null;if(f.bend){f.bend.elbow
 /* Reach the glove to world point w; bend at waist and knees for low balls */
 function reachGlove(f,w){f.auto=false;const R=f.rig,low=w[1]<.7;if(low)crouch(f,R,clamp((.7-w[1])/.5,0,1),.5,.3,.7,.3);aimWorld(R,R.a0,G_SX,w[0],w[1],w[2]);aimArm(R.a1,T_SX,CHEST[0]+.05,CHEST[1]-.1,CHEST[2])}
 /* Throw receiver: reach 0->1 raises the glove to chest height, slightly forward; hold 0->1 brings the throwing hand over to take the ball after the catch */
+/* #642 part 2: blend an arm from the pose it has now (keyframes) toward a hand target by w (pole: where the elbow points) */
+const _pbq=new THREE.Quaternion();function pbArm(a,sx,t,w,pole){_pbq.copy(a.quaternion);const sy=a.scale.y;if(pole)aimArmPole(a,sx,t[0],t[1],t[2],pole,1);else aimArm(a,sx,t[0],t[1],t[2]);const ty=a.scale.y;a.quaternion.copy(_pbq.slerp(a.quaternion,w));a.scale.y=sy+(ty-sy)*w}
 function gloveTo(f,reach,hold){f.auto=false;const R=f.rig;aimArm(R.a0,G_SX,-.05,lerp(.1,.42,reach),lerp(.25,.55,reach));
   if(hold==null)return;aimArm(R.a0,G_SX,-.05,lerp(.42,CHEST[1],hold),lerp(.55,CHEST[2],hold));aimArm(R.a1,T_SX,lerp(.25,.05,hold),lerp(-.3,CHEST[1],hold),lerp(.1,CHEST[2],hold))}
 /* t seconds after the catch: 0-45% transfer (both hands to the chest, other hand takes the ball), then arm up, stride, release, follow-through */
@@ -1418,6 +1437,9 @@ let sigM=null;const SIG_T={ARRIVE,BK_CALL_AT};import(new URL('umpsig.js',documen
 let lsM=null;import(new URL('umpline.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpline'))lsM=M}).catch(err=>console.warn('line signals off',err));
 let infM=null;import(new URL('umpinf.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpinf'))infM=M}).catch(err=>console.warn('infield fly signal off',err));
 /* #609 part 3a: plate umpire time (VOTE / CHG / VIS / SUB frame starts) and play (the pitch after one) (render/umptime.js, pure function of event, previous event and time). Dev switch ?off=umptime. */
+/* #612 part 5: after a foul out of play the plate umpire takes a new ball from his bag and hands it to the catcher, who lobs it to the pitcher (render/newball.js, pure function of event and time). Full-speed showing only (a compact cut ends the frame first, like the return throw). Dev switch ?off=newball. */
+let nbM=null;import(new URL('newball.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('newball'))nbM=M}).catch(err=>console.warn('new ball off',err));
+const nbNow=(e,u)=>nbM&&e&&e.k==='P'&&!cpOn()?nbM.newBallAt(nbM.newBallPlan(e,SIG_T),u):null;
 let tmM=null;import(new URL('umptime.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umptime'))tmM=M}).catch(err=>console.warn('time/play signals off',err));
 /* #620 part 1: on a caught foul pop-up the catcher pulls his mask off and tosses it away from the ball (render/maskoff.js, pure function of event and time); it lies there to the end of the play. Dev switch ?off=maskoff. */
 /* #620 part 3: on a caught foul fly 1B / 3B drift toward the stands side-on and LF / RF run at the line facing their run, turning to the ball for the catch (render/foulchase.js, pure). Dev switch ?off=foulchase. */
@@ -1438,13 +1460,15 @@ function poseBattery(e,u,prev){
   const C=fielders.C,set=e.k==='P'||e.k==='VOTE'||e.k==='CHG'||e.k==='VIS',isP=e.k==='P',up=isP&&(e.r==='inplay'||e.wp)?ease(sat01((u-ARRIVE-PLATE_UP_AT)/PLATE_UP_DUR))*(e.d?1-ease(sat01((u-(e.d-PLATE_DOWN_AT))/PLATE_DOWN_DUR)):1):0;
   const py=isP?pitchY(e):MITT_REST_Y,k=isP?ease(sat01((u-(RELEASE-MITT_SET_LEAD))/MITT_SET_DUR)):0,
     back=isP&&!e.sbGo?Math.max(up,ease(sat01((u-(ARRIVE+CATCH_SNAP+MITT_HOLD))/MITT_BACK))):0,rk=isP?ease(sat01((u-(ARRIVE-C_RISE_LEAD))/C_RISE_LEAD)):0,rise=C_HIGH_RISE*sat01((py-C_HIGH_Y)/C_HIGH_SPAN)*rk*(1-back),c=set?(1-rise)*(1-up):0;
+  const nb=isP?nbNow(e,u):null;
   C.noAnim=set&&up<1;if(C.noAnim)C.auto=false;/* #128: no automatic elbow bend on the glove arm, or a reach for a high/low/wide pitch falls ~.4 m short */crouch(C,CR,c,CROUCH_FWD,CROUCH_SPLAY,CROUCH_LEAN,CROUCH_SHRINK);
   if(isP&&up<1)C.g.position.x+=cShift(e)*k*(1-back)*(1-up);
   if(set&&up<1){const gx=lerp(lerp(0,isP?e.zx:0,k),0,back),gy=lerp(lerp(MITT_REST_Y,py,k),MITT_REST_Y,back);
-    aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,gx*.8,gy-.15,MITT_Z+.2)}else armsDown(CR);
-  const cl=isP?umpCall(e,u):UC_NONE,sg=isP&&sigM?sigM.plateSignal(e,u,SIG_T):null,tm=!sg&&tmM?tmM.timeSignal(e,prev,u):null,cu=(set?1:0)*(1-(cl.k?UC_K_STAND:CALL_STAND)*cl.w)*(1-(sg?sigM.SIG_STAND*sg.w:0))*(1-(tm?tmM.TM_STAND*tm.w:0))*(1-up);
+    const nh=nb&&nb.cat>0?nbM.handSpot(C.g.position.x,C.g.position.z):null,rw=nh?nb.cat:0;/* #612 part 5: bare hand back over his right shoulder for the new ball */
+    aimWorld(CR,CR.a0,-BAT_SHOULDER_X,gx,gy,MITT_Z);aimWorld(CR,CR.a1,BAT_SHOULDER_X,lerp(gx*.8,nh?nh[0]:0,rw),lerp(gy-.15,nh?nh[1]:0,rw),lerp(MITT_Z+.2,nh?nh[2]:0,rw))}else armsDown(CR);
+  const cl=isP?umpCall(e,u):UC_NONE,sg=isP&&sigM?sigM.plateSignal(e,u,SIG_T):null,tm=!sg&&tmM?tmM.timeSignal(e,prev,u):null,cu=(set?1:0)*(1-(cl.k?UC_K_STAND:CALL_STAND)*cl.w)*(1-(sg?sigM.SIG_STAND*sg.w:0))*(1-(tm?tmM.TM_STAND*tm.w:0))*(1-(nb?nbM.NB_STAND*nb.stand:0))*(1-up);
   crouch(ump,UR,cu,UMP_FWD,UMP_SPLAY,UMP_LEAN,UMP_SHRINK);UR.up.rotation.y=UC_K_TURN*cl.turn;UR.hg.rotation.x=-UMP_HEAD_UP*cu;UR.hg.rotation.y=-UC_K_TURN*cl.turn*UC_K_HEAD_KEEP;ump.noAnim=(set||!!tm)&&up<1;
-  if((set||tm)&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up),R=umpArms(cl);if(sg)for(let i=0;i<6;i++)R[i]=lerp(R[i],sg.arms[i],sg.w);if(tm)for(let i=0;i<6;i++)R[i]=lerp(R[i],tm.arms[i],tm.w);aimArmPole(UR.a1,BAT_SHOULDER_X,h(R[0],0,BAT_SHOULDER_X),h(R[1],1),h(R[2],2),UC_HAMMER_POLE,cl.w*(1-cl.k)*(1-up));aimArm(UR.a0,-BAT_SHOULDER_X,h(R[3],0,-BAT_SHOULDER_X),h(R[4],1),h(R[5],2))}else armsDown(UR)}
+  if((set||tm)&&up<1){const h=(v,i,sx)=>lerp(v,i?ARM_HANG[i]:sx,up),R=umpArms(cl);if(sg)for(let i=0;i<6;i++)R[i]=lerp(R[i],sg.arms[i],sg.w);if(tm)for(let i=0;i<6;i++)R[i]=lerp(R[i],tm.arms[i],tm.w);if(nb&&nb.reach>0){const H=nbM.handSpot(C.g.position.x,C.g.position.z);UR.up.updateWorldMatrix(true,false);_tv.set(H[0],H[1],H[2]);UR.up.worldToLocal(_tv);const hl=[_tv.x,_tv.y,_tv.z];for(let i=0;i<3;i++)R[i]=lerp(lerp(lerp(R[i],nbM.NB_BAG[i],nb.reach),hl[i],nb.give),R[i],nb.drop)}/* #612 part 5: right hand to the ball bag, forward to the catcher, back */aimArmPole(UR.a1,BAT_SHOULDER_X,h(R[0],0,BAT_SHOULDER_X),h(R[1],1),h(R[2],2),UC_HAMMER_POLE,cl.w*(1-cl.k)*(1-up));aimArm(UR.a0,-BAT_SHOULDER_X,h(R[3],0,-BAT_SHOULDER_X),h(R[4],1),h(R[5],2))}else armsDown(UR)}
 /* #124 strike calls (owner 11/21 and 11/22: the arm straight up over the head read as a pupil raising his hand). Targets are hands in the
    umpire's upper-body frame (+z forward, +x = his RIGHT: arms[1] at +x is the calling arm; checked on a front studio shot, the old call raised it). All start UC_DELAY s after the
    ball is in the mitt (ARRIVE + CATCH_SNAP), never before; the mask stays on the plate (the head turns back against the torso turn).
@@ -1673,6 +1697,11 @@ function poseFinale(e,u,ei,off,def){if(!FINM)return;const P=finPlanOf(e,off,def)
   if(winner==='off'){const R=ROSTERS[off].bat;P.W.forEach((g,i)=>{const f=pool[i];if(!f)return;resetPose(f);if(f.bend)f.bend.knee[0]=f.bend.knee[1]=0;f.finI=i;if(f.batP)f.batP.visible=false;
     const pl=R[i%R.length];setNum(f,pl?pl.num:undefined);dress(f,pl);finFig(f,g.at(u),u)})}
   [ump,...umpB].forEach((f,i)=>{const c=P.U[i].at(u);f.g.visible=c.vis;if(c.vis){f.g.position.set(c.x,0,c.z);face(f,c.fx,c.fz);f.noAnim=false}})}
+/* #611 part 4: the ball on a pitching change: old pitcher -> manager (at the mound) -> reliever's glove (render/chgwalk.js holdAt); dev switch ?off=chgball */
+function chgBall(e,u){if(!cwM||!cwM.holdAt||!visitM||OFF.has('chgball'))return;const vp=visitOf(e),h=cwM.holdAt(!!vp,u);if(!h)return;
+  const q=fielders.P.handWorld(0);let b=[q.x,q.y,q.z];
+  if(h.who!=='P'){const va=visitM.visitAt(vp,u),L=Math.hypot(va.fx,va.fz)||1,m=[va.x+va.fx/L*.3,1.05,va.z+va.fz/L*.3];b=h.who==='mgr'?m:[m[0]+(q.x-m[0])*h.k,m[1]+(q.y-m[1])*h.k,m[2]+(q.z-m[2])*h.k]}
+  ball.visible=true;ball.position.set(b[0],b[1],b[2]);ballSh.position.set(b[0],.03,b[2]);ballSh.visible=true}
 function poseScene(e,u,dt,ei){
   dsOut.g.visible=false;pmField=null;/* #274: set again below only for a fielding pitcher */
   const s=u>=(e.showAt||0)?e.s1:e.s0,off=e.s0.half,def=1-off,defT=e.k==='BRK'&&u>=BRK_ON_AT?off:def;
@@ -1699,9 +1728,9 @@ function poseScene(e,u,dt,ei){
   /* Scorers of earlier plays (same batting team) still jogging to their dugout */
   const peelers=()=>{const T=e.t+u;for(let j=ei-1;j>=0&&T-game.ev[j].t<PEEL_LOOK;j--){const q=game.ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
     for(const [,to,name,tl] of q.moves||[])if(to===4){const P=peelAt(off,tl,T-q.t-tl.arriveT);if(P)showRunner(...P,name)}}};
-  if(e.k!=='P'){const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);if(e.k==='END')poseFinale(e,u,ei,off,def);return s}
+  if(e.k!=='P'){const pr=e.k==='SUB'&&e.base>=1&&e.base<=3&&sjM?e.base-1:-1;for(let i=0;i<3;i++)if(s.b[i]&&e.k!=='BRK'&&i!==pr)standRunner(i,0,s.b[i]);if(pr>=0)prRunners(e,u,pr,off,standRunner,showRunner);peelers();poseBatBoy(e,u,ei);if(e.k==='CHG')chgBall(e,u);if(e.k==='END')poseFinale(e,u,ei,off,def);return s}
   /* pitch */
-  pbOn=e.r!=='inplay'&&e.r!=='foul'&&e.r!=='hbp'&&!e.wp&&!e.bk&&!e.po&&!e.sbGo&&!cpOn();/* compact showing keeps the old walk (done by PITCH_STILL); the same frames the catcher lobs the ball back (see the ball below) */
+  pbOn=e.r!=='inplay'&&e.r!=='foul'&&e.r!=='hbp'&&!e.wp&&!e.bk&&!e.po&&!e.sbGo&&!cpOn();if(pbOn&&pbM){const nx=game&&game.ev&&game.ev[ei+1];pbSeed=pbM.pbSeedOf(e.pit?e.pit.join(':'):'');pbEi=ei;pbDur=nx&&nx.t>e.t?nx.t-e.t:12}/* compact showing keeps the old walk (done by PITCH_STILL); the same frames the catcher lobs the ball back (see the ball below) */
   const pp=pitchPose(e.bk?bkU(u):e.po?0:u),tip=pp.tip;
   /* A pitcher who fields the ball or covers first starts from where his delivery stride left him at contact (not from the rubber, which
      was a ~1 m jump), and his limbs and trunk grow out of the follow-through into the run over P_RUN_BLEND s (P.mix, read by animate) */
@@ -1720,7 +1749,8 @@ function poseScene(e,u,dt,ei){
   else if(!contact&&e.wp){bp=wpBall(e,u,plate);wpCatcher(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
     else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=e.tip&&TIPB?TIPB.tipPath(plate,[q.x,q.y,q.z],e.bat&&batOf(e).hand==='L'?1:-1,(u-ARRIVE)/CATCH_SNAP):arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #631: a foul tip bends once at the bat (render/tipball.js) *//* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],pbGlove(hand),3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
-  else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(hit0,[e.foulDir*24,9,22],12,tt)}
+  else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(hit0,[e.foulDir*24,9,22],12,tt);
+    else{const nb=nbNow(e,u);if(nb&&nb.ball){const q=nb.ball==='ump'?ump.handWorld(1):fielders.C.handWorld(1);bp=nb.ball==='lob'?arc([q.x,q.y,q.z],hand,3,nb.k):[q.x,q.y,q.z]}}}/* #612 part 5: the new ball from the umpire's bag to the catcher, then to the pitcher */
   /* steal: the engine planned the catcher's throw and who covers the bag (e.plan: SS at second, 3B at third, #38); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),D2b=Math.hypot(sp[0]-c.ret[0],sp[1]-c.ret[1]),bk=D2b<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2b,0,1);
     c.g.position.set(lerp(lerp(c.pos[0],sp[0],kc),c.ret[0],bk),0,lerp(lerp(c.pos[1],sp[1],kc),c.ret[1],bk));
@@ -2094,6 +2124,7 @@ const jogEnd=(from,t0,end)=>t0+Math.max(...FIELDER_KEYS.map(k=>{const h=end&&end
 /* [{t, d, head, tail, kind}] for render/compact.js: nothing moves in [0, head) and [tail, d) of each event (event-local s). A ball in play,
    a steal and a hit batsman are never cut (their motion depends on the whole plan). Scorers of earlier plays still peeling off to their
    dugout (drawn until PEEL_LOOK s after their play) keep any event they cross moving. */
+const TIME_FRAMES=new Set(['VOTE','CHG','VIS','SUB']);/* frames that open with the plate ump's time signal (umptime.js TIME_KINDS) */
 function cpEvents(g){const ev=g.ev;
   return ev.map((e,i)=>{const off=e.s0?e.s0.half:0;let pe=0,head=0,tail=e.d;
     for(let j=i-1;j>=0&&e.t-ev[j].t<PEEL_LOOK;j--){const q=ev[j];if(q.k!=='P'||q.s0.half!==off)continue;
@@ -2110,6 +2141,8 @@ function cpEvents(g){const ev=g.ev;
       if(e.wp)tail=Math.max(tail,wpPlan(e).end);if(e.bk)tail=Math.max(tail,BK_CALL_AT+.3+BK_BACK);if(e.po&&e.plan)tail=Math.max(tail,e.plan.safe?Math.max(e.plan.back.arrive+PO_TURN,e.plan.runnerAt+LEAD_WALK_WAIT+LEAD_WALK_DUR):e.plan.runnerAt+PO_OFF)}/* walk: runners trot on; #38 wild pitch: the catcher walks back; balk: the pitcher winds back */
     if(e.k==='P'&&e.r!=='inplay')tail=Math.max(tail,retEnd(ev,i));/* #42: fielders walking to the next pitch's depth (retDrift) */
     if(e.k==='P')tail=Math.max(tail,u2End(ev,i));if(e.k==='P'&&DUST)tail=Math.max(tail,DUST.dustEnd(e,DUST_BASES));/* #208: slide dust is motion too *//* #42 slice 9: U2 jogs between his inside spot and his post */
+    {const tc=tmM?tmM.timeCall(e,ev[i-1]):null;/* #638: the plate ump's time / play signal (#609 part 3a) moves him in VOTE/CHG/VIS/SUB and the next pitch */
+      if(tc){head=0;/* not tc.at: a figure can still settle in the frame's first steps (pitcher after a strikeout, edge_probe) */tail=Math.max(tail,tmM.timeEnd(e,ev[i-1]))}else if(!tmM&&!OFF.has('umptime')&&TIME_FRAMES.has(e.k)){head=0;tail=e.d}}/* module not in yet -> keep it all */
     if(pe>0){head=0;tail=Math.max(tail,pe)}
     return{t:e.t,d:e.d,head,tail:Math.min(tail,e.d),kind:e.k==='BRK'?'half':e.k==='CHG'||e.k==='VIS'||e.k==='SUB'?'change':'pitch',jogEnd:e.k==='BRK'?Math.max(jogEnd(dugout(off),BRK_ON_AT),jogEnd(dugout(off),BRK_ON_AT,k=>{const b=brkEndsOf(ev,i,k);return b&&b.to})):0}})}/* #144: jogEnd = new defence at its posts */
 let cpClock=null,cpFor=null,cpReal=false;
@@ -2220,7 +2253,8 @@ const STUDIO_ACTS=[
   ['裁判','utime','主審・暫停（換人／教練團／球迷投票開始）雙手舉高',e=>e.k==='SUB'||e.k==='VOTE'||e.k==='CHG'||e.k==='VIS',STUDIO_SEEDS_RARE],
   ['裁判','uplay','主審・比賽繼續（暫停後第一球）指向投手',(e,ev,i)=>e.k==='P'&&!e.bk&&e.r!=='ibb'&&i>0&&['SUB','VOTE','CHG','VIS'].includes(ev[i-1].k),STUDIO_SEEDS_RARE],
   ['裁判','lfoul','邊線裁判・界外球雙手舉高',e=>e.k==='P'&&e.r==='foul'],
-  ['裁判','lfair','邊線裁判・近邊線的界內球指向界內',e=>e.k==='P'&&e.r==='inplay'&&e.play&&!e.play.bunt&&e.play.res!=='HR'&&Math.abs(e.play.spray)>=37&&Math.abs(e.play.spray)<=45,STUDIO_SEEDS_RARE],
+  ['裁判','lfair','邊線裁判・近邊線的界內球指向界內',e=>e.k==='P'&&e.r==='inplay'&&e.play&&!e.play.bunt&&e.play.res!=='HR'&&!(e.play.dist<27.43)&&Math.abs(e.play.spray)>=37&&Math.abs(e.play.spray)<=45,STUDIO_SEEDS_RARE],
+  ['裁判','pfair','主審・近邊線、未到壘的界內球指向界內',e=>e.k==='P'&&e.r==='inplay'&&e.play&&!e.play.foul&&e.play.res!=='HR'&&e.play.dist<27.43&&Math.abs(e.play.spray)>=37&&Math.abs(e.play.spray)<=45,STUDIO_SEEDS_RARE],
   ['裁判','lhr','邊線裁判・全壘打手指繞圈',e=>e.k==='P'&&e.r==='inplay'&&e.play&&e.play.res==='HR',STUDIO_SEEDS_RARE],
 ];
 let studio=null;const stCache={};

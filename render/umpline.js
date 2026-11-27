@@ -1,7 +1,7 @@
 /* #609 part 2: line umpire signals (pure, no DOM, no three.js). Read from the engine event only (rule 12); a pure function
  * of (event, time), like plateSignal in umpsig.js. b = 1 is U1 (right line, first base side), b = 3 is U3 (left line).
  *   foul   (e.r 'foul', e.foulDir)  both arms straight up, from the umpire of the side the ball went (foulDir > 0 = right)
- *   fair   (inplay, |spray| within LINE_NEAR deg of a line)  the arm on the fair side points into fair ground
+ *   fair   (inplay, |spray| within LINE_NEAR deg of a line, past the bag; before the bag it is the plate umpire's, umpsig.js)  the arm on the fair side points into fair ground
  *   homer  (play.res 'HR')  the umpire of that side (spray >= 0 = U1) raises one index finger and circles it
  *   out    (play.foul, caught by 1B / RF -> U1, 3B / LF -> U3; #620 part 2)  a caught foul fly near his line: right fist up beside his head
  *          once the ball is in the glove (the catcher's pop-ups behind the plate are the plate umpire's, not a line call)
@@ -12,6 +12,7 @@
 export const LS_UP = .25, LS_DOWN = .35;
 export const LS_FOUL_AT = .35, LS_FOUL_HOLD = 1.0, LS_FAIR_HOLD = 1.0, LS_HR_HOLD = 2.2, LS_HR_HZ = 1.8, LS_HR_R = .14;
 export const LS_OUT_AT = .2, LS_OUT_HOLD = 1.0;                  /* s after the catch (play.hang) the out call starts; how long he holds it */
+export const LS_BAG_M = 27.43;                                   /* a ball that stops short of the bag (ground distance from home) is the plate umpire's call (#609 part 4) */
 export const LS_LINE_DEG = 45, LS_NEAR_DEG = 8;                /* the foul lines are +-45 deg of spray; "near" = within 8 deg of one */
 const UP_R = [.3, 1.25, .1], UP_L = [-.3, 1.25, .1];
 const PT_R = [.85, .62, .5], PT_L = [-.85, .62, .5];            /* point out to his right / left, level, a little forward */
@@ -31,7 +32,7 @@ export function lineCall(e, T) {
     const p = e.play, at = T.ARRIVE + p.hang, b = p.spray >= 0 ? 1 : 3;
     if (p.foul) { if (OUT_SIDE[p.fielder]) c = { kind: 'out', b: OUT_SIDE[p.fielder], at: at + LS_OUT_AT }; }
     else if (p.res === 'HR') c = { kind: 'hr', b, at };
-    else if (!p.bunt && Math.abs(p.spray) >= LS_LINE_DEG - LS_NEAR_DEG && Math.abs(p.spray) <= LS_LINE_DEG) c = { kind: 'fair', b, at };
+    else if (!p.bunt && !(p.dist < LS_BAG_M) && Math.abs(p.spray) >= LS_LINE_DEG - LS_NEAR_DEG && Math.abs(p.spray) <= LS_LINE_DEG) c = { kind: 'fair', b, at };
   }
   if (!c) return null;
   const end = c.at + LS_UP + HOLD[c.kind] + LS_DOWN;

@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.24';
+export const ENGINE_VERSION = '0.4.25';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -190,6 +190,8 @@ export const TRIPLE_MIN_DIST = 100;
 export const HIT_HORIZ_SPEED_MAX = 50;       /* m/s (180 km/h): no hit covers its distance faster than this; a triple pushed out to TRIPLE_MIN_DIST stays up for d / this (#690: 100 m in 1.8 s was 200 km/h flat, over EV_MAX) */
 export const HIT_ROLL_FACTOR = 1.08;      /* an air-ball hit rolls this much past its landing point */
 export const HIT_ROLL_TIME = 0.8;
+export const FENCE_R = 110;              /* #684: outfield wall radius from home, m (render/game.js fence CylinderGeometry(110, ...)) */
+export const WALL_PICKUP = 1;            /* #684: a hit rolling to the wall stops at its base; the fielder picks it up this far in front of it, m */
 
 /* ---- baserunning choices ---- */
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;

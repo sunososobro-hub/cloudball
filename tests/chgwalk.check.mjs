@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { oldAt, newAt, bullpenGate, CW_SIGNAL, CW_JOG, CW_OLD_END_GAP } from '../render/chgwalk.js';
+import { oldAt, newAt, bullpenGate, holdAt, CW_SIGNAL, CW_JOG, CW_OLD_END_GAP, CW_OLD_GO, CW_HAND } from '../render/chgwalk.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), bad = [];
 const E = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const { simGame, CHANGE_DUR, FIELD_SPOTS, spotXZ } = E;
@@ -43,6 +43,24 @@ for (const side of [1, -1]) {
     po = o; pn = n;
   }
   if (JSON.stringify(oldAt(mound, dug, 20, d)) !== JSON.stringify(oldAt(mound, dug, 20, d))) bad.push(`${tag}: not deterministic`);
+}
+/* #611 part 4: the ball goes old pitcher -> manager -> reliever, in that order, never back */
+{
+  const rank = { mgr: 1, move: 2, P: 3 }, t = CW_SIGNAL + CW_JOG;
+  if (holdAt(true, CW_OLD_GO - .01) !== null) bad.push('ball shown before the old pitcher hands it over');
+  if (holdAt(false, CW_OLD_GO + 1) !== null) bad.push('ball shown with no manager at the mound');
+  if (holdAt(true, CW_OLD_GO + 1).who !== 'mgr') bad.push('manager does not hold the ball after the old pitcher leaves');
+  if (holdAt(true, t - .01).who !== 'mgr') bad.push('manager lets go before the reliever is on the rubber');
+  if (holdAt(true, t + CW_HAND / 2).who !== 'move') bad.push('no hand-over in progress mid-way');
+  if (holdAt(true, t + CW_HAND).who !== 'P' || holdAt(true, CHANGE_DUR).who !== 'P' || holdAt(false, CHANGE_DUR).who !== 'P') bad.push('reliever does not keep the ball to the frame end');
+  let last = 0, lk = -1;
+  for (let u = CW_OLD_GO; u <= CHANGE_DUR; u += DT) {
+    const h = holdAt(true, u), r = rank[h.who];
+    if (r < last) bad.push(`u ${u}: ball goes back (${h.who})`);
+    if (h.who === 'move') { if (h.k < lk) bad.push(`u ${u}: hand-over runs backwards`); lk = h.k; }
+    last = r;
+  }
+  if (!/chgBall\(e,u\)/.test(game)) bad.push('render/game.js does not call chgBall on a CHG frame');
 }
 let frames = 0;
 for (let seed = 1; seed <= 60; seed++) {
