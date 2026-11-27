@@ -115,7 +115,7 @@ export function simGame(seed, decisions, opts) {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
       if (e.swing) add('swing', e.t + K.ARRIVE, { ...who });
       if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder, foul: e.play.foul ? true : undefined });
-      else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], tip: e.tip ? true : undefined, count: e.c1 });
+      else add('call', e.t + K.ARRIVE + K.CALL_LAG, { ...who, call: { ball: 'ball', cstr: 'called_strike', sstr: 'swinging_strike', foul: 'foul', hbp: 'hit_by_pitch' }[e.r], tip: e.tip ? true : undefined, bunt: e.bunt ? true : undefined, count: e.c1 });
     }
     if (e.plan) for (const a of e.plan.actions) add('fielder_action', e.t + (e.plan.steal || e.plan.po ? a.t : K.ARRIVE + a.t), { action: a.a, fielder: a.f, base: a.base ?? null, to: a.to ?? null, team: 1 - off });
     let n = e.s0.outs;
@@ -304,7 +304,12 @@ export function simGame(seed, decisions, opts) {
         } else if (!going && st.b[0] && !st.b[1] && pofN < K.POF_MAX_PA && R() < K.POF_P) {
           /* throw-over that does not get him (#38): the runner is back in time, the ball goes back to the pitcher; no pitch counts */
           e.r = 'pof'; pofN++; st.pc[def]--; e.pc = st.pc[def];
-        } else if (bunt) { e.swing = true; e.r = 'inplay'; }
+        } else if (bunt) {
+          /* #614 part 3: a bunt attempt can go foul: a strike at any count, so with two strikes a strikeout */
+          e.swing = true;
+          if (R() < K.BUNT_FOUL_P) { e.r = 'foul'; e.bunt = true; strikes++; e.foulDir = R() < K.BUNT_FOUL_RIGHT_P ? 1 : -1; }
+          else e.r = 'inplay';
+        }
         else {
           const sw = inZ ? K.SWING_ZONE_BY_COUNT[balls][strikes] : K.SWING_CHASE_BY_COUNT[balls][strikes] / bat.eye;
           if (R() < Math.min(K.SWING_MAX, sw)) {
@@ -333,7 +338,7 @@ export function simGame(seed, decisions, opts) {
           /* #614 part 2: a share of the swinging third strikes are foul tips the catcher holds (a label, looks RNG) */
           if (e.r === 'sstr' && look() < K.FOUL_TIP_OF_WHIFF) e.tip = true;
           outs.push(strikeout({ batter: name, looking: e.r === 'cstr', strikes, at: K.ARRIVE + K.CATCH_SNAP }));
-          bs.ab++; bs.k++; ps.k++; paDone = true; result = 'strikeout'; desc = COPY.strikeout(name, e.r === 'cstr', e.tip);
+          bs.ab++; bs.k++; ps.k++; paDone = true; result = 'strikeout'; desc = COPY.strikeout(name, e.r === 'cstr', e.tip, e.bunt);
         } else if (e.r === 'inplay') {
           paDone = true; bs.ab++;
           /* ---- the batted ball ---- */
@@ -508,7 +513,7 @@ export function simGame(seed, decisions, opts) {
           st.b = nb; e.bk = true; e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           desc = COPY.balk(runs);
         } else {
-          desc = COPY.call(e.r);
+          desc = COPY.call(e.bunt ? 'foulBunt' : e.r);
           if (going && e.r !== 'foul') {
             const runner = st.b[going - 2], s = resolveSteal(ctxOf(null), !(R() < stealOkP(off, runner, going)), going);
             plan = s.plan; outs = s.outs; moves = [[going - 1, going, runner, s.tl]]; sbGo = true; e.sbGo = true; e.big = s.ok ? K.BIG.NOTABLE : K.BIG.NONE;
@@ -593,6 +598,8 @@ export function simGame(seed, decisions, opts) {
         emitPitchFrame(e, { pitcher: pit.name, result, rbi });
         pushFrame(e);
         if (st.outs >= K.OUTS_PER_HALF && !paDone) break;
+        /* #614 part 3: two strikes after a foul bunt: the coach mostly takes the bunt off and lets him swing away */
+        if (bunt && !paDone && strikes === K.STRIKES_FOR_OUT - 1 && R() >= K.BUNT_2K_KEEP_P) bunt = false;
       }
     }
     if (over) break;

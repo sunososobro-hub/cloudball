@@ -934,6 +934,9 @@ function swW(e,u){if(!e.swing||(e.play&&e.play.bunt))return 0;const a=ARRIVE-BAT
    own crouch, so the knee-bend drop of the ground frame (buntDrop) is taken back by the clip weight; the bat follows the hands as on the swing,
    and buntContact() then reads the clip's bat, so the pitch still ends on the sweet spot. */
 let buntClip=null,buntClipP=null,BCL=null;
+/* #646: base-hit roll under friction (render/roll.js); null until loaded -> the old fixed .8 s arc */
+let RL=null;import(new URL('roll.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{RL=M}).catch(err=>console.warn('roll off',err));
+let TIPB=null;import(new URL('tipball.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{TIPB=M}).catch(err=>console.warn('tip ball off',err));/* #631 */
 let GBP=null;/* #645: grounder hops (render/gb_path.js gbPath / gbGlove) */
 import(new URL('gb_path.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{GBP=M}).catch(err=>console.warn('gb path off',err));
 import(new URL('bunt_clip.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{BCL=M}).catch(err=>console.warn('bunt clip off',err));
@@ -958,7 +961,10 @@ function buntHit(e,u){if(u<=ARRIVE)return buntContact().slice();
   if(buntAt&&buntAt.e===e&&buntAt.c===buntClip&&buntAt.m===BCL)return buntAt.p;
   poseBatter(e,ARRIVE);batterWalk(e,ARRIVE);batterMocap(e,ARRIVE);const p=buntContact().slice();
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);buntAt={e,c:buntClip,m:BCL,p};return p}
-const BAT_HAND_GAP=.09,BUNT_CRACK=.3,HIT0=[0,1,.3];/* HIT0: where a swung-at ball leaves the bat */
+const BAT_HAND_GAP=.09,BUNT_CRACK=.3;
+/* #649: a swung-at ball (foul or in play) meets the bat where the pitch is, CONTACT_Z m out in front of the plate spot's line (z .6) toward
+   the pitcher: the pitch path ends there and the batted ball leaves from there, so nothing jumps at contact (was a fixed [0,1,.3]) */
+const CONTACT_Z=.3;function contactPt(e){return[e.zx,.45+e.zy*.75,CONTACT_Z]}
 /* Six runner bodies: up to four movers or base runners of this play plus scorers of earlier plays still jogging off to their dugout (#43) */
 const runners=[0,1,2,3,4,5].map(()=>figure(matOff,pants,false,{head:'helmet'}));
 /* #42 slice 1, on-deck batter: the next batter waits on his team's on-deck circle (DECK in render/props/ondeck.js: |x| 11.3, z 1.2; the
@@ -1058,6 +1064,9 @@ let railM=null;import(new URL('rail.js',document.currentScript&&document.current
 let csigM=null;import(new URL('coachsig.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{csigM=M}).catch(err=>console.warn('coach signals off',err));
 function coachSigPose(f,e,u){if(!csigM||OFF.has('coachsig')||!e||e.k!=='P')return;const g=csigM.signalAt(csigM.coachSignals(e),u),h=g&&csigM.handsFor(g);if(!h)return;
   f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h.r[0],h.r[1],h.r[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h.l[0],h.l[1],h.l[2])}
+/* #612 part 3: the first-base coach pumps both palms down ("back!") on a pickoff throw (P event with po), same switch. */
+function coachBackPose(f,e,u){if(!csigM||OFF.has('coachsig')||!e||e.k!=='P'||!e.po)return;const g=csigM.signalAt(csigM.backSignals(e),u),h=g&&csigM.handsFor(g);if(!h)return;
+  f.auto=false;f.armsHeld=true;aimArm(f.rig.a1,BAT_SHOULDER_X,h.r[0],h.r[1],h.r[2]);aimArm(f.rig.a0,-BAT_SHOULDER_X,-h.l[0],h.l[1],h.l[2])}
 const railFigs=[0,1].map(t=>[0,1,2,3].map(()=>figure(matBn[t],pants,false)));
 function poseRail(e,u){const R=railM;for(const t of [0,1]){const n=!R||OFF.has('rail')?0:gfxMax?R.RAIL_N:2,P=ROSTERS[t].bench||[],c=R&&e&&e.s0&&e.s0.half===t?R.clapAt(R.scoreTimes(e),u):{w:0,phase:0};
   if(R)paintKit(matBn[t],t);
@@ -1118,13 +1127,13 @@ const u2End=(ev,i)=>{const q=u2Plan(ev,i);return q&&q.pl?q.pl.go+q.pl.t:0};/* cp
 function u2At(ev,i,u){const q=u2Plan(ev,i);if(!q)return[...ST_U2_POST,0,0,false];if(!q.pl)return[...u2Spot(q.a),0,0,false];
   const k=sat01((u-q.pl.go)/q.pl.t),[x,z,dx,dz]=odAt(q.pl.path,k);return[x,z,dx,dz,k>0&&k<1]}
 function poseStaff(e,u,ei){const crew=crewNums(seedCur);setNum(ump,crew?crew.plate:undefined);
-  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);
+  umpB.forEach((f,i)=>{let [x,z]=stUmpAt[i],mv=null;if(i===1&&game&&Number.isFinite(ei)){const p=u2At(game.ev,ei,u);x=p[0];z=p[1];if(p[4])mv=p}resetPose(f);f.noAnim=false;f.g.visible=true;f.gw=1;f.g.position.set(x,0,z);if(mv)face(f,mv[2],mv[3]);else face(f,-x,-z);setNum(f,crew?crew[ST_CREW[i]]:undefined);bcPose(f,i+1,e,u);lineSigPose(f,i+1,e,u);infSigPose(f,i+1,e,u);
     if(i===1&&!mv&&!f.armsHeld&&x===ST_U2_IN[0]&&z===ST_U2_IN[1])u2Watch(f,e,u)});
   const off=e.s0?e.s0.half:0,brk=e.k==='BRK',on=brk&&u>=BRK_ON_AT,team=on?1-off:off,leave=brk&&!on||e.k==='END',walk=brk||e.k==='PRE'||e.k==='END',t0=on?BRK_ON_AT:brk?BRK_OFF_AT:0;
   paintKit(matCo,team);const tid=teamIdOf(team),S=staffM&&staffM.STAFF||[];
   coaches.forEach((f,i)=>{const P=stPath(i,team),k=walk?sat01((u-t0)/(P.L/ST_JOG_V)):1,[x,z,dx,dz]=odAt(P,leave?1-k:k),p=S.find(q=>q.id===`${tid}-${ST_ROLE[i]}`);
     resetPose(f);f.noAnim=false;f.g.visible=!(leave&&k>=1);f.gw=!walk?1:leave?0:sat01((k-GW_ARRIVE)/(1-GW_ARRIVE));f.g.position.set(x,0,z);if(k>0&&k<1)face(f,leave?-dx:dx,leave?-dz:dz);else face(f,-x,-z);
-    setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name);if(i===1&&!walk)coachSigPose(f,e,u)});
+    setNum(f,p?p.num:undefined);if(f.setName)f.setName(p&&p.name);if(i===1&&!walk)coachSigPose(f,e,u);if(i===0&&!walk)coachBackPose(f,e,u)});
   poseRail(e,u);
   const vp=visitOf(e),va=visitM&&vp?visitM.visitAt(vp,u):null;mgr.g.visible=!!(va&&va.visible);
   if(mgr.g.visible){const dt=e.def!==undefined?e.def:1-off,m=S.find(q=>q.id===`${teamIdOf(dt)}-${e.k==='VIS'?'pitching':'manager'}`);paintKit(matMgr,dt);resetPose(mgr);mgr.noAnim=false;
@@ -1393,15 +1402,22 @@ const PLATE_UP_AT=.25,PLATE_UP_DUR=.45,PLATE_DOWN_AT=1,PLATE_DOWN_DUR=.6,ARM_HAN
 let sigM=null;const SIG_T={ARRIVE,BK_CALL_AT};import(new URL('umpsig.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpsig'))sigM=M}).catch(err=>console.warn('plate signals off',err));
 /* #609 part 2: line umpires (U1 right line, U3 left line) signal foul, a fair ball near the line and a home run (render/umpline.js, pure function of event and time). Dev switch ?off=umpline. */
 let lsM=null;import(new URL('umpline.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpline'))lsM=M}).catch(err=>console.warn('line signals off',err));
+let infM=null;import(new URL('umpinf.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpinf'))infM=M}).catch(err=>console.warn('infield fly signal off',err));
 /* #609 part 3a: plate umpire time (VOTE / CHG / VIS / SUB frame starts) and play (the pitch after one) (render/umptime.js, pure function of event, previous event and time). Dev switch ?off=umptime. */
 let tmM=null;import(new URL('umptime.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umptime'))tmM=M}).catch(err=>console.warn('time/play signals off',err));
 /* #620 part 1: on a caught foul pop-up the catcher pulls his mask off and tosses it away from the ball (render/maskoff.js, pure function of event and time); it lies there to the end of the play. Dev switch ?off=maskoff. */
+/* #620 part 3: on a caught foul fly 1B / 3B drift toward the stands side-on and LF / RF run at the line facing their run, turning to the ball for the catch (render/foulchase.js, pure). Dev switch ?off=foulchase. */
+let chaseM=null;import(new URL('foulchase.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('foulchase'))chaseM=M}).catch(err=>console.warn('foul chase off',err));
 let maskM=null,looseMask=null;import(new URL('maskoff.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('maskoff'))maskM=M}).catch(err=>console.warn('mask toss off',err));
 function poseMask(e,u){const C=fielders.C;if(!C.mask)return;const m=maskM&&e.k==='P'?maskM.maskAt(e,u,SIG_T,C.pos):null;C.mask.visible=!m;
   if(!m){if(looseMask)looseMask.visible=false;return}
   if(!looseMask){looseMask=C.mask.clone();looseMask.name='maskoff';scene.add(looseMask)}
   looseMask.visible=true;looseMask.position.set(m.pos[0],m.pos[1],m.pos[2]);looseMask.rotation.set(m.ground?-Math.PI/2:-m.spin,0,0)}
 function lineSigPose(f,b,e,u){const s=lsM&&!f.armsHeld&&(b===1||b===3)?lsM.lineSignal(e,u,b,SIG_T):null;if(!s)return;
+  f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
+  aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
+/* #609 part 3b infield fly: the nearest base umpire points up while the ball is in the air (render/umpinf.js) */
+function infSigPose(f,b,e,u){const s=infM&&!f.armsHeld?infM.infSignal(e,u,b,SIG_T):null;if(!s)return;
   f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 function poseBattery(e,u,prev){
@@ -1462,7 +1478,7 @@ function brkSwap(e,u,off,def,ei){const ev=game&&game.ev&&game.ev[ei]===e?game.ev
 const curPit=[0,0],numOf=(t,name)=>{const R=ROSTERS[t],b=R.bat.find(x=>x.name===name)||(R.bench||[]).find(x=>x.name===name);return b?b.num:undefined};
 function applyNums(e,off,def){const R=ROSTERS[def];if(e.pit&&e.pit[0]!==undefined)curPit[e.pit[0]]=e.pit[1];
   const LU=lineupNow(e,def)||R.bat;/* #436: a pinch hitter / runner who stayed in plays his man's position */
-  for(const k of FIELDER_KEYS){const b=k==='P'?R.pit[curPit[def]]:LU.find(x=>x.pos===k);setNum(fielders[k],b?b.num:undefined);dress(fielders[k],b);if(k==='P')fielders.P.setThrows(b&&b.throws||'R')}
+  for(const k of FIELDER_KEYS){const b=k==='P'?R.pit[curPit[def]+(e.k==='CHG'&&R.pit[curPit[def]+1]?1:0)]:LU.find(x=>x.pos===k);/* #611 part 3: on a CHG frame the figure on the mound is the reliever, the old pitcher is dsOut */setNum(fielders[k],b?b.num:undefined);dress(fielders[k],b);if(k==='P')fielders.P.setThrows(b&&b.throws||'R')}
   const bb=e.k==='P'&&e.bat?batOf(e):null;setNum(batter,bb?bb.num:undefined);if(bb)dress(batter,bb)}
 /* Slide pose (feet first): k 0->1; torso leans back, lead leg straight, trail leg bent, arms up, centre of mass low */
 const SLIDE_HOLD=.6,SLIDE_UP=.45;
@@ -1618,6 +1634,13 @@ function dsFielders(e,u,ei,def){const L=luOf();if(!sjM||!sjM.dsJog||!L||ei<1)ret
   const J=sjM.dsJog(f.pos,dugout(def),u,e.d),bob=Math.abs(Math.sin(u*9))*.07;
   if(J.in){f.g.position.set(J.in[0],bob,J.in[1]);face(f,J.in[2],J.in[3])}else f.g.visible=false;
   if(J.out){resetPose(dsOut);dsOut.noAnim=false;dsOut.g.visible=true;dsOut.g.position.set(J.out[0],bob,J.out[1]);setNum(dsOut,od.num);dress(dsOut,od);face(dsOut,J.out[2],J.out[3])}}
+/* #611 part 3: a pitching change (CHG frame): the old pitcher (dsOut, his own number and kit) walks to his dugout, the reliever (the P figure,
+   already carrying the new number) comes in from his bullpen gate and stops on the rubber; paths and pace in render/chgwalk.js; module not in yet -> old swap */
+let cwM=null;import(new URL('chgwalk.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{cwM=M}).catch(err=>console.warn('pitching change walk off',err));
+function chgPitchers(e,u,def){const R=ROSTERS[def],i=curPit[def],od=R.pit[i],nw=R.pit[i+1];if(!cwM||!od||!nw)return;
+  const f=fielders.P,m=f.pos,dug=dugout(def),bob=Math.abs(Math.sin(u*9))*.07,O=cwM.oldAt(m,dug,u,e.d),N=cwM.newAt(m,cwM.bullpenGate(dug),u);
+  if(O){resetPose(dsOut);dsOut.noAnim=false;dsOut.g.visible=true;dsOut.g.position.set(O[0],u>cwM.CW_OLD_GO?bob:0,O[1]);setNum(dsOut,od.num);dress(dsOut,od);face(dsOut,O[2],O[3])}
+  if(N){f.g.visible=true;f.g.position.set(N[0],u<cwM.CW_SIGNAL+cwM.CW_JOG?bob:0,N[1]);face(f,N[2],N[3])}else f.g.visible=false}
 /* #613 end of the game: render/finale.js plans it from the END frame (winner from the final score, walk-off = the winners were batting).
    Winners on the field jog to the ring between mound and plate and slap hands, walk-off winners (the runners' six, the two on-deck men) run
    out of their dugout and mob the scorer at the plate; then the winners line up behind the plate, bow to the stands, and leave; the losers
@@ -1645,6 +1668,7 @@ function poseScene(e,u,dt,ei){
   for(const k of FIELDER_KEYS){const f=fielders[k];resetPose(f);f.noAnim=false;f.pos=f.ret=fielderStart(k,e.s0.b,e.s0.outs);if(k!=='P')f.ret=retSpot(e,ei,k,f.pos);f.g.position.set(f.pos[0],0,f.pos[1]);face(f,-f.pos[0],-f.pos[1]);f.g.visible=e.k!=='END'&&e.k!=='PRE'||k==='P'||k==='C'}
   retDrift(e,u,ei);
   if(e.k==='SUB'&&e.role==='defensive')dsFielders(e,u,ei,def);
+  if(e.k==='CHG')chgPitchers(e,u,def);
   ump.auto=true;ump.armsHeld=false;/* ump never gets resetPose: undo a call of the last frame (#42 slice 8) */ump.g.visible=e.k!=='END'&&e.k!=='PRE';/* #81: introScene hides every figure under the entry card; like the catcher, the plate umpire is shown again by his own pose every frame */poseBattery(e,u,ei>0?game.ev[ei-1]:null);poseMask(e,u);
   if(e.k==='BRK')brkSwap(e,u,off,def,ei);
   const P=fielders.P;P.arms[1].rotation.x=0;PR.up.rotation.set(0,0,0);PR.hg.rotation.set(0,0,0);P.noAnim=e.k==='P';
@@ -1674,14 +1698,14 @@ function poseScene(e,u,dt,ei){
   for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
-  const hit0=bunt?buntHit(e,u):HIT0;if(bunt)plate.splice(0,3,...hit0);
+  const hit0=bunt?buntHit(e,u):contact?contactPt(e):null;if(hit0)plate.splice(0,3,...hit0);
   let bp=null;
   if(u<pr||e.bk){const q=fielders.P.handWorld(1);bp=[q.x,q.y,q.z]}/* balk: the ball never leaves his hand */
   else if(u<ARRIVE)bp=pitchArc(hand,hbp?hbpSpot(e):plate,.3,(u-pr)/(ARRIVE-pr),pitchBreak(e.pt,hand));
   else if(!contact&&e.wp){bp=wpBall(e,u,plate);wpCatcher(e,u)}
   else if(!contact){ if(hbp)bp=hbpBall(e,u);
-    else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
-  else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(HIT0,[e.foulDir*24,9,22],12,tt)}
+    else if(u<ARRIVE+CATCH_SNAP){const q=fielders.C.handWorld(0);bp=e.tip&&TIPB?TIPB.tipPath(plate,[q.x,q.y,q.z],e.bat&&batOf(e).hand==='L'?1:-1,(u-ARRIVE)/CATCH_SNAP):arc(plate,[q.x,q.y,q.z],0,(u-ARRIVE)/CATCH_SNAP)}/* #631: a foul tip bends once at the bat (render/tipball.js) *//* #128: into the mitt where it really is (no jump to the hand after the snap) */else if(u<BALL_BACK_AT){const q=fielders.C.handWorld(0);bp=[q.x,q.y,q.z]}else if(u<BALL_BACK_AT+BALL_BACK_DUR){const q=fielders.C.handWorld(0);bp=arc([q.x,q.y,q.z],hand,3,(u-BALL_BACK_AT)/BALL_BACK_DUR)}}
+  else if(e.r==='foul'){const tt=(u-ARRIVE)/1.6;if(tt<1)bp=arc(hit0,[e.foulDir*24,9,22],12,tt)}
   /* steal: the engine planned the catcher's throw and who covers the bag (e.plan: SS at second, 3B at third, #38); draw it */
   if(e.sbGo&&e.plan){const S=e.plan,c=fielders[S.CV.key],sp=S.CV.spot,D2=Math.hypot(sp[0]-c.pos[0],sp[1]-c.pos[1]),kc=D2<.3?1:clamp(runDist(u-RELEASE-FIELD_REACT,COVER_SPEED)/D2,0,1),D2b=Math.hypot(sp[0]-c.ret[0],sp[1]-c.ret[1]),bk=D2b<.3?0:clamp(runDist(u-(S.arrive+2.2),COVER_SPEED)/D2b,0,1);
     c.g.position.set(lerp(lerp(c.pos[0],sp[0],kc),c.ret[0],bk),0,lerp(lerp(c.pos[1],sp[1],kc),c.ret[1],bk));
@@ -1729,6 +1753,8 @@ function poseScene(e,u,dt,ei){
     const land=[p.lx,hr?6+(p.dist-114)*.15:bunt&&BCL?BUNT_GROUND_Y:(hit||p.type==='GB'?.15:1.5),p.lz];
     const rollEnd=[PL.target[0],bunt&&BCL?BUNT_GROUND_Y:.15,PL.target[1]];
     /* #43 item 5: a bunt goes down off the bat, hops low and rolls slowing to the engine's stop point at T (render/bunt_clip.js buntRoll) */
+    const RP=hit&&!hr&&RL?RL.rollPlan(land,rollEnd,PL.catchT-T,!!(DUST&&DUST.onDirt(p.lx,p.lz))):null;if(RP&&bunt)RP.hop=RP.th=0;
+    const rollDur=RP?RP.dur:.8,rollBall=t=>RP?RL.rollAt(RP,land,rollEnd,t):arc(land,rollEnd,rollPk,t/.8);/* #646: the roll lasts rollDur, then he waits at rollEnd for the pickup */
     /* #645: any other grounder drops off the bat, hops with gravity (dirt or grass at the land point) and rolls to the land point at T, then into the glove by catchT (render/gb_path.js) */
     const gbHop=!bunt&&GBP&&p.type==='GB',gbP=gbHop?GBP.gbPlan(hit0,land,T,!!(DUST&&DUST.onDirt(p.lx,p.lz))):null;
     const gbAt=t=>bunt&&BCL?BCL.buntRoll(hit0,land,T,t):gbHop?GBP.gbPath(hit0,land,T,t,false,gbP):arc(hit0,land,p.peak,t/T),rollPk=bunt&&BCL?0:.3;
@@ -1760,7 +1786,7 @@ function poseScene(e,u,dt,ei){
       if(back>0&&back<1)face(f,f.ret[0]-sx0,f.ret[1]-sz0);
       else if(!hr&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
       else if(crowd&&u2<rtF)face(f,CV.spot[0]-fx,CV.spot[1]-fz);/* Waiting off the bag: watch the coverer */
-      else face(f,-p.lx,-p.lz);
+      else{const fc=chaseM&&chaseM.foulChaseFace(e,u2,catchT,f.pos);if(fc)face(f,fc[0],fc[1]);else face(f,-p.lx,-p.lz)}/* #620 part 3: corner fielders drift / run on a foul fly instead of backpedalling */
       /* Catch motion: glove reaches toward the ball in the last .35 s; after the catch both hands come to the chest for the transfer; then arm up and throw */
       if(!hr&&back===0&&u2>catchT-.35&&(u2<rt||!crowd)){f.noAnim=true;const low=p.type==='GB'||hit;
         if(u2<catchT+.12){const bpos=ballAt(u2+.04);reachGlove(f,bpos||[fx,low?.25:1.6,fz])}
@@ -1768,7 +1794,7 @@ function poseScene(e,u,dt,ei){
         else throwPose(f,u2-catchT,TH.xfer,tgtF)}}
     if(u2>0&&u2<T)bp=p.type==='GB'?gbAt(u2):flyPath(e,hit0,land,T)(u2);
     else if(u2>=T&&!hr){
-      if(hit&&u2<T+.8)bp=arc(land,rollEnd,rollPk,(u2-T)/.8);
+      if(hit&&u2<T+rollDur)bp=rollBall(u2-T);
       else{const fx=f.g.position.x,fz=f.g.position.z,c=CV.key&&fielders[CV.key];
         if(u2<catchT)bp=hit?[rollEnd[0],rollEnd[1],rollEnd[2]]:gbHop?GBP.gbGlove(land,PL.stand,T,catchT,u2):[p.lx,bunt&&BCL?land[1]:.15,p.lz];
         else if(solo&&u2>=catchT){if(u2<rt+.3){const q=f.handWorld(0);bp=[q.x,q.y,q.z]}}
@@ -1778,7 +1804,7 @@ function poseScene(e,u,dt,ei){
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,Math.min(3,TD2*THROW_ARC*(32/V2)),(u2-t1)/TT2)}
         else if(u2<arrive+3.2){if(c){const q=c.handWorld(tg||u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
     if(hr&&u2>0&&u2<T+.2&&!bp)bp=null;
-    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?gbAt(t):flyPath(e,hit0,land,T)(t);if(hit)return t<T+.8?arc(land,rollEnd,rollPk,(t-T)/.8):rollEnd;if(gbHop&&t<=catchT)return GBP.gbGlove(land,PL.stand,T,catchT,t);return null}
+    function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?gbAt(t):flyPath(e,hit0,land,T)(t);if(hit)return t<T+rollDur?rollBall(t-T):rollEnd;if(gbHop&&t<=catchT)return GBP.gbGlove(land,PL.stand,T,catchT,t);return null}
   }
   if(bp){ball.visible=true;ball.position.set(bp[0],bp[1],bp[2]);ballSh.position.set(bp[0],.03,bp[2]);const dB=ball.position.distanceTo(camera.getWorldPosition(_cw)),pxR=BALL_R*(innerHeight/2)/(dB*Math.tan(camera.fov*Math.PI/360)),bs=clamp(BALL_MIN_PX/pxR,1,BALL_MAX);ball.scale.setScalar(bs);ballSh.scale.setScalar(.35*bs)}
   ballSh.visible=ball.visible;

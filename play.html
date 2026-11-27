@@ -9,6 +9,7 @@
 <script src="ui/site.js"></script>
 <script src="ui/landhint.js"></script>
 <script src="ui/layout.js"></script>
+<script src="ui/bootwait.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="ui/player.css">
@@ -21,7 +22,9 @@
 <script>
 /* #162: fail() = a load the page cannot start without broke: say so in plain words instead of 「準備球場中…」 forever */
 /* #162: t = ms from page open at which each boot stage ended (mark keeps the first); str() is the 🐞 report's boot= field */
-window.BOOT={share:.5,n:0,N:11,own:false,failed:false,t:{},mark(k){if(!(k in this.t))this.t[k]=Math.round(performance.now())},str(){return Object.entries(this.t).map(([k,v])=>k+'@'+v).join(',')},fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
+window.BOOT={share:.5,n:0,N:11,own:false,failed:false,t:{},mark(k){if(!(k in this.t))this.t[k]=Math.round(performance.now())},str(){return Object.entries(this.t).map(([k,v])=>k+'@'+v).join(',')},fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t;if(window.BOOTWAIT)BOOTWAIT.show(document,t,()=>location.reload())},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
+/* #668: a stage still open after BOOTWAIT.STALL_MS is named on the entry card with a 重試 button */
+if(window.BOOTWAIT)BOOTWAIT.arm(window.BOOT,document,null,()=>location.reload());
 </script>
 <style>
 #warmBar{position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none;opacity:0;animation:wbIn .2s .3s forwards}
@@ -236,6 +239,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
       <figure class="side" id="sideB"><div class="mark"></div><figcaption></figcaption></figure>
     </div>
     <p id="introStatus" hidden></p>
+    <p id="bootStall" hidden role="status"><span></span> <button id="bootRetry">重試</button></p>
     <div class="pick" id="introTeam" hidden><button data-t="0"></button><button data-t="1"></button><button data-t="-1">中立看球</button></div>
     <div class="acts">
       <button class="go" id="enter" disabled>準備球場中…</button>
@@ -281,15 +285,17 @@ const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(
 /* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
 window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;
-/* #600: play.html?f=<id> replays a 二軍 game (league/site/farm_games.json) with the engine of its own commit, in place of the frozen game. Failure: a note, then the frozen game as usual. */
-{const fid=new URLSearchParams(location.search).get('f');if(fid){try{const [F,list]=await Promise.all([import('./league/farm.js'),fetch('league/site/farm_games.json').then(r=>r.ok?r.json():[])]);const r=await F.farmOpening(list,fid);if(r.opening){window.OPENING=r.opening;window.FARM=r.rec}else{window.FARM_NOTE=`找不到這場二軍比賽的重播（${r.status}）`;console.warn('二軍重播失敗',r.status,r.reason)}}catch(e){window.FARM_NOTE='二軍重播載入失敗';console.warn('二軍重播載入失敗',e)}}}
+/* #600: play.html?f=<id> replays a 二軍 game (league/site/farm_games.json) with the engine of its own commit, in place of the frozen game. Failure: a note, then the frozen game as usual.
+   #668: the whole load (list + engine from jsDelivr) is given up after BOOTWAIT.OPTIONAL_MS, so a CDN that never answers cannot keep the entry asleep. */
+const WAIT=window.BOOTWAIT,inTime=(p,what)=>WAIT?WAIT.deadline(p,WAIT.OPTIONAL_MS,what):p;
+{const fid=new URLSearchParams(location.search).get('f');if(fid){B.mark('farm0');try{const r=await inTime((async()=>{const [F,list]=await Promise.all([import('./league/farm.js'),fetch('league/site/farm_games.json').then(r=>r.ok?r.json():[])]);return F.farmOpening(list,fid)})(),'farm replay');if(r.opening){window.OPENING=r.opening;window.FARM=r.rec}else{window.FARM_NOTE=`找不到這場二軍比賽的重播（${r.status}）`;console.warn('二軍重播失敗',r.status,r.reason)}}catch(e){window.FARM_NOTE=/no answer/.test(e&&e.message)?'二軍重播載入逾時，先播熱身賽':'二軍重播載入失敗';console.warn('二軍重播載入失敗',e)}B.mark('farm')}}
 /* #592: play.html?g=<season>-<id> replays an official ledger game (cloudball-league, read-only) with the engine of its own commit; silent, feed only. Failure: a note, then the frozen game as usual. */
-{const gp=new URLSearchParams(location.search).get('g');if(gp){try{const [G,L]=await Promise.all([import('./league/gameplay.js'),import('./league/ledger.js')]);const r=await G.gameOpening(gp,async(s,i)=>{const x=await fetch(L.ledgerUrl(s,i));if(x.status===404)return null;if(!x.ok)throw new Error('HTTP '+x.status);return x.json()});if(r.opening){window.OPENING=r.opening;window.LEDGER_GAME=r.rec}else{window.FARM_NOTE=`找不到這場比賽的重播（${r.status}）`;console.warn('正式比賽重播失敗',r.status,r.reason)}}catch(e){window.FARM_NOTE='比賽重播載入失敗';console.warn('正式比賽重播載入失敗',e)}}}
+{const gp=new URLSearchParams(location.search).get('g');if(gp){B.mark('ledger0');try{const r=await inTime((async()=>{const [G,L]=await Promise.all([import('./league/gameplay.js'),import('./league/ledger.js')]);return G.gameOpening(gp,async(s,i)=>{const x=await fetch(L.ledgerUrl(s,i));if(x.status===404)return null;if(!x.ok)throw new Error('HTTP '+x.status);return x.json()})})(),'ledger replay');if(r.opening){window.OPENING=r.opening;window.LEDGER_GAME=r.rec}else{window.FARM_NOTE=`找不到這場比賽的重播（${r.status}）`;console.warn('正式比賽重播失敗',r.status,r.reason)}}catch(e){window.FARM_NOTE=/no answer/.test(e&&e.message)?'比賽重播載入逾時，先播熱身賽':'比賽重播載入失敗';console.warn('正式比賽重播載入失敗',e)}B.mark('ledger')}}
 window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
 await load('render/game.js').catch(halt);B.mark('game');
 /* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
 await window.READY;document.getElementById('enter').textContent='進場（開聲音）';
-for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;B.mark('button');
+for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;B.mark('button');if(window.BOOTWAIT)BOOTWAIT.hide(document);
 </script>
 </body>
 </html>
