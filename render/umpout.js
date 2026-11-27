@@ -6,14 +6,16 @@
  *
  * call = game.js bcCalls(e) entry with `at` ([x, z] catch spot, home at 0,0, pitcher at -z) and t = call start (s into the event).
  * Nobody appears or vanishes: no room to be back at his post before the event ends -> no trip (never a jump to the next event). */
-export const UMP_OUT={MIN_DEPTH:60,FRAC:.35,MAX:22,MIN:3,V_OUT:6,V_BACK:3.5,ARRIVE_BEFORE:.25,BACK_WAIT:.3};
+export const UMP_OUT={MIN_DEPTH:60,FRAC:.35,MAX:22,MIN:3,V_OUT:6,V_BACK:3.5,ARRIVE_BEFORE:.25,BACK_WAIT:.3,CF_K:.35};
 
 const hyp=Math.hypot;
 /* plan = {go, t1, t2, hold, from:[x,z], to:[x,z], at, D}; null = he stays at his post. holdLen = call length (BC_HOLD + BC_DOWN) */
-export function outPlan(call, post, holdLen, evLen) {
+/* centre = the second-base umpire (#612 part 9): his ground is the middle, |x| <= CF_K of the catch distance, instead of one side */
+export function outPlan(call, post, holdLen, evLen, centre = false) {
   if (!call || !call.at || !Array.isArray(call.at) || !(call.t >= 0)) return null;
   const [ax, az] = call.at, [px, pz] = post;
-  if (!(hyp(ax, az) >= UMP_OUT.MIN_DEPTH) || Math.sign(ax) !== Math.sign(px)) return null;/* deep, and on his own line's side */
+  if (!(hyp(ax, az) >= UMP_OUT.MIN_DEPTH)) return null;/* deep, and on his own ground */
+  if (centre ? !(Math.abs(ax) <= UMP_OUT.CF_K * hyp(ax, az)) : Math.sign(ax) !== Math.sign(px)) return null;
   const dx = ax - px, dz = az - pz, L = hyp(dx, dz);
   if (!(L > 0)) return null;
   const D = Math.min(L * UMP_OUT.FRAC, UMP_OUT.MAX, UMP_OUT.V_OUT * Math.max(0, call.t - UMP_OUT.ARRIVE_BEFORE));

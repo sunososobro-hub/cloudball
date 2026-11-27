@@ -21,6 +21,15 @@ if(outPlan({...rf,at:[20,-30]},P1,HOLD,12))bad.push('goes out on a shallow fly')
 if(outPlan({b:1,t:4,out:true},P1,HOLD,12))bad.push('goes out with no catch spot');
 if(outPlan(rf,P1,HOLD,5))bad.push('goes out although he cannot be back inside the event');
 if(outPlan({...rf,t:.3},P1,HOLD,12))bad.push('goes out although the catch is at once');
+const P2=[-2.5,-47],cf={b:2,t:4,out:true,at:[5,-95]},pc=outPlan(cf,P2,HOLD,12,true);
+if(!pc)bad.push('deep fly to centre: U2 does not go out');
+if(outPlan({...cf,at:[40,-80]},P2,HOLD,12,true))bad.push('U2 goes out on a fly to the right-field gap');
+if(outPlan({...cf,at:[-5,-40]},P2,HOLD,12,true))bad.push('U2 goes out on a shallow fly');
+if(outPlan(cf,P2,HOLD,5,true))bad.push('U2 goes out with no room inside the event');
+if(pc){const e0=outAt(pc,0),eE=outAt(pc,pc.end+1),c=outAt(pc,cf.t);
+  if(e0.active||eE.active||Math.hypot(eE.x-P2[0],eE.z-P2[1])>1e-9)bad.push('U2 not at his post before / after the trip');
+  if(!c.active||Math.hypot(c.x-pc.to[0],c.z-pc.to[1])>1e-6)bad.push('U2 not at the far point at the call time');
+  if(!(pc.end<=12))bad.push('U2 trip ends after the event')}
 if(pl){
   if(!(pl.D>=UMP_OUT.MIN&&pl.D<=UMP_OUT.MAX))bad.push('trip length '+pl.D+' outside MIN..MAX');
   if(!(pl.end<=12))bad.push('trip ends after the event');
@@ -35,6 +44,6 @@ if(pl){
   if(maxV>UMP_OUT.V_OUT+1e-6)bad.push('he jumps: '+maxV.toFixed(2)+' m/s');
   void d0;
 }
-if(!/uoM\.outAt\(/.test(game)||!/uoEnd\(e\)/.test(game))bad.push('game.js does not wire umpout.js into poseStaff / cpEvents');
+if(!/uoM\.outAt\(/.test(game)||!/uoEnd\(e,/.test(game))bad.push('game.js does not wire umpout.js into poseStaff / cpEvents');
 if(bad.length){console.error('umpout FAIL\n- '+bad.join('\n- '));process.exit(1)}
 console.log('umpout ok');
