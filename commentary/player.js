@@ -44,19 +44,26 @@ function peopleOf(teams, seed) {
   };
 }
 
+/* occupied-bases bit mask (1st = 1, 2nd = 2, 3rd = 4) -> state id of VOICED.bases in clips.js */
+const BASE_STATE = [0, 1, 2, 4, 3, 5, 6, 7];
+
 /* ---------- what the booth remembers about the game so far ---------- */
 function createMemory(teams, seed = 0) {
   const people = peopleOf(teams, seed);
-  const m = { inning: 1, half: 0, score: [0, 0], outs: 0, batters: {}, pitchers: {}, halfRuns: [[], []], frameRuns: 0, frame: -1, strikes: 0, balls: 0, last: {} };
+  const m = { inning: 1, half: 0, score: [0, 0], outs: 0, batters: {}, pitchers: {}, halfRuns: [[], []], frameRuns: 0, frame: -1, strikes: 0, balls: 0, last: {}, runners: [null, null, null, null] };
   const batter = n => m.batters[n] || (m.batters[n] = { pa: 0, ab: 0, h: 0, k: 0, hr: 0, prev: null });
   const pitcher = n => m.pitchers[n] || (m.pitchers[n] = { k: 0, pitches: 0 });
   m.apply = x => {
     if (x.f !== m.frame) { m.frame = x.f; m.frameRuns = 0; }
-    if (x.type === 'half_start') { m.inning = x.inning; m.half = x.half; m.outs = 0; m.halfRuns[x.team][x.inning - 1] = 0; }
+    if (x.type === 'half_start') { m.inning = x.inning; m.half = x.half; m.outs = 0; m.halfRuns[x.team][x.inning - 1] = 0; m.runners = [null, null, null, null]; }
+    else if (x.type === 'runner_placed') m.runners[x.base] = x.runner;
+    else if (x.type === 'substitution') { if (x.role === 'pinch_runner' && m.runners[x.base] === x.out) m.runners[x.base] = x.in; }
+    else if (x.type === 'runner_advance') { if (x.from >= 1 && x.from <= 3 && m.runners[x.from] === x.runner) m.runners[x.from] = null; if (x.to >= 1 && x.to <= 3) m.runners[x.to] = x.runner; }
+    else if (x.type === 'half_end') m.runners = [null, null, null, null];
     else if (x.type === 'pitch') { pitcher(x.pitcher).pitches++; m.strikes = x.count[1]; m.balls = x.count[0]; m.last = { batter: x.batter, pitcher: x.pitcher, team: x.team }; m.pitchType = x.pitchType; }
     else if (x.type === 'contact') m.pos = x.fielder;
     else if (x.type === 'call') { m.balls = x.count[0]; m.strikes = x.count[1]; }
-    else if (x.type === 'out') m.outs = x.outs;
+    else if (x.type === 'out') { m.outs = x.outs; if (x.from >= 1 && x.from <= 3 && m.runners[x.from] === x.runner) m.runners[x.from] = null; }
     else if (x.type === 'run_scored') { m.score[x.team]++; m.frameRuns++; m.halfRuns[x.team][m.inning - 1] = (m.halfRuns[x.team][m.inning - 1] || 0) + 1; }
     else if (x.type === 'pa_end') {
       const b = batter(x.batter); b.pa++; b.prev = b.now || null; b.now = x.result;
@@ -83,8 +90,8 @@ function createMemory(teams, seed = 0) {
       batterPa: b.pa || 0, batterAb: b.ab || 0, batterHits: b.h || 0, batterKToday: b.k || 0, batterHrToday: b.hr || 0,
       batterPrev: PREV_LABEL[last] || '', hasPrev: last ? 1 : 0,
       pitcherK: p ? pitcher(p).k : 0, pitchCount: p ? pitcher(p).pitches : 0,
-      /* voiced closed-set values (clips.js): the count, the last pitch's type, the fielder of the last ball in play; bases are not tracked yet ('' = none) */
-      count: m.balls >= 0 && m.strikes >= 0 ? `${m.balls}-${m.strikes}` : '', pitchType: m.pitchType || '', pos: m.pos || '', bases: '',
+      /* voiced closed-set values (clips.js): the count, the last pitch's type, the fielder of the last ball in play; the bases as the id of the 8 states in clips.js (0 empty, 1 first, 2 second, 3 third, 4 first+second, 5 first+third, 6 second+third, 7 loaded) */
+      count: m.balls >= 0 && m.strikes >= 0 ? `${m.balls}-${m.strikes}` : '', pitchType: m.pitchType || '', pos: m.pos || '', bases: BASE_STATE[(m.runners[1] ? 1 : 0) | (m.runners[2] ? 2 : 0) | (m.runners[3] ? 4 : 0)],
       /* staff of the team in {team} (on a pitching change: the team making it), the home manager, the plate umpire */
       manager: onAir(people.team[bat].manager), pitchingCoach: onAir(people.team[bat].pitching), homeManager: onAir(people.team[1].manager),
       managerName: people.team[bat].manager ? people.team[bat].manager.name : '', managerLine: people.team[bat].manager ? people.team[bat].manager.line : '',

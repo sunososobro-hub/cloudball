@@ -20,7 +20,7 @@ const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 for (const text of ['', '三振！', '好'.repeat(300)]) for (const speaker of ['pbp', 'color', 'fan'])
   for (const emotion of Object.keys(EMOTION_TONE)) if (lineId({ speaker, text, emotion }, 'owls') !== nodeLineId({ speaker, text, emotion }, 'owls')) bad(`clip id differs from tools/line-id.mjs for ${speaker}/${emotion}/${text.length}`);
 
-/* a small v2 bank that uses every voiced slot the booth can fill now ({bases} is not tracked yet) */
+/* a small v2 bank that uses every voiced slot the booth can fill now ({bases} has its own check below) */
 const bank = {
   version: 2, rules: { minGapSec: 0, noRepeatWindow: 3, fanChance: 1, fanGapSec: 0, fanNoRepeatWindow: 3, fanOwnShare: 0, fanMaxUses: 50 },
   guests: Object.fromEntries(TEAMS.map(t => [t.id, { name: 'x', nick: 'y', cast: 'fan' }])),
@@ -62,6 +62,21 @@ for (let seed = 1; seed <= SEEDS; seed++) {
     if (part.join('|') !== a.filter(l => l.at <= cut).map(l => l.clips.join(',')).join('|')) bad(`seed ${seed}: clips before event ${cut} depend on later events`);
   }
 }
+/* {bases} (#603): the spoken state on every first pitch equals the engine's own bases before that frame, and all 8 states turn up */
+const baseBank = { version: 2, rules: { ...bank.rules, noRepeatWindow: 1 }, guests: bank.guests, triggers: { batter_up: { silence: 0, exchanges: [{ call: '{bases}。' }, { call: '{bases}。' }] } }, fan: [] };   /* two copies: an exchange is not picked again right after itself */
+for (const e of validateBank(baseBank)) bad(`bases bank: ${e}`);
+const NAME = ['壘上無人', '一壘有人', '二壘有人', '三壘有人', '一二壘有人', '一三壘有人', '二三壘有人', '滿壘'], seenState = new Set();
+let baseLines = 0;
+for (let seed = 1; seed <= SEEDS; seed++) {
+  const g = simGame(seed, {}), teams = g.teams.map(i => TEAMS[i]);
+  for (const l of draftFromBank(g.stream, baseBank, { seed, teams, describe: x => g.ev[x.f].desc })) {
+    const b = g.ev[g.stream[l.at].f].s0.b.map(Boolean), want = NAME[[0, 1, 2, 4, 3, 5, 6, 7][(b[0] ? 1 : 0) | (b[1] ? 2 : 0) | (b[2] ? 4 : 0)]];
+    baseLines++; seenState.add(want);
+    if (l.text !== `${want}。`) bad(`seed ${seed} event ${l.at}: said "${l.text}", engine bases ${b.map(Number)} = ${want}`);
+  }
+}
+if (seenState.size < 8) bad(`only ${seenState.size} of 8 base states were spoken over ${SEEDS} seeds`);
+console.log(`bases: ${baseLines} lines, ${seenState.size} of 8 states`);
 /* picks never depend on audio: draftFromBank takes only the bank, the seed and the stream; a missing clip is the player's silence */
 const names = JSON.stringify(bank).match(/\{(batter|pitcher|runner|desc)\}/);
 if (names) bad('fixture uses a name slot');

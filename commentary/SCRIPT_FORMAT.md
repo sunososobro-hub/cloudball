@@ -188,7 +188,7 @@ One shared bank, generated once; every viewer's browser assembles the booth from
 - Clip id = `<role>-<10 hex sha1(role, tone, text)>` (`tools/line-id.mjs`); a drafted line carries `clips: [id, ...]` and
   `text` is exactly the spoken words (the subtitle). `bankClips(bank)` lists every id the bank can ask for.
 - A value outside its closed set (a 21st run) or one the booth cannot know yet makes the wording unsayable, so the line is
-  not picked; `{bases}` is not tracked yet, so lines using it never fit until a ticket adds it. A missing clip is silence at
+  not picked. `{bases}` is the state of the bases before the event (the booth tracks runners from the stream; `clips.check.mjs` compares it with the engine's own bases). A missing clip is silence at
   playback, never another pick: the draft sees only the bank, the seed and the stream.
 - Tone: clips are made `calm` unless the line carries an `emotion` (its tone is part of the id).
 - Part 2 of #603 rewrites the current bank (still v1) into this format; until then v1 banks work as before.
