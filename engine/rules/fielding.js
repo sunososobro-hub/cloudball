@@ -8,7 +8,7 @@
  *
  * Plan times are seconds after contact. Out records use seconds into the pitch frame. */
 import * as K from '../constants.js';
-import { BASES, HOME, FIELD_HOME, dist, fielderStart, runTime, runnerTimeline, throwPlan, coverArrival, clamp } from './field.js';
+import { BASES, BASE_PATH, HOME, FIELD_HOME, dist, fielderStart, runDist, runTime, runnerTimeline, throwPlan, coverArrival, clamp } from './field.js';
 import { forceOut, tagOut, flyCatch, isForced, beats } from './outs.js';
 
 export const HIT_LIKE = ['1B', '2B', '3B', 'E'];   /* results where the ball is not caught or fielded for an out */
@@ -231,6 +231,34 @@ export function resolvePickoff(ctx, safe = false) {
   Object.assign(plan, { safe: true, back: { t0: b0, TT: BT, arrive: b0 + BT, v: K.POF_BACK_V } });
   plan.actions.push({ t: b0, a: 'throw', f: key, to: 'P' }, { t: b0 + BT, a: 'receive', f: 'P', base: null });
   return { plan, outs: [] };
+}
+
+/* Rundown on a pickoff (#614 part 8, constants RD_*): the runner on first breaks for second, 1B -> SS at second, the runner
+ * turns back, SS runs him back and tosses to 1B up the line, 1B tags him in the base path. Positions are metres from first
+ * along the line to second. Times are seconds into the frame. Throws (a setup error) when the play does not fit. */
+export function resolveRundown(ctx) {
+  const runner = ctx.bases[0], from = FIELD_HOME.P, spot = fielderStart('1B', ctx.bases, ctx.outs);
+  const TD = dist(from, spot), TT = Math.max(K.THROW_MIN, TD / K.PO_THROW_V), t0 = K.PO_THROW_AT, arrive = t0 + TT;
+  const goAt = t0 + K.PO_REACT, out = t => K.PO_LEAD + runDist(t - goAt, K.RUN_SPEED);
+  const ssAt = t0 + coverArrival(fielderStart('SS', ctx.bases, ctx.outs), BASES[2], K.FIELD_REACT, K.COVER_SPEED);
+  const T1 = Math.max(K.THROW_MIN, dist(spot, BASES[2]) / K.RD_THROW_V), r1 = Math.max(arrive + K.RD_RELEASE, ssAt - T1), r2 = r1 + T1;
+  const turn = out(r2);
+  if (!(turn < BASE_PATH - K.RD_TAG_REACH)) throw new Error(`rundown: the runner reaches second before the throw (${turn.toFixed(2)} m)`);
+  const backAt = r2 + K.RD_TURN, back = t => turn - runDist(t - backAt, K.RUN_SPEED), runnerAt = backAt + runTime(turn, K.RUN_SPEED);
+  const s0 = r2 + K.RD_CHASE, ssPos = BASE_PATH - runDist(K.RD_CHASE, K.COVER_SPEED);
+  if (!(ssPos > back(s0))) throw new Error('rundown: the shortstop passes the runner');
+  const T2 = Math.max(K.THROW_MIN, (ssPos - K.RD_1B_UP) / K.RD_THROW_V), r3 = s0 + T2;
+  if (!(back(r3) > K.RD_1B_UP + K.RD_TAG_REACH)) throw new Error('rundown: the runner is past the first baseman before the toss');
+  let tagAt = r3;
+  while (back(tagAt) - (K.RD_1B_UP + runDist(tagAt - r3, K.COVER_SPEED)) > K.RD_TAG_REACH) tagAt += K.RD_STEP;
+  const tagPos = back(tagAt);
+  if (!(tagAt < runnerAt && beats(r3, r3, runnerAt))) throw new Error('rundown: the runner gets back to first before the tag');
+  const plan = { po: true, rundown: true, CV: { key: '1B', spot, base: 1, at: 0 }, from, TD, v: K.PO_THROW_V, TT, t0, arrive, runnerAt, lead: K.PO_LEAD, react: K.PO_REACT,
+    rd: { goAt, ssAt, r1, r2, turn, backAt, s0, ssPos, r3, tagAt, tagPos, up: K.RD_1B_UP },
+    actions: [{ t: t0, a: 'throw', f: 'P', to: '1B' }, { t: arrive, a: 'receive', f: '1B', base: 1 },
+      { t: r1, a: 'throw', f: '1B', to: 'SS' }, { t: r2, a: 'receive', f: 'SS', base: 2 },
+      { t: s0, a: 'throw', f: 'SS', to: '1B' }, { t: r3, a: 'receive', f: '1B', base: null }, { t: tagAt, a: 'tag', f: '1B', base: 1 }] };
+  return { plan, outs: [tagOut({ runner, from: 1, base: 1, fielder: '1B', ballAt: r3, fielderAt: r3, runnerAt, tagAt })] };
 }
 
 /* Dropped third strike (#614 part 4): the batter runs to first from the plate; the catcher picks the ball up `retrieve` s after

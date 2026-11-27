@@ -65,6 +65,7 @@ export const COPY = {
   buntLeadOut: (n, runner, base, forced) => `${n} 短打，${base === 3 ? '三' : '二'}壘${forced ? '封殺' : '觸殺'} ${runner}`,
   wildPitch: runs => `，暴投！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   pickoff: n => `投手牽制一壘，${n} 回壘不及，觸殺出局！`,
+  pickoffRundown: n => `投手牽制一壘，${n} 衝向二壘被夾殺，一壘手觸殺出局！`,
   pickoffSafe: n => `投手牽制一壘，${n} 撲回壘包，安全上壘`,
   balk: runs => `投手犯規！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   passedBall: runs => `，捕逸！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
