@@ -1321,7 +1321,7 @@ function pitchPose(u){const P=fielders.P,y=kf(u,PK.yaw),L=kf(u,PK.lean),th=kf(u,
      the stride foot rises over the first half of PM_OUT and stays up until PM_BACK; the back foot, coming down from the follow-through,
      stays off the ground until the blend has put it at its keyframe spot under the hips (a lift of PM_LIFT_B over PM_OUT) */
   else if(u>=PM_OUT[0]){const o=sat01((u-PM_OUT[0])/(PM_OUT[1]-PM_OUT[0]));
-    P.legs[0].scale.y=1-PM_LIFT*Math.max(Math.sin(Math.PI*Math.min(o,.5)),Math.sin(Math.PI*sat01((u-PM_OUT[0])/(PM_BACK[0]-PM_OUT[0]))));
+    P.legs[0].scale.y=1-PM_LIFT*(PB?1-ease(sat01((u-PM_OUT[1])/(PM_BACK[0]-PM_OUT[1]))):1)/* #687: the return-throw routine has no pmBack to put the stride leg down: let the lift go over PM_OUT[1]..PM_BACK[0], it stayed .88 to the frame end */*Math.max(Math.sin(Math.PI*Math.min(o,.5)),Math.sin(Math.PI*sat01((u-PM_OUT[0])/(PM_BACK[0]-PM_OUT[0]))));
     P.legs[1].scale.y=1-PM_LIFT_B*Math.sin(Math.PI*o)}
   P.g.position.z+=B?B.z:PB&&u>=PM_OUT[0]?PB.z:dz;
   if(PB){PR.up.rotation.x+=PB.look*pbM.PB_LOOK_LEAN;P.g.rotation.y+=PB.yaw;if(PB.glove>0)gloveTo(P,PB.glove,null)}
