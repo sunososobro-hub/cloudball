@@ -42,4 +42,27 @@ for (let ei = 0; ei < 30; ei++) {
   const tight = B.pbRubberPlan(end, end + 1, B.pbSeedOf('x'), ei);
   ok(!tight.fits && KEYS.every(k => B.pbRubberAt(end + .5, tight)[k] === 0), `no room ei ${ei}: stands still`);
 }
+// part 3: runners on / full count (#642): look-back at an occupied base, set leaning forward, longer sign; still at rest outside, no jumps, pure
+const SITS = [{ b: [1, 0, 0], c: [0, 0] }, { b: [0, 1, 0], c: [1, 1] }, { b: [0, 0, 1], c: [3, 2] }, { b: [1, 1, 1], c: [3, 2] }];
+const dirs = new Set();
+for (const sit of SITS) for (let pi = 0; pi < 20; pi++) for (let ei = 0; ei < 8; ei++) {
+  const seed = B.pbSeedOf('2:' + pi), end = B.pbPlan(CATCH, 1.2).end, p = B.pbRubberPlan(end, 12, seed, ei, sit), q0 = B.pbRubberPlan(end, 12, seed, ei);
+  ok(p.fits, `sit ${JSON.stringify(sit)} ${pi}/${ei}: fits in 12 s`); ok(p.lookDir !== 0 && Math.abs(p.l1 - p.l0 - B.PB_LOOK_RUN) < 1e-9, `look-back missing ${pi}/${ei}`);
+  ok(sit.b[0] && !sit.b[1] && !sit.b[2] ? p.lookDir === 1 : sit.b[2] && !sit.b[0] && !sit.b[1] ? p.lookDir === -1 : true, `look direction ${pi}/${ei}`);
+  ok(p.s1 - p.s0 > q0.s1 - q0.s0 || p.habit !== q0.habit, `sign not longer ${pi}/${ei}`); dirs.add(p.lookDir);
+  let prev = B.pbRubberAt(0, p), looked = 0;
+  for (let u = DT; u < 12; u += DT) {
+    const c = B.pbRubberAt(u, p);
+    if (u <= end || u >= 12 - B.PB_MARGIN) ok(KEYS.every(k => c[k] === 0), `sit ${pi}/${ei}: not at rest at ${u.toFixed(2)}`);
+    for (const k of KEYS) ok(Math.abs(c[k] - prev[k]) <= STEP[k], `sit ${pi}/${ei}: ${k} jumps at ${u.toFixed(2)}`);
+    if (Math.abs(c.headYaw) > .8 * B.PB_LOOK_YAW && u > p.l0) looked = 1; prev = c;
+  }
+  ok(looked === 1, `sit ${pi}/${ei}: never looks back`); ok(JSON.stringify(p) === JSON.stringify(B.pbRubberPlan(end, 12, seed, ei, sit)), 'pure');
+  ok(B.pbRubberAt(p.out0 - .01, p).lean > B.PB_SET_LEAN_RUN * .99 && B.pbRubberAt(p.out0 - .01, q0).lean === 0, `set not leaning ${pi}/${ei}`);
+}
+ok(dirs.has(1) && dirs.has(-1), `look directions never vary: ${[...dirs]}`);
+for (let ei = 0; ei < 30; ei++) {  // a frame too short for the look-back drops it (and the extra pause), never overruns
+  const end = B.pbPlan(CATCH, 1.2).end, dur = end + B.PB_SIGN_IN + B.PB_NOD + B.PB_SET + B.PB_SET_OUT + B.PB_MARGIN + .05;
+  const p = B.pbRubberPlan(end, dur, B.pbSeedOf('x'), ei, SITS[3]); ok(p.fits && p.lookDir === 0, `short frame with runners ei ${ei}`);
+}
 console.log(bad ? `${bad} FAIL` : `pitchrubber OK (habits ${[...habits].join(',')}; shakes ${[...shakes].sort().join(',')})`); process.exit(bad ? 1 : 0);
