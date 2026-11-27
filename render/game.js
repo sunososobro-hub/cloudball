@@ -1473,6 +1473,7 @@ function chkHalf(e,u){return chkM?chkM.halfSwing(e,u,CHK_T):null}
 /* #609 part 2: line umpires (U1 right line, U3 left line) signal foul, a fair ball near the line and a home run (render/umpline.js, pure function of event and time). Dev switch ?off=umpline. */
 let lsM=null;import(new URL('umpline.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpline'))lsM=M}).catch(err=>console.warn('line signals off',err));
 /* #718 part 3: ground-rule double signal, both arms up (render/umpgrd.js, pure function of event and time). Dev switch ?off=umpgrd. */
+let GRDR=null;import(new URL('grd_run.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('grdrun'))GRDR=M}).catch(err=>console.warn('ground-rule trot off',err));/* #718 part 4: runners trot once the ball is dead. Dev switch ?off=grdrun. */
 let grdM=null;import(new URL('umpgrd.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpgrd'))grdM=M}).catch(err=>console.warn('ground-rule signal off',err));
 let infM=null;import(new URL('umpinf.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpinf'))infM=M}).catch(err=>console.warn('infield fly signal off',err));
 /* #609 part 3a: plate umpire time (VOTE / CHG / VIS / SUB frame starts) and play (the pitch after one) (render/umptime.js, pure function of event, previous event and time). Dev switch ?off=umptime. */
@@ -1886,10 +1887,11 @@ function poseScene(e,u,dt,ei){
   if(e.po&&e.plan)bp=poField(e,u);/* #38 pickoff: the pitcher's throw to first, the first baseman's catch and tag */
   /* runner moves: when each runner starts, slides and arrives is decided by the engine (4th element of a move) */
   const flyOut=e.r==='inplay'&&e.play.res==='out'&&e.play.type!=='GB';let batGone=Infinity;
-  for(const [from,to,name,tl] of k3Moves(e)){
+  for(const [from,to,name,tl0] of k3Moves(e)){
+    const tl=GRDR?GRDR.grdTl(e,tl0,SIG_T,runDist,from,to):tl0;/* #718 part 4: trot once the ball is over the wall */
     const {st0,spd,slide,ts,slideTime:ST,arriveT}=tl,lead=from>0&&u<st0?(tl.tag?tagLeadAt(u,st0):leadAt(u)):tl.lead,Ltot=(to-from)*27.43;
     if(from===0)batGone=st0;
-    let prog;if(u<ts)prog=runDist(Math.min(u,tl.tagStop??Infinity)-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
+    let prog;const gp=GRDR?GRDR.grdProg(tl,u,Ltot):null;if(gp!=null)prog=gp;else if(u<ts)prog=runDist(Math.min(u,tl.tagStop??Infinity)-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
     let [x,z,done]=pathPos(from,to,prog);
     if(from===0&&u<st0)continue;
     if(from===0)[x,z]=batLeave(e,prog,x,z);
