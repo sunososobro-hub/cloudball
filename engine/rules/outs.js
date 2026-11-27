@@ -9,6 +9,7 @@ export const OUT = Object.freeze({
   FLY_CATCH: 'fly_catch',
   FORCE: 'force',
   TAG: 'tag',
+  INFIELD_FLY: 'infield_fly',
 });
 
 import { STRIKES_FOR_OUT, CLOSE_PLAY_MARGIN } from '../constants.js';
@@ -37,6 +38,20 @@ export function flyCatch({ batter, fielder, fielderAt, ballDownAt, at }) {
   need(fielderAt <= ballDownAt, `fielder ${fielder} is not under the ball when it comes down`);
   need(at >= ballDownAt, 'catch recorded before the ball arrives');
   return { reason: OUT.FLY_CATCH, runner: batter, from: 0, base: 0, fielder, fielderAt, ballAt: ballDownAt, at };
+}
+
+/* Infield fly (OBR 5.09(a)(5), definition in Definitions of Terms): a fair fly, not a line drive or a bunt, that an
+ * infielder can catch with ordinary effort, runners on first and second, fewer than two outs. The umpire declares it and
+ * the batter is out whether the ball is caught or not; this constructor is the out for one that is NOT caught (#614).
+ * at: when the ball comes down (the batter was declared out while it was in the air). */
+const IFF_FIELDERS = ['P', 'C', '1B', '2B', '3B', 'SS'];
+export function infieldFly({ batter, fielder, type, foul, bunt, outs, bases, ballDownAt, at }) {
+  need(IFF_FIELDERS.includes(fielder), `${fielder} is not an infielder`);
+  need(type === 'PU' || type === 'FB', `a ${type} is not a fly ball`);
+  need(!foul && !bunt, 'an infield fly is a fair fly, not a bunt');
+  need(outs < 2 && !!bases[0] && !!bases[1], 'no infield-fly situation (runners on first and second, fewer than two outs)');
+  need(isTime(ballDownAt) && isTime(at) && at >= ballDownAt, 'missing times');
+  return { reason: OUT.INFIELD_FLY, runner: batter, from: 0, base: 0, fielder, ballAt: ballDownAt, at };
 }
 
 /* Force out: a fielder holding the ball touches the base before the forced runner gets there.

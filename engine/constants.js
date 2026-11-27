@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.29';
+export const ENGINE_VERSION = '0.4.30';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -213,6 +213,10 @@ export const WALL_PICKUP = 1;            /* #684: a hit rolling to the wall stop
  * runner gets two bases. Estimate, not a fit: MLB scores roughly 0.2 ground-rule doubles a game (a few percent of its ~3.3
  * doubles; Retrosheet event files mark them `DGR`); this engine has ~0.35 wall-reaching doubles a game (seeds 1-2000), 0.6 of them -> ~0.21 */
 export const GRD_OF_WALL_2B_P = 0.6;
+/* #614 part 10: an infield fly the infielder drops (the ERROR_P draw on a fair pop-up or fly in an infield-fly situation)
+ * comes off his glove and is picked up IFF_DROP_PICKUP s after it comes down; the batter is out by rule all the same.
+ * Estimate, not a fit: about a second to bend, find the ball at his feet and grab it (as K3_RETRIEVE for a catcher). */
+export const IFF_DROP_PICKUP = 0.8;
 
 /* ---- baserunning choices ---- */
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;

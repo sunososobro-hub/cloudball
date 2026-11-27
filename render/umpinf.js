@@ -16,7 +16,7 @@ export function isInfieldFly(e) {
   if (!e || e.k !== 'P' || e.r !== 'inplay' || !e.play || !e.s0 || !Array.isArray(e.s0.b)) return false;
   const p = e.play;
   return (p.type === 'PU' || p.type === 'FB') && p.res === 'out' && !p.foul && !p.bunt && (p.fielder === 'C' || p.fielder in INF_UMP)
-    && e.s0.outs < 2 && !!e.s0.b[0] && !!e.s0.b[1] && Number.isFinite(p.hang) && Array.isArray(e.outs) && e.outs.some(o => o.reason === 'fly_catch');
+    && e.s0.outs < 2 && !!e.s0.b[0] && !!e.s0.b[1] && Number.isFinite(p.hang) && Array.isArray(e.outs) && e.outs.some(o => o.reason === 'fly_catch' || o.reason === 'infield_fly');
 }
 export function infCall(e, T) {
   if (!isInfieldFly(e)) return null;

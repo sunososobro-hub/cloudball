@@ -115,7 +115,7 @@ export function simGame(seed, decisions, opts) {
     else {
       add('pitch', e.t + K.RELEASE, { ...who, pitcher: x.pitcher, pitchType: e.pt, kmh: e.kmh, inZone: e.inZ, count: e.c0, n: e.pc });
       if (e.swing) add('swing', e.t + K.ARRIVE, { ...who });
-      if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder, foul: e.play.foul ? true : undefined });
+      if (e.r === 'inplay') add('contact', e.t + K.ARRIVE, { ...who, ball: e.play.type, bunt: !!e.play.bunt, spray: round3(e.play.spray), dist: round3(e.play.dist), hang: round3(e.play.hang), land: [round3(e.play.lx), round3(e.play.lz)], fielder: e.play.fielder, foul: e.play.foul ? true : undefined, infieldFly: e.play.infieldFly ? true : undefined, dropped: e.play.iffDrop ? true : undefined });
       else {
         /* #614 part 6: the catcher points to the base umpire, whose ruling is the call */
         if (e.chk) add('appeal', e.t + K.ARRIVE + K.CHECK_APPEAL_AT, { ...who, umpire: e.chk.ump === 3 ? 'third_base' : 'first_base', ruling: e.chk.swing ? 'swing' : 'no_swing', count: e.c1 });
@@ -419,6 +419,14 @@ export function simGame(seed, decisions, opts) {
           }
           play = { type, res, lx, lz, hang, peak, fielder, spray, dist: d, bunt };
           if (foulKey) play.foul = true;
+          /* #614 part 10: infield fly (OBR 5.09(a)(5)): a fair pop-up or fly (not a liner or bunt) to an infielder, runners on first
+           * and second, fewer than two outs: declared, the batter is out caught or not. The error draw above is then a dropped
+           * infield fly: still an out, the runners hold (no new draw: R is not shifted) */
+          if ((type === 'PU' || type === 'FB') && !foulKey && !bunt && (res === 'out' || res === 'E') && (fielder === 'P' || INFIELD_KEYS.includes(fielder))
+            && st.outs < K.OUTS_PER_HALF - 1 && !!B[0] && !!B[1]) {
+            play.infieldFly = true;
+            if (res === 'E') { res = 'out'; play.res = 'out'; play.iffDrop = true; }
+          }
           const ctx = ctxOf(play); ctx.fumble = fumble;
           const forcedOnGround = B[0] ? (B[1] ? (B[2] ? 3 : 2) : 1) : 0;   /* how many runners the batter pushes ahead of him */
 
@@ -522,9 +530,9 @@ export function simGame(seed, decisions, opts) {
             if (canTag && B[2] && R() < K.SAC_FLY_P) { tagUp = { from: 3, to: HOME }; sacFly = true; moves.push([3, HOME, B[2]]); runs++; nb[2] = null; }
             /* the runner on second tags and takes third if it is open; the throw goes to the lead runner */
             if (canTag && B[1] && !nb[2] && R() < K.TAG_2ND_TO_3RD_P) { tagUp = tagUp || { from: 2, to: 3 }; toThird = B[1]; moves.push([2, 3, B[1]]); nb[2] = B[1]; nb[1] = null; }
-            const fly = resolveFly(ctx, tagUp); plan = fly.plan; outs = fly.outs; st.b = nb;
+            const fly = resolveFly(ctx, tagUp, !!play.iffDrop); plan = fly.plan; outs = fly.outs; st.b = nb;
             if (sacFly) { result = 'sac_fly'; desc = COPY.sacFly(name, B[2]); bs.ab--; }   /* a sacrifice fly is not an at-bat */
-            else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.foul ? COPY.foulOut(name, fielder) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
+            else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.iffDrop ? COPY.infieldFlyDrop(name, fielder) : play.foul ? COPY.foulOut(name, fielder) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
             if (toThird) desc += COPY.tagToThird(toThird);
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);

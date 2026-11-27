@@ -234,6 +234,19 @@ function checkGame(seed, g) {
         if (x.runner !== contact.batter) return 'wrong player out';
         return null;
       }
+      if (x.reason === 'infield_fly') {
+        /* #614 part 10: a declared infield fly that is not caught (OBR 5.09(a)(5)): the batter is out by rule */
+        if (!contact) return 'no batted ball';
+        if (!(contact.ball === 'PU' || contact.ball === 'FB')) return `a ${contact.ball} is not an infield fly`;
+        if (contact.foul || contact.bunt) return 'an infield fly is fair and not a bunt';
+        if (!contact.infieldFly) return 'no infield fly was declared';
+        if (!['P', 'C', '1B', '2B', '3B', 'SS'].includes(x.fielder)) return `${x.fielder} is not an infielder`;
+        if (!(preOuts < 2 && pre[0] && pre[1])) return 'no infield-fly situation (runners on first and second, fewer than two outs)';
+        if (x.runner !== contact.batter) return 'wrong player out';
+        if (x.t + EPS < contact.t + contact.hang) return 'out recorded before the ball came down';
+        if (actions.some(a => a.action === 'catch')) return 'the ball was caught: that is a fly_catch';
+        return null;
+      }
       if (x.reason === 'force' || x.reason === 'tag') {
         if (!x.fielder) return 'no fielder';
         const origin = x.from === 0 ? null : pre[x.from - 1];
