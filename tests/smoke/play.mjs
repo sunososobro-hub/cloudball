@@ -48,6 +48,11 @@ try{
     await page.click('#enter');
     await page.waitForTimeout(PLAY_MS);
     if(await page.evaluate(()=>{const i=document.getElementById('intro');return !!i&&!i.hidden}))bad.push('the entry card is still up after 開始');
+    /* #81: the entry card hides every figure; the plate umpire must be back on a pitch frame once it is closed */
+    let pu=null;for(let k=0;k<40;k++){pu=await page.evaluate(()=>window.CB_PLATE_UMP&&window.CB_PLATE_UMP());if(pu&&!pu.card&&pu.k==='P')break;await page.waitForTimeout(250)}
+    if(!pu)bad.push('window.CB_PLATE_UMP is missing');
+    else if(pu.card||pu.k!=='P')console.log(`plate umpire check skipped: no pitch frame seen (event ${pu.k})`);
+    else if(!pu.visible)bad.push('the plate umpire is hidden on a pitch frame after the entry card closed');
     const vp=page.viewportSize(),w=Math.round(vp.width/3),h=Math.round(vp.height/3);
     let shot;   /* #534: a software-GL frame can take long; retry, and let each try wait for it */
     for(let k=1;;k++){try{shot=await page.screenshot({clip:{x:w,y:h,width:w,height:h},timeout:SHOT_MS});break}
