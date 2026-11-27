@@ -11,6 +11,7 @@
 - #266 (0.4.11): home-run runners trot (kind `'trot'`, `HR_TROT_SPEED`); `tests/hr_trot.check.mjs`. #378: a pitcher's optional `pitches` list picks his pitch names from `PITCH_TYPES` at factory shares (`mixOf`, looks only).
 - #614 part 1 (0.4.19): caught foul flies, `FOUL_OUT_P` of fouls (~1.3/game), fielder and spot from `FOUL_OUT_ZONES` (all in foul ground), hang stretched so he is under it; contact `foul: true`, out `fly_catch`; `tests/foulout.check.mjs`. Left: parts 2-10 of #614.
 - #614 part 2 (0.4.20): foul tips, `FOUL_TIP_OF_WHIFF` of held swinging strikes (looks RNG, after the WP/PB draw: box scores unchanged), frame `e.tip`, stream `call` `swinging_strike` + `tip: true`, a steal goes on; `tests/foultip.check.mjs`. Left: two-strike foul bunt (bunts are always put in play on the first pitch today), parts 3-10.
+- #614 part 3 (0.4.21): foul bunts, `BUNT_FOUL_P` of bunt attempts go foul (a strike at any count; two strikes = `strikeout_swinging`), side `BUNT_FOUL_RIGHT_P`; after strike two the bunt stays on only `BUNT_2K_KEEP_P`. Frame `e.bunt`, stream `call` `foul` + `bunt: true`; `run.mjs` counts it; `tests/foulbunt.check.mjs`. Left: parts 3-10 of the issue list (dropped third strike on).
 - #81 (0.4.10): a "stay" pick on the pitching vote brings the pitching coach out (`VIS` frame, `MOUND_VISIT_DUR`, stream `mound_visit`), once per pitcher; no draw, outcomes unchanged, only later times move.
 
 ## Next
