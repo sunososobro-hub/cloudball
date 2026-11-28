@@ -34,6 +34,16 @@ const q={id:'x1'},q2={id:'x1',look:{hair:2}};if(hairStyleOf(headOfPlayer(q))!==h
   if(!S.depth&&!S.side){if(P.length)bad.push(S.name+': bald draws '+P.length+' parts');continue}
   if(!P.length)bad.push(S.name+': no parts');
   for(const q of P){const [x,y,z]=q.p;if(Math.abs(x)>.12||y<.0||y>.2||z<-.2||z>.12)bad.push(`${S.name}: part at ${q.p.map(v=>v.toFixed(3))} is off the head (neck-local)`)}}}
+/* #744: cap off = a dome that covers the scalp (one dome part for every style but bald; cap on never gets one) */
+{const A={J:{neck:[0,1.5,.01],eyeL:[.03,1.62,.1]},head:{x0:-.075,x1:.075,z0:-.09,z1:.11,top:1.73}};
+ for(let st=0;st<HAIR_STYLES.length;st++){const S=HAIR_STYLES[st],on=hairParts(A,st),off=hairParts(A,st,true),dm=off.filter(q=>q.shape==='dome');
+  if(on.some(q=>q.shape==='dome'))bad.push(S.name+': dome under a cap');
+  if(!S.depth&&!S.side){if(off.length)bad.push(S.name+': bald cap-off draws parts');continue}
+  if(dm.length!==1){bad.push(S.name+': cap-off dome count '+dm.length);continue}
+  const q=dm[0],top=q.p[1]+q.s[1];
+  if(top<A.head.top-A.J.neck[1])bad.push(S.name+': dome top '+top.toFixed(3)+' below the scalp');
+  if(q.s[0]<(A.head.x1-A.head.x0)/2||q.s[2]<(A.head.z1-A.head.z0)/2)bad.push(S.name+': dome narrower than the head');
+  if(q.p[1]<A.J.eyeL[1]-A.J.neck[1])bad.push(S.name+': dome starts below the eyes')}}
 /* Part 4: hair colour per player: every team shows >= 3 colours, each from HAIR_TONES, stable */
 for(const R of ROSTERS){const cols=new Set();for(const p of [...(R.bat||[]),...(R.pit||[])].filter(p=>p&&p.id!=null)){const h=headOfPlayer(p),c=hairColorOf(h);
   if(!HAIR_TONES.includes(c))bad.push(p.id+': hair colour not from HAIR_TONES');if(hairColorOf(headOfPlayer(p))!==c)bad.push(p.id+': hair colour not stable');cols.add(c)}
