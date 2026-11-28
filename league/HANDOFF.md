@@ -21,6 +21,8 @@
 
 - #810 part 1: `practice.js` (pure): `PRACTICE_PER_DAY` limit kept in the caller's storage only, `practiceOpening` plays one practice game with the loaded engine (0 network calls), `practiceLink` = the 友誼賽 share link (URL only, no server row) + `tests/practice.check.mjs`. Left: the practice screen (#800), guild / snapshot lineups, no beacons.
 
+- #809 part 2: `GET /api/guilds/export` (`exportPage` in `functions/lib/guild.js`, `EXPORT_PAGE` 50, keyset `?after=<id>`, public fields only, `settings` null until #795) + checks in `tests/guild.check.mjs`. Left: `tools/guild_night.mjs` (needs the guild -> engine roster rule: members replace NPCs of the `base` team), practice reads the lock, owner hook issue.
+
 ## Next
 0. #437 part 2 done in code: `system: true` in `site.mjs` export + 系統 tag on cards, pure `placeFan` in `freeagents.js` (`tests/system.check.mjs`). Part 3: D1 store seeds `SYSTEM_PER_KIND` 系統 rows per kind (`agent_id` `sys:<pid>`, `system:true`, table `meta` marker) and `create` deletes the oldest filler of the fan's kind (`tests/agent.check.mjs`). Part 4: `site.mjs` `systemSecond()` puts `SYSTEM_SECOND_PER_KIND` (3) 系統 players per kind into each team's 二軍 in `players.json` (tier 2, `system:true`; leaguesite check). Part 5: `site.mjs` `placeFans(second, fans)` + `--fans fans.json` ([{team, player}]) put real fans in place of 系統 二軍 players (`tests/system.check.mjs`). Left: nothing reads the D1 store into that json yet (server side, out of scope of #437).
 1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes. Order: issue #68.

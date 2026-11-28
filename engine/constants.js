@@ -427,6 +427,11 @@ export const BENCH_CLEAR_ON = false;
 export const BENCH_CLEAR_P = 0.2;
 export const BENCH_CLEAR_MAX_P = 0.35;
 export const BENCH_CLEAR_DUR = 240;     /* s: benches and bullpens empty, umpires separate the players, both benches are warned */
+/* ejection (#379 part 6, off; needs BENCH_CLEAR_ON); simGame opts.eject overrides. After a bench-clearing the umpire ejects the pitcher
+ * who threw at the batter with EJECT_PITCHER_P (feud RNG); his team must bring in the next reliever before the next pitch (no vote).
+ * With no reliever left he stays in (the staff is used up). Batter ejections are a later part. First guess, no data yet. */
+export const EJECT_ON = false;
+export const EJECT_PITCHER_P = 0.5;
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
 export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */
@@ -542,3 +547,11 @@ export const HOLD_OFF = 0.8;
 export const DP_SHIFT = 0.3;
 export const HOLD2_SHIFT = 0.4;
 export const HOT3_SHIFT = 0.5;
+/* ---- 經紀人 agent set (#795 part 2): a created player's own pre-set frequencies (the league agent set), read by the engine as
+ * decision inputs. Each table is indexed by the cell's level LEVEL_MIN..LEVEL_MAX (0..4); the middle entry (LEVEL_NEUTRAL)
+ * is exactly 1, so a neutral or missing set plays today's game byte for byte. First estimates: part 3 (season sim) tunes them. */
+export const AGENT_SWING_EARLY_MULT = [0.8, 0.9, 1, 1.1, 1.2];   /* swing chance (zone and chase) before AGENT_EARLY_PITCHES pitches of the PA */
+export const AGENT_EARLY_PITCHES = 2;                            /* "early" = the first two pitches of the at-bat (counts 0-0, 1-0, 0-1) */
+export const AGENT_STEAL_TRY_MULT = [0, 0.5, 1, 1.5, 2];         /* the runner's chance to go once a steal is considered */
+export const AGENT_STEAL_OK_MULT = [1.04, 1.02, 1, 0.97, 0.94];  /* success chance: a choosy runner picks his pitch, a steal-happy one runs into bad jumps */
+export const AGENT_BUNT_MULT = [0, 0.5, 1, 1.3, 1.6];            /* chance the batter offers a sacrifice when the bunt is on the table (capped at 1) */

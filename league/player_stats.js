@@ -55,3 +55,13 @@ export const pitchText = l => `${l.g} 場　${inningsText(l.outs)} 局　面對�
 
 export const rate = x => (x == null ? '—' : x >= 1 ? x.toFixed(3) : x.toFixed(3).slice(1));
 export const lineText = l => `${l.g} 場　打席 ${l.pa}　打擊率 ${rate(l.avg)}　上壘率 ${rate(l.obp)}　長打率 ${rate(l.slg)}　全壘打 ${l.hr}`;
+
+/* #804 part 3: the game log. One row of the file = one game of the player; the last `n` nights of that season before idx, newest first.
+ *   batLog / pitLog(stats, id, season, idx, n = 10)   [{ day, row }] (row = the file's own array, validated)
+ *   batGameText(row) '4 打數 2 安打　全壘打 1　保送 1'     pitGameText(row) '6 局　面對 24 人　失 2 分　K 7　BB 1' */
+export const LOG_N = 10;
+const logOf = (rows, ok, S, D, season, idx, n) => rows.filter(r => ok(r) && r[S] === season && r[D] < idx).sort((a, b) => b[D] - a[D]).slice(0, n).map(r => ({ day: r[D], row: r }));
+export const batLog = (stats, id, season, idx, n = LOG_N) => logOf(stats && stats.trial === true && stats.players && Array.isArray(stats.players[id]) ? stats.players[id] : [], okRow, I.season, I.day, season, idx, n);
+export const pitLog = (stats, id, season, idx, n = LOG_N) => logOf(stats && stats.trial === true && stats.pitchers && Array.isArray(stats.pitchers[id]) ? stats.pitchers[id] : [], okPRow, PI.season, PI.day, season, idx, n);
+export const batGameText = r => `${r[I.ab]} 打數 ${r[I.h]} 安打${r[I.hr] ? `　全壘打 ${r[I.hr]}` : ''}${r[I.bb] ? `　保送 ${r[I.bb]}` : ''}`;
+export const pitGameText = r => `${inningsText(r[PI.outs])} 局　面對 ${r[PI.bf]} 人　失 ${r[PI.r]} 分　K ${r[PI.k]}　BB ${r[PI.bb]}`;
