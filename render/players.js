@@ -888,19 +888,22 @@ export function buildHeight(build) {
    Neck-local like the cap; the shared unit shapes are scaled per mesh, so a style costs a few draw calls and no new geometry. */
 const HAIR_ARC = [Math.PI / 3, Math.PI * 4 / 3];   /* theta from straight ahead: back and sides only, the face stays clear */
 /* Pure part list (shape, scale, position) in neck-local coordinates like the cap (model coordinates minus J.neck; in model coordinates the hair floated off the head, #559 part 3). */
-export function hairParts(A, style) {
+export function hairParts(A, style, capOff = false) {
   const S = HAIR_STYLES[style] || HAIR_STYLES[0], out = []; if (!S.depth && !S.side) return out;
   const hb = A.head, N = A.J.neck, eyeY = A.J.eyeL[1] - N[1], cx = (hb.x0 + hb.x1) / 2 - N[0], cz = (hb.z0 + hb.z1) / 2 - N[2], ra = (hb.x1 - hb.x0) / 2, rz = (hb.z1 - hb.z0) / 2, top = eyeY + .012;
+  /* #744: with the cap off the whole scalp is hair: a dome from the hairline (above the brows) over the top, sides and back, in the style's own thickness */
+  if (capOff) { const base = eyeY + HAIR_LINE, h = hb.top - N[1] - base + S.pad + HAIR_CROWN; out.push({ shape: 'dome', s: [ra + S.pad + HAIR_FIT, h, rz + S.pad + HAIR_FIT], p: [cx, base, cz - .004] }) }
   if (S.depth) out.push({ shape: 'ring', s: [ra + S.pad, S.depth, rz + S.pad], p: [cx, top - S.depth / 2, cz] });
   for (const sx of [-1, 1]) if (S.side) out.push({ shape: 'ball', s: [.014 + S.pad * .4, S.side / 2, .03], p: [cx + sx * (ra + S.pad * .5), eyeY + .012 - S.side / 2, cz + .004] });   /* Sideburn in front of the ear */
   if (S.name === 'curly') out.push({ shape: 'ball', s: [ra + S.pad, .05, rz + S.pad], p: [cx, top - .01, cz - .004] });
   if (S.tail) out.push({ shape: 'ball', s: [.028, S.tail / 2, .028], p: [cx, eyeY + .01 - S.tail / 2, hb.z0 - N[2] - .012] });
   return out;
 }
-let HAIR_RING = null, HAIR_BALL = null;
-function hairMeshes(A, style, mat) {
-  const out = []; HAIR_RING = HAIR_RING || new THREE.CylinderGeometry(1, 1, 1, 24, 1, true, HAIR_ARC[0], HAIR_ARC[1]); HAIR_BALL = HAIR_BALL || new THREE.SphereGeometry(1, 12, 8);
-  for (const q of hairParts(A, style)) { const m = new THREE.Mesh(q.shape === 'ring' ? HAIR_RING : HAIR_BALL, mat); m.scale.set(...q.s); m.position.set(...q.p); m.castShadow = true; out.push(m) }
+const HAIR_LINE = .035, HAIR_CROWN = .006, HAIR_FIT = .006;   /* #744 hairline above the eye line (m), crown margin, extra width so the dome clears the scalp */
+let HAIR_RING = null, HAIR_BALL = null, HAIR_DOME = null;
+function hairMeshes(A, style, mat, capOff = false) {
+  const out = []; HAIR_RING = HAIR_RING || new THREE.CylinderGeometry(1, 1, 1, 24, 1, true, HAIR_ARC[0], HAIR_ARC[1]); HAIR_BALL = HAIR_BALL || new THREE.SphereGeometry(1, 12, 8); HAIR_DOME = HAIR_DOME || new THREE.SphereGeometry(1, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  for (const q of hairParts(A, style, capOff)) { const m = new THREE.Mesh(q.shape === 'ring' ? HAIR_RING : q.shape === 'dome' ? HAIR_DOME : HAIR_BALL, mat); m.scale.set(...q.s); m.position.set(...q.p); m.castShadow = true; out.push(m) }
   return out;
 }
 function fitCapGeometry(A, kind) {
@@ -1228,12 +1231,12 @@ function makeRealPlayer(opts, A) {
     if (kit && kind === 'cap') { const q = capLogoSpot(cg); capLogo.position.copy(q.p); capLogo.rotation.x = q.tilt; cap.add(capLogo) }
     capRoot.add(cap); cap.traverse(o => { if (o.isMesh) o.castShadow = true });
   };
-  /* #559: hair style per player (hairStyleOf of the head index), re-seated per setBuild; shown only while a cap or helmet is on */
+  /* #559: hair style per player (hairStyleOf of the head index), re-seated per setBuild; cap on = the under-cap parts, cap off = those plus the full dome (#744) */
   const hairG = new THREE.Group(); capRoot.add(hairG); let hairKey = '';
   const putHair = head => {
     const key = A.key + ':' + hairStyleOf(head) + ':' + (headKind === 'none' ? 0 : 1); if (key === hairKey) return; hairKey = key;
     for (const m of hairG.children.slice()) hairG.remove(m);
-    if (headKind !== 'none') for (const m of hairMeshes(A, hairStyleOf(head), hair)) hairG.add(m);
+    for (const m of hairMeshes(A, hairStyleOf(head), hair, headKind === 'none')) hairG.add(m);   /* #744: cap off = the full dome of hair */
   };
   putHead(opts.head || 'cap'); putHair(0);
   if (opts.glove) { glove = makeGlove(leather); glove.position.y = .05; sockets.handL.add(glove); glove.traverse(m => { if (m.isMesh) m.castShadow = true }) }
