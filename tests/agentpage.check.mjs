@@ -31,8 +31,8 @@ const IDS = ['account', 'status', 'stage', 'stageCap', 'maker', 'mine', 'market'
 const page = () => Object.fromEntries(IDS.map(id => [id, Object.assign(new El('div'), { hidden: id !== 'status' })]));
 
 /* one run of the page: `mode` says what the browser and the server do */
-async function run({ key = null, storage = true, agent = 'ok', mine = null }) {
-  const dom = page(), calls = [], store = new Map(); if (key) store.set('cloudball.agentKey', key);
+async function run({ key = null, storage = true, agent = 'ok', mine = null, made = null }) {
+  const dom = page(), calls = [], bodies = [], store = new Map(); if (key) store.set('cloudball.agentKey', key);
   globalThis.document = { getElementById: id => dom[id], createElement: t => new El(t), querySelectorAll: () => [], addEventListener() {}, hidden: false, body: new El('body') };
   globalThis.window = { requestIdleCallback() {} };   /* the 3D preview never boots here */
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage
@@ -41,15 +41,18 @@ async function run({ key = null, storage = true, agent = 'ok', mine = null }) {
   const reply = body => ({ status: 200, json: async () => body });
   globalThis.fetch = async (url, opt = {}) => {
     const method = opt.method || 'GET'; calls.push(`${method} ${url}`);
+    if (opt.body) bodies.push({ url, body: JSON.parse(opt.body) });
     if (url.startsWith('/api/freeagents')) return reply({ ok: true, players: [], more: false, page: 0 });
     if (url.startsWith('/api/agent/draw')) return reply({ ok: true, n: 0, cap: 5, name: '測試', taken: false });
     if (url === '/api/agent' && method === 'POST') return agent === 'ok' ? reply({ ok: true, new: true }) : { status: 429, json: async () => ({ ok: false, why: 'limit' }) };
+    if (url === '/api/player' && method === 'POST' && made) return { status: 201, json: async () => ({ ok: true, player: made }) };
+    if (url === '/api/player/place' && method === 'POST') return reply({ ok: true, place: JSON.parse(opt.body).place });
     if (url === '/api/player' && method === 'GET') return mine === 'unknown' ? reply({ ok: false, why: 'unknown' }) : reply({ ok: true, player: mine });
     return reply({ ok: false, why: 'closed' });
   };
   await import(pathToFileURL(path.join(ROOT, `ui/agent.js`)).href + `?run=${Math.random()}`);
   for (let i = 0; i < 50; i++) await new Promise(r => setImmediate(r));   /* let start() and its calls settle */
-  return { dom, calls, store };
+  return { dom, calls, bodies, store };
 }
 const shown = dom => !dom.maker.hidden && dom.maker.children.length > 0;
 const buttons = dom => dom.maker.all(e => e.tag === 'button').map(b => b.textContent);
@@ -94,9 +97,45 @@ const buttons = dom => dom.maker.all(e => e.tag === 'button').map(b => b.textCon
   if (compareKeys(hid, pub).some(([k]) => k === 'pot') || compareKeys(pub, hid).some(([k]) => k === 'pot')) bad('#384: compare rows of a created player must not include pot');
   if (!compareKeys(pub, pub).some(([k]) => k === 'pot')) bad('compare rows of factory players still show pot (guide page)');
 }
+/* 6. #438: the start place. Two place buttons before 建立球員, 二軍 pressed by default; the pick is posted as `place` beside the choice;
+ * the shown player says where he is and one button moves him to the other place through POST /api/player/place */
+{
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(r => setImmediate(r)); };
+  const row = { id: 'fa-new', kind: 'bat', player: { id: 'fa-new', name: '測試', num: 3, pos: 'SS', bats: 'R', age: 20, place: 'second' }, ratings: { con: 50, pow: 50, eye: 50, spd: 50, arm: 50, ovr: 50 } };
+  const r = await run({ made: row });
+  const chips = r.dom.maker.all(e => e.tag === 'button' && e.className === 'chip' && (e.dataset.v === 'second' || e.dataset.v === 'free'));
+  if (chips.length !== 2) bad(`#438: expected the 二軍 and 自由市場 buttons in the maker, saw ${chips.length}`);
+  else {
+    const [second, free] = ['second', 'free'].map(v => chips.find(b => b.dataset.v === v));
+    if (second.attrs['aria-pressed'] !== 'true' || free.attrs['aria-pressed'] !== 'false') bad('#438: 二軍 must be the default pick');
+    if (!second.textContent.startsWith('二軍：') || !free.textContent.startsWith('自由市場：')) bad('#438: each place button carries its name and one line');
+    const make = r.dom.maker.all(e => e.tag === 'button' && e.textContent === '建立球員')[0];
+    make.onclick(); await settle();
+    let post = r.bodies.find(b => b.url === '/api/player');
+    if (!post || post.body.place !== 'second') bad(`#438: the default create must post place 'second', saw ${JSON.stringify(post && post.body.place)}`);
+    const { validateCreate } = await import(pathToFileURL(path.join(ROOT, 'league/freeagents.js')).href);
+    if (post) { const { place, ...choice } = post.body; if (validateCreate(choice).length) bad(`#438: the posted choice without place must stay valid: ${validateCreate(choice).join('; ')}`); }
+    free.onclick(); r.bodies.length = 0; make.onclick(); await settle();
+    post = r.bodies.find(b => b.url === '/api/player');
+    if (!post || post.body.place !== 'free') bad('#438: picking 自由市場 must post place \'free\'');
+  }
+  const mine = r.dom.mine.textContent;
+  if (!mine.includes('目前在二軍')) bad(`#438: the created player must say where he is (目前在二軍), saw 「${mine.slice(0, 80)}」`);
+  const move = r.dom.mine.all(e => e.tag === 'button' && e.dataset.to)[0];
+  if (!move || move.dataset.to !== 'free' || !move.textContent.startsWith('改去自由市場')) bad('#438: a 二軍 player gets one 改去自由市場 button');
+  else {
+    r.bodies.length = 0; await move.onclick(); await settle();
+    const p = r.bodies.find(b => b.url === '/api/player/place');
+    if (!p || p.body.place !== 'free' || Object.keys(p.body).length !== 1) bad(`#438: the move posts only {place:'free'}, saw ${JSON.stringify(p && p.body)}`);
+    if (!r.dom.mine.textContent.includes('目前在自由市場') || move.dataset.to !== 'second') bad('#438: after the move the line says 自由市場 and the button moves him back to 二軍');
+  }
+  /* a player stored before #438 has no place: he shows as 自由市場, where he was */
+  const old = await run({ key: 'cd'.repeat(32), mine: { ...row, player: { ...row.player, place: undefined } } });
+  if (!old.dom.mine.textContent.includes('目前在自由市場')) bad('#438: a player without a place shows as 自由市場');
+}
 /* 5. the page itself: no register section left in the markup */
 const html = readFileSync(path.join(ROOT, 'agent.html'), 'utf8');
 if (/id="account"|一鍵開始/.test(html)) bad('agent.html: the register section is gone, nothing may point at it');
 
-console.log(problems.length ? problems.map(p => 'FAIL ' + p).join('\n') : 'OK agent page flow (fresh load reaches the maker without a click, 4 browser states)');
+console.log(problems.length ? problems.map(p => 'FAIL ' + p).join('\n') : 'OK agent page flow (fresh load reaches the maker without a click, 4 browser states, #438 start place and move)');
 process.exit(problems.length ? 1 : 0);

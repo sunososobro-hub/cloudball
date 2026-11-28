@@ -2,7 +2,7 @@
  * free-agent list. No free text anywhere: every choice is a button, a chip or a slider, and the server judges it again.
  * The account is a random 32-byte key kept in localStorage; the server stores only its SHA-256 (functions/lib/agents.js).
  * Every call that is not answered ok (no binding, production, offline, a static server) reads as 「還沒開放」. */
-import { CREATE, validateCreate, pointKeys, budgetOf, positionFit, presetBody, presetHt } from '../league/freeagents.js';
+import { CREATE, validateCreate, pointKeys, budgetOf, positionFit, presetBody, presetHt, PLACES, DEFAULT_PLACE, placeOf } from '../league/freeagents.js';
 import { makePreview } from './agent-preview.js';
 import { ratingRow } from './bars.js';
 import { attachCompare } from './compare.js';
@@ -18,6 +18,9 @@ const BUILD = { normal: '標準', slim: '精瘦', power: '力量型', heavy: '�
 const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球', def: '守備' };
 const PIT_RATINGS = { stuff: '球威', ctrl: '控球', arm: '臂力' };
 const KIND = { bat: '打者', pit: '投手' };
+/* #438: where a new player starts (league/freeagents.js PLACES), one button each with its one-line text; the server stores it */
+export const PLACE = { second: ['二軍', '明天開始出賽，每場都有成績單。'], free: ['自由市場', '等球隊來挑。'] };
+const placeLabel = p => `${PLACE[p][0]}：${PLACE[p][1]}`;
 const WHY = { limit: '今天的新帳號名額滿了，明天再來。', already: '你已經有一位球員了。', name: '這個名字剛被別人用掉，換一個。', invalid: '選項有誤，請重新選。', key: '帳號資料不對。', unknown: '伺服器找不到這個帳號。' };
 
 const $ = id => document.getElementById(id);
@@ -100,9 +103,24 @@ function buildSortBar() {
 function showMine(row) {
   const pid = row.id ?? (row.player && row.player.id); try { if (pid != null) localStorage.setItem('cloudball.myPlayerId', String(pid)); } catch (e) { /* storage blocked: the data site cannot find him */ }  /* #399: the data site's 我的球員 looks him up by this id */
   const s = $('mine'); s.replaceChildren(el('h2', null, '你的球員'));
-  const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, el('p', 'left', '每個人只能有一位。之後經紀人要怎麼幫他，等開放再說。'));
+  const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, placeBox(row), el('p', 'left', '每個人只能有一位。之後經紀人要怎麼幫他，等開放再說。'));
   s.hidden = false; $('maker').hidden = true; showPreview(specOfRow(row), `${row.player.name} #${row.player.num}`);
   if (list.page) loadList(true);
+}
+
+/* #438: 目前在 二軍 / 自由市場, and one button to move him to the other place (POST /api/player/place; nothing else changes) */
+function placeBox(row) {
+  const box = el('div', 'place-now'), line = el('p', 'left'), move = el('button', 'btn ghost'), note = el('p', 'status'); move.type = 'button'; note.setAttribute('role', 'status');
+  let now = placeOf(row.player);
+  const draw = () => { const to = PLACES.find(p => p !== now); line.textContent = `目前在${placeLabel(now)}`; move.textContent = `改去${placeLabel(to)}`; move.dataset.to = to; };
+  move.onclick = async () => {
+    const key = store.get(), to = move.dataset.to; move.disabled = true; note.textContent = ''; note.classList.remove('err');
+    const r = await api('/api/player/place', { method: 'POST', key, body: { place: to } });
+    move.disabled = false;
+    if (r.body && r.body.ok) { now = r.body.place; row.player.place = now; draw(); return; }
+    note.classList.add('err'); note.textContent = isClosed(r) ? '還沒開放。' : '換不過去，等一下再試。';
+  };
+  draw(); box.append(line, move, note); return box;
 }
 
 /* ---- the maker ---- */
@@ -121,6 +139,7 @@ const defaults = kind => ({ kind, [kind === 'bat' ? 'pos' : 'role']: kind === 'b
 function buildMaker(key, state) {
   const s = $('maker'); s.replaceChildren(el('h2', null, '建立你的球員'));
   const draw = { n: 0, name: '', busy: false };
+  let place = DEFAULT_PLACE;   /* #438: not part of the choice validateCreate judges; posted beside it */
   const form = el('div'), nameBox = el('div', 'namebox'), nameText = el('b', null, '…'), again = el('button', 'btn ghost', '換一個名字');
   again.type = 'button'; nameBox.append(nameText, again);
   const nameField = el('fieldset', 'field'); nameField.append(el('legend', null, '名字（抽的，不能自己取）'), nameBox);
@@ -205,13 +224,14 @@ function buildMaker(key, state) {
   buildFields();
   make.onclick = async () => {
     make.disabled = true; msg.textContent = '建立中…'; msg.classList.remove('err');
-    const r = await api('/api/player', { method: 'POST', key, body: choice() });
+    const r = await api('/api/player', { method: 'POST', key, body: { ...choice(), place } });
     if (r.body && r.body.ok) { showMine(r.body.player); return; }
     msg.classList.add('err'); msg.textContent = isClosed(r) ? '還沒開放。' : (WHY[r.body.why] || '建立失敗，等一下再試。');
     if (r.body && r.body.why === 'already') { const m = await api('/api/player', { key }); if (m.body && m.body.player) showMine(m.body.player); }
     else if (r.body && r.body.why === 'name') drawName(draw.n + 1); else refresh();
   };
-  form.append(nameField, kindRow, fields, make, msg, el('p', 'left', KEY_WARN)); s.appendChild(form); s.hidden = false; refresh(); drawName(0);
+  const placeRow = chipGroup('一建立就去哪裡', PLACES.map(p => [p, placeLabel(p)]), place, v => { place = v; }, 'place');
+  form.append(nameField, kindRow, fields, placeRow, make, msg, el('p', 'left', KEY_WARN)); s.appendChild(form); s.hidden = false; refresh(); drawName(0);
 }
 
 /* ---- account (#350): no button, no heading. A browser without a key makes one and signs up by itself, then shows the maker. ---- */
