@@ -23,7 +23,7 @@ W9. Auto-merge (owner 2026-11-26, #472): the dev ruleset requires checks `test` 
     and turns it on with its PASS, after re-running the PR's `gate`. Posting `needs owner` / `blocking` turns it off. Outside PRs (head not here or author not the owner): never merged,
     pushed to or closed by an agent; label `needs-owner`. Base not `dev` never merges. An owner question in a PR -> its own `needs-owner` issue.
 W10. dev is not the default branch (no auto-close): the reviewer sweeps PRs merged since its last run; `Closes` -> close, `Refs` -> `status:todo` + what is left.
-W11. Never wait or poll for CI inside a session. Workers never touch `main`, tags or scheduled tasks; only the manager window (or a release routine) opens/merges dev→main release PRs and tags, as in tinglongwu.
+W11. Never wait or poll for CI inside a session. Workers never touch `main`, tags or scheduled tasks; only the manager window (or a release routine) opens/merges dev→main release PRs and tags, as in tinglongwu; a release PR must change `.deploy-stamp` (Cloudflare builds only on it, #817).
 W12. Hard stops for workers: `LICENSE`, `TRADEMARKS.md`, secrets or permissions; owner comments that conflict; taste or
      direction (names, personas, lines, look) -> `needs-owner` + one-line question with a recommendation, no PR.
 W13. Orphans: `status:doing` with no new commit on `fix/N*` for 60 min -> reviewer sets `status:todo`, deletes a claim-only branch.

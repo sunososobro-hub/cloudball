@@ -35,6 +35,8 @@ while (queue.length) {
 for (const f of ['assets/players.b64.txt', 'commentary/lines.json', 'commentary/scripts/index.json', 'league/preseason/opening.json', ...['grass', 'dirt', 'concrete', 'leather'].flatMap(n => ['c', 'n', 'orm'].map(s => `assets/tex/${n}_${s}.jpg`)), 'assets/tex/fabric_n.jpg', 'assets/tex/fabric_orm.jpg'])
   if (!existsSync(path.join(ROOT, f))) problems.push(`missing file: ${f}`);
 for (const f of ['commentary/lines.json', 'commentary/scripts/index.json']) { try { JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { problems.push(`${f} is not valid JSON`); } }
+/* #817: the Cloudflare deploy stamp exists and is one line */
+{ const f = path.join(ROOT, '.deploy-stamp'); if (!existsSync(f)) problems.push('missing file: .deploy-stamp'); else if (readFileSync(f, 'utf8').trim().split('\n').length !== 1 || !/^\S+ [0-9a-f]{40}$/.test(readFileSync(f, 'utf8').trim())) problems.push('.deploy-stamp must be one line: <UTC time> <dev sha>'); }
 /* #162: in every page the import map comes before the first modulepreload, preload and module script (a module linked
  * before the map exists fails on its bare "three/..." imports and stays failed for the real import) */
 for (const f of ['play.html', 'render/players_test.html']) {

@@ -77,6 +77,11 @@ Merging is automatic (rules W9): the dev ruleset merges a PR once the check runs
   - otherwise -> one `area:*` (the folder it mostly touches), a `P0`-`P3`, `model:opus` when it is engine logic,
     concurrency or motion / rig work, and `status:todo`. Add a one-line `Acceptance:` comment when the issue has none.
 
+## F. Deploy stamp (#817; last step of every run, after D's owner-queue read)
+- `STAMP_MIN_HOURS = 2`. Cloudflare builds dev only when `.deploy-stamp` changes. If the last commit touching it on dev is older than STAMP_MIN_HOURS
+  (`gh api "repos/$R/commits?sha=dev&path=.deploy-stamp&per_page=1" --jq '.[0].commit.committer.date'`) and dev has newer commits: claim `fix/817-sN` (N = date, `claim_branch.sh`),
+  write `<UTC time> <dev sha>` as the only line of `.deploy-stamp`, open a stamp-only PR (`Refs #817`, `cb-usage` line), auto-merge on (not a protected path).
+
 ## D. Report
 - One line on GitHub only where you acted (PR or issue comments above). Chat: `搞定` or `卡住：<reason>`.
 - Owner queue first: `O=$(gh api -X GET search/issues -f q="repo:$R is:issue is:open label:needs-owner" -f per_page=1 --jq .total_count)`.
