@@ -98,6 +98,9 @@ export const guarded = (handler, { needKey = false } = {}) => async ctx => {
       agent = await db.prepare('SELECT id, seed FROM agents WHERE id = ?1').bind(await sha256(m[1])).first();
       if (!agent) return fail(401, 'unknown');
       await db.prepare('INSERT INTO agent_seen (agent_id, day) VALUES (?1, ?2) ON CONFLICT(agent_id) DO UPDATE SET day = excluded.day WHERE agent_seen.day < excluded.day').bind(agent.id, Math.floor(Date.now() / DAY_MS)).run();
+      /* #807: one bounded chunk of the daily sweep per keyed call, never inside a public GET; a failure never reaches the caller */
+      const sweep = sweepInactive(db, Date.now()).catch(() => {});
+      if (ctx.waitUntil) ctx.waitUntil(sweep); else await sweep;
     }
     return await handler({ ...ctx, db, agent });
   } catch (e) { return fail(500, 'error'); }
@@ -151,34 +154,57 @@ const grow = (r, now) => {
   const ckpt = player.ckpt || null, s = growTo(player, ratings, Math.max(0, Math.floor((now - r.created_at) / DAY_MS)), ckpt);
   const view = viewOf(player, ratings, s), { ckpt: hidden, ...shown } = view.player;
   /* write back: the day count moved CKPT_EVERY past the stored checkpoint; ovr (the sort column) follows */
-  const save = s.day - (ckpt ? ckpt.day : 0) >= CKPT_EVERY ? { pid: r.pid, player: JSON.stringify({ ...player, ckpt: checkpointOf(s) }), ovr: view.ratings.ovr } : null;
+  const save = s.day - (ckpt ? ckpt.day : 0) >= CKPT_EVERY ? { pid: r.pid, player: JSON.stringify({ ...player, ckpt: checkpointOf(s) }), ovr: view.ratings.ovr, was: ckpt ? ckpt.day : null } : null;
   return { player: shown, ratings: view.ratings, save };
 };
-const saveStep = (db, x) => db.prepare('UPDATE players SET player = ?2, ovr = ?3 WHERE pid = ?1').bind(x.pid, x.player, x.ovr);
+/* #807: only the reader that still sees the checkpoint day it grew from writes (`was` = that day, null = none yet); a concurrent reader finds it moved and writes nothing */
+const saveStep = (db, x) => db.prepare("UPDATE players SET player = ?2, ovr = ?3 WHERE pid = ?1 AND json_extract(player, '$.ckpt.day') IS ?4").bind(x.pid, x.player, x.ovr, x.was);
 const publicRow = (r, now = Date.now(), saves = []) => {
   const g = grow(r, now); if (g.save) saves.push(g.save);
   return { id: r.pid, name: r.name, kind: r.kind, ovr: g.ratings.ovr, player: g.player, ratings: g.ratings, created: r.created_at, free: !!r.free };
 };
 
-/* #628 part 2: once per UTC day (meta `inactive_swept`, run by the first public list of the day) every fan player whose agent made no keyed call
- * for INACTIVE_DAYS (no row in agent_seen: his created day) is released by league/inactive.js releaseInactive, the same way as `release` below
- * (row stays, agent_id -> free:<pid>, `releases` note, new agent seed). 系統 and already free players are never touched; an empty store is a no-op. */
+/* #628 part 2 / #807: the daily sweep of inactive fans. Every fan player whose agent made no keyed call for INACTIVE_DAYS (no row in agent_seen:
+ * his created day) is released by league/inactive.js releaseInactive, the same way as `release` below (row stays, agent_id -> free:<pid>,
+ * `releases` note, new agent seed). 系統 and already free players are never touched; an empty store is a no-op.
+ * It never runs inside a public GET (#807): the keyed calls (`guarded` with needKey) run one chunk each, so a 10 ms request never scans every player.
+ * State in `meta`: inactive_swept = last UTC day fully done; inactive_cursor = '<last rowid>:<claim counter>'; inactive_budget = '<day>:<released so far>'.
+ * A chunk reads at most SWEEP_ROWS_PER_CALL rows by rowid (indexed), claims itself with an atomic UPDATE of the cursor (`changes` decides who sweeps),
+ * releases at most RELEASES_PER_DAY players a day (the rest wait: the day is closed and tomorrow starts again from the first row) and a failed
+ * chunk gives its cursor back, so the next call continues there and never starts over. Returns the pids released by this call. */
+export const SWEEP_ROWS_PER_CALL = 200;
+export const RELEASES_PER_DAY = 50;
 export const sweepInactive = async (db, now = Date.now()) => {
-  const day = Math.floor(now / DAY_MS);
-  if ((await db.prepare("SELECT v FROM meta WHERE k = 'inactive_swept'").first())?.v === String(day)) return [];
-  const rows = (await db.prepare("SELECT p.agent_id AS agent, p.pid, p.created_at, s.day AS seen FROM players p LEFT JOIN agent_seen s ON s.agent_id = p.agent_id WHERE p.agent_id NOT LIKE 'sys:%' AND p.agent_id NOT LIKE 'free:%'").all()).results;
+  const day = Math.floor(now / DAY_MS), d = String(day);
+  const meta = Object.fromEntries((await db.prepare("SELECT k, v FROM meta WHERE k IN ('inactive_swept', 'inactive_cursor', 'inactive_budget')").all()).results.map(r => [r.k, r.v]));
+  if (meta.inactive_swept === d) return [];
+  if (meta.inactive_cursor === undefined) await db.prepare("INSERT OR IGNORE INTO meta (k, v) VALUES ('inactive_cursor', '0:0')").run();
+  const cursor = meta.inactive_cursor ?? '0:0', [rid0, seq] = cursor.split(':').map(Number);
+  const [bDay, bUsed] = String(meta.inactive_budget || '').split(':'), used = bDay === d ? Number(bUsed) || 0 : 0;
+  const rows = (await db.prepare("SELECT p.rowid AS rid, p.agent_id AS agent, p.pid, p.created_at, s.day AS seen FROM players p LEFT JOIN agent_seen s ON s.agent_id = p.agent_id WHERE p.rowid > ?1 ORDER BY p.rowid LIMIT ?2")
+    .bind(rid0, SWEEP_ROWS_PER_CALL).all()).results;
   const players = {}, lastSeen = {};
-  for (const r of rows) { players[r.pid] = { owner: r.agent, created: Math.floor(r.created_at / DAY_MS) }; if (r.seen != null) lastSeen[r.agent] = r.seen; }
-  const { released } = releaseInactive(players, { today: day, lastSeen }), steps = [];
-  for (const pid of released) {
+  for (const r of rows) {
+    if (r.agent.startsWith('sys:') || r.agent.startsWith('free:')) continue;
+    players[r.pid] = { owner: r.agent, created: Math.floor(r.created_at / DAY_MS) }; if (r.seen != null) lastSeen[r.agent] = r.seen;
+  }
+  const due = releaseInactive(players, { today: day, lastSeen }).released, take = due.slice(0, Math.max(0, RELEASES_PER_DAY - used));
+  const closed = take.length < due.length || rows.length < SWEEP_ROWS_PER_CALL;      /* budget spent, or the last chunk of the table */
+  const next = `${closed ? 0 : rows[rows.length - 1].rid}:${seq + 1}`;
+  const claim = await db.prepare("UPDATE meta SET v = ?2 WHERE k = 'inactive_cursor' AND v = ?1").bind(cursor, next).run();
+  if (!claim.meta.changes) return [];                                                 /* another call took this chunk */
+  const steps = [];
+  for (const pid of take) {
     const agent = players[pid].owner;
     steps.push(db.prepare('UPDATE players SET agent_id = ?2 WHERE pid = ?1 AND agent_id = ?3').bind(pid, FREE(pid), agent),
       db.prepare('INSERT OR REPLACE INTO releases (pid, former, released_at) VALUES (?1, ?2, ?3)').bind(pid, agent, now),
       db.prepare('UPDATE agents SET seed = ?2 WHERE id = ?1').bind(agent, randomSeed()));
   }
-  steps.push(db.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES ('inactive_swept', ?1)").bind(String(day)));
-  await db.batch(steps);
-  return released;
+  steps.push(db.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES ('inactive_budget', ?1)").bind(`${d}:${used + take.length}`));
+  if (closed) steps.push(db.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES ('inactive_swept', ?1)").bind(d));
+  try { await db.batch(steps); }
+  catch (e) { await db.prepare("UPDATE meta SET v = ?1 WHERE k = 'inactive_cursor' AND v = ?2").bind(cursor, next).run().catch(() => {}); throw e; }
+  return take;
 };
 
 /* GET /api/player: the player of this agent, or null */
@@ -224,7 +250,6 @@ export const list = guarded(async ({ request, db }) => {
   const order = sort === 'ovr' ? 'ovr DESC, created_at DESC, pid' : sort === 'new' ? 'created_at DESC, pid'
     : `json_extract(ratings, '$.${sort}') DESC, ovr DESC, created_at DESC, pid`;
   const saves = [], now = Date.now();
-  await sweepInactive(db, now);
   const rows = (await db.prepare(`SELECT pid, name, kind, ovr, player, ratings, created_at, (agent_id LIKE 'free:%') AS free FROM players ORDER BY ${order} LIMIT ?1 OFFSET ?2`)
     .bind(PAGE_SIZE + 1, page * PAGE_SIZE).all()).results;
   const players = rows.slice(0, PAGE_SIZE).map(r => publicRow(r, now, saves));
