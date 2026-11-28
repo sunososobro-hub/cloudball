@@ -19,12 +19,46 @@
  * the farm records, league/replay.js). No `e` = the page's own engine (part 1 links keep working).
  *   friendlyPin(e)                    { ok: true, commit: sha | null } or { ok: false, reason } (bad `e` is never ignored)
  *   friendlyShare(a, commit, base)    absolute or relative link carrying the arrangement and the pin
- *   friendlyOpeningAt(s, e, load)     async friendlyOpening with the engine `load(commit)` returns; load is asked only when `e` is given */
+ *   friendlyOpeningAt(s, e, load)     async friendlyOpening with the engine `load(commit)` returns; load is asked only when `e` is given
+ *
+ * Own player (#751 part 3): `a.own` (optional) puts the visitor's batter into one lineup slot of one side. The link carries a frozen copy of him,
+ * so a friend needs no account and the game stays the same whatever he becomes later (same link = same game):
+ *   o=<side>.<slot>.<con>.<pow>.<eye>.<spd>.<arm>.<hand>.<age>.<num>.<name>   side 0 away / 1 home, slot 0..8, ratings = the 1..100 display numbers
+ *   ownParam(o) / parseOwn(s)         text <-> { side, slot, con, pow, eye, spd, arm, hand, age, num, name } (parse gives null when it does not fit)
+ *   ownProblem(o)                     named reason why an own player is not playable, or null
+ * He takes the slot's defensive position; his raw ratings come from league/friendly_own.js (ownRosters), which builds the `rosters` argument of
+ * friendlyOpening / friendlyOpeningAt. Practice and friendly games never count for anyone's stats (rule 24). */
 export const TEAM_COUNT = 4;
 export const STARTERS = 5;
 export const X_RE = /^([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,10})$/;
 export const SEED_MAX = 0xffffffff;
 export const COMMIT_RE = /^[0-9a-f]{7,40}$/;
+export const LINEUP_SLOTS = 9;
+export const OWN_RATINGS = ['con', 'pow', 'eye', 'spd', 'arm'];
+const NAME_RE = /^[^.\u0000-\u001f<>&"'\\]{1,12}$/u;
+
+export const ownParam = o => `${o.side}.${o.slot}.${OWN_RATINGS.map(k => o[k]).join('.')}.${o.hand}.${o.age}.${o.num}.${o.name}`;
+
+export function ownProblem(o) {
+  if (!o || typeof o !== 'object') return 'no own player';
+  if (o.side !== 0 && o.side !== 1) return 'own side is not 0 or 1';
+  if (!Number.isInteger(o.slot) || o.slot < 0 || o.slot >= LINEUP_SLOTS) return 'own slot is not 0..8';
+  for (const k of OWN_RATINGS) if (!Number.isInteger(o[k]) || o[k] < 1 || o[k] > 100) return `own ${k} is not 1..100`;
+  if (o.hand !== 'L' && o.hand !== 'R') return 'own hand is not L or R';
+  if (!Number.isInteger(o.age) || o.age < 15 || o.age > 60) return 'own age is not 15..60';
+  if (!Number.isInteger(o.num) || o.num < 0 || o.num > 99) return 'own number is not 0..99';
+  if (typeof o.name !== 'string' || !NAME_RE.test(o.name)) return 'own name is not 1..12 plain characters';
+  return null;
+}
+
+export function parseOwn(s) {
+  if (typeof s !== 'string') return null;
+  const f = s.split('.');
+  if (f.length !== 11) return null;
+  const n = i => (/^[0-9]{1,3}$/.test(f[i]) ? Number(f[i]) : NaN);
+  const o = { side: n(0), slot: n(1), con: n(2), pow: n(3), eye: n(4), spd: n(5), arm: n(6), hand: f[7], age: n(8), num: n(9), name: f[10] };
+  return ownProblem(o) ? null : o;
+}
 
 export function parseFriendly(s) {
   const m = typeof s === 'string' ? X_RE.exec(s) : null;
@@ -52,16 +86,17 @@ export function friendlyProblem(a) {
   if (a.away === a.home) return 'a team cannot play itself';
   if (!Array.isArray(a.sp) || a.sp.length !== 2 || !a.sp.every(i => Number.isInteger(i) && i >= 0 && i < STARTERS)) return 'starter is not one of the five SP';
   if (!Number.isInteger(a.seed) || a.seed < 0 || a.seed > SEED_MAX) return 'seed is not a uint32';
+  if (a.own !== undefined && a.own !== null) return ownProblem(a.own);
   return null;
 }
 
-export function friendlyOpening(s, engine) {
+export function friendlyOpening(s, engine, rosters) {
   const a = parseFriendly(s);
   if (!a) return { arrangement: null, opening: null, status: 'invalid', reason: 'x is not <away>-<home>-<awaySP>-<homeSP>-<seed>' };
   const why = friendlyProblem(a);
   if (why) return { arrangement: a, opening: null, status: 'invalid', reason: why };
   try {
-    const game = engine.simGame(a.seed, {}, { teams: [a.away, a.home], starters: a.sp });
+    const game = engine.simGame(a.seed, {}, rosters ? { teams: [a.away, a.home], starters: a.sp, rosters } : { teams: [a.away, a.home], starters: a.sp });
     return { arrangement: a, opening: { seed: a.seed, game, friendly: s }, status: 'ok', reason: '' };
   } catch (e) {
     return { arrangement: a, opening: null, status: 'unavailable', reason: (e && e.message) || String(e) };
@@ -79,18 +114,18 @@ export function friendlyShare(a, commit, base = 'play.html') {
   if (!pin.ok) throw new Error(pin.reason);
   const why = friendlyProblem(a);
   if (why) throw new Error(why);
-  return `${base}?x=${friendlyParam(a)}${pin.commit ? `&e=${pin.commit}` : ''}`;
+  return `${base}?x=${friendlyParam(a)}${pin.commit ? `&e=${pin.commit}` : ''}${a.own ? `&o=${encodeURIComponent(ownParam(a.own))}` : ''}`;
 }
 
-export async function friendlyOpeningAt(s, e, load) {
+export async function friendlyOpeningAt(s, e, load, rosters) {
   const pin = friendlyCommitPin(e);
   if (!pin.ok) return { arrangement: parseFriendly(s), opening: null, status: 'invalid', reason: pin.reason };
-  if (!pin.commit) return friendlyOpening(s, await load(null));
+  if (!pin.commit) return friendlyOpening(s, await load(null), rosters);
   const a = parseFriendly(s), why = a ? friendlyProblem(a) : 'x is not <away>-<home>-<awaySP>-<homeSP>-<seed>';
   if (why) return { arrangement: a, opening: null, status: 'invalid', reason: why };
   let engine;
   try { engine = await load(pin.commit); } catch (err) { return { arrangement: a, opening: null, status: 'unavailable', reason: `engine ${pin.commit}: ${(err && err.message) || err}` }; }
-  const r = friendlyOpening(s, engine);
+  const r = friendlyOpening(s, engine, rosters);
   if (r.opening) r.opening.engine = pin.commit;
   return r;
 }

@@ -5,6 +5,7 @@
  *   - a share link does not carry the arrangement and the engine pin, a bad pin is ignored instead of refused, the pinned engine is not the one asked for,
  *     or a link with a pin and the same link played twice (or with the page's own engine of the same commit) give different games,
  *   - league/friendly.js imports anything or uses Math.random, Date, fetch or the ledger; friendly.html is not reachable from index.html.
+   - (part 3) the own player in a link is refused when malformed, is frozen in the link (o=), changes the game, replaces only his slot, and never touches the factory rosters or an official file.
  * Usage: node tests/friendly.check.mjs */
 import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -12,8 +13,10 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as engine from '../engine/index.js';
 import { ROSTERS } from '../league/players.js';
-import { TEAM_COUNT, STARTERS, parseFriendly, friendlyParam, friendlyUrl, friendlyProblem, friendlyOpening, friendlyPin, friendlyCommitPin, friendlyShare, friendlyOpeningAt } from '../league/friendly.js';
+import { TEAM_COUNT, STARTERS, ownParam, parseOwn, ownProblem, parseFriendly, friendlyParam, friendlyUrl, friendlyProblem, friendlyOpening, friendlyPin, friendlyCommitPin, friendlyShare, friendlyOpeningAt } from '../league/friendly.js';
 import { ENGINE_PIN } from '../league/engine_pin.js';
+import { ownRosters, ownBatter } from '../league/friendly_own.js';
+import { myBatter, ownOf } from '../ui/friendly_me.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bad = [], fail = m => bad.push(m);
@@ -90,6 +93,48 @@ if (!/friendlyOpeningAt\(xp,q\.get\('e'\)/.test(play) || !/engineUrl/.test(play)
 if (!/friendlyShare/.test(ui) || !/ENGINE_PIN/.test(ui)) fail('ui/friendly.js does not build the pinned share link');
 if (!/id="share"/.test(page) || !/id="copy"/.test(page)) fail('friendly.html has no share link field');
 if (/Math\.random|Date\b|fetch\(/.test(readFileSync(path.join(ROOT, 'league/engine_pin.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''))) fail('league/engine_pin.js is not pure data');
+
+/* part 3: own player in the lineup */
+{
+  const own = { side: 0, slot: 3, con: 80, pow: 70, eye: 60, spd: 50, arm: 55, hand: 'L', age: 25, num: 7, name: '小明' };
+  const b = { away: 0, home: 1, sp: [0, 0], seed: 5, own }, plain = { away: 0, home: 1, sp: [0, 0], seed: 5 };
+  if (friendlyProblem(b)) fail(`own arrangement refused: ${friendlyProblem(b)}`);
+  if (JSON.stringify(parseOwn(ownParam(own))) !== JSON.stringify(own)) fail('parseOwn(ownParam(o)) != o');
+  const bads = [['side 2', { ...own, side: 2 }], ['slot 9', { ...own, slot: 9 }], ['rating 0', { ...own, con: 0 }], ['rating 101', { ...own, pow: 101 }], ['rating 1.5', { ...own, eye: 1.5 }], ['hand S', { ...own, hand: 'S' }], ['age 3', { ...own, age: 3 }], ['num -1', { ...own, num: -1 }],
+    ['dot in name', { ...own, name: 'a.b' }], ['tag in name', { ...own, name: '<b>' }], ['empty name', { ...own, name: '' }], ['long name', { ...own, name: '一二三四五六七八九十一二三' }]];
+  for (const [what, o] of bads) { if (!ownProblem(o)) fail(`own ${what} accepted`); if (!friendlyProblem({ ...b, own: o })) fail(`arrangement with own ${what} playable`); }
+  for (const s of ['', '0.3.80', '0.3.80.70.60.50.55.L.25.7', '0.3.80.70.60.50.55.L.25.7.a.b', '0.3.x.70.60.50.55.L.25.7.n', null, undefined]) if (parseOwn(s)) fail(`parseOwn("${s}") gives a player`);
+  const link = friendlyShare(b, ENGINE_PIN.commit), qq = new URLSearchParams(link.split('?')[1]);
+  if (!/&o=0\.3\.80\./.test(link) || JSON.stringify(parseOwn(qq.get('o'))) !== JSON.stringify(own)) fail(`share link does not carry the own player: ${link}`);
+  if (friendlyShare(plain, ENGINE_PIN.commit).includes('&o=')) fail('a link without an own player carries o');
+  const frozen = JSON.stringify(ROSTERS), ros = ownRosters(own, b, ROSTERS);
+  if (JSON.stringify(ROSTERS) !== frozen) fail('ownRosters changed the factory rosters');
+  if (ros[1] !== ROSTERS[1] || ros[2] !== ROSTERS[2] || ros[0].pit !== ROSTERS[0].pit || ros[0].bat[2] !== ROSTERS[0].bat[2]) fail('ownRosters copied more than the one lineup slot');
+  const him = ros[0].bat[3];
+  if (him.name !== '小明' || him.pos !== ROSTERS[0].bat[3].pos || him.hand !== 'L' || him.num !== 7) fail(`own batter ${JSON.stringify(him)}`);
+  const d = ownBatter(own, 'CF'), raw = [d.con, d.pow, d.eye, d.spd, d.arm];
+  if (raw.some(v => !(v > 0.3 && v < 2.2))) fail(`own raw ratings out of range ${raw}`);
+  const x = friendlyParam(b), g1 = friendlyOpening(x, engine, ros), g2 = friendlyOpening(x, engine, ownRosters(own, b, ROSTERS)), g0 = friendlyOpening(x, engine);
+  if (g1.status !== 'ok' || JSON.stringify(g1.opening.game.stream) !== JSON.stringify(g2.opening.game.stream)) fail('same own link, different game');
+  if (JSON.stringify(g1.opening.game.stream) === JSON.stringify(g0.opening.game.stream)) fail('the own player changed nothing');
+  if (!g1.opening.game.stream.some(e => JSON.stringify(e).includes('小明'))) fail('the own player never appears in the game');
+  if (JSON.stringify(g1.opening.game.stream).includes(ROSTERS[0].bat[3].name)) fail('the replaced batter still plays');
+  const asked = [], load = async c => { asked.push(c); return engine; };
+  const p1 = await friendlyOpeningAt(x, ENGINE_PIN.commit, load, ros);
+  if (p1.status !== 'ok' || JSON.stringify(p1.opening.game.stream) !== JSON.stringify(g1.opening.game.stream)) fail('pinned own play differs');
+  const visitor = await myBatter(() => 'pheasants-b1', async () => ({ 'pheasants-b1': { name: '劉立偉', num: 58, age: 30, role: 'B', pos: '2B', hand: 'R', overall: 75, abilities: { con: 56, pow: 70, eye: 90, spd: 46, arm: 82, pot: 76 }, team: 'macaques', tier: 1 } }));
+  if (!visitor || visitor.team !== 2 || ownProblem(ownOf(visitor.row, 0, 0))) fail('myBatter / ownOf did not give a playable own player');
+  const rowOf = (o) => async () => ({ p: { name: 'n', num: 1, age: 20, role: 'B', pos: 'C', hand: 'R', overall: 50, abilities: { con: 5, pow: 5, eye: 5, spd: 5, arm: 5, pot: 5 }, team: 'owls', tier: 1, ...o } });
+  for (const [what, o] of [['pitcher', { role: 'P' }], ['tier 3', { tier: 3 }], ['no team', { team: null }]]) if (await myBatter(() => 'p', rowOf(o))) fail(`myBatter takes a ${what}`);
+  if (await myBatter(() => '', rowOf({}))) fail('myBatter without an id');
+  if (await myBatter(() => { throw new Error('blocked'); }, rowOf({}))) fail('myBatter with blocked storage');
+  if (digest() !== before) fail('own player games changed an official file (rule 24)');
+  const own3 = readFileSync(path.join(ROOT, 'league/friendly_own.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''), me3 = readFileSync(path.join(ROOT, 'ui/friendly_me.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  if (/Math\.random|Date\b|fetch\(|localStorage|document\./.test(own3)) fail('league/friendly_own.js uses a clock, randomness, the network, storage or the DOM');
+  if (/setItem|removeItem|sendBeacon|method\s*:|ledger|farm_games/.test(me3)) fail('ui/friendly_me.js writes or touches the ledger');
+  if (!/friendlyOpeningAt\(xp,q\.get\('e'\),[^;]*,ros\)/.test(play) || !/parseOwn\(op\)/.test(play)) fail('play.html does not play ?o= with the own player');
+  if (!/id="ownBox"/.test(page) || !/myBatter/.test(ui) || !/ownOf/.test(ui)) fail('friendly.html / ui/friendly.js has no own player choice');
+}
 
 if (bad.length) { console.error('friendly check FAILED:\n - ' + bad.join('\n - ')); process.exit(1); }
 console.log('friendly check ok');
