@@ -43,6 +43,7 @@ export function simGame(seed, decisions, opts) {
   const owed = [0, 0];                                 /* grudge points a team holds for its hit batters, cleared at its pitcher's next chance */
   let warned = false;                                  /* after a retaliation the umpire has warned both benches: no more in this game */
   const feud = mulberry32((seed ^ K.FEUD_SALT) >>> 0);  /* #379 part 4: retaliation draws apart, so R keeps its sequence until one happens */
+  const benchOn = retaliateOn && (opts.benchClear ?? K.BENCH_CLEAR_ON);   /* #379 part 5: needs retaliation; off = part 4 games byte for byte */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
@@ -705,6 +706,12 @@ export function simGame(seed, decisions, opts) {
         e.d = d; e.showAt = showAt;
         emitPitchFrame(e, { pitcher: pit.name, result, rbi });
         pushFrame(e);
+        /* #379 part 5: after a retaliation the hit batter may charge the mound and both benches empty; a feud draw only after a
+         * retaliation (which R never sees), state unchanged, so outcomes stay; only later times move */
+        if (e.retal && benchOn && !over && feud() < Math.min(K.BENCH_CLEAR_MAX_P, K.BENCH_CLEAR_P * K.GRUDGE_TEMPER_SCALE[temperOf(bat)])) {
+          emit('bench_clearing', t, { team: off, batter: bat.name, pitcher: pit0.name });
+          pushFrame({ t, d: K.BENCH_CLEAR_DUR, k: 'BENCH', desc: COPY.benchClear(bat.name, pit0.name), s0: snap(), s1: snap(), off, def, big: K.BIG.HUGE });
+        }
         if (st.outs >= K.OUTS_PER_HALF && !paDone) break;
         /* #614 part 3: two strikes after a foul bunt: the coach mostly takes the bunt off and lets him swing away */
         if (bunt && !paDone && strikes === K.STRIKES_FOR_OUT - 1 && R() >= K.BUNT_2K_KEEP_P) bunt = false;
