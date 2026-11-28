@@ -141,6 +141,7 @@ export async function createField3D(canvas, THREE, opts = {}) {
   const fp = pitcher && figs.get(pitcher), fb = figs.get(batter), setAct = (f, c, ct, w, t0, mir) => { if (f && f.setMocap && c) f.setMocap(c, ct, w, mir, t0, 0); };
   const clearActs = () => { for (const f of [fp, fb]) if (f && f.setMocap) f.setMocap(null, 0, 0); };
   const init = new Map([fp, fb].filter(f => f && f.setBuild).map(f => [f, (f.buildArgs || ['normal', undefined, 0]).slice()]));   // #563 part 4: the stock look, back when the fan switches side
+  let meArgs = null, meSide = null;   // #563 part 6: the fan's look as setBuild args, and which side he is on; the batter-runner he becomes wears it too
   const acts = t => {
     if (!S) return;
     if (fp && clips.pitch) { const a = pitchAct(t); setAct(fp, clips.pitch, a.ct, a.w, PM.start, !!fp.mirrored); }
@@ -163,11 +164,12 @@ export async function createField3D(canvas, THREE, opts = {}) {
   }
   const api = {
     play(out) { api.skip(); S = buildBeats(out); S.swing = swings(out); S.bunt = bunts(out); S.hit = !!(out && out.play); trailN = 0; loadAct('pitch', PITCH_CLIP_URL); loadAct('swing', SWING_CLIP_URL); loadAct('bunt', BUNT_CLIP_URL);
-      for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z }); }
+      for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z });
+        const rf = R.bat && meSide === 'bat' && meArgs && figs.get(fig); if (rf && rf.setBuild) { try { rf.setBuild(...meArgs); } catch (e) { /* stock runner */ } } }
       t0 = performance.now(); raf = requestAnimationFrame(frame); },
     skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); clearActs(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); cam.fov = CAM.fov; cam.position.set(...CAM.pos); cam.lookAt(...CAM.look); cam.updateProjectionMatrix(); draw(); },
     /** #563 part 4: `side` 'bat' -> the fan's player is the batter, 'pitch' -> the pitcher; the other body goes back to its stock look. Picture only (rule 10). */
-    setMe(spec, side) { const a = PL ? meBuild(spec, PL.headOfPlayer) : null, me = side === 'pitch' ? fp : side === 'bat' ? fb : null;
+    setMe(spec, side) { const a = PL ? meBuild(spec, PL.headOfPlayer) : null, me = side === 'pitch' ? fp : side === 'bat' ? fb : null; meArgs = a; meSide = side;
       for (const [f, args] of init) { try { f.setBuild(...(f === me && a ? a : args)); } catch (e) { /* keep the body as it is */ } }
       if (!raf) draw(); },
     setSpeed(n) { if (SPEEDS.includes(n)) { const now = performance.now(); if (S) t0 = now - (now - t0) * speed / n; speed = n; } },

@@ -180,6 +180,13 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
         const get = async u => { asked.push(u); const pg = Number(new URL(u, 'http://x').searchParams.get('page')); return { ok: true, json: async () => pages[pg] }; };
         const got = await M.findMe('fa9', get); if (!got || got.head !== 3 || asked.length !== 2) bad('findMe must page /api/freeagents until his row: ' + asked.join());
         if (await M.findMe('zz', get) !== null || await M.findMe('fa9', async () => { throw new Error('offline'); }) !== null || await M.findMe('fa9', async () => ({ ok: false })) !== null) bad('findMe: no row / offline / error -> null'); }
+      { /* #563 part 6: the batter who runs after a hit wears his look (bat side only); teammates on base stay stock */
+        const og = Gm.createGame({ rnd: seeded(9) }); let hit = null, k2 = 0; while (!og.S.over && k2++ < 80 && !hit) { const o2 = og.pitch(og.userBats() ? { mode: 'one', r: 1 + k2 % 3, c: 1 + (k2 >> 1) % 3, steal: false, app: 'mid' } : { pt: 'fb', r: k2 % 5, c: (k2 >> 1) % 5, shift: 'N' }); if (o2.play && o2.play.runners.some(r => r.bat) && og.userBats() !== undefined) hit = o2; }
+        if (!hit) bad('no batted ball in 80 pitches to test the runner look');
+        else { const n0 = bod.length, hits = () => bod.slice(n0).filter(x => x.buildArgs[2] === 77).length;
+          f5.setMe(sp, 'bat'); f5.play(hit); const mine = hits(), runnersBuilt = bod.length - n0; f5.skip();
+          if (mine !== 1 || runnersBuilt < 1) bad(`bat side: exactly the batter-runner wears his look (${mine} of ${runnersBuilt})`);
+          const n1 = bod.length; f5.setMe(sp, 'pitch'); f5.play(hit); if (bod.slice(n1).some(x => x.buildArgs[2] === 77)) bad('pitch side: no runner wears his look'); f5.skip(); } }
       f5.setMe(null, 'bat'); if (pit.buildArgs[2] !== 0 || bat.buildArgs[2] !== 0) bad('setMe(null) must leave both stock'); }
     const f3 = await F3.createField3D(canvas, THREE, { PL: { makePlayer() { throw new Error('no body'); } } }); if (!f3) bad('a throwing makePlayer must fall back to the low-poly figures'); } }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
