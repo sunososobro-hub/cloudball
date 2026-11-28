@@ -37,6 +37,7 @@ export const COPY = {
   walk: n => `${n} 四壞球保送`,
   hbp: n => `${n} 觸身球上壘`,
   ejectChange: (team, out, np) => `${out.name} 被裁判驅逐出場，${team.short}緊急換投：${np.num} 號 ${np.name}`,
+  ejectRunner: (team, pr, cur) => `${cur.name} 被裁判驅逐出場，${team.short}代跑：${pr.num} 號 ${pr.name}`,
   benchClear: (b, p) => `${b} 衝向投手丘找 ${p}，兩隊板凳清空，裁判把雙方拉開並警告兩隊`,
   catcherInterference: n => `${n} 揮棒碰到捕手手套，捕手妨礙打擊，上一壘`,
   forcedIn: runs => `，擠回 ${runs} 分`,
