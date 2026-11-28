@@ -201,6 +201,7 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
   const gags = { chosen: null, flags: new Set(), used: new Set() };   /* the one running gag of this game and how far it has got */
   const turns = new Map();   /* how often each exchange was said: its response and "alt" wordings are said in turn */
   /* the fan guest has his own random stream, so his picks never shift what the other two pick */
+  const colorRng = mulberry32((seed ^ 0xc0102) >>> 0);   /* the colour voice's own stream too (#607): rules.colorChance never shifts the other picks */
   const fanRng = mulberry32((seed ^ 0xfa11) >>> 0), guest = guestOf(bank, teams[1] && teams[1].id), fanRecent = [], fanUses = new Map();
   const v2 = bank.version === 2;
   /* v2: what a line says for this game state, { text, clips } or null (a value outside its closed set); v1: the filled text */
@@ -212,7 +213,7 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
     const name = triggerOf(x, mem), T = name && bank.triggers[name];
     if (!T) continue;
     const roll = rng(), pickRoll = rng();            /* always drawn, so one silent moment does not shift every later choice */
-    const fanRoll = fanRng(), fanPick = fanRng();
+    const fanRoll = fanRng(), fanPick = fanRng(), colorRoll = colorRng();
     const priority = T.priority || 0;
     if (priority < 2 && x.t < quietUntil) continue;  /* the booth just spoke: let the picture breathe */
     if (roll < (T.silence || 0)) continue;           /* sometimes nobody talks */
@@ -229,7 +230,9 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
     if (ex.call) lines.push(at(x, 'pbp', say(ex.call, slots, 'pbp'), { delay, priority }));
     const turn = turns.get(ex) || 0, wordings = [ex.response, ...(ex.alt || [])];
     turns.set(ex, turn + 1);
-    if (ex.response) lines.push(at(x, 'color', say(wordings[turn % wordings.length], slots, 'color'), { delay: delay + RESPONSE_DELAY, priority }));
+    /* #607: the colour voice answers only some calls; a gag line keeps its response, it is the set-up or the payoff */
+    const colorChance = T.colorChance !== undefined ? T.colorChance : rules.colorChance !== undefined ? rules.colorChance : 1;
+    if (ex.response && (ex.gag || ex.needs || colorRoll < colorChance)) lines.push(at(x, 'color', say(wordings[turn % wordings.length], slots, 'color'), { delay: delay + RESPONSE_DELAY, priority }));
     quietUntil = x.t + (rules.minGapSec || 0);
     /* the fan guest, after the two professionals, only on moments where the play is over */
     if (!guest || !FAN_TRIGGERS.has(name)) continue;
