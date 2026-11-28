@@ -24,7 +24,7 @@ for (let s = 1; s <= GAMES; s++) {
   for (const e of st) {
     if (e.type !== 'pa_end') { pa.push(e); continue; }
     const bTo2 = pa.find(x => x.type === 'runner_advance' && x.from === 0 && x.to === 2);
-    if (e.result === 'single' && bTo2 && bTo2.how !== 'error') {   /* how 'error': an outfield bobble (tests/bobble.check.mjs) */
+    if (e.result === 'single' && bTo2 && bTo2.how !== 'error' && bTo2.how !== 'obstruction') {   /* how 'error': an outfield bobble (tests/bobble.check.mjs); 'obstruction': tests/obstruction.check.mjs */
       n++;
       const scored = pa.find(x => x.type === 'runner_advance' && x.from === 2 && x.to === HOME);
       const thr = pa.find(x => x.type === 'fielder_action' && x.action === 'throw' && x.to === 'C');
