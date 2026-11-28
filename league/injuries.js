@@ -13,6 +13,10 @@
  *   pickHealthyStarter(rot, teamId, pit, day, out)  index into the FULL `pit` (rotation memory is keyed by it): the healthy rotation man
  *                                       with the most rest (= season.pickStarter when one has MIN_REST_DAYS; short of
  *                                       that, the most rested healthy one pitches early); all injured -> pickStarter.
+ *   healthyGame(rosters, teams, sp, out)  tonight's engine { rosters, starters } for a logged game: each team in `out`
+ *                                       ({ <TEAMS index>: names }) plays healthyRoster, `sp` (index into the FULL pit) is
+ *                                       moved to the healthy pit; no `out` = the inputs as they are. Used by the season run
+ *                                       and by every replay of a logged game (trial_games.js), so both build the same game.
  * Data format (list): [{ team: <TEAMS index>, name, back }], plain JSON. */
 import { rotationOf, restDays, pickStarter } from './season.js';
 
@@ -49,4 +53,15 @@ export function pickHealthyStarter(rot, teamId, pit, day, out) {
   let best = ok[0], bestRest = restDays(rot, teamId, best, day);
   for (const i of ok.slice(1)) { const r = restDays(rot, teamId, i, day); if (r > bestRest) { best = i; bestRest = r; } }
   return best;
+}
+
+export function healthyGame(rosters, teams, sp, out) {
+  if (!out) return { rosters, starters: sp };
+  const rs = rosters.slice(), starters = sp.slice();
+  teams.forEach((t, k) => {
+    if (!out[t]) return;
+    const full = rosters[t], h = healthyRoster(full, out[t].filter(n => n !== full.pit[sp[k]].name));   /* an all-injured rotation: tonight's starter pitches */
+    rs[t] = h; starters[k] = h.pit.indexOf(full.pit[sp[k]]);
+  });
+  return { rosters: rs, starters };
 }

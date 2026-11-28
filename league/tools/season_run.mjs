@@ -26,7 +26,7 @@ import { siteFile } from '../season_site.js';
 import { advanceYear, seasonEnd } from '../turnover.js';
 import { siteRoster } from '../site_roster.js';
 import { owedFor, recordOwed } from '../grudges.js';
-import { recordInjuries, outOn, healthyRoster, pickHealthyStarter } from '../injuries.js';
+import { recordInjuries, outOn, pickHealthyStarter, healthyGame } from '../injuries.js';
 
 export const SITE_OUT = fileURLToPath(new URL('../site/season.json', import.meta.url));
 /* one night per line, so a new season reads as a small diff */
@@ -48,18 +48,9 @@ export const siteRosters = (players, tier) => TEAMS.map(t => siteRoster(players,
  * `owedIn` (so the game replays), and the counted game's `owed` replaces the pair's entry; the run returns the final `grudges` book.
  * injury (#379 part 11): true = simGame opts.injury; off by default (every game as before). The league keeps the injured list
  * (league/injuries.js): a player out tonight leaves the lineup / bullpen (healthyRoster) and the rotation skips him
- * (pickHealthyStarter). The log line keeps `out` ({ <team index>: names }) so the game replays with healthyGame below;
+ * (pickHealthyStarter). The log line keeps `out` ({ <team index>: names }) so the game replays with healthyGame (league/injuries.js);
  * `sp` stays the index into the full pit. The run returns the final `injured` list. */
-export function healthyGame(rosters, teams, sp, out) {
-  if (!out) return { rosters, starters: sp };
-  const rs = rosters.slice(), starters = sp.slice();
-  teams.forEach((t, k) => {
-    if (!out[t]) return;
-    const full = rosters[t], h = healthyRoster(full, out[t].filter(n => n !== full.pit[sp[k]].name));   /* an all-injured rotation: tonight's starter pitches */
-    rs[t] = h; starters[k] = h.pit.indexOf(full.pit[sp[k]]);
-  });
-  return { rosters: rs, starters };
-}
+export { healthyGame };
 
 export function runSeason(seed, { rosters = ROSTERS, feud, injury } = {}) {
   const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i]));
@@ -89,7 +80,7 @@ export function runSeason(seed, { rosters = ROSTERS, feud, injury } = {}) {
   schedule.forEach((night, day) => night.forEach((g, slot) => S.applyResult(table, play(day, slot, g, 'season'))));
   const fin = S.newFinal(table);
   for (let g = S.nextFinalGame(fin); g; g = S.nextFinalGame(fin)) S.applyFinalResult(fin, play(S.SEASON_NIGHTS + fin.games.length, FINAL_SLOT, g, 'final'));
-  return { seed, schedule, standings: S.rank(table).map(id => ({ id, ...table.teams[id] })), final: fin, champion: S.champion(fin), log, rot, ...(feud ? { grudges: book } : {}), ...(injury ? { injured } : {}) };
+  return { seed, schedule, standings: S.rank(table).map(id => ({ id, ...table.teams[id] })), final: fin, champion: S.champion(fin), log, rot, ...(feud ? { grudges: book, feud } : {}), ...(injury ? { injured, injury: true } : {}) };
 }
 
 /* Chained seasons of the 試跑 (#749): season 1 plays `seed`; after each season the display league (players.json format) is
@@ -97,11 +88,11 @@ export function runSeason(seed, { rosters = ROSTERS, feud, injury } = {}) {
  * league shows at that moment (#748 part 2: siteRosters(league, 1)); the engine plays every game (rule 10). Each run gets `.season`
  * and (except the last) `.turnover` = { retired, culled, called, signed, released, rookies } counts. Pure but for the engine. */
 export const turnoverSeed = (seed, k) => (Math.imul(seed >>> 0, 0x9e3779b1) ^ Math.imul(k, 0x85ebca6b)) >>> 0;
-export function runSeasons(seed, { seasons = 0, minDays = MIN_SITE_DAYS, players } = {}) {
+export function runSeasons(seed, { seasons = 0, minDays = MIN_SITE_DAYS, players, feud, injury } = {}) {
   const runs = [];
   let league = players, days = 0;
   for (let k = 1; seasons ? k <= seasons : days < minDays; k++) {
-    const rosters = siteRosters(league, 1), run = runSeason(seed + (k - 1) * SEASON_SEED_STEP, { rosters });
+    const rosters = siteRosters(league, 1), run = runSeason(seed + (k - 1) * SEASON_SEED_STEP, { rosters, feud, injury });
     run.season = k; run.rosters = rosters; days += new Set(run.log.map(x => x.day)).size; runs.push(run);
     if (seasons ? k < seasons : days < minDays) {
       const r = seasonEnd(advanceYear(league), { seed: turnoverSeed(seed, k) });
@@ -134,6 +125,12 @@ export function farmGames(seed, { commit, startId = 1, rosters } = {}) {
  * Every game is played again here with its logged seed to get the line score the replay checks; the engine plays it (rule 10). */
 export const TRIAL_OUT = fileURLToPath(new URL('../site/trial_games.json', import.meta.url));
 const slimRoster = r => ({ ...r, bat: r.bat.map(slimPlayer), pit: r.pit.map(slimPlayer) });
+/* #379 part 12: a run played with feud / injury (runSeasons options, off by default) logs `owedIn` / `out` per game; the trial
+ * line keeps `out` and `opts` (the engine flags + `owed`) so the replay builds the same game. Off = no new keys (file unchanged). */
+export function gameOpts(run, x) {
+  const o = { ...(run.feud || {}), ...(x.owedIn ? { owed: x.owedIn } : {}), ...(run.injury ? { injury: true } : {}) };
+  return Object.keys(o).length ? o : undefined;
+}
 export function trialFile(runs, { commit = '', version = ENGINE_VERSION } = {}) {
   const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i])), seasons = [], games = [];
   let offset = 0;
@@ -142,9 +139,9 @@ export function trialFile(runs, { commit = '', version = ENGINE_VERSION } = {}) 
     seasons.push({ n: i + 1, rosters: rosters.map(slimRoster) });
     const days = [...new Set(run.log.map(x => x.day))].sort((a, b) => a - b);
     for (const x of run.log) {
-      const teams = [ix[x.away], ix[x.home]], game = simGame(x.seed, {}, { teams, starters: x.sp, rosters });
-      const b = boxFromStream(game.stream);
-      games.push({ day: offset + x.day, slot: x.slot, season: i + 1, teams, sp: x.sp, seed: x.seed, score: b.score, line: b.line });
+      const teams = [ix[x.away], ix[x.home]], hg = healthyGame(rosters, teams, x.sp, x.out), extra = gameOpts(run, x);
+      const b = boxFromStream(simGame(x.seed, {}, { teams, starters: hg.starters, rosters: hg.rosters, ...(extra || {}) }).stream);
+      games.push({ day: offset + x.day, slot: x.slot, season: i + 1, teams, sp: x.sp, seed: x.seed, score: b.score, line: b.line, ...(x.out ? { out: x.out } : {}), ...(extra ? { opts: extra } : {}) });
     }
     offset += days.length;
   });
