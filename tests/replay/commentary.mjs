@@ -26,7 +26,8 @@ const KNOWN_SLOTS = new Set(['desc', 'batter', 'pitcher', 'runner', 'team', 'fie
   'manager', 'pitchingCoach', 'homeManager', 'managerName', 'managerLine', 'plateUmp', 'plateUmpLine', 'count', 'pitchType', 'pos', 'bases']);
 const KNOWN_TRIGGERS = new Set(['game_start', 'batter_up', 'two_strikes', 'full_count', 'stolen_base', 'caught_stealing', 'run_scores', 'pitching_change', 'fan_decision', 'half_end', 'walkoff', 'game_end',
   'strikeout', 'walk', 'intentional_walk', 'hit_by_pitch', 'single', 'infield_single', 'bunt_single', 'double', 'triple', 'home_run', 'groundout', 'flyout', 'lineout', 'popout', 'double_play', 'fielders_choice', 'sac_bunt', 'sac_fly', 'error',
-  'wild_pitch', 'passed_ball', 'balk', 'pickoff_safe', 'catcher_visit', 'pickoff_out', 'pickoff_rundown', 'catcher_interference', 'triple_play']);
+  'wild_pitch', 'passed_ball', 'balk', 'pickoff_safe', 'catcher_visit', 'pickoff_out', 'pickoff_rundown', 'catcher_interference', 'triple_play',
+  'pinch_hitter', 'pinch_runner', 'defensive_sub', 'runner_placed']);
 const FAN_SLOTS = new Set([...KNOWN_SLOTS, 'guest']);
 const FAN_SHARE = { min: 0.10, max: 0.30 };
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };

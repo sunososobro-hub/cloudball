@@ -544,8 +544,11 @@ export function simGame(seed, decisions, opts) {
               const nb = B.slice(); moves = [[0, 1, name]];
               if (bunt || (forcedOnGround && st.outs < K.OUTS_PER_HALF - 1)) {
                 /* everyone the batter pushes has to run, and is on the next base by the time the batter is out at first */
-                const push = bunt ? [1, 0].filter(i => B[i]) : [...Array(forcedOnGround).keys()].reverse();
-                for (const i of push) { if (i === 2) { moves.push([3, HOME, B[2]]); runs++; nb[2] = null; } else { moves.push([i + 1, i + 2, B[i]]); nb[i + 1] = B[i]; nb[i] = null; } }
+                const push = bunt ? [2, 1, 0].filter(i => B[i]) : [...Array(forcedOnGround).keys()].reverse();
+                for (const i of push) {
+                  /* #826: a bunt never puts two runners on a base: the runner on third goes only when forced (bases loaded), the one on second only while third is free after that */
+                  if (bunt && (i === 2 ? !(B[0] && B[1]) : nb[i + 1])) continue;
+                  if (i === 2) { moves.push([3, HOME, B[2]]); runs++; nb[2] = null; } else { moves.push([i + 1, i + 2, B[i]]); nb[i + 1] = B[i]; nb[i] = null; } }
                 result = bunt ? 'sac_bunt' : 'groundout'; desc = bunt ? COPY.sacBunt(name) : COPY.groundAdvance(name, fielder);
                 if (bunt) bs.ab--;   /* a sacrifice is not an at-bat */
               } else if (st.outs < K.OUTS_PER_HALF - 1 && (B[1] || B[2]) && R() < K.GB_ADVANCE_P) {
