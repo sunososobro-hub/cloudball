@@ -120,5 +120,10 @@ if (linked.includes('f-8') || linked.includes('f-9')) bad('home: a record of ano
 if (linked.split('二軍重播').length !== 2) bad('home: exactly one 二軍重播 link expected');
 if (view({ ...combine({ teams: tTeams, trial: ht }), today: '2026-12-02' }).includes('二軍重播')) bad('home: no farm file -> no replay link');
 
+/* the refill: --days N covers at least N nights and the first nights stay the same (same seed, start, commit) */
+const small = JSON.parse(execFileSync(process.execPath, [...args, '--days', '10'], { encoding: 'utf8' })), big = JSON.parse(out1);
+if (small.nights.length < 10 || small.nights.length >= big.nights.length) bad(`--days 10 gave ${small.nights.length} nights, want >= 10 and fewer than the default ${big.nights.length}`);
+eq(small.nights, big.nights.slice(0, small.nights.length), '--days: the shared nights are identical');
+
 if (problems.length) { console.error('season_site check FAILED:\n  ' + problems.join('\n  ')); process.exit(1); }
 console.log('season_site check ok');

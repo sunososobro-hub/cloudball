@@ -1,6 +1,7 @@
 /* Text-first data site (#335, split by tab in #344; roster cards in #353): the helpers every tab file uses. Pure: no DOM, no network, no game maths (rule 10).
  * A tab file (ui/site/<tab>.js) imports this file and nothing else from ui/, so two windows can edit two tabs without touching one file. */
 import { TEAMS } from '../../league/teams.js'; /* rule 9: ui/ may read league/; only the team colour is taken from it */
+import { temperOf, isTemper } from '../../league/temper.js'; /* #379: the temperament shown on the open card (display only) */
 export const MY_PLAYER_KEY = 'cloudball.myPlayerId';
 export const TIER_LABEL = { 1: '一軍', 2: '二軍', 3: '自由市場' };
 export const ABILITY_LABEL = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球', stuff: '球威', ctrl: '控球', pot: '潛力' };
@@ -35,7 +36,7 @@ export function mergeCreated(d, rows) {
     if (p.system !== true) { const at = Object.keys(players).find(k => players[k].system === true && players[k].tier === 2 && (players[k].role === 'P') === pit); if (at !== undefined) delete players[at]; }
     const keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
     players[id] = { name: p.name, num: p.num, age: p.age, role: pit ? 'P' : 'B', pos: pit ? (p.role === 'SP' ? 'SP' : 'RP') : p.pos, hand: pit ? p.throws : p.hand,
-      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3, ...(p.system === true ? { system: true } : {}) };
+      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3, ...(p.system === true ? { system: true } : {}), ...(isTemper(p.temper) ? { temper: p.temper } : {}) };
   }
   return { ...d, players };
 }
@@ -71,8 +72,10 @@ function card(id, p, base, f, open) {
   const meta = [pos(p), handText(p), p.age != null ? `${esc(p.age)} 歲` : ''].filter(Boolean).join('　');
   const abilities = Object.entries(p.abilities || {}).filter(([, v]) => v != null);
   const panel = open ? `<dl class="ab">${abilities.map(([k, v]) => `<div><dt>${esc(ABILITY_LABEL[k] || k)}</dt><dd class="num">${esc(v)}</dd><span class="bar"><i style="width:${Math.max(0, Math.min(100, Number(v) || 0))}%"></i></span></div>`).join('') || `<div><dt>能力</dt><dd>—</dd></div>`}</dl>` : '';
+  /* #379: the temperament (火爆 / 平穩 / 溫和): a stored one, else the fixed default of the player id (league/temper.js); no effect on ratings */
+  const temper = open ? `<p class="tmp">脾氣 <b>${esc(temperOf({ id, temper: p.temper }))}</b></p>` : '';
   /* the open card links back to the list without it (tap again closes); the others link to themselves */
-  return `<div class="pc${open ? ' open' : ''}" data-id="${esc(id)}"><a class="pt" href="${esc(base)}/${f}${open ? '' : '/' + encodeURIComponent(id)}" aria-expanded="${open}"><span class="tile" style="--tc:${teamCss(p.team)}">${p.num != null ? `<span class="no">#${esc(p.num)}</span>` : ''}<b class="ov num">${esc(p.overall)}</b><small>評價</small></span><span class="info"><b class="nm">${esc(p.name)}${p.system === true ? '<i class="sys">系統</i>' : ''}</b><span class="meta">${meta}</span></span></a>${panel}</div>`;
+  return `<div class="pc${open ? ' open' : ''}" data-id="${esc(id)}"><a class="pt" href="${esc(base)}/${f}${open ? '' : '/' + encodeURIComponent(id)}" aria-expanded="${open}"><span class="tile" style="--tc:${teamCss(p.team)}">${p.num != null ? `<span class="no">#${esc(p.num)}</span>` : ''}<b class="ov num">${esc(p.overall)}</b><small>評價</small></span><span class="info"><b class="nm">${esc(p.name)}${p.system === true ? '<i class="sys">系統</i>' : ''}</b><span class="meta">${meta}</span></span></a>${panel}${temper}</div>`;
 }
 /* rows: [id, player] pairs; `filter` and `openId` come from the hash. Returns the groups (or the one filtered list); '' when nobody shows. */
 export function rosterCards(rows, { base, filter, openId } = {}) {
