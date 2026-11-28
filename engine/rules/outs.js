@@ -10,6 +10,7 @@ export const OUT = Object.freeze({
   FORCE: 'force',
   TAG: 'tag',
   INFIELD_FLY: 'infield_fly',
+  DOUBLED_OFF: 'doubled_off',
 });
 
 import { STRIKES_FOR_OUT, CLOSE_PLAY_MARGIN } from '../constants.js';
@@ -52,6 +53,19 @@ export function infieldFly({ batter, fielder, type, foul, bunt, outs, bases, bal
   need(outs < 2 && !!bases[0] && !!bases[1], 'no infield-fly situation (runners on first and second, fewer than two outs)');
   need(isTime(ballDownAt) && isTime(at) && at >= ballDownAt, 'missing times');
   return { reason: OUT.INFIELD_FLY, runner: batter, from: 0, base: 0, fielder, ballAt: ballDownAt, at };
+}
+
+/* Doubled off (OBR 5.09(c)(1)): after a fly or liner is caught, a runner who left his base must retouch it; a fielder holding
+ * the ball who touches that base before he gets back puts him out (#614 part 13).
+ * caughtAt: when the batted ball was caught; ballAt / touchAt: ball held / fielder on the base; runnerAt: runner back on it. */
+export function doubledOff({ runner, from, base, fielder, caughtAt, ballAt, touchAt, runnerAt }) {
+  need(fielder, `nobody is on base ${base}`);
+  need(from >= 1 && from <= 3 && base === from, 'a runner is doubled off only at the base he started from');
+  need(isTime(caughtAt) && isTime(ballAt) && isTime(touchAt) && isTime(runnerAt), 'missing times');
+  need(ballAt >= caughtAt, 'the ball is on the base before it was caught');
+  const at = Math.max(ballAt, touchAt);
+  need(beats(ballAt, touchAt, runnerAt), `ball held on base ${base} at ${at.toFixed(3)}, runner back at ${runnerAt.toFixed(3)}`);
+  return { reason: OUT.DOUBLED_OFF, runner, from, base, fielder, ballAt, touchAt, runnerAt, at };
 }
 
 /* Force out: a fielder holding the ball touches the base before the forced runner gets there.

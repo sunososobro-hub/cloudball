@@ -247,6 +247,23 @@ function checkGame(seed, g) {
         if (actions.some(a => a.action === 'catch')) return 'the ball was caught: that is a fly_catch';
         return null;
       }
+      if (x.reason === 'doubled_off') {
+        /* #614 part 13: a runner who does not get back to his base after a caught liner (OBR 5.09(c)(1)) */
+        if (!contact || contact.ball !== 'LD' || contact.foul || contact.bunt) return 'no fair liner';
+        const c = actions.find(a => a.action === 'catch');
+        if (!c) return 'the liner was not caught';
+        if (!F.some(y => y.type === 'out' && y.reason === 'fly_catch' && y.runner === contact.batter)) return 'the batter is not out on the catch';
+        if (!(preOuts < 2)) return 'two outs already: the catch ends the inning';
+        if (x.from !== x.base || pre[x.from - 1] !== x.runner) return `${x.runner} was not on base ${x.base}`;
+        const hold = holderAt(x.fielder, x.t);
+        if (hold) return hold;
+        const touch = actions.find(a => a.action === 'touch' && a.fielder === x.fielder && a.base === x.base);
+        if (!touch) return `${x.fielder} never touched base ${x.base}`;
+        if (touch.t > x.t + EPS || x.t + EPS < c.t) return 'out recorded before the catch and the touch';
+        if (!(x.t + EPS < x.runnerAt)) return 'runner was back first';
+        if (!canBeThere(x.fielder, x.base, x.t, playStart)) return `${x.fielder} cannot reach base ${x.base} that fast`;
+        return null;
+      }
       if (x.reason === 'force' || x.reason === 'tag') {
         if (!x.fielder) return 'no fielder';
         const origin = x.from === 0 ? null : pre[x.from - 1];

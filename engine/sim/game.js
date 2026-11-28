@@ -11,9 +11,9 @@
  * really do, and rules/outs.js is the only way an out gets recorded. */
 import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
-import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
+import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, BASES, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
-import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple } from '../rules/fielding.js';
+import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple, resolveDoubledOff } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
@@ -548,9 +548,18 @@ export function simGame(seed, decisions, opts) {
             if (canTag && B[2] && R() < K.SAC_FLY_P) { tagUp = { from: 3, to: HOME }; sacFly = true; moves.push([3, HOME, B[2]]); runs++; nb[2] = null; }
             /* the runner on second tags and takes third if it is open; the throw goes to the lead runner */
             if (canTag && B[1] && !nb[2] && R() < K.TAG_2ND_TO_3RD_P) { tagUp = tagUp || { from: 2, to: 3 }; toThird = B[1]; moves.push([2, 3, B[1]]); nb[2] = B[1]; nb[1] = null; }
-            const fly = resolveFly(ctx, tagUp, !!play.iffDrop); plan = fly.plan; outs = fly.outs; st.b = nb;
+            /* #614 part 13: a liner an infielder catches, a runner on and fewer than two outs: the runner nearest the catch may
+             * have broken on contact (drawn from `rare`, R keeps its sequence); the timing decides if he is doubled off */
+            let ldDp = null;
+            if (type === 'LD' && !foulKey && !bunt && (fielder === 'P' || INFIELD_KEYS.includes(fielder)) && st.outs < K.OUTS_PER_HALF - 1 && (B[0] || B[1] || B[2])) {
+              let base = 0, best = Infinity;
+              for (let i = 0; i < 3; i++) if (B[i]) { const dd = dist([lx, lz], BASES[i + 1]); if (dd < best) { best = dd; base = i + 1; } }
+              if (rare() < K.LD_DOUBLED_OFF_P) ldDp = resolveDoubledOff(ctx, base);
+              if (ldDp) { nb[base - 1] = null; play.ldDp = base; }
+            }
+            const fly = ldDp || resolveFly(ctx, tagUp, !!play.iffDrop); plan = fly.plan; outs = fly.outs; st.b = nb;
             if (sacFly) { result = 'sac_fly'; desc = COPY.sacFly(name, B[2]); bs.ab--; }   /* a sacrifice fly is not an at-bat */
-            else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.iffDrop ? COPY.infieldFlyDrop(name, fielder) : play.foul ? COPY.foulOut(name, fielder) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
+            else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.iffDrop ? COPY.infieldFlyDrop(name, fielder) : play.foul ? COPY.foulOut(name, fielder) : play.ldDp ? COPY.lineDoublePlay(name, fielder, B[play.ldDp - 1], play.ldDp) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
             if (toThird) desc += COPY.tagToThird(toThird);
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);
