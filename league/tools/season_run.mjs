@@ -1,11 +1,11 @@
 /* Plays one whole season-0 from a seed and prints it (#599 part 3). Hand-run, engine only, no network, writes nothing.
  *
- *   node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write]]
+ *   node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write [--replace]]]   (--farm: the 二軍 of league/site/players.json)
  *   node league/tools/season_run.mjs --site --start YYYY-MM-DD [--seed N] [--seasons K] [--commit sha] [--write]   (#743/#749: league/site/season.json, 試跑)
  * --site chains seasons (#749): season k+1 starts the night after season k's final; between seasons the display league
  * (league/site/players.json) goes through advanceYear + seasonEnd. Default K = enough seasons to cover MIN_SITE_DAYS nights.
  *
- * League: the 4 factory teams (league/players.js ROSTERS), no fan file and no 二軍: the league runs with zero fan players
+ * League: the 4 teams; default rosters = the factory ROSTERS (league/players.js), --site / --farm play the rosters of league/site/players.json (#748); no fan file: the league runs with zero fan players
  * (owner 2026-11-27). Season = league/season.js: the 12-game schedule, a starter per team and night by rest days (the lineup
  * decision handed to the engine as opts.starters), standings, then the best-of-three final of the top two. Every game is
  * played by the engine; nothing here edits a score (rule 10). A game the engine ends tied after MAX_INNINGS is played again
@@ -20,6 +20,7 @@ import { farmRecord } from '../farm.js';
 import { OUT as FARM_OUT, serialize as farmSerialize } from './farm_record.mjs';
 import { siteFile } from '../season_site.js';
 import { advanceYear, seasonEnd } from '../turnover.js';
+import { siteRoster } from '../site_roster.js';
 
 export const SITE_OUT = fileURLToPath(new URL('../site/season.json', import.meta.url));
 /* one night per line, so a new season reads as a small diff */
@@ -32,19 +33,23 @@ export const TIE_REPLAYS = 10;
 const GAME_SEED_STEP = 10, SUBSEED_STEP = 1;      /* seed of a game = seed*1000 + day*10 + slot (+ replay number) */
 const FINAL_SLOT = 0;
 
-export function runSeason(seed) {
+/* #748 part 2: the rosters the site shows, in the engine shape. tier 1 = 一軍 (the 試跑 nights), tier 2 = 二軍 (the farm games). One entry per TEAMS index. */
+export const siteRosters = (players, tier) => TEAMS.map(t => siteRoster(players, t.id, tier));
+
+/* rosters: one { bat, pit, bench } per TEAMS index; the default stays the factory ROSTERS (seed 704 and every older check are byte for byte the same). */
+export function runSeason(seed, { rosters = ROSTERS } = {}) {
   const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i]));
   const schedule = S.makeSchedule(ids), table = S.newStandings(ids), rot = S.newRotation(ids), log = [];
   function play(day, slot, g, phase) {
     const sides = [g.away, g.home];
-    const sp = sides.map(id => S.pickStarter(rot, id, ROSTERS[ix[id]].pit, day));
+    const sp = sides.map(id => S.pickStarter(rot, id, rosters[ix[id]].pit, day));
     sides.forEach((id, k) => S.recordStart(rot, id, sp[k], day));
     for (let n = 0; n <= TIE_REPLAYS; n++) {
-      const game = simGame((seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0, {}, { teams: sides.map(id => ix[id]), starters: sp });
+      const game = simGame((seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0, {}, { teams: sides.map(id => ix[id]), starters: sp, rosters });
       const [awayRuns, homeRuns] = game.final.sc;
       if (awayRuns === homeRuns) continue;
       const res = { home: g.home, away: g.away, homeRuns, awayRuns };
-      log.push({ day, phase, ...res, starters: sides.map((id, k) => ROSTERS[ix[id]].pit[sp[k]].name), replays: n });
+      log.push({ day, phase, ...res, starters: sides.map((id, k) => rosters[ix[id]].pit[sp[k]].name), replays: n });
       return res;
     }
     throw new Error(`season ${seed} day ${day}: still tied after ${TIE_REPLAYS} replays`);
@@ -56,15 +61,15 @@ export function runSeason(seed) {
 }
 
 /* Chained seasons of the 試跑 (#749): season 1 plays `seed`; after each season the display league (players.json format) is
- * aged a year and goes through seasonEnd with a seed derived from the season seed. Engine rosters stay the factory ROSTERS
- * until #748 hands the site rosters to the engine, so the turnover is display data only (rule 10). Each run gets `.season`
+ * aged a year and goes through seasonEnd with a seed derived from the season seed. Each season is played by the 一軍 the display
+ * league shows at that moment (#748 part 2: siteRosters(league, 1)); the engine plays every game (rule 10). Each run gets `.season`
  * and (except the last) `.turnover` = { retired, culled, called, signed, released, rookies } counts. Pure but for the engine. */
 export const turnoverSeed = (seed, k) => (Math.imul(seed >>> 0, 0x9e3779b1) ^ Math.imul(k, 0x85ebca6b)) >>> 0;
 export function runSeasons(seed, { seasons = 0, minDays = MIN_SITE_DAYS, players } = {}) {
   const runs = [];
   let league = players, days = 0;
   for (let k = 1; seasons ? k <= seasons : days < minDays; k++) {
-    const run = runSeason(seed + (k - 1) * SEASON_SEED_STEP);
+    const run = runSeason(seed + (k - 1) * SEASON_SEED_STEP, { rosters: siteRosters(league, 1) });
     run.season = k; days += new Set(run.log.map(x => x.day)).size; runs.push(run);
     if (seasons ? k < seasons : days < minDays) {
       const r = seasonEnd(advanceYear(league), { seed: turnoverSeed(seed, k) });
@@ -77,14 +82,18 @@ export function runSeasons(seed, { seasons = 0, minDays = MIN_SITE_DAYS, players
 
 /* 二軍 day runner (#600 part 4): one 二軍 game per 一軍 pairing on every season night, same teams, own seed block
  * (FARM_SEED_BASE keeps them apart from the 一軍 seeds above). The engine plays them; the record keeps seed + commit +
- * result (farm.js). Lineups: the default rosters (系統 players, no fan file). Ids continue after `startId`. Pure but for the engine. */
+ * result (farm.js). Lineups: `rosters` (#748 part 2: siteRosters(players, 2), the full 系統 二軍), written into each record as opts.rosters
+ * (only the two teams that play, slim: no body / ht, the renderer reads a missing body as `normal`). No rosters = the default
+ * ROSTERS and no opts, as before. Ids continue after `startId`. Pure but for the engine. */
+export const slimPlayer = ({ body, ht, ...p }) => p;
 export const FARM_SEED_BASE = 1_000_000_000;
-export function farmGames(seed, { commit, startId = 1 } = {}) {
+export function farmGames(seed, { commit, startId = 1, rosters } = {}) {
   const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i])), out = [];
   S.makeSchedule(ids).forEach((night, day) => night.forEach((g, slot) => {
     const teams = [g.away, g.home].map(id => ix[id]), gseed = (FARM_SEED_BASE + seed * 1000 + day * GAME_SEED_STEP + slot) >>> 0;
-    const b = boxFromStream(simGame(gseed, {}, { teams }).stream);
-    out.push(farmRecord({ id: `f-${startId + out.length}`, day, seed: gseed, commit, version: ENGINE_VERSION, teams, score: b.score, line: b.line }));
+    const opts = rosters && { rosters: ids.map((_, i) => teams.includes(i) ? { ...rosters[i], bat: rosters[i].bat.map(slimPlayer), pit: rosters[i].pit.map(slimPlayer) } : null) };
+    const b = boxFromStream(simGame(gseed, {}, { teams, ...(opts || {}) }).stream);
+    out.push(farmRecord({ id: `f-${startId + out.length}`, day, seed: gseed, commit, version: ENGINE_VERSION, teams, opts, score: b.score, line: b.line }));
   }));
   return out;
 }
@@ -103,12 +112,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(0);
   }
   if (a.includes('--farm')) {   /* node season_run.mjs --seed N --farm [--commit sha] [--write]: the commit must be pushed (jsDelivr) */
-    const list = existsSync(FARM_OUT) ? JSON.parse(readFileSync(FARM_OUT, 'utf8')) : [];
+    const replace = a.includes('--replace'), list = !replace && existsSync(FARM_OUT) ? JSON.parse(readFileSync(FARM_OUT, 'utf8')) : [];
     const next = list.reduce((m, r) => Math.max(m, Number(String(r.id).slice(2)) || 0), 0) + 1;
     const commit = a.includes('--commit') ? a[a.indexOf('--commit') + 1] : execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
-    const recs = farmGames(seed, { commit, startId: next });
+    const recs = farmGames(seed, { commit, startId: replace ? 1 : next, rosters: siteRosters(JSON.parse(readFileSync(PLAYERS_IN, 'utf8')), 2) });
     for (const r of recs) console.log(JSON.stringify(r));
-    if (a.includes('--write')) { writeFileSync(FARM_OUT, farmSerialize(list.concat(recs))); console.log(`wrote ${recs.length} records (f-${next}..)`); }
+    if (a.includes('--write')) { writeFileSync(FARM_OUT, farmSerialize(list.concat(recs))); console.log(`wrote ${recs.length} records (f-${replace ? 1 : next}..)`); }
     process.exit(0);
   }
   const r = runSeason(seed);
