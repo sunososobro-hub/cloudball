@@ -7,6 +7,7 @@ import { STARTERS, friendlyShare, friendlyProblem } from '../league/friendly.js'
 import { myBatter, myPitcher, ownOf, ownOfPitcher } from './friendly_me.js';
 import { ENGINE_PIN } from '../league/engine_pin.js';
 import { gamesLeft, takeGame, PRACTICE_PER_DAY } from './practice_limit.js';
+import { parseAgent, ownKind, withAgent } from '../league/friendly_agent.js';
 
 const $ = id => document.getElementById(id);
 const st = { away: 0, home: 1, sp: [0, 0], seed: 0, own: -1 };
@@ -22,6 +23,11 @@ const arr = () => {
   }
   return a;
 };
+/* #795 part 8: friendly.html?t=<digits> comes from the 試試看 link of the 經紀人 box (agent.html); the set rides on the link of a game
+ * with his own player in it (`t=`, league/friendly_agent.js), so the engine reads his draft. No own player placed = no set. */
+const T = new URLSearchParams(location.search).get('t');
+const agentOf = own => (T && own ? parseAgent(T, ownKind(own)) : null);
+const link = a => withAgent(friendlyShare(a, ENGINE_PIN.commit), a.own, agentOf(a.own));
 const roll = () => (crypto.getRandomValues(new Uint32Array(1))[0]) >>> 0;
 
 function chips(box, items, current, pick) {
@@ -57,7 +63,8 @@ function draw() {
   const left = gamesLeft();
   $('left').textContent = left > 0 ? `今天還能自己開 ${left} 場（每天 ${PRACTICE_PER_DAY} 場，只記在這個瀏覽器；朋友打開你的連結不算）。` : `今天自己開的 ${PRACTICE_PER_DAY} 場用完了，明天再來；打開朋友的連結不受限。`;
   $('go').disabled = !!why || left <= 0;
-  $('share').value = why ? '' : new URL(friendlyShare(a, ENGINE_PIN.commit), location.href).href;
+  if (T && (inGame || pInGame)) $('ownWho').textContent += a.own && agentOf(a.own) ? ' 這場帶著你的經紀人草稿。' : a.own ? '' : ' 放他進去，這場就用你的經紀人草稿。';
+  $('share').value = why ? '' : new URL(link(a), location.href).href;
   $('copy').disabled = !!why;
 }
 
@@ -71,7 +78,7 @@ $('form').addEventListener('submit', e => {
   e.preventDefault();
   const a = arr();
   if (friendlyProblem(a) || !takeGame().ok) { draw(); return; }
-  location.href = friendlyShare(a, ENGINE_PIN.commit);
+  location.href = link(a);
 });
 $('copy').onclick = async () => {
   const box = $('share');
