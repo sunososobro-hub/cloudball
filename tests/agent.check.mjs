@@ -263,6 +263,7 @@ if (/engine\//.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))) bad('functions/lib/ag
   idb.sql.prepare('UPDATE players SET created_at = ? WHERE agent_id = ?').run(now - (D + 5) * DMS, ids[3]);      /* never seen: created D + 5 days ago */
   idb.sql.prepare('UPDATE players SET created_at = ? WHERE agent_id = ?').run(now - 500 * DMS, ids[0]);
   idb.sql.prepare("UPDATE players SET created_at = ? WHERE agent_id = ? OR agent_id = ?").run(now - 500 * DMS, ids[1], ids[2]);
+  idb.sql.prepare("DELETE FROM meta WHERE k LIKE 'inactive_%'").run();   /* the keyed calls above already ran a (then empty) sweep chunk today (#807) */
   const sysBefore = idb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id LIKE 'sys:%'").get().n;
   const out = await lib.sweepInactive(idb, now);
   const owner = pid => idb.sql.prepare('SELECT agent_id a FROM players WHERE pid = ?').get(pid)?.a;
