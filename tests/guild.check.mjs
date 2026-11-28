@@ -8,6 +8,8 @@
  *   - an answer shows an agent id, or one fan sees another fan's guild.
  *   - (part 2) a join without a free seat, twice, or by a fan who has a guild, is accepted; a leave / remove writes more than the member row;
  *     the 領隊 can leave or remove himself, a member can remove; a leaving 總教練 does not hand the seat back; an agent id shows; a move past the daily cap is accepted.
+ *   - (part 3) the lineup is saved by anyone but the 總教練, or off the rules (not nine distinct batting slots, a bad starter slot); a save is not shown back;
+ *     no save plays the automatic lineup; the 領隊 hands the seat to a non-member / a member can hand it over; the new 總教練 cannot save, the old one cannot.
  *   - (#809 part 2) the export is not closed without the binding / on production, repeats or skips a guild across pages, shows an agent id, or writes.
  * Usage: node tests/guild.check.mjs */
 import { createRequire } from 'node:module';
@@ -39,7 +41,7 @@ const call = async (handler, env, { method = 'GET', k, body, host = HOST, q = ''
 const is = (what, r, status, why) => { if (r.status !== status || (why && r.body?.why !== why)) bad(`${what}: expected ${status}${why ? ' ' + why : ''}, got ${r.status} ${JSON.stringify(r.body)}`); };
 
 /* closed without the binding and on production */
-for (const [h, method] of [[guild.mine, 'GET'], [guild.create, 'POST']]) {
+for (const [h, method] of [[guild.mine, 'GET'], [guild.create, 'POST'], [guild.lineup, 'POST'], [guild.coach, 'POST']]) {
   const a = await call(h, {}, { method, k: key() }), b = await call(h, { DB: makeDb() }, { method, k: key(), host: 'https://cloudball-3uy.pages.dev' });
   for (const r of [a, b]) if (r.status !== 503 || r.body?.why !== 'closed') bad(`a guild route must answer 503 closed (no binding / production), got ${r.status}`);
 }
@@ -111,6 +113,38 @@ if (lv.body?.guild !== null) bad('leave answers guild:null');
 const after = (await call(guild.mine, env, { k: ka })).body.guild;
 if (after.members.length !== 1 || !after.members[0].coach) bad('after the 總教練 leaves, the 領隊 must be 總教練 again');
 if (db.sql.prepare('SELECT COUNT(*) AS n FROM guild_members').get().n !== 1) bad('leave must delete exactly the member row');
+
+/* part 3: the 總教練's lineup and the hand-over of his seat */
+const fresh = (await call(guild.mine, env, { k: ka })).body.guild;
+const auto = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+if (JSON.stringify(fresh.lineup) !== JSON.stringify({ batting: auto, sp: 0, saved: false })) bad('with nothing saved the lineup must be the automatic one (saved:false)');
+const save = (k, order, sp) => call(guild.lineup, env, { method: 'POST', k, body: { order, sp } });
+is('lineup without a body', await call(guild.lineup, env, { method: 'POST', k: ka }), 400, 'invalid');
+for (const [what, order, sp] of [['eight batters', auto.slice(1), 0], ['a repeated slot', [0, 0, 2, 3, 4, 5, 6, 7, 8], 0], ['a slot out of range', [0, 1, 2, 3, 4, 5, 6, 7, 9], 0],
+  ['text slots', auto.map(String), 0], ['not a list', 'x', 0], ['sp out of range', auto, 5], ['sp negative', auto, -1], ['sp not whole', auto, 1.5], ['sp missing', auto, undefined]])
+  is(`lineup with ${what}`, await save(ka, order, sp), 400, 'invalid');
+if (db.sql.prepare('SELECT COUNT(*) AS n FROM guild_lineups').get().n) bad('a refused lineup must save nothing');
+is('lineup with no guild', await save(kb, auto, 0), 404, 'none');
+const LU = [8, 7, 6, 5, 4, 3, 2, 1, 0], sv = await save(ka, LU, 3); is('the 總教練 saves a lineup', sv, 200);
+if (JSON.stringify(sv.body?.guild?.lineup) !== JSON.stringify({ batting: LU, sp: 3, saved: true })) bad('the saved lineup must be shown back');
+const sv2 = await save(ka, auto, 1); is('a second save replaces the first', sv2, 200);
+if (db.sql.prepare('SELECT COUNT(*) AS n FROM guild_lineups').get().n !== 1 || sv2.body?.guild?.lineup.sp !== 1) bad('one row per guild, the last save wins');
+is('a member joins for the hand-over', await jn(kb, INV), 200);
+is('a plain member saves a lineup', await save(kb, LU, 0), 403, 'coach');
+const hand = (k, ref) => call(guild.coach, env, { method: 'POST', k, body: { ref } });
+const lv2 = (await call(guild.mine, env, { k: ka })).body.guild, other = lv2.members.find(m => !m.leader), mine = lv2.members.find(m => m.leader);
+is('hand-over without a body', await call(guild.coach, env, { method: 'POST', k: ka }), 400, 'invalid');
+is('a member hands over the seat', await hand(kb, other.ref), 403, 'leader');
+is('hand-over to nobody', await hand(ka, '0'.repeat(10)), 404, 'member');
+const ho = await hand(ka, other.ref); is('the 領隊 hands over the seat', ho, 200);
+if (!ho.body?.guild?.members.find(m => m.coach && !m.leader) || !ho.body?.guild?.members.find(m => m.leader)) bad('after the hand-over the member is 總教練 and the 領隊 stays 領隊');
+if (JSON.stringify(ho.body?.guild?.lineup) !== JSON.stringify({ batting: auto, sp: 1, saved: true })) bad('the saved lineup must survive the hand-over');
+is('the old 總教練 saves a lineup', await save(ka, LU, 0), 403, 'coach');
+is('the new 總教練 saves a lineup', await save(kb, LU, 0), 200);
+is('the 領隊 takes the seat back', await hand(ka, mine.ref), 200);
+if (/[0-9a-f]{64}/.test(JSON.stringify(ho.body))) bad('a hand-over answer must not show an agent id');
+if (guild.lineupAtLock({ batting: 'not json', sp: 0 }).saved || guild.lineupAtLock({ batting: '[1,2]', sp: 0 }).saved || guild.lineupAtLock(null).saved) bad('a row that does not parse, or off the rules, must fall back to the automatic lineup');
+is('the member leaves again', await call(guild.leave, env, { method: 'POST', k: kb }), 200);
 
 /* seats: a guild takes GUILD_SEATS members, the next join is refused and counts nothing in the guild */
 for (let i = 1; i < guild.GUILD_SEATS; i++) db.sql.prepare('INSERT INTO guild_members (agent_id, guild_id, joined_at) VALUES (?1, ?2, ?3)').run('fill' + i, INV, i);
