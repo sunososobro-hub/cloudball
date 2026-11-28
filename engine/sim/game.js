@@ -49,6 +49,8 @@ export function simGame(seed, decisions, opts) {
   const ejectOn = benchOn && (opts.eject ?? K.EJECT_ON);   /* #379 part 6: needs bench-clearing; off = part 5 games byte for byte */
   const ejected = [false, false];                      /* the team's pitcher was ejected: the next reliever comes in before the next pitch */
   const ejectBatOn = benchOn && (opts.ejectBatter ?? K.EJECT_BATTER_ON);   /* #379 part 7: needs bench-clearing; off = part 6 games byte for byte */
+  const injuryOn = opts.injury ?? K.INJURY_ON;        /* #379 part 10: draws after the last out from its own RNG; off = part 9 games byte for byte */
+  const hbpCount = [new Map(), new Map()];            /* name -> times hit by a pitch, per team (injury chance) */
   const ejectedBat = [null, null];                     /* name of the team's ejected batter-runner: a bench man runs for him before the next pitch */
   /* #795 part 2: 經紀人 agent sets, { <player name>: set } (league/agentset.js, frozen at game lock). A missing set or a neutral
    * cell multiplies nothing and draws nothing extra, so games without opts.agents are factory games byte for byte. */
@@ -436,6 +438,7 @@ export function simGame(seed, decisions, opts) {
         } else if (e.r === 'hbp' || balls === K.BALLS_FOR_WALK) {
           const f = forceAdvance(name); moves = f.moves; runs = f.runs; bs.bb++; ps.bb++; paDone = true;
           result = e.r === 'hbp' ? 'hit_by_pitch' : 'walk';
+          if (e.r === 'hbp') hbpCount[off].set(bat.name, (hbpCount[off].get(bat.name) || 0) + 1);
           if (e.r === 'hbp' && grudgeOn) {
             const tp = temperOf(bat);
             const score = K.GRUDGE_HBP * K.GRUDGE_TEMPER_SCALE[tp];
@@ -826,6 +829,23 @@ export function simGame(seed, decisions, opts) {
   fin.outs = K.OUTS_PER_HALF;
   ev.push({ t, d: 1e9, k: 'END', desc: winner < 0 ? COPY.tie(fin.sc) : COPY.final(TT[winner], fin.sc), s0: fin, s1: fin });
   const out = { ev, stream, dur: t, stats, batters, pst, final: fin, wp, lp, staff: RR.map(r => r.pit), teams: TI, seed, engine: K.ENGINE_VERSION };
+  if (injuryOn) {
+    /* #379 part 10: one draw per appearance, team 0 then 1, batting rows then pitchers in roster order; days drawn only on an injury */
+    const injR = mulberry32((seed ^ K.INJURY_SALT) >>> 0), injuries = [];
+    const draw = (k, p) => {
+      const hbp = hbpCount[k].get(p.name) || 0;
+      if (injR() >= K.INJURY_P + K.INJURY_HBP_P * hbp) return;
+      const days = K.INJURY_DAYS[0] + Math.floor(injR() * (K.INJURY_DAYS[1] - K.INJURY_DAYS[0] + 1));
+      injuries.push({ team: TI[k], name: p.name, ...(p.id ? { id: p.id } : {}), days, ...(hbp ? { hbp } : {}) });
+    };
+    const byName = k => new Map([...RR[k].bat, ...RR[k].bench].map(p => [p.name, p]));
+    for (const k of [0, 1]) {
+      const look = byName(k), seen = new Set();
+      for (const n of batters[k]) if (!seen.has(n)) { seen.add(n); draw(k, look.get(n) || { name: n }); }
+      RR[k].pit.forEach((p, i) => { if (pst[k][i].bf > 0 && !seen.has(p.name)) { seen.add(p.name); draw(k, p); } });
+    }
+    out.injuries = injuries;
+  }
   if (grudgeOn) { out.grudges = grudges; out.owed = { [TI[0]]: owed[0], [TI[1]]: owed[1] }; }
   return out;
 }
