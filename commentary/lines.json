@@ -176,6 +176,22 @@
       {"call": "捕手跑上投手丘，先講幾句話。"},
       {"call": "暫停，捕手上丘跟投手聊一下。", "response": "得點圈有人，讓投手喘口氣是對的。"},
       {"call": "捕手摘下面罩，走向投手丘。"}
+    ] },
+    "pickoff_out": { "priority": 1, "silence": 0, "exchanges": [
+      {"call": "牽制球傳一壘，跑者出局！", "response": "離壘太遠，這下被抓到了。"},
+      {"call": "投手回頭一傳，把跑者牽制出局。"}
+    ] },
+    "pickoff_rundown": { "priority": 1, "silence": 0, "exchanges": [
+      {"call": "跑者被夾在壘間，來回追逐，最後觸殺出局。", "response": "夾殺要傳得乾淨，這次內野沒讓他溜走。"},
+      {"call": "夾殺成功！跑者被堵在兩壘之間。"}
+    ] },
+    "catcher_interference": { "priority": 1, "silence": 0, "exchanges": [
+      {"call": "打者揮棒碰到捕手的手套，捕手妨礙打擊，打者上一壘。", "response": "這種狀況很少見，捕手手套伸太前面了。"},
+      {"call": "捕手妨礙打擊！裁判指向一壘，打者免費上壘。"}
+    ] },
+    "triple_play": { "priority": 2, "silence": 0, "exchanges": [
+      {"call": "三殺！一球解決三個人，整個半局就這樣結束了！", "response": "這種畫面一輩子難得看到幾次，今天看到了。"},
+      {"call": "三殺！守備一氣呵成，一次三個出局！", "response": "三壘、二壘、一壘，一路踩過去，漂亮。"}
     ] }
   },
   "guests": {
