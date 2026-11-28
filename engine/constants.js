@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.40';
+export const ENGINE_VERSION = '0.4.41';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -46,6 +46,7 @@ export const MOUND_VISIT_DUR = 16;
  * (`VISIT_SALT`), so R and the looks RNG keep their sequences; no outcome reads it. */
 export const OBSTRUCTION_SALT = 0x0b57c7ed; /* #614 part 15: seed offset of the RNG for obstruction draws (one per outfield single with second open) */
 export const RD3_SALT = 0x0d3c0ff3;         /* #614 part 16: seed offset of the RNG for runners caught off third (one draw per held runner on a groundout) */
+export const RD2_SALT = 0x0d2c0ff2;         /* #614 part 17: seed offset of the RNG for runners caught off second (one draw per held runner on a left-side groundout) */
 export const VISIT_SALT = 0x0b15175a;      /* seed offset of the RNG that decides catcher visits */
 export const MOUND_VISIT_LIMIT = 4;        /* mound visits per team per nine innings, coach and catcher together (OBR 5.10(m), 4 since 2024) */
 export const MOUND_VISIT_EXTRA = 1;        /* one more for each extra inning a team starts with none left (OBR 5.10(m)) */
@@ -388,6 +389,16 @@ export const RD_TAG_REACH = 1.0;
 export const RD3_OF_GB_HOLD_P = 0.25;
 export const RD3_MIN_GAP = 6;     /* m: a runner this close to home when the catcher has the ball is not run back (he would be tagged at the plate) */
 export const RD_3B_UP = 4;        /* m: the third baseman steps this far down the line toward home before the toss */
+/* #614 part 17: rundown off second. Of the groundouts to 3B, SS or P with the runner on second alone, fewer than two outs and
+ * the runner held, this share find him broken for third on contact (the ball was in front of him: a bad read); own RNG
+ * (RD2_SALT) so R, look, rare and rd3R keep their sequences. Then timing decides: he runs from his secondary lead
+ * (LEAD_PITCH) since BAT_RUN_DELAY, the fielder throws to third instead of first, he stops when the cover has it (RD_TURN),
+ * the cover runs him back RD_CHASE s and tosses to the man covering second, RD_2B_UP m toward third, who tags him before he
+ * is back. Within RD2_MIN_GAP m of third or any step that does not fit = the ordinary groundout. The batter is safe at first:
+ * a fielder's choice. Data: estimate, no count at hand (rare, the same order as the rundown off third). */
+export const RD2_OF_GB_HOLD_P = 0.12;
+export const RD2_MIN_GAP = 4;     /* m: a runner this close to third when the cover has the ball slides in, he is not run back */
+export const RD_2B_UP = 4;        /* m: the man covering second steps this far toward third before the toss */
 export const RD_STEP = 0.01;      /* s: time step when finding where the first baseman meets the runner */
 /* Throw-over that does not get him (#38): same set-up, drawn with POF_P after the pickoff draw, at most POF_MAX_PA times
  * in one plate appearance (MLB rule since 2023: two disengagements per plate appearance; a third that does not get the

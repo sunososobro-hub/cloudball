@@ -13,7 +13,7 @@ import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
 import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, BASES, spotXZ, dist, clamp, runnerTimeline, fielderStart, runPace } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
-import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple, resolveDoubledOff, resolveRundownHome } from '../rules/fielding.js';
+import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple, resolveDoubledOff, resolveRundownHome, resolveRundownThird } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
@@ -70,6 +70,7 @@ export function simGame(seed, decisions, opts) {
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
   const obsR = mulberry32((seed ^ K.OBSTRUCTION_SALT) >>> 0);   /* #614 part 15: obstruction draws, apart so R, rare and look keep their sequences */
   const rd3R = mulberry32((seed ^ K.RD3_SALT) >>> 0);   /* #614 part 16: runner caught off third, apart so R, rare and look keep their sequences */
+  const rd2R = mulberry32((seed ^ K.RD2_SALT) >>> 0);   /* #614 part 17: runner caught off second, apart so R, rare, look and rd3R keep their sequences */
   const visitR = mulberry32((seed ^ K.VISIT_SALT) >>> 0);   /* #614 part 11: catcher visits (timing only), drawn apart so R and look keep their sequences */  /* #614 part 9: outcomes of rare plays (catcher's interference), drawn apart so the main sequence R is not shifted */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
@@ -631,7 +632,11 @@ export function simGame(seed, decisions, opts) {
                 /* #614 part 16: the runner on third (first open) broke on contact; the fielder throws home and he is run down
                  * between third and home (resolveRundownHome). The batter is safe at first: a fielder's choice */
                 const rd3 = B[2] && !B[0] && st.outs < K.OUTS_PER_HALF - 1 && fielder !== 'C' && rd3R() < K.RD3_OF_GB_HOLD_P ? resolveRundownHome(ctx) : null;
+                /* #614 part 17: the runner on second alone broke for third on a ball in front of him (3B, SS, P); thrown to third
+                 * and run down between second and third (resolveRundownThird). The batter is safe at first: a fielder's choice */
+                const rd2 = !rd3 && B[1] && !B[0] && !B[2] && st.outs < K.OUTS_PER_HALF - 1 && (fielder === '3B' || fielder === 'SS' || fielder === 'P') && rd2R() < K.RD2_OF_GB_HOLD_P ? resolveRundownThird(ctx) : null;
                 if (rd3) { plan = rd3.plan; outs = rd3.outs; nb[2] = null; nb[0] = name; play.rd3 = true; result = 'fielders_choice'; desc = COPY.rundownHome(name, fielder, B[2]); }
+                else if (rd2) { plan = rd2.plan; outs = rd2.outs; nb[1] = null; nb[0] = name; play.rd2 = true; result = 'fielders_choice'; desc = COPY.rundownThird(name, fielder, B[1]); }
                 else { result = 'groundout'; desc = COPY.groundOut(name, fielder); }
               }
               st.b = nb;
