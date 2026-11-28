@@ -1,5 +1,6 @@
-/* Checks for the play-by-play calls of events that end no plate appearance (#606 part 1): node commentary/calls.check.mjs
- *   - over SEEDS games, each of wild pitch, passed ball, balk, safe pickoff and the catcher's mound visit
+/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-2): node commentary/calls.check.mjs
+ *   - over SEEDS games, each of wild pitch, passed ball, balk, safe pickoff, the catcher's mound visit, pickoff out, rundown, catcher interference
+ *     and triple play (about 0.0003 a game: pinned seed 1131, teams [3, 0], as tests/tripleplay.check.mjs)
  *     is called at least once (the drafted line sits on an event of that kind)
  *   - those lines are name-free: no player name, no {desc}, no unfilled slot
  *   - each call key has at least 2 wordings (3 where it fires more than once a game on average) */
@@ -17,6 +18,10 @@ const KINDS = {
   balk: { is: x => x.type === 'balk', min: 2 },
   pickoff_safe: { is: x => x.type === 'pickoff' && x.safe === true, min: 3 },
   catcher_visit: { is: x => x.type === 'mound_visit' && x.staff === 'catcher', min: 3 },
+  pickoff_out: { is: x => x.type === 'pickoff' && !x.safe && !x.rundown, min: 2 },
+  pickoff_rundown: { is: x => x.type === 'pickoff' && x.rundown === true, min: 2 },
+  catcher_interference: { is: x => x.type === 'pa_end' && x.result === 'catcher_interference', min: 2 },
+  triple_play: { is: x => x.type === 'pa_end' && x.result === 'triple_play', min: 2 },
 };
 const problems = [], bad = m => { if (problems.length < 20) problems.push(m); };
 const called = Object.fromEntries(Object.keys(KINDS).map(k => [k, 0]));
@@ -24,8 +29,9 @@ for (const [k, { min }] of Object.entries(KINDS)) {
   const n = ((bank.triggers[k] || {}).exchanges || []).length;
   if (n < min) bad(`bank: ${k} has ${n} wording(s), needs ${min}`);
 }
-for (let seed = 1; seed <= SEEDS; seed++) {
-  const g = simGame(seed, {}), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
+const GAMES = [...Array.from({ length: SEEDS }, (_, i) => ({ seed: i + 1 })), { seed: 1131, teams: [3, 0] }];
+for (const { seed, teams: pin } of GAMES) {
+  const g = simGame(seed, {}, pin ? { teams: pin } : undefined), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
   const booth = createBooth({ stream: g.stream, seed, bank, teams, describe });
   const names = new Set([...(g.stream[0].lineups || []).flat(), ...(g.stream[0].starters || [])].filter(Boolean));
   for (const l of booth.lines) {
