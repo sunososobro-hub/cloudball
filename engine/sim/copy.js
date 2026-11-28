@@ -47,6 +47,7 @@ export const COPY = {
   error: (n, ground) => `${n} 擊出${ground ? '滾地球' : '飛球'}，守備失誤上壘`,
   drivesIn: runs => `，帶回 ${runs} 分`,
   doublePlay: (n, f) => `${n} 擊出${FIELDER_NAME[f]}方向滾地球，雙殺！`,
+  triplePlay: (n, f) => `${n} 擊出${FIELDER_NAME[f]}方向滾地球，踩三壘、傳二壘、再傳一壘，三殺！`,
   fieldersChoice: (n, f, runner, base) => `${n} ${FIELDER_NAME[f]}前滾地球，${base === 3 ? '三' : '二'}壘封殺 ${runner}`,
   groundAdvance: (n, f) => `${n} ${FIELDER_NAME[f]}前滾地球出局，跑者推進`,
   sacFly: (n, runner) => `${n} 高飛犧牲打，${runner} 回來得分`,
