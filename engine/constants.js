@@ -377,7 +377,13 @@ export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runne
 export const PR_DUR = 8;                  /* seconds of the pinch-run frame (jog out from the dugout) */
 /* defensive replacement (#436 part 7, on since part 8 / 0.4.17); simGame opts.defSub overrides */
 export const DEF_SUB_ON = true;
-export const DS_MIN_INNING = 8;           /* asked only from this inning on, at the start of the half the leading team fields */
+export const DS_MIN_INNING = 8;
+/* grudges (#379 part 3, off); simGame opts.grudge overrides. A hit batter holds a grudge against the pitcher:
+ * GRUDGE_HBP points, times the batter's temperament factor (temperOf in the league temper module). No draw: the score is a record
+ * only, retaliation and bench-clearing are later parts of #379. First guesses, no data yet. */
+export const GRUDGE_ON = false;
+export const GRUDGE_HBP = 1;
+export const GRUDGE_TEMPER_SCALE = { '火爆': 1.5, '平穩': 1, '溫和': 0.5 };           /* asked only from this inning on, at the start of the half the leading team fields */
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
 export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */
