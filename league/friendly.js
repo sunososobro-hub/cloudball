@@ -32,7 +32,9 @@
  *   .<slim>.<power>.<heavy>.<ht> after the name (batter 15 fields, pitcher 13): build blend weights 0..100 (league/players.js body x 100) and
  *   height in cm (LOOK_HT_MIN..LOOK_HT_MAX); `o.body = { slim, power, heavy }`, `o.ht`. Links without them draw him with the normal build.
  * He takes the slot's defensive position; his raw ratings come from league/friendly_own.js (ownRosters), which builds the `rosters` argument of
- * friendlyOpening / friendlyOpeningAt. Practice and friendly games never count for anyone's stats (rule 24). */
+ * friendlyOpening / friendlyOpeningAt. Practice and friendly games never count for anyone's stats (rule 24).
+ * 經紀人 set (#795 part 8, optional): `t=<12 digits>` next to `o=` carries the own player's agent set; league/friendly_agent.js parses it into
+ * the `agents` argument of friendlyOpening / friendlyOpeningAt (kept out of this file so it stays import-free). */
 export const TEAM_COUNT = 4;
 export const STARTERS = 5;
 export const X_RE = /^([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,10})$/;
@@ -116,13 +118,16 @@ export function friendlyProblem(a) {
   return null;
 }
 
-export function friendlyOpening(s, engine, rosters) {
+/* agents (#795 part 8, optional): simGame opts.agents ({ <own player's name>: his 經紀人 set }, league/friendly_agent.js); none = the game as before */
+export function friendlyOpening(s, engine, rosters, agents) {
   const a = parseFriendly(s);
   if (!a) return { arrangement: null, opening: null, status: 'invalid', reason: 'x is not <away>-<home>-<awaySP>-<homeSP>-<seed>' };
   const why = friendlyProblem(a);
   if (why) return { arrangement: a, opening: null, status: 'invalid', reason: why };
   try {
-    const game = engine.simGame(a.seed, {}, rosters ? { teams: [a.away, a.home], starters: a.sp, rosters } : { teams: [a.away, a.home], starters: a.sp });
+    const opts = rosters ? { teams: [a.away, a.home], starters: a.sp, rosters } : { teams: [a.away, a.home], starters: a.sp };
+    if (agents) opts.agents = agents;
+    const game = engine.simGame(a.seed, {}, opts);
     return { arrangement: a, opening: { seed: a.seed, game, friendly: s }, status: 'ok', reason: '' };
   } catch (e) {
     return { arrangement: a, opening: null, status: 'unavailable', reason: (e && e.message) || String(e) };
@@ -143,15 +148,15 @@ export function friendlyShare(a, commit, base = 'play.html') {
   return `${base}?x=${friendlyParam(a)}${pin.commit ? `&e=${pin.commit}` : ''}${a.own ? `&o=${encodeURIComponent(ownParam(a.own))}` : ''}`;
 }
 
-export async function friendlyOpeningAt(s, e, load, rosters) {
+export async function friendlyOpeningAt(s, e, load, rosters, agents) {
   const pin = friendlyCommitPin(e);
   if (!pin.ok) return { arrangement: parseFriendly(s), opening: null, status: 'invalid', reason: pin.reason };
-  if (!pin.commit) return friendlyOpening(s, await load(null), rosters);
+  if (!pin.commit) return friendlyOpening(s, await load(null), rosters, agents);
   const a = parseFriendly(s), why = a ? friendlyProblem(a) : 'x is not <away>-<home>-<awaySP>-<homeSP>-<seed>';
   if (why) return { arrangement: a, opening: null, status: 'invalid', reason: why };
   let engine;
   try { engine = await load(pin.commit); } catch (err) { return { arrangement: a, opening: null, status: 'unavailable', reason: `engine ${pin.commit}: ${(err && err.message) || err}` }; }
-  const r = friendlyOpening(s, engine, rosters);
+  const r = friendlyOpening(s, engine, rosters, agents);
   if (r.opening) r.opening.engine = pin.commit;
   return r;
 }
