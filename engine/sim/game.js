@@ -39,6 +39,10 @@ export function simGame(seed, decisions, opts) {
   const defSub = opts.defSub ?? K.DEF_SUB_ON;         /* #436 part 7: off = factory games byte for byte */
   const grudgeOn = opts.grudge ?? K.GRUDGE_ON;        /* #379 part 3: off = factory games byte for byte */
   const grudges = [];                                  /* one row per hit batter: { inning, half, from, to, temper, score } */
+  const retaliateOn = grudgeOn && (opts.retaliate ?? K.RETALIATE_ON);   /* #379 part 4: needs the record; off = part 3 games byte for byte */
+  const owed = [0, 0];                                 /* grudge points a team holds for its hit batters, cleared at its pitcher's next chance */
+  let warned = false;                                  /* after a retaliation the umpire has warned both benches: no more in this game */
+  const feud = mulberry32((seed ^ K.FEUD_SALT) >>> 0);  /* #379 part 4: retaliation draws apart, so R keeps its sequence until one happens */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
@@ -137,7 +141,7 @@ export function simGame(seed, decisions, opts) {
       add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'ci' ? 'catcher_interference' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
-    if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0, groundRule: e.play && e.play.groundRule ? true : undefined });
+    if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0, groundRule: e.play && e.play.groundRule ? true : undefined, retaliation: e.retal ? true : undefined });
     out.sort((a, b) => a.time - b.time);
     for (const o of out) emit(o.type, o.time, o.data);
   };
@@ -302,11 +306,19 @@ export function simGame(seed, decisions, opts) {
         bunt = st.inn >= K.BUNT_MIN_INNING && margin <= 0 && margin >= -K.BUNT_MAX_DEFICIT;
       }
 
+      /* ---- defence: retaliation (#379 part 4)? The first batter the offended team's pitcher faces after one of its own was hit:
+       * one chance, RETALIATE_P x the grudge points it holds x the pitcher's temperament factor; the first pitch hits him. ---- */
+      let brush = false;
+      if (retaliateOn && !warned && owed[def] > 0) {
+        brush = feud() < Math.min(K.RETALIATE_MAX_P, K.RETALIATE_P * owed[def] * K.GRUDGE_TEMPER_SCALE[temperOf(pit0)]);
+        owed[def] = 0;
+      }
+
       let balls = 0, strikes = 0, paDone = false, pofN = 0;
       while (!paDone) {
         const s0 = snap(), c0 = [balls, strikes]; st.pc[def]++;
         const going = st.steal && st.steal === stealBase() ? st.steal : 0; st.steal = false;
-        const inZ = bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX);
+        const inZ = !brush && (bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX));
         const zx = inZ ? (R() - K.HALF) * 2 * K.ZONE_HALF_WIDTH : (R() < K.HALF ? -1 : 1) * (K.MISS_X_MIN + R() * K.MISS_X_SPAN);
         const zy = inZ ? K.ZONE_Y_MIN + R() * K.ZONE_Y_SPAN : (R() < K.HALF ? K.MISS_LOW_Y - R() * K.MISS_LOW_SPAN : K.MISS_HIGH_Y + R() * K.MISS_HIGH_SPAN);
         const pq = look(), PT = mixOf(pit0).find(p => pq < p[1]);
@@ -319,7 +331,8 @@ export function simGame(seed, decisions, opts) {
         const appeal = swing => { e.chk = { ump: bat.hand === 'L' ? 3 : 1, swing }; return COPY.checkSwing(e.chk.ump, swing); };
 
         /* ---- what happens to the pitch ---- */
-        if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
+        if (brush) { brush = false; e.r = 'hbp'; e.retal = true; }
+        else if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
           /* balk (#38): the pitcher stops in his motion, the umpire calls it, no pitch counts, every runner moves up one base */
           e.r = 'bk'; st.pc[def]--; e.pc = st.pc[def];
         } else if (!going && st.b[0] && !st.b[1] && R() < K.PO_P) {
@@ -365,7 +378,10 @@ export function simGame(seed, decisions, opts) {
           result = e.r === 'hbp' ? 'hit_by_pitch' : 'walk';
           if (e.r === 'hbp' && grudgeOn) {
             const tp = temperOf(bat);
-            grudges.push({ inning: st.inn, half: st.half, from: bat.id, to: pit0.id, temper: tp, score: K.GRUDGE_HBP * K.GRUDGE_TEMPER_SCALE[tp] });
+            const score = K.GRUDGE_HBP * K.GRUDGE_TEMPER_SCALE[tp];
+            grudges.push({ inning: st.inn, half: st.half, from: bat.id, to: pit0.id, temper: tp, score, ...(e.retal ? { retaliation: true } : {}) });
+            /* a retaliation ends the feud for this game (the umpire warns both benches); any other hit batter's team owes one back */
+            if (e.retal) { warned = true; e.big = K.BIG.NOTABLE; } else owed[off] += score;
           }
           desc = e.r === 'hbp' ? COPY.hbp(name) : COPY.walk(name);
           if (e.r === 'ball' && look() < K.CHECK_APPEAL_BALL_P) desc = COPY.call('ball') + appeal(false) + '，' + desc;
