@@ -59,15 +59,18 @@ async function recordBox(parent, g) {
   box.textContent = recordText(guildRecord(await getJson(STANDINGS_URL), g.id));
 }
 
+let palette = [];   /* the colour choices the server sent with the last GET */
 function showGuild(g, seats = 10) {
   const iAmLeader = g.members.some(m => m.leader && m.me), iAmCoach = g.members.some(m => m.coach && m.me);
   const s = $('mine'); s.replaceChildren(el('h2', null, g.name));
+  if (g.color && /^#[0-9a-f]{6}$/.test(g.color)) s.firstChild.style.borderLeft = `8px solid ${g.color}`;
   s.appendChild(el('p', 'left', `基地球隊：${g.base.name}（球團用這支球隊的名單，隊員加入後取代他的位置）`));
   const roles = el('dl', 'r');
   const who = role => g.members.find(m => m[role]);
   const nameOf = m => (m && m.player ? m.player.name : '你');
   roles.append(el('dt', null, '領隊'), el('dd', null, nameOf(who('leader'))), el('dt', null, '總教練'), el('dd', null, nameOf(who('coach'))));
   s.appendChild(roles);
+  if (iAmLeader) styleBox(s, g);
   powerBox(s, g);
   recordBox(s, g);
   s.appendChild(el('h3', null, '隊員'));
@@ -102,6 +105,30 @@ function showGuild(g, seats = 10) {
     s.appendChild(out);
   }
   s.hidden = false; $('maker').hidden = true;
+}
+
+/* #800 part 8: the 領隊 renames the guild and picks its colour (a fixed palette from the server); one explicit save button, counted as a daily save */
+function styleBox(parent, g) {
+  const box = el('div', 'style'); parent.append(el('h3', null, '團名與顏色'), box);
+  const input = el('input'); input.type = 'text'; input.value = g.name; input.maxLength = 12; input.autocomplete = 'off'; input.setAttribute('aria-label', '團名');
+  let color = g.color || null;
+  const seg = el('div', 'seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', '球團顏色');
+  const draw = () => {
+    seg.replaceChildren();
+    for (const c of [null, ...palette]) {
+      const x = el('button', null, c ? '●' : '無'); x.type = 'button'; x.setAttribute('aria-pressed', String(c === color)); x.setAttribute('aria-label', c || '不選顏色');
+      if (c) x.style.color = c;
+      x.onclick = () => { color = c; draw(); }; seg.appendChild(x);
+    }
+  };
+  draw();
+  const save = el('button', 'btn', '儲存團名與顏色'); save.type = 'button';
+  save.onclick = async () => {
+    const name = input.value.trim(); if (!name) { say('團名不能空白。', true); return; }
+    save.disabled = true; const r = await api('POST', { name, color }, '/style');
+    if (r.body && r.body.ok) { say('團名與顏色已儲存。'); showGuild(r.body.guild); } else { save.disabled = false; fail(r); }
+  };
+  box.append(input, seg, save);
 }
 
 /* 練習賽 (#800 part 7, #810): any member plays his guild's lineup against an NPC team, computed in the browser by play.html from a link that carries the members.
@@ -193,7 +220,7 @@ async function start() {
   const code = joinCode(), r = await api('GET', null, code ? `?join=${code}` : '');
   if (isClosed(r)) { say('還沒開放。'); return; }
   if (!r.body.ok) { say(WHY[r.body.why] || '讀不到你的球團，等一下再試。', true); return; }
-  say(''); $('mine').hidden = true; $('maker').hidden = true;
+  palette = Array.isArray(r.body.colors) ? r.body.colors : []; say(''); $('mine').hidden = true; $('maker').hidden = true;
   if (r.body.guild) showGuild(r.body.guild, r.body.seats); else if (r.body.invite) buildJoin(r.body.invite); else buildMaker(r.body.bases, r.body.nameMax);
 }
 start();

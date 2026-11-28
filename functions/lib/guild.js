@@ -28,6 +28,8 @@ export const lineupAtLock = row => {
   try { const batting = JSON.parse(row && row.batting); if (row && !lineupProblem(batting, row.sp)) return { batting, sp: row.sp, saved: true }; } catch (e) { /* fall through */ }
   return { ...AUTO_LINEUP, saved: false };
 };
+/* guild colours (#800 part 8): a fixed palette, so a request can never put its own text into a style; null = none chosen */
+export const GUILD_COLORS = ['#c0392b', '#e67e22', '#d4ac0d', '#27ae60', '#16a085', '#2980b9', '#8e44ad', '#7f8c8d'];
 export const BASES = TEAMS.map(t => t.id);
 /* a guild name: 1..NAME_MAX characters, no control characters, no < > & " ' (it is drawn as text, never as markup) */
 export const nameProblem = raw => {
@@ -46,7 +48,7 @@ const viewOf = async (db, g, viewer) => {
   const lineup = lineupAtLock(await db.prepare('SELECT batting, sp FROM guild_lineups WHERE guild_id = ?1').bind(g.id).first());
   /* a member's ref names him to the 領隊 for a removal without showing his agent id */
   const refs = await Promise.all(rows.map(async r => (await sha256(`${g.id}:${r.agent_id}`)).slice(0, REF_LEN)));
-  return { id: g.id, name: g.name, base: { id: g.base, name: team ? team.name : g.base }, created: g.created_at, lineup,
+  return { id: g.id, name: g.name, color: GUILD_COLORS.includes(g.color) ? g.color : null, base: { id: g.base, name: team ? team.name : g.base }, created: g.created_at, lineup,
     /* agent ids never leave the server: roles are flags on the member rows */
     members: rows.map((r, i) => {
       let pos = null; try { const p = JSON.parse(r.player || 'null'); pos = p && (p.pos || p.role) || null; } catch (e) { /* no player */ }
@@ -62,7 +64,7 @@ export const mine = guarded(async ({ request, db, agent }) => {
   const code = new URL(request.url).searchParams.get('join');
   const inv = code && /^[0-9a-f]{12}$/.test(code) ? await db.prepare('SELECT g.id, g.name, g.base, (SELECT COUNT(*) FROM guild_members WHERE guild_id = g.id) AS n FROM guilds g WHERE g.id = ?1').bind(code).first() : null;
   const invite = inv ? { id: inv.id, name: inv.name, base: TEAMS.find(t => t.id === inv.base)?.name || inv.base, seats: GUILD_SEATS, taken: inv.n } : null;
-  return json(200, { ok: true, guild: g ? await viewOf(db, g, agent.id) : null, invite, seats: GUILD_SEATS, bases: TEAMS.map(t => ({ id: t.id, name: t.name })), nameMax: NAME_MAX });
+  return json(200, { ok: true, guild: g ? await viewOf(db, g, agent.id) : null, invite, seats: GUILD_SEATS, bases: TEAMS.map(t => ({ id: t.id, name: t.name })), nameMax: NAME_MAX, colors: GUILD_COLORS });
 }, { needKey: true });
 
 /* POST /api/guild { name, base }: found a guild; the founder is 領隊 and 總教練 and the first member */
@@ -157,6 +159,26 @@ export const lineup = guarded(async ({ request, db, agent }) => {
   await db.prepare(`INSERT INTO guild_lineups (guild_id, batting, sp, saved_at) VALUES (?1, ?2, ?3, ?4)
     ON CONFLICT(guild_id) DO UPDATE SET batting = excluded.batting, sp = excluded.sp, saved_at = excluded.saved_at`).bind(g.id, batting, body.sp, Date.now()).run();
   return json(200, { ok: true, guild: await viewOf(db, g, agent.id) });
+}, { needKey: true });
+
+/* POST /api/guild/style { name?, color? }: the 領隊 renames the guild and / or picks its colour (one of GUILD_COLORS, or null for none). Counted as a daily save (#808);
+ * a request that changes nothing writes nothing. A taken name answers 409 name. */
+export const style = guarded(async ({ request, db, agent }) => {
+  const body = await readBody(request);
+  if (!body || (body.name === undefined && body.color === undefined)) return fail(400, 'invalid', { reasons: ['nothing to change'] });
+  const reasons = [];
+  if (body.name !== undefined && nameProblem(body.name)) reasons.push(nameProblem(body.name));
+  if (body.color !== undefined && body.color !== null && !GUILD_COLORS.includes(body.color)) reasons.push('colour must be one of the palette');
+  if (reasons.length) return fail(400, 'invalid', { reasons });
+  const g = await myGuild(db, agent);
+  if (!g) return fail(404, 'none');
+  if (g.leader !== agent.id) return fail(403, 'leader');
+  const name = body.name === undefined ? g.name : body.name.trim(), color = body.color === undefined ? (g.color ?? null) : body.color;
+  if (name === g.name && color === (g.color ?? null)) return json(200, { ok: true, guild: await viewOf(db, g, agent.id) });   /* unchanged: writes nothing */
+  await db.prepare('INSERT OR IGNORE INTO guild_saves (agent_id) VALUES (?1)').bind(agent.id).run();
+  if (!((await moveStep(db, 'guild_saves', 'agent_id', agent.id, 'save').run()).meta.changes > 0)) return limited();
+  try { await db.prepare('UPDATE guilds SET name = ?2, color = ?3 WHERE id = ?1').bind(g.id, name, color).run(); } catch (e) { return fail(409, 'name'); }
+  return json(200, { ok: true, guild: await viewOf(db, { ...g, name, color }, agent.id) });
 }, { needKey: true });
 
 /* POST /api/guild/coach { ref }: the 領隊 hands the 總教練 seat to a member (the ref from the guild view; his own ref takes it back) */

@@ -217,5 +217,33 @@ if (gc && [...gc.name].length !== guild.NAME_MAX) bad('a name of exactly the max
   await exp(); if (db.sql.prepare('SELECT COUNT(*) AS n FROM guild_members').get().n !== w) bad('the export must write nothing');
 }
 
+/* #800 part 8: name + colour by the 領隊 only, palette only, unchanged writes nothing, a taken name is refused */
+{
+  const sty = (k, body) => call(guild.style, env, { method: 'POST', k, body });
+  const C = guild.GUILD_COLORS[2], [kl, km, kn] = [key(), key(), key()];
+  for (const k of [kl, km, kn]) is('register', await call(agents.register, env, { method: 'POST', k }), 201);
+  const founded = await post(kl, { name: '風格隊', base: BASE }); is('found for the style check', founded, 201);
+  is('a member joins for the style check', await call(guild.join, env, { method: 'POST', k: km, body: { guild: founded.body?.guild?.id } }), 200);
+  is('style with no body', await call(guild.style, env, { method: 'POST', k: kl }), 400, 'invalid');
+  is('style with nothing to change', await sty(kl, {}), 400, 'invalid');
+  is('style off the palette', await sty(kl, { color: 'red' }), 400, 'invalid');
+  is('style with markup in the name', await sty(kl, { name: '<b>x' }), 400, 'invalid');
+  is('style with no guild', await sty(kn, { color: C }), 404, 'none');
+  is('a member styles the guild', await sty(km, { color: C }), 403, 'leader');
+  const ok = await sty(kl, { name: '改名隊', color: C });
+  is('the 領隊 styles the guild', ok, 200);
+  if (ok.body?.guild?.name !== '改名隊' || ok.body.guild.color !== C) bad('a style change must show back the new name and colour');
+  const rows = () => db.sql.prepare('SELECT COALESCE(SUM(saves_today), 0) AS n FROM guild_saves').get().n;
+  const before = rows();
+  is('the same style again', await sty(kl, { name: '改名隊', color: C }), 200);
+  if (rows() !== before) bad('an unchanged style must write nothing (no counter bump)');
+  if ((await call(guild.mine, env, { k: kl })).body?.guild?.color !== C) bad('the colour must be kept');
+  is('clear the colour', await sty(kl, { color: null }), 200);
+  if ((await call(guild.mine, env, { k: kl })).body?.guild?.color !== null) bad('a null colour must clear it');
+  const other = key(); is('register for the name clash', await call(agents.register, env, { method: 'POST', k: other }), 201);
+  is('found a second guild', await post(other, { name: '另一隊', base: BASE }), 201);
+  is('rename to a taken name', await sty(other, { name: '改名隊' }), 409, 'name');
+}
+
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
 console.log(`OK: guild routes closed without the binding and on production, name and base rules, founder is 領隊 + 總教練, one guild per fan, unique names.`);

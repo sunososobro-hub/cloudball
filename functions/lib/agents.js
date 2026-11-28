@@ -114,7 +114,12 @@ const migrateSaves = async db => {
   const have = new Set(((await db.prepare("SELECT name FROM pragma_table_info('guild_saves')").all()).results || []).map(r => r.name));
   if (!have.has('agentset')) await db.prepare('ALTER TABLE guild_saves ADD COLUMN agentset TEXT').run();
 };
-const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).then(() => migrateAbils(db)).then(() => migrateSaves(db)).then(() => seedSystem(db)).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
+/* #800 part 8 migration: a guilds table made before has no colour column (null = no colour chosen) */
+const migrateGuildColor = async db => {
+  const have = new Set(((await db.prepare("SELECT name FROM pragma_table_info('guilds')").all()).results || []).map(r => r.name));
+  if (!have.has('color')) await db.prepare('ALTER TABLE guilds ADD COLUMN color TEXT').run();
+};
+const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).then(() => migrateAbils(db)).then(() => migrateSaves(db)).then(() => migrateGuildColor(db)).then(() => seedSystem(db)).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
 
 /* every handler: closed unless the binding exists on a dev host; one small catch so nothing ever breaks the page */
 export const guarded = (handler, { needKey = false } = {}) => async ctx => {
