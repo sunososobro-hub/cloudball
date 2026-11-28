@@ -13,7 +13,7 @@ import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
 import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
-import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird } from '../rules/fielding.js';
+import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
@@ -494,9 +494,15 @@ export function simGame(seed, decisions, opts) {
             e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;
-            const g = resolveGround(ctx, { tryDoublePlay, leadBase: tryLead });
+            let g = resolveGround(ctx, { tryDoublePlay, leadBase: tryLead });
+            /* #614 part 12: a double play to the third baseman with nobody out and runners on first and second becomes a 5-4-3
+             * triple play whenever all three forces beat their runners (resolveTriple); no draw, so R keeps its sequence */
+            if (g.kind === 'dp') { const tp = resolveTriple(ctx); if (tp) g = tp; }
             plan = g.plan; outs = g.outs;
-            if (g.kind === 'dp') {
+            if (g.kind === 'tp') {
+              play.dp = true; play.tp = true; moves = [];   /* three force outs: nobody advances and no run counts */
+              result = 'triple_play'; desc = COPY.triplePlay(name, fielder);
+            } else if (g.kind === 'dp') {
               play.dp = true; moves = [[1, 2, B[0]], [0, 1, name]]; const nb = [null, B[1], B[2]];
               if (st.outs === 0 && B[2]) { moves.push([3, HOME, B[2]]); runs++; nb[2] = null; }
               if (st.outs === 0 && B[1]) { moves.push([2, 3, B[1]]); nb[2] = B[1]; nb[1] = null; }
