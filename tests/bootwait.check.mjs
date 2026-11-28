@@ -40,7 +40,8 @@ if (v !== 7) bad('deadline: answering load lost its value');
 if (timers[1].live) bad('deadline: timer kept after the load answered');
 
 /* 二軍 replay with the engine CDN blocked */
-const list = JSON.parse(readFileSync(path.join(ROOT, 'league/site/farm_games.json'), 'utf8'));
+const real = JSON.parse(readFileSync(path.join(ROOT, 'league/site/farm_games.json'), 'utf8'));   /* empty after the owner's start (#750) */
+const list = real.length ? real : [{ id: 'f-1', tier: 2, day: 0, seed: 1, engine: { commit: 'abcdef1', version: 'x' }, teams: [0, 1], decisions: {}, result: { score: [1, 0], line_score: [[1], [0]] } }];
 const fid = list[0].id;
 const thrown = await farmOpening(list, fid, async () => { throw new TypeError('Failed to fetch dynamically imported module'); });
 if (thrown.status !== 'unavailable' || thrown.opening !== null) bad(`blocked CDN (import throws): status ${thrown.status}, want unavailable and no opening`);
