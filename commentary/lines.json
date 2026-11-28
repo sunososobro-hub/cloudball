@@ -307,6 +307,19 @@
     {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "muntjacs", "lines": [["fan", "頭好痛……不是宿醉，是看球看的。"]]},
     {"on": ["run_scores", "home_run"], "side": "down", "guest": "muntjacs", "lines": [["fan", "這比昨天那杯還難吞。"]]},
     {"on": ["strikeout"], "side": "up", "guest": "muntjacs", "lines": [["fan", "三振！乾杯！"], ["color", "你手上那杯是水吧？"]]},
-    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "guest": "muntjacs", "lines": [["fan", "醒了醒了，我們醒了！"]]}
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "guest": "muntjacs", "lines": [["fan", "醒了醒了，我們醒了！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "下一棒、下一棒，換你們了！"], ["color", "還有幾個打席，不急著喊。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "我手上的零食都不香了。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "這球我看了都會，怎麼打不到。"], ["color", "你在座位上看，跟站在打擊區是兩回事。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "守住了！這才是我們的味道！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "他今天的球，對面根本摸不到。"], ["color", "話別說太滿，球還沒打完。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "一個一個收，慢慢收！"]]},
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "lines": [["fan", "打出去啦！跑啊跑啊！"]]},
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "lines": [["fan", "這棒揮得我整排椅子都在晃。"], ["color", "你小心別把椅子弄壞了。"]]},
+    {"on": ["single", "infield_single", "bunt_single", "double", "triple"], "side": "up", "lines": [["fan", "上壘了上壘了，接下來看你的啦！"]]},
+    {"on": ["single", "double", "triple"], "side": "down", "lines": [["fan", "守備快一步就接到了嘛。"], ["color", "差一步就是一個安打的距離。"]]},
+    {"on": ["single", "double", "triple"], "side": "down", "lines": [["fan", "不要緊，後面還有人。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "owls", "lines": [["fan", "又掛一個出局，我的咖啡都涼了。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "owls", "lines": [["fan", "這種節奏，我今晚大概要睡在座位上了。"], ["color", "你睡著之前，先把球看完。"]]}
   ]
 }
