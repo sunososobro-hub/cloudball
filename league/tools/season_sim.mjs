@@ -280,7 +280,7 @@ export function buildValues({ games = BUILD_GAMES, log = console.log } = {}) {
       out[`${kind}:${main}`] = { value: v, rs: d.rs / d.n, ra: d.ra / d.n, games: d.n, points: c.points, ...(kind === 'bat' ? batLine(s) : pitLine(s)) };
     }
   }
-  log(`build value: ${BUILD_GAMES} paired games per team and build (runs per game vs the same games with the original roster)`);
+  log(`build value: ${games} paired games per team and build (runs per game vs the same games with the original roster)`);
   for (const [k, r] of Object.entries(out)) {
     const pts = Object.entries(r.points).map(([a, b]) => `${a}${b}`).join(' ');
     log(`  ${k.padEnd(10)} ${pts.padEnd(28)} value ${(r.value >= 0 ? '+' : '') + r.value.toFixed(3)}  RS ${r.rs.toFixed(3)}  RA ${r.ra.toFixed(3)}  ` +
