@@ -27,7 +27,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { CREATE, validateCreate, makePlayer, potShareAtLeast } from '../league/freeagents.js';
+import { CREATE, validateCreate, makePlayer, potShareAtLeast, POT_BAND } from '../league/freeagents.js';
 import { RATING_TOP } from '../league/ratings.js';
 import { PITCH_TYPES } from '../engine/constants.js';
 import { declineFactor, declineDay, DECLINE_CURVE, DECLINE_FLOOR, ageOn } from '../league/training.js';
@@ -207,6 +207,9 @@ const p75 = o[Math.ceil(o.length * 3 / 4) - 1];
 const potMedian = (() => { let lo = 1; while (potShareAtLeast(lo + 1) >= 0.5) lo++; return lo; })();
 if (potMedian < t.median) bad(`potential median ${potMedian} under the 一軍 median ${t.median}`);
 if (Math.abs(potShareAtLeast(p75 + 1) - POT_FIFTH) > POT_FIFTH_TOL) bad(`share of potential above the 一軍 p75 ${p75} is ${potShareAtLeast(p75 + 1).toFixed(3)}, not about ${POT_FIFTH}`);
+const potQ = q => { let v = 1; while (potShareAtLeast(v + 1) >= 1 - q) v++; return v; };
+if (potQ(0.9) - potQ(0.1) > POT_BAND) bad(`potential p90 - p10 ${potQ(0.9)} - ${potQ(0.1)} wider than POT_BAND ${POT_BAND}`);
+if (potQ(0.1) < t.bottom) bad(`potential p10 ${potQ(0.1)} under the 一軍 bottom quartile ${t.bottom}`);
 const tail = potShareAtLeast(RATING_TOP);
 if (tail < STAR_TAIL[0] || tail > STAR_TAIL[1]) bad(`star tail (potential >= ${RATING_TOP}) is ${tail.toFixed(3)}, outside ${STAR_TAIL.join(' to ')}`);
 { const c = { ...BAT, points: { con: 61, pow: 61, eye: 61, spd: 61, arm: 61 } }; let hi = 0, star = 0;
