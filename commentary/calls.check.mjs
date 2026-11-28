@@ -62,6 +62,8 @@ for (const { seed, teams: pin } of GAMES) {
   const names = new Set([...(g.stream[0].lineups || []).flat(), ...(g.stream[0].starters || [])].filter(Boolean));
   for (const l of booth.lines) {
     const x = g.stream[l.at];
+    /* part 9 (#606 acceptance): no spoken line of any kind carries a name, a {desc} or an unfilled slot */
+    if (l.text) { if (/\{\w+\}/.test(l.text)) bad(`seed ${seed}: any line has an unfilled slot: "${l.text}"`); for (const n of names) if (l.text.includes(n)) bad(`seed ${seed}: spoken line names ${n}: "${l.text}"`); }
     for (const [k, { is }] of Object.entries(KINDS)) if (is(x, ld, sk)) {
       called[k]++;
       if (/\{\w+\}/.test(l.text)) bad(`seed ${seed}: ${k} line has an unfilled slot: "${l.text}"`);
