@@ -233,3 +233,12 @@ export function placeFan(pool, fan) {
   if (at < 0) return { pool: [...pool, fan], replaced: null };
   return { pool: pool.map((x, i) => (i === at ? fan : x)), replaced: pool[at].id };
 }
+
+/* #438: where a created player starts, chosen after the last creation step: 二軍 (plays engine-only games from the next day,
+ * #437) or 自由市場 (waits for a team). Left out = DEFAULT_PLACE (二軍: it gives the day-1 box score of the pacing plan, #167).
+ * It is kept on the player as `place` and may move either way at any time; it changes no ability or record (rule 10). */
+export const PLACES = ['second', 'free'];
+export const DEFAULT_PLACE = 'second';
+export const isPlace = p => PLACES.includes(p);
+/* the place of a stored player: a 系統 filler or a player made before #438 has none and counts as 自由市場, where they were */
+export const placeOf = player => (player && isPlace(player.place) ? player.place : 'free');

@@ -11,7 +11,8 @@
  *   - (#437) the 系統 fillers are not seeded once per kind with system:true, a fan does not replace the oldest filler of his kind
  *     (or replaces another kind / a fan), or a store without fillers breaks create;
  *   - (#628 part 2) the daily sweep releases a fan seen 29 days ago, keeps one seen 30 days ago from being released, ignores 系統 and free players,
- *     treats a fan never seen as seen on his created day, runs once a day, lets the old agent reclaim, and a keyed call records the day only.
+ *     treats a fan never seen as seen on his created day, runs once a day, lets the old agent reclaim, and a keyed call records the day only;
+ *   - (#438) the start place is not stored (default 二軍), an unknown place is accepted, or a move changes anything but the place.
  * Usage: node tests/agent.check.mjs */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +21,7 @@ import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import * as lib from '../functions/lib/agents.js';
 import { INACTIVE_DAYS } from '../league/inactive.js';
-import { drawName, CREATE } from '../league/freeagents.js';
+import { drawName, CREATE, DEFAULT_PLACE, placeOf } from '../league/freeagents.js';
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = (process.removeAllListeners('warning'), require('node:sqlite'));
@@ -60,7 +61,7 @@ const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points
 const is = (what, r, status, why) => { if (r.status !== status || (why && r.body?.why !== why)) bad(`${what}: expected ${status}${why ? ' ' + why : ''}, got ${r.status} ${JSON.stringify(r.body)}`); };
 
 /* closed: no binding, and a production host with a binding */
-const ROUTES = [[lib.register, 'POST'], [lib.draw, 'GET'], [lib.mine, 'GET'], [lib.create, 'POST'], [lib.list, 'GET'], [lib.release, 'POST'], [lib.reclaim, 'POST']];
+const ROUTES = [[lib.register, 'POST'], [lib.draw, 'GET'], [lib.mine, 'GET'], [lib.create, 'POST'], [lib.list, 'GET'], [lib.release, 'POST'], [lib.reclaim, 'POST'], [lib.place, 'POST']];
 for (const [h, method] of ROUTES) {
   const none = await call(h, {}, { method, k: key() });
   if (none.status !== 503 || JSON.stringify(none.body) !== '{"ok":false,"why":"closed"}') bad(`no DB binding: expected 503 closed, got ${none.status} ${JSON.stringify(none.body)}`);
@@ -124,6 +125,7 @@ if (made.body?.player?.name !== drawName(seed, nd)) bad('the created player does
 if (made.body?.player?.player?.id !== `fa-${seed.toString(36)}`) bad('the player was not made from the seed the server made');
 is('create a second player', await call(lib.create, env, { method: 'POST', k: k1, body: ownBat }), 409, 'already');
 const mineNow = await call(lib.mine, env, { k: k1 }); if (mineNow.body?.player?.name !== made.body?.player?.name) bad('GET /api/player does not give the created player back');
+if (DEFAULT_PLACE !== 'second' || mineNow.body?.player?.player?.place !== 'second') bad(`a create without a place must start in 二軍, got ${mineNow.body?.player?.player?.place}`);
 is('create with the points moved by a client-made seed', await call(lib.create, env, { method: 'POST', k: k2, body: { ...PIT, seed: 5 } }), 400, 'invalid');
 /* the same name for two agents: marked taken in the draw, refused at the create */
 const id2 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k2)))].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -257,6 +259,34 @@ if (/engine\//.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))) bad('functions/lib/ag
   await call(lib.mine, ienv, { k: ks[1] }); if (wasSeen() !== Math.floor(Date.now() / DMS)) bad('a keyed call must record today as the last seen day');
   if (JSON.stringify(idb.sql.prepare('PRAGMA table_info(agent_seen)').all().map(c => c.name)) !== '["agent_id","day"]') bad('agent_seen must hold only agent_id and day');
   const empty = makeDb(); await call(lib.list, { DB: empty }, { url: '/api/freeagents' }); if ((await lib.sweepInactive(empty, now + DMS)).length) bad('a store with only 系統 players must release nobody'); }
+
+/* #438: start place chosen at create (二軍 / 自由市場), stored once on the player, moved either way with POST /api/player/place */
+{ const pdb = makeDb(), penv = { DB: pdb };
+  const post = (h, k, body) => call(h, penv, { method: 'POST', k, body });
+  const [ka, kb] = [key(), key()]; is('register a', await post(lib.register, ka), 201); is('register b', await post(lib.register, kb), 201);
+  const mk = async (k, c) => { for (c.nameDraw = 0; c.nameDraw <= lib.DRAW_CAP; c.nameDraw++) { const r = await post(lib.create, k, c); if (r.status === 201) return r.body.player; } bad('no free name'); return null; };
+  is('create with an unknown place', await post(lib.create, ka, { ...BAT, place: '一軍' }), 400, 'invalid');
+  is('create with a place that is not text', await post(lib.create, ka, { ...BAT, place: 1 }), 400, 'invalid');
+  const pa = await mk(ka, { ...BAT, place: 'free' }), pb = await mk(kb, { ...PIT, place: 'second' });
+  const placeIn = pid => JSON.parse(pdb.sql.prepare('SELECT player FROM players WHERE pid = ?').get(pid).player).place;
+  if (pa?.player?.place !== 'free' || placeIn(pa?.id) !== 'free') bad('a 自由市場 choice is not stored');
+  if (pb?.player?.place !== 'second' || placeIn(pb?.id) !== 'second') bad('a 二軍 choice is not stored');
+  if (placeOf({ system: true }) !== 'free' || placeOf(null) !== 'free') bad('a player with no stored place must count as 自由市場');
+  const before = pdb.sql.prepare('SELECT pid, name, kind, ovr, ratings, created_at, player FROM players WHERE pid = ?').get(pa.id);
+  is('move without a key', await call(lib.place, penv, { method: 'POST', body: { place: 'second' } }), 401, 'key');
+  is('move to an unknown place', await post(lib.place, ka, { place: 'main' }), 400, 'invalid');
+  is('move without a body', await post(lib.place, ka), 400, 'invalid');
+  const kc = key(); await post(lib.register, kc); is('move when the agent has no player', await post(lib.place, kc, { place: 'second' }), 404, 'none');
+  const mv = await post(lib.place, ka, { place: 'second' }); is('move 自由市場 -> 二軍', mv, 200);
+  const after = pdb.sql.prepare('SELECT pid, name, kind, ovr, ratings, created_at, player FROM players WHERE pid = ?').get(pa.id);
+  if (placeIn(pa.id) !== 'second' || (await call(lib.mine, penv, { k: ka })).body?.player?.player?.place !== 'second') bad('the move to 二軍 is not shown');
+  const { place: p0, ...restBefore } = JSON.parse(before.player), { place: p1, ...restAfter } = JSON.parse(after.player);
+  if (JSON.stringify(restBefore) !== JSON.stringify(restAfter) || before.ratings !== after.ratings || before.ovr !== after.ovr || before.name !== after.name || before.created_at !== after.created_at)
+    bad('a move must change nothing but the place');
+  is('move 二軍 -> 自由市場', await post(lib.place, ka, { place: 'free' }), 200); if (placeIn(pa.id) !== 'free') bad('the move back to 自由市場 is not stored');
+  if (placeIn(pb.id) !== 'second') bad("a move changed another agent's player");
+  const listed = (await call(lib.list, penv, { url: '/api/freeagents' })).body?.players || [];
+  for (const p of [pa, pb]) if (listed.filter(x => x.id === p.id).length !== 1) bad(`player ${p.id} must be listed exactly once`); }
 
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
 console.log(`OK: ${ROUTES.length} routes closed without the binding and on production, caps, one player per agent, unique names, public list of ${total}.`);

@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.30';
+export const ENGINE_VERSION = '0.4.31';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -42,6 +42,13 @@ export const HBP_CHECK_DUR = 20;           /* s: the trainer and the manager che
 /* #81: the pitching coach's mound visit after a "stay" pick, once per pitcher (frame `VIS`). render/visit.js needs about 13.2 s for the
  * walk out and back from either dugout; the rest is the talk at the mound. Timing only: no draw, no outcome reads it. */
 export const MOUND_VISIT_DUR = 16;
+/* #614 part 11: the catcher's mound visit (frame `CVIS`, stream `mound_visit` staff `catcher`). Timing only: drawn from its own seeded RNG
+ * (`VISIT_SALT`), so R and the looks RNG keep their sequences; no outcome reads it. */
+export const VISIT_SALT = 0x0b15175a;      /* seed offset of the RNG that decides catcher visits */
+export const MOUND_VISIT_LIMIT = 4;        /* mound visits per team per nine innings, coach and catcher together (OBR 5.10(m), 4 since 2024) */
+export const MOUND_VISIT_EXTRA = 1;        /* one more for each extra inning a team starts with none left (OBR 5.10(m)) */
+export const CATCHER_VISIT_P = 0.13;       /* estimate: per plate appearance with a runner in scoring position after a pitch; ~0.8 per team per game (no public count of catcher visits) */
+export const CATCHER_VISIT_DUR = 30;       /* s: time out, the catcher's jog to the mound, the talk, back and set (MLB 30 s mound-visit clock, 2018) */
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
 export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: HBP_PLAY_DUR + HBP_CHECK_DUR, ibb: 10, bk: 10, po: 10, pof: 8 };

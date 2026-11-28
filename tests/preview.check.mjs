@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CREATE, makePlayer, validateCreate } from '../league/freeagents.js';
-import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND, KITS, FREE_KIT, withDress, kitPaint, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf } from '../ui/preview-spec.js';
+import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND, KITS, FREE_KIT, POSES, POSE_CLIPS, withDress, kitPaint, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf } from '../ui/preview-spec.js';
 
 const problems = [], bad = m => problems.push(m);
 /* points come from CREATE, so a change of the budget or the ability list never breaks this guard */
@@ -81,6 +81,25 @@ if (PL) for (const v of LOOK_CHIPS.hair.keys()) if (PL.gearOf(PL.headOfPlayer({ 
     for (let i = 0; i < pa.length; i++) for (let j = i + 1; j < pa.length; j++) for (const part of ['jersey', 'sock', 'cap']) if (pa[i][part] === pa[j][part]) bad(`kits ${ids[i]} and ${ids[j]} share the ${part} colour`);
     for (const [i, p] of pa.entries()) for (const part of ['jersey', 'pants', 'sock', 'cap']) if (!Number.isInteger(p[part]) || p[part] < 0 || p[part] > 0xffffff) bad(`kit ${ids[i]}: ${part} is not a colour`);
     for (const p of pa.slice(1)) if (p.pants === FREE_KIT.pants) bad('a team kit must change the pants too');
+  }
+}
+
+/* #595 part 2: pose buttons. Each pose is a different preview spec for a batter; a pitcher stays in the stand pose (batting stance is batter-only);
+   the batting stance is the game's swing clip (a real file under the ~100 KB budget) held at a clip time inside the clip, decoded by render/players.js */
+{
+  const b0 = specOfChoice(base), ids = POSES.map(p => p.id);
+  if (ids[0] !== 'stand' || !ids.includes('bat')) bad(`pose buttons must start with stand and include the batting stance, got ${ids}`);
+  if (new Set(POSES.map(p => p.label)).size !== POSES.length) bad('two pose buttons share a label');
+  const ps = ids.map(id => withDress(b0, { kit: 'free', cap: true, pose: id }));
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) if (sameSpec(ps[i], ps[j])) bad(`poses ${ids[i]} and ${ids[j]} give the same preview spec`);
+  if (withDress(b0, {}).pose !== 'stand' || withDress(b0, { pose: 'nope' }).pose !== 'stand') bad('default and unknown pose must be stand');
+  if (withDress(specOfChoice(pit), { pose: 'bat' }).pose !== 'stand') bad('a pitcher must not take the batting stance');
+  if (JSON.stringify(withDress(b0, { pose: 'bat' }).body) !== JSON.stringify(b0.body)) bad('pose must not change the body');
+  for (const id of ids.filter(i => i !== 'stand')) {
+    const P = POSE_CLIPS[id]; if (!P) { bad(`pose ${id}: no clip`); continue; }
+    let raw = null; try { raw = readFileSync(P.url); } catch { bad(`pose ${id}: ${P.url} missing`); continue; }
+    if (raw.length > 100 * 1024) bad(`pose ${id}: ${P.url} is ${raw.length} bytes, over the ~100 KB extra download`);
+    if (PL) { try { const c = PL.decodeClip(JSON.parse(raw)); if (!(P.t >= 0 && P.t <= c.dur)) bad(`pose ${id}: clip time ${P.t} outside the clip (0..${c.dur})`); } catch (e) { bad(`pose ${id}: clip does not decode: ${e && e.message}`); } }
   }
 }
 

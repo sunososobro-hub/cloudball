@@ -47,7 +47,7 @@ if (gameUrl('0', 3) !== 'play.html?g=0-3') fail(`gameUrl ${gameUrl('0', 3)}`);
 
 const pg = readFileSync(path.join(ROOT, 'play.html'), 'utf8'), gm = readFileSync(path.join(ROOT, 'render/game.js'), 'utf8');
 if (!/get\('g'\)/.test(pg) || !pg.includes('gameOpening') || !pg.includes('ledgerUrl') || !pg.includes('LEDGER_GAME')) fail('play.html does not wire ?g=<id>');
-if (!/loadScript=seed=>\{if\(window\.FARM\|\|window\.LEDGER_GAME\)return Promise\.reject/.test(gm)) fail('game.js: a ledger game may load a commentary script (booth must stay silent)');
+if (!/loadScript=seed=>\{if\(window\.FARM\|\|window\.LEDGER_GAME(\|\|window\.FRIENDLY)?\)return Promise\.reject/.test(gm)) fail('game.js: a ledger game may load a commentary script (booth must stay silent)');
 
 const src = readFileSync(path.join(ROOT, 'league/gameplay.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 if (/^\s*import\s[^;]*from\s+['"](?!\.\/replay\.js)/m.test(src)) fail('league/gameplay.js imports something other than ./replay.js');

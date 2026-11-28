@@ -3,9 +3,9 @@
  *
  * The page works without it: three.js and the player pack load after first paint (a plain silhouette shows meanwhile), and when
  * neither WebGPU nor WebGL is there, or any download fails, the box says so and the form keeps working with numbers only.
- * One standing pose; kit buttons and a cap toggle (#595 part 1; poses are part 2). #441 part 3: it opens from the front with a close-up of the head; 轉身 shows the back, 全身 / 特寫 switches the frame;
+ * Kit buttons and a cap toggle (#595 part 1); pose buttons 站姿 / 打擊預備 (#595 part 2: the game's mocap batting stance, clip loaded on first use). #441 part 3: it opens from the front with a close-up of the head; 轉身 shows the back, 全身 / 特寫 switches the frame;
  * drag sideways to turn it by hand (touch-action: pan-y keeps the page scrollable). Nothing moves by itself, so it draws on demand only. */
-import { sameSpec, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf, KITS, DEFAULT_DRESS, withDress, kitPaint } from './preview-spec.js';
+import { sameSpec, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf, KITS, POSES, POSE_CLIPS, DEFAULT_DRESS, withDress, kitPaint } from './preview-spec.js';
 
 const SKIN = 0xc99572;   /* skin is the game's default until #151 decides the look numbers; the kit colours come from ui/preview-spec.js kitPaint (#595) */
 const FOV = 28, MAX_DPR = 2, CAM_RISE = 0.09;
@@ -44,6 +44,7 @@ export function makePreview(host) {
     const floor = new THREE.Mesh(new THREE.CircleGeometry(0.62, 40), new THREE.MeshBasicMaterial({ color: 0x0b0d12, transparent: true, opacity: 0.55 }));
     floor.rotation.x = -Math.PI / 2; floor.position.y = 0.002; pivot.add(floor);
 
+    let clips = {}, cur = null;
     let f = null, kind = null, hairIx = -1, built = '', bat = null, side = PREVIEW_OPEN.side, zoom = PREVIEW_OPEN.zoom, yaw = yawOfSide(side), ht = 1.8, dragging = false, w = 0, h = 0, lastX = 0;
     const R = PL.HEAD_SHAPES.length, headOf = n => ((n | 0) % R + R) % R, HT = PL.HAIR_TONES.length, hairOf = n => ((n | 0) % HT + HT) % HT;
 
@@ -70,7 +71,24 @@ export function makePreview(host) {
       }
       f.setBuild(s.body, s.ht, hx);
       if (s.kind === 'bat') f.g.scale.x = s.hand === 'L' ? -1 : 1; else f.setThrows(s.hand === 'L' ? 'L' : 'R');
-      f.setNum(s.num); ht = s.ht; fit();
+      f.setNum(s.num); ht = s.ht; pose(s); fit();
+    };
+    /* #595 part 2: the batting stance is the game's swing clip at its stance frame (as render/game.js batterMocap, no mirror: a lefty is the whole
+       figure mirrored); the bat then goes from the bottom hand (handR) toward the top hand, as game.js does while the clip holds */
+    const V = () => new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+    const pose = s => {
+      cur = s; const P = s.kind === 'bat' && POSE_CLIPS[s.pose], clip = P && clips[s.pose];
+      if (P && clips[s.pose] === undefined) {
+        clips[s.pose] = null;
+        PL.loadClip('./' + P.url).then(c => { clips[s.pose] = c; if (cur) { pose(cur); draw(); } }).catch(e => { console.warn('pose clip', e); delete clips[s.pose]; });
+      }
+      f.setMocap(clip || null, P ? P.t : 0, clip ? 1 : 0, false, P ? P.t : 0, 0);
+      if (!bat) return;
+      if (clip) {
+        f.g.updateMatrixWorld(true); const a = f.handWorld(1, V()), b = f.handWorld(0, V());
+        const H = f.sockets.handR, d = H.worldToLocal(b).sub(H.worldToLocal(a));
+        if (d.lengthSq() > 1e-6) bat.quaternion.setFromUnitVectors(UP, d.normalize());
+      } else bat.rotation.set(BAT_GRIP_X, 0, 0);
     };
 
     canvas.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; canvas.setPointerCapture(e.pointerId); });
@@ -83,17 +101,22 @@ export function makePreview(host) {
     canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
     const ro = new ResizeObserver(size); ro.observe(host); if (bar) ro.observe(bar);
     size();
-    return { apply(s) { dress(s); draw(); } };
+    return { apply(s) { dress(s); draw(); } };   /* pose(s) runs inside dress */
   }
 
   const chips = () => {
     if (!kitBar) return;
-    kitBar.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kit ? b.dataset.kit === dressing.kit : dressing.cap)));
+    const batter = !spec || spec.kind === 'bat';
+    kitBar.querySelectorAll('button').forEach(b => {
+      if (b.dataset.pose) { b.hidden = !batter; b.setAttribute('aria-pressed', String(b.dataset.pose === dressing.pose)); return; }   /* poses are batter-only */
+      b.setAttribute('aria-pressed', String(b.dataset.kit ? b.dataset.kit === dressing.kit : dressing.cap));
+    });
   };
   const redress = () => { chips(); if (spec) { spec = withDress(spec, dressing); if (ready && !dead) api.apply(spec); } };
   if (kitBar) {
     for (const k of KITS) { const b = document.createElement('button'); b.type = 'button'; b.dataset.kit = k.id; b.textContent = k.label; b.onclick = () => { dressing.kit = k.id; redress(); }; kitBar.appendChild(b); }
     const c = document.createElement('button'); c.type = 'button'; c.className = 'cap'; c.onclick = () => { dressing.cap = !dressing.cap; c.textContent = dressing.cap ? '脫帽' : '戴帽'; redress(); }; c.textContent = '脫帽'; kitBar.appendChild(c);
+    for (const p of POSES) { const b = document.createElement('button'); b.type = 'button'; b.dataset.pose = p.id; b.textContent = p.label; b.onclick = () => { dressing.pose = p.id; redress(); }; kitBar.appendChild(b); }
     chips();
   }
 
@@ -102,7 +125,7 @@ export function makePreview(host) {
   let started = false;
   return {
     show(next) {
-      next = withDress(next, dressing); if (sameSpec(spec, next)) return; spec = next;
+      next = withDress(next, dressing); if (sameSpec(spec, next)) return; spec = next; chips();
       if (!started) { started = true; start(); }
       if (ready && !dead) api.apply(spec);
     },

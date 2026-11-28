@@ -3,7 +3,7 @@
 import { esc, safeUrl, empty, teamOf, teamName, teamCss, tierOneRows, meanOverall, bestOf, logoImg } from './shared.js';
 import { replayLink } from './games.js';
 import { AGENT_PAGE } from './me.js';
-import { seasonAt, healthAt } from '../../league/season_site.js';
+import { seasonAt, health } from '../../league/season_site.js';
 import { farmGameOn, farmUrl } from '../../league/farm.js';
 import { TEAMS } from '../../league/teams.js';
 
@@ -66,9 +66,9 @@ export function trialPanel(d) {
   const dayLine = s.state === 'before' ? `賽季尚未開始・${esc(d.trial.start)} 開打` : s.state === 'over' ? `賽季結束${s.champion ? `・冠軍 ${nm(s.champion)}` : ''}`
     : `第 ${s.season} 季（試跑）・第 ${s.seasonDay + 1} 天，共 ${s.seasonTotal} 天${s.phase === 'final' ? '・冠軍賽' : ''}`;
   const parts = [`<p class="eyebrow">${dayLine}</p>`];
-  /* #743 part 3: health tag. Red when the newest night is 36 h old or more (the file ran out, season_run.mjs --site --write refills it). */
-  const h = healthAt(d.trial, d.today);
-  if (h) parts.push(h.newest ? `<p class="health${h.stale ? ' red' : ''}" role="status">${h.stale ? '資料過期：' : ''}最新賽果 ${esc(h.newest)}・引擎 ${esc(h.engine || '—')}・${esc(h.games)} 場</p>` : `<p class="health" role="status">尚無賽果・引擎 ${esc(h.engine || '—')}</p>`);
+  /* #743 part 3: one health line; red when the newest night is older than 36 h (the precomputed file ran out) */
+  const hl = health(d.trial, d.today, d.hour);
+  if (hl) parts.push(hl.date ? `<p class="health${hl.stale ? ' stale' : ''}">最近一晚 ${esc(hl.date)} 算完・引擎 ${esc(hl.commit || '?')}・共 ${hl.games} 場${hl.stale ? '・資料過期，請通知 so 哥' : ''}</p>` : `<p class="health">還沒有算完的夜晚・引擎 ${esc(hl.commit || '?')}</p>`);
   if (s.tonight.length) parts.push(`<h3>今晚（一軍、二軍同組）</h3><ul class="gl">${s.tonight.map(pair).join('')}</ul>`);
   if (s.last.length) parts.push(`<h3>昨晚</h3><ul class="gl">${s.last.map(score).join('')}</ul>`);
   const rows = s.standings.map((t, i) => `<tr><td class="num rk">${i + 1}</td><td>${nm(t.id)}</td><td class="num">${t.w}</td><td class="num">${t.l}</td><td class="num">${t.rf}</td><td class="num">${t.ra}</td></tr>`).join('');
