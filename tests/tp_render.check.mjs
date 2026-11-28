@@ -1,6 +1,6 @@
 /* #775: the 3D view of the 5-4-3 triple play (render/game.js). The engine plays it with moves=[] (nobody advances, rule 10); the picture
  * still shows the runners going for their bases and 3B stepping on third. This runs the two helper lines of game.js (`tpFix`, `tpStand`)
- * on real engine triple plays (seed 1131, teams [3, 0], and the other pinned seeds) and fails when
+ * on real engine triple plays (seed 11344, teams [0, 1], and the other pinned seeds) and fails when
  *   - after tpFix a triple play does not have three moves, one per out, each with the out's runner, from and base, arriving at the engine's runnerAt,
  *     the runner from second going into third by a slide,
  *   - tpStand is not on the third-base bag (plan.bag3) at plan.touch3, or does not start at the fielding spot, or jumps (not monotone in time),
@@ -18,7 +18,7 @@ const sat01 = x => Math.max(0, Math.min(1, x)), lerp = (a, b, k) => a + (b - a) 
 const { tpFix, tpStand } = new Function('runnerTimeline', 'sat01', 'lerp', `${grab('tpFix')}\n${grab('tpStand')}\nreturn{tpFix,tpStand}`)(K.runnerTimeline, sat01, lerp);
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 let n = 0;
-for (const s of [1131, 6270, 7269, 8463]) {
+for (const s of [11344, 13948, 16537, 20448]) {
   const g = K.simGame(s, {}, { teams: [s % 4, (s + 1) % 4] });
   const before = g.ev.map(e => e.moves && e.moves.length);
   tpFix(g);

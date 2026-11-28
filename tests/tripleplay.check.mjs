@@ -1,7 +1,7 @@
 /* Triple play (#614 part 12): with nobody out and runners on first and second (bases loaded too), a double-play grounder to
  * the third baseman becomes a 5-4-3 triple play when all three forces beat their runners (`resolveTriple`): 3B steps on
  * third, throws to the pivot at second, the pivot relays to first. No draw: the timing decides. Fails when
- *   - a seed in SEEDS (found at engine 0.4.32) has no triple play, or a triple play shows up out of its situation
+ *   - a seed in SEEDS (found at engine 0.4.34) has no triple play, or a triple play shows up out of its situation
  *     (not 3B, outs, first or second empty) over GAMES seeds,
  *   - a triple play is not three force outs at third, second and first by 3B, 2B and 1B in that time order, each before its
  *     runner, or a runner moves, a run scores, the half does not end, the result is not triple_play or the line lacks 三殺,
@@ -12,7 +12,7 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
-const GAMES = 1500, SEEDS = [1131, 6270, 7269, 8463];
+const GAMES = 1500, SEEDS = [11344, 13948, 16537, 20448];
 const WANT = [[3, '3B', 2], [2, '2B', 1], [1, '1B', 0]];   /* base, fielder, the runner's starting base */
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 

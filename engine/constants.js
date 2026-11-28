@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.33';
+export const ENGINE_VERSION = '0.4.34';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -181,7 +181,7 @@ export const SPRAY_MAX_DEG = 44;
 export const SPRAY_MAIN_DEG = 88;
 export const SPRAY_NOISE_DEG = 20;
 export const HR_P = 0.162;                /* x pow^2 / stuff, for fly balls */
-export const GB_HIT_P = 0.236;            /* x con / stuff */
+export const GB_HIT_P = 0.195;            /* x con / stuff; #815: 0.236 -> 0.195 so slow-roller infield hits do not raise AVG */
 export const GB_DOUBLE_P = 0.04;
 export const LD_HIT_P = 0.66;             /* x con / stuff */
 export const LD_SINGLE_END = 0.71;
@@ -196,6 +196,13 @@ export const GB_HIT_DIST = [55, 20];
 export const GB_OUT_SPEED = 28;
 export const GB_HIT_SPEED = 32;
 export const GB_PEAK = 0.6;
+/* #815: slow rollers. GB_SLOW_P of the fielded grounders leave the bat slow (GB_SLOW_SPEED m/s, [min, span]) and stop short
+ * (GB_SLOW_DIST m), so the fielder picks the ball up late and the throw races the batter: the close plays at first that make
+ * infield hits. Estimate, owner to check: MLB IFH% (FanGraphs) is about 6-7% of grounders, about 1.2 infield hits a game
+ * for both teams with ~21 grounders a game (run.mjs IFH/game); GB_HIT_P was lowered so the hit total stays the same. */
+export const GB_SLOW_P = 0.17;
+export const GB_SLOW_DIST = [16, 14];
+export const GB_SLOW_SPEED = [6, 6];
 export const LD_SHALLOW_P = 0.4;
 export const LD_SHALLOW_DIST = [35, 10];
 export const LD_DEEP_DIST = [60, 30];
@@ -253,7 +260,9 @@ export const OF_BOBBLE_TIME = 1.6;
  * between fielding and throwing errors; not every bad throw gets past the first baseman). */
 export const WILD_THROW_SHARE = 0.4;
 export const WILD_THROW_PAST = [6, 6];
-export const DP_TRY_P = 0.44;
+/* #815: 0.44 -> 0.48, so GIDP/game stays near run.mjs REFERENCE (1.29) now that slow rollers cannot be turned two
+ * (1000 seeds 1.14, 10,000 seeds from 50001 1.19; 0.44 gave 1.06 / 1.12) */
+export const DP_TRY_P = 0.48;
 /* Runner on third, fewer than two outs, ball caught by an outfielder (fly or liner): he tags and scores with this chance.
  * Tuned so SF/game approaches tests/replay/run.mjs REFERENCE (MLB 2025 0.54, #38): 0.8 gave 0.40, 0.9 gives 0.45 on 10,000
  * games. The rest of the gap is chances, not this rate (about 0.5 outfield catches a game with a runner on third). */
