@@ -11,7 +11,7 @@
  * really do, and rules/outs.js is the only way an out gets recorded. */
 import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
-import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, BASES, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
+import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, BASES, spotXZ, dist, clamp, runnerTimeline, fielderStart, runPace } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
 import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple, resolveDoubledOff } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
@@ -268,7 +268,7 @@ export function simGame(seed, decisions, opts) {
       const tire = Math.max(0, st.pc[def] - K.TIRE_AFTER_PITCHES);
       const pit = { name: pit0.name, stuff: pit0.stuff * (1 - tire * K.TIRE_STUFF_PER_PITCH), ctrl: pit0.ctrl * (1 - tire * K.TIRE_CTRL_PER_PITCH) };
       const line = COPY.batLine(bs), pline = COPY.pitLine(ps);
-      const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def), vavg: rangeOf(def) });
+      const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def), vavg: rangeOf(def), pace: runPace(bat.spd) });
       const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; st.phAsked = false; st.prAsked = false; };
 
       /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
@@ -523,7 +523,7 @@ export function simGame(seed, decisions, opts) {
             if (g.kind === 'dp') { const tp = resolveTriple(ctx); if (tp) g = tp; }
             plan = g.plan; outs = g.outs;
             if (g.kind === 'tp') {
-              play.dp = true; play.tp = true; moves = [];   /* three force outs: nobody advances and no run counts */
+              play.dp = true; play.tp = true; play.pace = runPace(bat.spd); moves = [];   /* three force outs: nobody advances and no run counts; pace: the batter's run (#794, render tpFix) */
               result = 'triple_play'; desc = COPY.triplePlay(name, fielder);
             } else if (g.kind === 'dp') {
               play.dp = true; moves = [[1, 2, B[0]], [0, 1, name]]; const nb = [null, B[1], B[2]];
@@ -657,7 +657,7 @@ export function simGame(seed, decisions, opts) {
           if (m[3]) continue;
           const [from, to, who] = m, stays = to < HOME && e.s1.b[to - 1] === who, outHere = outs.some(o => o.runner === who && o.base === to);
           const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? outHere || look() < K.HOME_SLIDE_P : stays || outHere));
-          m[3] = runnerTimeline(from, to, { kind: inplay ? (play.res === 'HR' ? 'trot' : 'inplay') : e.wp || e.k3 ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
+          m[3] = runnerTimeline(from, to, { kind: inplay ? (play.res === 'HR' ? 'trot' : 'inplay') : e.wp || e.k3 ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide, pace: from === 0 && inplay && !play.onThrow ? runPace(bat.spd) : 1 });   /* on the throw home he trails the runner (#38 part 7) */
         }
 
         /* ---- broadcast timing: the result is shown when it has really happened ---- */

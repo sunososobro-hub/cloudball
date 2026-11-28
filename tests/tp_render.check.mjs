@@ -18,7 +18,7 @@ const sat01 = x => Math.max(0, Math.min(1, x)), lerp = (a, b, k) => a + (b - a) 
 const { tpFix, tpStand } = new Function('runnerTimeline', 'sat01', 'lerp', `${grab('tpFix')}\n${grab('tpStand')}\nreturn{tpFix,tpStand}`)(K.runnerTimeline, sat01, lerp);
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 let n = 0;
-for (const s of [1131, 6270, 7269, 8463]) {
+for (const s of [1131, 2273, 7269, 8463]) {
   const g = K.simGame(s, {}, { teams: [s % 4, (s + 1) % 4] });
   const before = g.ev.map(e => e.moves && e.moves.length);
   tpFix(g);
