@@ -548,7 +548,8 @@ export const RETURN_AFTER_THROW = 0.7;
 export const RUN_SPEED = 7.8;
 /* Batter-runner pace (#794): his `spd` scales RUN_SPEED out of the box (infield hits, beating the double play, stretching
  * a single), so a speed build pays off at the plate, not only on steals. Statcast sprint speed: league average 27 ft/s,
- * elite 30 (+11%), slow 24 (-11%); created players reach spd ~1.3 at the cap, factory players ~0.9-1.3. */
+ * elite 30 (+11%), slow 24 (-11%); factory players ~0.9-1.2 (display 42-90); a created player at the display cap 70 reads
+ * only spd ~1.06 (league/ratings.js), so a fresh speed build runs barely faster (#815 part 2). */
 export const RUN_PACE_PER_SPD = 0.35;
 export const RUN_PACE_RANGE = [0.88, 1.12];
 export const WALK_SPEED = 4.5;            /* trot on a walk */
