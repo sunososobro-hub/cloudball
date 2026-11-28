@@ -202,6 +202,23 @@
     "triple_play": { "priority": 2, "silence": 0, "exchanges": [
       {"call": "三殺！一球解決三個人，整個半局就這樣結束了！", "response": "這種畫面一輩子難得看到幾次，今天看到了。"},
       {"call": "三殺！守備一氣呵成，一次三個出局！", "response": "三壘、二壘、一壘，一路踩過去，漂亮。"}
+    ] },
+    "pinch_hitter": { "priority": 1, "silence": 0, "exchanges": [
+      { "call": "{team}換上代打。" },
+      { "call": "教練從板凳上叫出一位代打，{team}要換人打擊。" },
+      { "call": "{team}派出代打，這個棒次換人了。", "response": "這一棒教練想要一點不一樣的。" }
+    ] },
+    "pinch_runner": { "priority": 1, "silence": 0, "exchanges": [
+      { "call": "{team}換上代跑，壘上的跑者換人。" },
+      { "call": "教練派出代跑，{team}要靠腳程多搶一個壘包。", "response": "跑者換成跑得快的，這是想多拿一分。" }
+    ] },
+    "defensive_sub": { "priority": 1, "silence": 0, "exchanges": [
+      { "call": "{team}換了一位守備，場上陣容有調整。" },
+      { "call": "{team}教練調整守備，換上一位野手。", "response": "這是為了後面的局數把守備補強。" }
+    ] },
+    "runner_placed": { "priority": 1, "silence": 0, "exchanges": [
+      { "call": "延長賽，{team}的二壘上先放一位跑者。", "response": "這個制度讓比賽更快分出勝負。" },
+      { "call": "延長賽的規定，二壘先有人，{team}從得點圈開始進攻。" }
     ] }
   },
   "guests": {
