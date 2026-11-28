@@ -1,11 +1,11 @@
 /* #646: a base-hit roll slows down by friction and is done before the fielder's pickup. Runs render/roll.js on every non-HR hit
- * of 40 engine seeds (the same plan numbers game.js feeds it): speed never rises, ends <= .3 m/s at rollEnd, stops by catchT, never below ground. */
+ * of 60 engine seeds (the same plan numbers game.js feeds it): speed never rises, ends <= .3 m/s at rollEnd, stops by catchT, never below ground. */
 import { simGame } from '../engine/index.js';
 import { rollPlan, rollAt, rollSpeed, ROLL_Y } from '../render/roll.js';
 import { onDirt } from '../render/dust.js';
 const bad = []; const ok = (c, m) => { if (!c && bad.length < 20) bad.push(m) };
 let n = 0, dirt = 0, grass = 0;
-for (let seed = 1; seed <= 40; seed++) for (const e of simGame(seed, {}).ev) {
+for (let seed = 1; seed <= 60; seed++) for (const e of simGame(seed, {}).ev) {
   if (e.r !== 'inplay' || !e.play || e.play.bunt || !e.plan || !e.plan.hit || e.play.res === 'HR') continue;
   const p = e.play, PL = e.plan, T = p.hang, land = [p.lx, ROLL_Y, p.lz], end = [PL.target[0], ROLL_Y, PL.target[1]], avail = PL.catchT - T, d = onDirt(p.lx, p.lz);
   const r = rollPlan(land, end, avail, d), tag = `seed ${seed} t ${e.t}`; n++; d ? dirt++ : grass++;
