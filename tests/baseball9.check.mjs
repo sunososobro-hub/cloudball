@@ -147,6 +147,9 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
       const S0 = F3.swingAct(F.PITCH_S - 2, false), S1 = F3.swingAct(F.PITCH_S, false), S2 = F3.swingAct(F.PITCH_S + 2, false), H = F3.swingAct(F.PITCH_S + .4, true), M = F3.swingAct(F.PITCH_S + .4, false);
       if (S0.w !== 0 || !(S1.w > .99) || Math.abs(S1.ct - F3.SW.contact) > 1e-9 || S2.w !== 0 || !(H.w < M.w)) bad('swingAct: swing weight / contact time');
       if (!F3.swings({ res: { kind: 'whiff' } }) || F3.swings({ res: { kind: 'called' } }) || F3.swings({ res: { kind: 'ball' } }) || F3.swings({ res: { kind: 'bunt' } }) || !F3.swings({ res: { kind: 'x' }, play: { kind: 'single' } }) || F3.swings({ res: {}, play: { bunt: true } })) bad('swings: which results swing');
+      { const a0 = F3.buntAct(F.PITCH_S - F3.BUNT_LEAD - .5), a1 = F3.buntAct(F.PITCH_S), a2 = F3.buntAct(F.PITCH_S + 2);
+        if (a0.w !== 0 || !(a1.w > .99) || a2.w !== 0 || !(a1.ct > a0.ct)) bad('buntAct: weight in at the square-around, full at contact, out after');
+        if (!F3.bunts({ res: { kind: 'bunt' } }) || !F3.bunts({ res: { kind: 'foulBunt' } }) || !F3.bunts({ res: {}, play: { bunt: true } }) || F3.bunts({ res: { kind: 'whiff' } }) || F3.bunts({ res: { kind: 'contact' }, play: { kind: 'single' } })) bad('bunts: which results bunt'); }
       const rafs = [], calls = []; const raf0 = globalThis.requestAnimationFrame; globalThis.requestAnimationFrame = fn => { rafs.push(fn); return rafs.length; };
       const mk = () => { const fg = fake('g'); const o = { g: fg, mirrored: true, setMocap: (...a) => calls.push([o, ...a]) }; return o; }, bodies = [];
       const PL2 = { makePlayer: o => { const b = mk(); b.opts = o; bodies.push(b); return b; }, loadClip: async u => ({ url: u }) };
