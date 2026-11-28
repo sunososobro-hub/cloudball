@@ -20,6 +20,7 @@ import { ratingsOf } from '../ratings.js';
 import { CREATE, makePlayer, placeFan } from '../freeagents.js';
 import { parseRecording } from '../recording.js';
 import { simulate } from './turnover_sim.mjs';
+import { ROTATION_SIZE } from '../../engine/constants.js';
 
 const LEAGUE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const OUT_DIR = path.join(LEAGUE, 'site');
@@ -57,6 +58,29 @@ export function systemSecond(teams = TEAMS, rosters = ROSTERS) {
       taken.add(made.player.name);
       out[t.id].push({ ...made.player, system: true });
     }
+  });
+  return out;
+}
+
+/* #748 part 1: a FULL 二軍 per team (not wired into the export yet, part 2): one batter per position of CREATE.positions (the nine of a lineup,
+ * DH included), ROTATION_SIZE starters, then SECOND_BULLPEN relievers (roles cycled over the non-SP roles). Same recipe and seeds as systemSecond
+ * (an even spread of the creation budget, names unique in the league), so two calls give the same bytes. */
+export const SECOND_BULLPEN = 4, FULL_SECOND_SEED = 748;
+export function fullSecond(teams = TEAMS, rosters = ROSTERS) {
+  const taken = new Set(rosters.flatMap(r => [...r.bat, ...r.pit].map(p => p.name))), out = {};
+  const relief = CREATE.roles.filter(r => r !== 'SP'), look = { head: 0, skin: 0, hair: 0 };
+  const plan = [...CREATE.positions.map(pos => ({ kind: 'bat', pos })), ...Array.from({ length: ROTATION_SIZE }, () => ({ kind: 'pit', role: 'SP' })),
+    ...Array.from({ length: SECOND_BULLPEN }, (_, i) => ({ kind: 'pit', role: relief[i % relief.length] }))];
+  teams.forEach((t, ti) => {
+    out[t.id] = plan.map((slot, i) => {
+      const keys = CREATE.keys[slot.kind], per = CREATE.budget[slot.kind] / keys.length, points = Object.fromEntries(keys.map(k => [k, per]));
+      const c = slot.kind === 'bat' ? { kind: 'bat', pos: slot.pos, bats: 'R', build: 'normal', look, points } : { kind: 'pit', role: slot.role, throws: 'R', build: 'normal', look, points };
+      const seed = mixSeed(FULL_SECOND_SEED, ti, i);
+      let made;
+      for (let n = 0; ; n++) { made = makePlayer(seed, { ...c, nameDraw: n }); if (!taken.has(made.player.name)) break; }
+      taken.add(made.player.name);
+      return { ...made.player, system: true };
+    });
   });
   return out;
 }
