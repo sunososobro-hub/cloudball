@@ -3,11 +3,12 @@
  *   - a fan takes a 系統 slot of another kind, or a promotion changes league/players.js (ROSTERS) or the roster size,
  *   - a promoted batter does not keep the fielding position of the man he replaces,
  *   - a season is not 12 games plus a final of 2 or 3, or one run of two seeded seasons differs byte for byte,
- *   - a #794 pure build is not a legal creation (whole budget, main ability at the cap) or its value run is not seeded.
+ *   - a #794 pure build is not a legal creation (whole budget, main ability at the cap) or its value run is not seeded,
+ *   - `--pos P` does not put the build in the spot of the man who fields P, or a bat-only run is not the bat rows of a full run.
  * Usage: node tests/season_sim.check.mjs */
 import assert from 'node:assert/strict';
 import { ROSTERS } from '../league/players.js';
-import { farmOf, fansFor, promote, playSeason, SLOTS_BAT, SLOTS_PIT, FAN_COUNTS, buildChoice, buildValues } from '../league/tools/season_sim.mjs';
+import { farmOf, fansFor, promote, playSeason, SLOTS_BAT, SLOTS_PIT, FAN_COUNTS, buildChoice, buildValues, batSlot } from '../league/tools/season_sim.mjs';
 import { CREATE, validateCreate } from '../league/freeagents.js';
 
 const before = JSON.stringify(ROSTERS);
@@ -42,4 +43,9 @@ const bv = () => JSON.stringify(buildValues({ games: 2, log: () => {} }));
 const v1 = bv();
 assert.equal(Object.keys(JSON.parse(v1)).length, CREATE.keys.bat.length + CREATE.keys.pit.length + 2, 'one row per build');
 assert.equal(bv(), v1, 'build values are seeded');
+for (const t of [0, 1, 2, 3]) for (const P of CREATE.positions) assert.equal(ROSTERS[t].bat[batSlot(ROSTERS[t].bat, P)].pos, P, `--pos ${P} takes the ${P} spot`);
+const vRF = buildValues({ games: 2, log: () => {}, pos: 'RF', kinds: ['bat'] });
+assert.deepEqual(Object.keys(vRF), [...CREATE.keys.bat, 'even'].map(m => `bat:${m}`), 'bat-only run has the bat rows');
+assert.deepEqual(buildValues({ games: 2, log: () => {}, pos: 'RF', kinds: ['bat'] }), vRF, '--pos run is seeded');
+assert.throws(() => buildValues({ games: 1, log: () => {}, pos: 'P' }), /--pos/);
 console.log('season_sim.check ok');
