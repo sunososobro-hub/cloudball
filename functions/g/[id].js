@@ -1,6 +1,7 @@
 /* GET /g/<season>-<id> (#591): the share link of one official game.
  * Same page as play.html?g=<season>-<id>, with per-game link-preview tags added: og:title / og:description (teams and
- * date, NEVER the score) and og:image = a static matchup card (?card=1, team colours and names only, no score).
+ * date, NEVER the score) and og:image = a static PNG matchup card (assets/og/, made by tools/og_cards.mjs; crawlers such
+ * as Facebook skip SVG images). The same card as SVG stays at ?card=1 (team colours and names only, no score).
  * Read-only: the record comes from the ledger file the page itself reads (league/ledger.js, rule 24); no paid API, no
  * other host (rule 17). A record the ledger does not have still gets the page (it shows its own "not found" note). */
 import { TEAMS } from '../../league/teams.js';
@@ -28,12 +29,18 @@ export function previewTags(m, pageUrl, imageUrl) {
     `<meta property="og:description" content="${esc(desc)}">`,
     `<meta property="og:url" content="${esc(pageUrl)}">`,
     `<meta property="og:image" content="${esc(imageUrl)}">`,
+    `<meta property="og:image:type" content="image/png">`,
     `<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">`,
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta name="twitter:title" content="${esc(title)}">`,
     `<meta name="twitter:description" content="${esc(desc)}">`,
     `<meta name="twitter:image" content="${esc(imageUrl)}">`,
   ].join('\n');
+}
+
+/* PNG card for a matchup: assets/og/<away id>-<home id>.png, generic.png without one (tools/og_cards.mjs writes them). */
+export function cardFile(m) {
+  return m ? `${m.away.id}-${m.home.id}.png` : 'generic.png';
 }
 
 export function cardSvg(m) {
@@ -62,7 +69,7 @@ export async function onRequestGet({ request, env, params }) {
   }
   const page = await env.ASSETS.fetch(new URL(`/play.html?g=${param}`, url));
   if (!page.ok) return page;
-  const tags = previewTags(m, `${url.origin}/g/${param}`, `${url.origin}/g/${param}?card=1`);
+  const tags = previewTags(m, `${url.origin}/g/${param}`, `${url.origin}/assets/og/${cardFile(m)}`);
   /* The page lives at /g/<id>: root-relative base and an address that carries ?g= keep its relative files and its own
    * URL reader working. replaceState runs first in <head>, before any relative file is requested. */
   const head = `<base href="/">\n<script>history.replaceState(null,'','/play.html?g=${param}')</script>\n${tags}\n`;
