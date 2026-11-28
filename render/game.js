@@ -1665,6 +1665,25 @@ const PO_LEAD_FROM=.2,PO_LEAD_GROW=.8,PO_TURN=.3,PO_XFER=.35,PO_REACT=.3,PO_SLID
 let rdM=null;import(new URL('rundown.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('rundown'))rdM=M}).catch(err=>console.warn('rundown off',err));
 const RD_XFER=.3,RD_REL_Y=1.6,RD_TGT_Y=1.2,RD_PEAK=.3,RD_REACH=.45;
 const rdOn=e=>!!(rdM&&e.plan&&e.plan.rundown&&e.plan.rd);
+/* #890: rundown off second (play.rd2, plan.rd2): runner, the two covers and the ball from render/rd2.js (pure, plan times, seconds after contact); module not in yet -> the plain groundout. Dev switch ?off=rd2 */
+let rd2M=null;import(new URL('rd2.js',stHere||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('rd2'))rd2M=M}).catch(err=>console.warn('rd2 off',err));
+const rd2On=e=>!!(rd2M&&e.r==='inplay'&&e.plan&&e.plan.rd2);
+function rd2Run(e,u,nm,show){const S=e.plan,u2=u-ARRIVE,R=S.rd2;if(!rd2M.rd2Go(S,u2))return false;if(rd2M.rd2Gone(S,u2))return true;const [x,z]=BASES[2],[ux,uz]=rd2M.LINE_DIR,d=rd2M.rd2Runner(S,u2),back=u2>=(S.arrive+R.backAt)/2&&u2<R.tagAt;
+  const r=show(x+ux*d,z+uz*d,-x,-z,nm);if(r)face(r,back?-ux:ux,back?-uz:uz);return true}
+function rd2Field(e,u2,bp){const S=e.plan,R=S.rd2,k3=fielders[R.key3],k2=fielders[R.key2],[ux,uz]=rd2M.LINE_DIR,p3=rd2M.rd2Cover3(S,u2,k3.ret),p2=rd2M.rd2Cover2(S,u2,k2.pos,k2.ret);
+  const rel=rd2M.rd2Cover3(S,R.s0,k3.ret),tgt2=rd2M.rd2Cover2(S,R.r3,k2.pos,k2.ret),a=[rel[0],RD_REL_Y,rel[1]],b=[tgt2[0],RD_TGT_Y,tgt2[1]];
+  const home=u2>R.tagAt+rd2M.RD2_HOME_AT;
+  if(u2>=S.arrive){k3.g.position.set(p3[0],0,p3[1]);
+    if(home){resetPose(k3);k3.noAnim=false;face(k3,k3.ret[0]-p3[0],k3.ret[1]-p3[1])}
+    else if(u2>=R.s0-RD_XFER&&u2<R.s0+RD_XFER){k3.noAnim=true;face(k3,p2[0]-p3[0],p2[1]-p3[1]);throwPose(k3,u2-(R.s0-RD_XFER),RD_XFER,b)}
+    else if(u2>=S.arrive+.25){resetPose(k3);k3.noAnim=false;face(k3,-ux,-uz)}}
+  k2.g.position.set(p2[0],0,p2[1]);
+  if(home){resetPose(k2);k2.noAnim=false;face(k2,k2.ret[0]-p2[0],k2.ret[1]-p2[1])}
+  else if(u2>=R.r3-RD_REACH){face(k2,p3[0]-p2[0],p3[1]-p2[1]);if(u2<R.r3){k2.noAnim=true;gloveTo(k2,ease(sat01((u2-(R.r3-RD_REACH))/RD_REACH)),null)}else tagPose(k2,u2,R.r3,R.tagAt,2,true)}
+  else{resetPose(k2);k2.noAnim=false;face(k2,u2<R.r3-RD_REACH-.5?rd2M.SECOND_SPOT[0]-k2.pos[0]:ux,u2<R.r3-RD_REACH-.5?rd2M.SECOND_SPOT[1]-k2.pos[1]:uz)}
+  const B=rd2M.rd2Ball(S,u2);if(u2<S.arrive)return bp;if(!B)return null;
+  if(B.hold){const q=fielders[R[B.hold]].handWorld(B.hold==='key3'?1:0);return[q.x,q.y,q.z]}
+  return arc(a,b,RD_PEAK,B.k)}
 function rdRunnerDraw(e,u,nm,show){const S=e.plan,R=S.rd;if(u>R.tagAt+rdM.RD_OFF)return;const [x,z]=BASES[1],[ux,uz]=rdM.LINE_DIR;
   const d=u<R.goAt?lerp(LEAD_PRIMARY,S.lead,ease(sat01((u-PO_LEAD_FROM)/PO_LEAD_GROW))):rdM.rdRunner(S,u);
   const r=show(x+ux*d,z+uz*d,-x,-z,nm);if(!r||u<R.goAt)return;const back=u>=(R.r2+R.backAt)/2;face(r,back?-ux:ux,back?-uz:uz)}
@@ -1877,7 +1896,7 @@ function poseScene(e,u,dt,ei){
     P.mix={k,l0:P.legs[0].rotation.x,l1:P.legs[1].rotation.x,a0:P.arms[0].rotation.x,a1:wrapA(P.arms[1].rotation.x)}}
   const hand=pp.rel,plate=[e.zx,.45+e.zy*.75,.6],bunt=e.r==='inplay'&&e.play.bunt,hbp=e.r==='hbp',fbunt=e.r==='foul'&&!!e.bunt;
   const moving=new Set(k3Moves(e).map(m=>m[2]));
-  for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else if(ldEntry(e,i+1))ldRunner(e,u,i,n,ldEntry(e,i+1));else standRunner(i,u,n)}}
+  for(let i=0;i<3;i++){const n=e.s0.b[i];if(n&&!moving.has(n)){if(e.po&&i===0)poRunner(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]});else if(rd2On(e)&&i===1){if(!rd2Run(e,u,n,(...a)=>{showRunner(...a);return runners[ri-1]}))standRunner(i,u,n)}else if(ldEntry(e,i+1))ldRunner(e,u,i,n,ldEntry(e,i+1));else standRunner(i,u,n)}}
   const contact=e.r==='inplay'||e.r==='foul';
   poseBatter(e,u);batterWalk(e,u);batterMocap(e,u);placeUmp(e,u,ei);bcPose(ump,4,e,u);/* #42 slice 8: his calls at the plate and on pop-ups */
   const hit0=bunt||fbunt?buntHit(e,u):contact?contactPt(e):null;if(hit0)plate.splice(0,3,...hit0);
@@ -1998,6 +2017,7 @@ function poseScene(e,u,dt,ei){
         else if(dp&&u2<t1){const q=pv.handWorld(u2-a1<PIVOT_XFER*.45?0:1);bp=[q.x,q.y,q.z]}
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,throwPeak(TT2),(u2-t1)/TT2)}
         else if(u2<arrive+3.2){if(c){const q=c.handWorld(tg||u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
+    if(u2>0&&rd2On(e))bp=rd2Field(e,u2,bp);/* #890 */
     if(hr&&u2>0&&u2<T+.2&&!bp)bp=null;
     function ballAt(t){if(t<=0)return null;if(t<T)return p.type==='GB'?gbAt(t):flyPath(e,hit0,land,T)(t);if(DR0){const q=IFD.dropAt(DR0,t);if(q)return q}if(hit)return t<T+rollDur?rollBall(t-T):rollEnd;if(gbHop&&t<=catchT)return GBP.gbGlove(land,PL.stand,T,catchT,t);return null}
   }
