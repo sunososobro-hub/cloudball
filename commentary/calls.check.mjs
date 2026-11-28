@@ -1,6 +1,6 @@
-/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-3): node commentary/calls.check.mjs
+/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-4): node commentary/calls.check.mjs
  *   - over SEEDS games, each of wild pitch, passed ball, balk, safe pickoff, the catcher's mound visit, pickoff out, rundown, catcher interference
- *     and triple play (about 0.0003 a game: pinned seed 1131, teams [3, 0], as tests/tripleplay.check.mjs)
+ *     triple play, pinch hitter, pinch runner, defensive substitution and the extra-inning runner (triple play about 0.0003 a game: pinned seed 1131, teams [3, 0], as tests/tripleplay.check.mjs)
  *     is called at least once (the drafted line sits on an event of that kind)
  *   - those lines are name-free: no player name, no {desc}, no unfilled slot
  *   - each call key has at least 2 wordings (3 where it fires more than once a game on average) */
@@ -22,6 +22,10 @@ const KINDS = {
   pickoff_rundown: { is: x => x.type === 'pickoff' && x.rundown === true, min: 2 },
   catcher_interference: { is: x => x.type === 'pa_end' && x.result === 'catcher_interference', min: 2 },
   triple_play: { is: x => x.type === 'pa_end' && x.result === 'triple_play', min: 2 },
+  pinch_hitter: { is: x => x.type === 'substitution' && x.role === 'pinch_hitter', min: 3 },
+  pinch_runner: { is: x => x.type === 'substitution' && x.role === 'pinch_runner', min: 2 },
+  defensive_sub: { is: x => x.type === 'substitution' && x.role === 'defensive', min: 2 },
+  runner_placed: { is: x => x.type === 'runner_placed', min: 2 },
 };
 const problems = [], bad = m => { if (problems.length < 20) problems.push(m); };
 const called = Object.fromEntries(Object.keys(KINDS).map(k => [k, 0]));
