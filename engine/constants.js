@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.37';
+export const ENGINE_VERSION = '0.4.38';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -45,6 +45,7 @@ export const MOUND_VISIT_DUR = 16;
 /* #614 part 11: the catcher's mound visit (frame `CVIS`, stream `mound_visit` staff `catcher`). Timing only: drawn from its own seeded RNG
  * (`VISIT_SALT`), so R and the looks RNG keep their sequences; no outcome reads it. */
 export const OBSTRUCTION_SALT = 0x0b57c7ed; /* #614 part 15: seed offset of the RNG for obstruction draws (one per outfield single with second open) */
+export const RD3_SALT = 0x0d3c0ff3;         /* #614 part 16: seed offset of the RNG for runners caught off third (one draw per held runner on a groundout) */
 export const VISIT_SALT = 0x0b15175a;      /* seed offset of the RNG that decides catcher visits */
 export const MOUND_VISIT_LIMIT = 4;        /* mound visits per team per nine innings, coach and catcher together (OBR 5.10(m), 4 since 2024) */
 export const MOUND_VISIT_EXTRA = 1;        /* one more for each extra inning a team starts with none left (OBR 5.10(m)) */
@@ -360,6 +361,18 @@ export const RD_TURN = 0.5;
 export const RD_CHASE = 0.8;
 export const RD_1B_UP = 4;
 export const RD_TAG_REACH = 1.0;
+/* #614 part 16: rundown off third. Of the groundouts to an infielder (P included) with a runner on third, first open, fewer than
+ * two outs and the runner held, this share find him broken on contact (a bad read or a contact play); drawn from its own RNG
+ * (RD3_SALT) so R, look and rare keep their sequences. Then timing decides: he runs from his secondary lead (LEAD_PITCH) since
+ * BAT_RUN_DELAY, the fielder throws home instead of to first, the runner stops when the catcher has it (RD_TURN), the catcher
+ * runs him back RD_CHASE s and tosses to the third baseman (or SS when 3B fielded it), who has stepped RD_3B_UP m down the
+ * line and tags him before he is back. Too close to home (within RD3_MIN_GAP m) or any step that does not fit = the ordinary
+ * groundout. The batter is safe at first: a fielder's choice. Data: estimate, no count at hand (a rare play, well under the
+ * ~0.1 a game of line-drive double plays). 0.25 gives 0.0095 a game here (seeds 1-2000), nearly all on balls back to the
+ * pitcher: on a longer throw home the runner is within RD3_MIN_GAP and the play stays the groundout. */
+export const RD3_OF_GB_HOLD_P = 0.25;
+export const RD3_MIN_GAP = 6;     /* m: a runner this close to home when the catcher has the ball is not run back (he would be tagged at the plate) */
+export const RD_3B_UP = 4;        /* m: the third baseman steps this far down the line toward home before the toss */
 export const RD_STEP = 0.01;      /* s: time step when finding where the first baseman meets the runner */
 /* Throw-over that does not get him (#38): same set-up, drawn with POF_P after the pickoff draw, at most POF_MAX_PA times
  * in one plate appearance (MLB rule since 2023: two disengagements per plate appearance; a third that does not get the

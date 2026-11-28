@@ -357,6 +357,38 @@ export function resolveRundown(ctx) {
   return { plan, outs: [tagOut({ runner, from: 1, base: 1, fielder: '1B', ballAt: r3, fielderAt: r3, runnerAt, tagAt })] };
 }
 
+/* Rundown off third (#614 part 16, constants RD3_* / RD_*): a grounder to an infielder, the runner on third broke on contact.
+ * The fielder throws home; the runner stops and turns when the catcher has it, the catcher runs him back toward third and
+ * tosses to the cover (3B, or SS when the third baseman fielded it), who has stepped RD_3B_UP m down the line; he runs at the
+ * runner and tags him in the base path. Positions are metres from third along the line home. Returns the plan and the tag
+ * out, or null when the play does not fit (then the play stays the ordinary groundout and the runner held). */
+export function resolveRundownHome(ctx) {
+  const plan = chase(ctx), f = plan.fielder, runner = ctx.bases[2];
+  const pos = t => K.LEAD_PITCH + runDist(t - K.BAT_RUN_DELAY, K.RUN_SPEED);
+  const TD = dist(plan.stand, K.HOME_TAG_SPOT), th = throwPlan(ctx.arm(f), f, TD, null);
+  const t0 = plan.catchT + th.xfer, arrive = t0 + th.flight, turn = pos(arrive);
+  if (!(turn < BASE_PATH - K.RD3_MIN_GAP)) return null;
+  const backAt = arrive + K.RD_TURN, back = t => turn - runDist(t - backAt, K.RUN_SPEED), runnerAt = backAt + runTime(turn, K.RUN_SPEED);
+  const s0 = arrive + K.RD_CHASE, cPos = BASE_PATH - runDist(K.RD_CHASE, K.COVER_SPEED);
+  if (!(cPos > back(s0) + K.RD_TAG_REACH)) return null;
+  const key = coverOf(3, f), coverAt = coverArrival(fielderStart(key, ctx.bases, ctx.outs), THIRD_TAG, K.FIELD_REACT + K.COVER_REACT, K.COVER_SPEED);
+  const T2 = Math.max(K.THROW_MIN, (cPos - K.RD_3B_UP) / K.RD_THROW_V), r3 = s0 + T2;
+  if (!(coverAt + runTime(K.RD_3B_UP, K.COVER_SPEED) < r3)) return null;
+  if (!(back(r3) > K.RD_3B_UP + K.RD_TAG_REACH)) return null;
+  let tagAt = r3;
+  while (back(tagAt) - (K.RD_3B_UP + runDist(tagAt - r3, K.COVER_SPEED)) > K.RD_TAG_REACH) tagAt += K.RD_STEP;
+  if (!(tagAt < runnerAt && beats(r3, r3, runnerAt))) return null;
+  const tagPos = back(tagAt);
+  Object.assign(plan, { CV: { key, spot: THIRD_TAG, base: 3, at: coverAt }, xfer: th.xfer, v: th.v, TD, TT: th.flight, t0, arrive,
+    rt: Math.max(plan.catchT + K.RETURN_AFTER_CATCH, t0 + K.RETURN_AFTER_THROW),
+    rd3: { runner, turn, backAt, s0, cPos, r3, tagAt, tagPos, up: K.RD_3B_UP, key, runnerAt } });
+  plan.actions.push({ t: t0, a: 'throw', f, to: 'C' }, { t: arrive, a: 'receive', f: 'C', base: HOME },
+    { t: coverAt, a: 'cover', f: key, base: 3 }, { t: s0, a: 'throw', f: 'C', to: key }, { t: r3, a: 'receive', f: key, base: null },
+    { t: tagAt, a: 'tag', f: key, base: 3 });
+  plan.actions.sort((a, b) => a.t - b.t);
+  return { plan, outs: [tagOut({ runner, from: 3, base: 3, fielder: key, ballAt: toFrame(r3), fielderAt: toFrame(r3), runnerAt: toFrame(runnerAt), tagAt: toFrame(tagAt) })] };
+}
+
 /* Dropped third strike (#614 part 4): the batter runs to first from the plate; the catcher picks the ball up `retrieve` s after
  * it reaches the plate and throws to the first baseman, who covers the bag. Out only when the ball held on the bag beats the
  * batter (forceOut checks it). Times are seconds into the frame.

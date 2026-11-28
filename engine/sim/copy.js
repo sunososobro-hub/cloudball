@@ -76,6 +76,7 @@ export const COPY = {
   wildPitch: runs => `，暴投！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   pickoff: n => `投手牽制一壘，${n} 回壘不及，觸殺出局！`,
   pickoffRundown: n => `投手牽制一壘，${n} 衝向二壘被夾殺，一壘手觸殺出局！`,
+  rundownHome: (n, f, r) => `${n} ${FIELDER_NAME[f]}前滾地球，${r} 衝出三壘被夾在三本壘間，回壘前遭觸殺出局！`,
   pickoffSafe: n => `投手牽制一壘，${n} 撲回壘包，安全上壘`,
   balk: runs => `投手犯規！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
   passedBall: runs => `，捕逸！跑者推進${runs ? `，跑回 ${runs} 分` : ''}`,
