@@ -48,7 +48,7 @@ export const FINAL_BEST_OF = 3, MIN_PA = 100, MIN_BF = 100;
 export const POSITION = 'pos';
 
 export const rng = seed => () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-const mix = (...n) => n.reduce((h, x) => Math.imul(h ^ (x >>> 0), 0x9e3779b1) >>> 0, 0x811c9dc5);
+export const mix = (...n) => n.reduce((h, x) => Math.imul(h ^ (x >>> 0), 0x9e3779b1) >>> 0, 0x811c9dc5);
 const median = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : NaN; };
 const rate = (a, b) => (b ? a / b : NaN);
 
@@ -249,7 +249,9 @@ export function run({ seasons = SEASONS, given = [], log = console.log } = {}) {
  * the team's runs scored minus runs allowed per game. BUILD_GAMES games per team and build.
  * `pos` (`--pos P`, one of CREATE.positions): the batter takes the lineup spot of the 一軍 man who fields P instead of the
  * weakest spot (the weakest spots are 1B, DH, RF, SS, so `arm` / `spd` in the field were mostly measured at 1B and DH).
- * `kinds` (`--kind bat|pit`) measures one kind only. */
+ * `kinds` (`--kind bat|pit`) measures one kind only. `make(kind, main, t, choice, taken)` (tools only, e.g.
+ * league/tools/pot_spread.mjs `--lineup`) returns the engine player of a build for team t instead of a fresh creation;
+ * `mains` limits the builds measured. */
 export const BUILD_GAMES = 400;
 export function buildChoice(kind, main) {
   const keys = CREATE.keys[kind], budget = CREATE.budget[kind], cap = CREATE.cap[kind];
@@ -264,15 +266,18 @@ export function batSlot(bat, pos) {
   const at = pos ? bat.findIndex(p => p.pos === pos) : -1;
   return at >= 0 ? at : bat.map((p, j) => [ratingsOf(p).ovr, j]).sort((a, b) => a[0] - b[0])[0][1];
 }
-export function buildValues({ games = BUILD_GAMES, log = console.log, pos, kinds = CREATE.kinds } = {}) {
+export function freshBuild(kind, main, t, c, taken) {
+  let made; for (let n = 0; ; n++) { made = makePlayer(mix(SEASON_SEED, 794, t), { ...c, nameDraw: n }); if (!taken.has(made.player.name)) return made.player; }
+}
+export function buildValues({ games = BUILD_GAMES, log = console.log, pos, kinds = CREATE.kinds, make = freshBuild, mains = k => [...CREATE.keys[k], 'even'] } = {}) {
   if (pos && !CREATE.positions.includes(pos)) throw new Error(`--pos must be one of ${CREATE.positions.join(', ')}`);
   const out = {};
   for (const kind of kinds) {
-    for (const main of [...CREATE.keys[kind], 'even']) {
+    for (const main of mains(kind)) {
       const c = buildChoice(kind, main), d = { rs: 0, ra: 0, n: 0 }, line = new Map();
       for (const t of TEAMS_N) {
         const taken = new Set([...ROSTERS[t].bat, ...ROSTERS[t].pit].map(p => p.name));
-        let made; for (let n = 0; ; n++) { made = makePlayer(mix(SEASON_SEED, 794, t), { ...c, nameDraw: n }); if (!taken.has(made.player.name)) break; }
+        const made = { player: make(kind, main, t, c, taken) };
         const roster = ROSTERS.map(x => ({ bat: [...x.bat], pit: [...x.pit] })), o = {};
         if (kind === 'bat') { const i = batSlot(roster[t].bat, pos); roster[t].bat[i] = { ...made.player, [POSITION]: roster[t].bat[i].pos }; }
         else { const i = roster[t].pit.map((p, j) => [ratingsOf(p).ovr, j]).filter(([, j]) => roster[t].pit[j].role === 'SP').sort((a, b) => a[0] - b[0])[0][1]; roster[t].pit[i] = made.player; o.slot = i; }
