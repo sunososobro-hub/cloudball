@@ -12,7 +12,7 @@ import path from 'node:path';
 import * as engine from '../engine/index.js';
 import { ROSTERS } from '../league/players.js';
 import { friendlyParam } from '../league/friendly.js';
-import { MEMBERS_MAX, memberParam, parseMembers, guildProblem, guildRosters, guildShare, guildOpening, practiceMembers, practiceLink } from '../league/practice_guild.js';
+import { MEMBERS_MAX, memberParam, parseMembers, guildProblem, guildRosters, guildShare, guildOpening, practiceMembers, practiceLink, guildPlay } from '../league/practice_guild.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bad = [], fail = m => bad.push(m);
@@ -88,6 +88,22 @@ for (const [what, o] of [['same team', { base: 0, opp: 0 }], ['no members', { me
   if (!practiceLink({ members: pm, seed: 1, commit: 'abcdef1', ...o }).problem) fail(`practiceLink accepted ${what}`);
 }
 
+/* play.html path (guildPlay): no m = none; a good link = the guild's team swapped, the other team the same object; bad ones are named */
+{
+  const x = friendlyParam(A), g0 = guildPlay(x, null, ROSTERS), g1 = guildPlay(x, m, ROSTERS);
+  if (g0.status !== 'none' || g0.rosters) fail(`no m: ${g0.status}`);
+  if (g1.status !== 'ok' || g1.team !== A.home) fail(`good link: ${g1.status} ${g1.reason} team ${g1.team}`);
+  else {
+    const names = g1.rosters[g1.team].bat.map(p => p.name);
+    if (!names.includes('阿傑') || !names.includes('小明')) fail('guildPlay: members are not on the guild side');
+    if (g1.rosters[A.away] !== ROSTERS[A.away]) fail('guildPlay touched the other team');
+    if (ROSTERS[A.home].bat.some(p => p.name === '阿傑')) fail('guildPlay changed the shared ROSTERS');
+  }
+  for (const [what, xx, mm] of [['bad x', 'zz', m], ['bad m', x, '9~b.SS.5.a'], ['same team', '1-1-0-0-5', m]]) {
+    const r = guildPlay(xx, mm, ROSTERS);
+    if (r.status !== 'invalid' || !r.reason || r.rosters) fail(`guildPlay ${what}: ${r.status}`);
+  }
+}
 if (digest() !== before) fail('a guild practice game changed an official file (rule 24)');
 const src = readFileSync(path.join(ROOT, 'league/practice_guild.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 if (/Math\.random|Date\b|fetch\(|XMLHttpRequest|sendBeacon|ledger|farm_games|localStorage|sessionStorage/.test(src)) fail('league/practice_guild.js uses a clock, randomness, the network, storage or the ledger by name');

@@ -199,7 +199,7 @@ export function validateCreate(c) {
 
 const r3 = x => Math.round(x * 1000) / 1000;
 /* the display avg placeholder follows contact, least squares over the factory batters (as league/tools/abilities.mjs) */
-const AVG_FIT = (() => {
+export const AVG_FIT = (() => {
   const b = ROSTERS.flatMap(t => t.bat), mean = a => a.reduce((s, x) => s + x, 0) / a.length;
   const mc = mean(b.map(p => p.con)), ma = mean(b.map(p => p.avg));
   let xy = 0, xx = 0; for (const p of b) { xy += (p.con - mc) * (p.avg - ma); xx += (p.con - mc) ** 2; }

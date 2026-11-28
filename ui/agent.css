@@ -52,3 +52,17 @@ main h2{margin:0 0 10px;font-size:20px}
   #status,#stage,#maker,#mine{width:min(100%,980px);margin-inline:auto}
 }
 @media(min-width:1400px){#faList{grid-template-columns:repeat(3,1fr)}}
+/* #795 part 5: the 經紀人 grid (ui/agentset-box.js): 4 situations x 3 frequencies, − level + per cell; grey = follows 一般 */
+.agentset{margin:14px 0 0}
+.agentset h3{margin:0 0 4px;font-size:17px}
+.as-grid{display:grid;grid-template-columns:minmax(64px,auto) repeat(3,1fr);gap:6px;align-items:center;margin:8px 0 4px}
+.as-head{font-size:13px;color:var(--muted);text-align:center}
+.as-sit{font-size:14px;font-weight:600}
+.as-cell{display:flex;align-items:center;justify-content:space-between;gap:2px;border:1px solid var(--line);border-radius:10px;padding:2px}
+.as-cell.follow{opacity:.6}
+.as-step{min-width:36px;min-height:44px;border:0;border-radius:8px;background:var(--glass);color:var(--ink);font:600 18px system-ui,sans-serif;cursor:pointer}
+.as-step:disabled{opacity:.3;cursor:default}
+.as-lv{flex:1;text-align:center;font-size:13px;white-space:nowrap}
+.as-lv.off{color:var(--gold);font-weight:600}
+.as-bar{display:flex;gap:8px;margin:8px 0 0}
+@media(min-width:1000px){.agentset{width:min(100%,980px);margin-inline:auto}}

@@ -6,7 +6,7 @@ import { farmGameOn, farmUrl } from '../../league/farm.js';
 import { TEAMS } from '../../league/teams.js';
 import { seasonAt, nightDate } from '../../league/season_site.js';
 import { trialUrl } from '../../league/trial_games.js';
-import { seasonLine, lineText, pitchLine, pitchText, batLog, pitLog, batGameText, pitGameText, careerRows, careerText } from '../../league/player_stats.js';
+import { seasonLine, lineText, pitchLine, pitchText, batLog, pitLog, batGameText, pitGameText, careerRows, careerText, shapeText } from '../../league/player_stats.js';
 /* #586: 二軍 daily text report; `d.day` (a whole number, from the data) is today, else REPORT_DAY. Text only.
  * #600 part 3: report day N (1-based) is 二軍 night N - 1 of league/site/farm_games.json (`d.farm`); a day whose team played a
  * recorded game links to its 3D replay (play.html?f=<id>), a day without a record stays plain text. */
@@ -38,7 +38,7 @@ const logBox = (d, id, p) => { if (!d.trial || !d.stats || !d.today) return ''; 
 /* #804 part 6: career by season, one row per finished 試跑 season before today's (the season's own line is the box above). */
 export const CAREER_TITLE = '歷年成績（試跑）';
 const careerBox = (d, id, p) => { if (!d.trial || !d.stats || !d.today) return ''; const s = seasonAt(d.trial, d.today); if (!s || s.state === 'before') return '';
-  const rows = careerRows(d.stats, id, p.role, s.season); return rows.length ? `<section class="career"><h3>${CAREER_TITLE}</h3><ul>${rows.map(r => `<li>第 ${esc(r.season)} 季　${esc(careerText(r.line, p.role === 'P'))}</li>`).join('')}</ul></section>` : ''; };
+  const rows = careerRows(d.stats, id, p.role, s.season); return rows.length ? `<section class="career"><h3>${CAREER_TITLE}</h3><ul>${rows.map(r => `<li>第 ${esc(r.season)} 季　${r.shape ? `${esc(shapeText(r.shape))}　` : ''}${esc(careerText(r.line, p.role === 'P'))}</li>`).join('')}</ul></section>` : ''; };
 /* #438: a created player's place (二軍 / 自由市場) and one button to move him to the other (wired in site-page.js; POST /api/player/place) */
 export const PLACE_TEXT = { second: ['二軍', '明天開始出賽，每場都有成績單。'], free: ['自由市場', '等球隊來挑。'] };
 const placeBox = p => { if (p.team != null || p.system === true || !PLACE_TEXT[p.place]) return ''; const to = p.place === 'second' ? 'free' : 'second';

@@ -8,7 +8,16 @@
  * league/growth.js growTo (the product's own lazy growth, its own day RNG) for each of SEASONS_AT seasons, hands-off
  * and active (ACTIVE_BONUS every day). It prints, per kind / mode / season, the final overall at the lowest decile,
  * the median and the top decile, the p90 - p10 gap, and the share at or above the weakest 一軍 starter of the factory
- * league and the 一軍 median (league/tools/train_sim.mjs targets). The potential itself is never shown to fans. */
+ * league and the 一軍 median (league/tools/train_sim.mjs targets). The potential itself is never shown to fans.
+ *
+ *   node league/tools/pot_spread.mjs --lineup [--games N]
+ *
+ * Lineup value of low-potential specialists (#794 part 8, owner 2026-11-28: a low-potential build must still be worth a
+ * seat). Per kind, pure build (league/tools/season_sim.mjs buildChoice: one ability at the cap) and team, LINEUP_DRAWS
+ * creation seeds are drawn and the one at the potential's lowest decile ("low") and at its median ("mid") is kept; he
+ * grows LINEUP_SEASONS seasons hands-off (growth.js, age AGE_FIXED) and then replaces the weakest 一軍 player of his slot
+ * in season_sim.mjs buildValues paired games. value > 0 = his team scores more runs than it allows, per game, compared with
+ * the same games played by that weakest 一軍 starter, so he is worth a seat in a 一軍 lineup. Prints only. */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { CREATE, makePlayer } from '../freeagents.js';
@@ -16,6 +25,10 @@ import { growTo, viewOf } from '../growth.js';
 import { ACTIVE_BONUS, DAYS_PER_SEASON } from '../training.js';
 import { factoryPlayers } from './site.mjs';
 import { targets } from './train_sim.mjs';
+import { buildValues, mix, SEASON_SEED } from './season_sim.mjs';
+import { AVG_FIT } from '../freeagents.js';
+import { ratingsOf } from '../ratings.js';
+import { KEYS } from '../training.js';
 
 export const PLAYERS = 1000, SIM_SEED = 794, AGE_FIXED = 21, SEASONS_AT = [1, 3, 6];
 export const DECILES = [0.1, 0.5, 0.9];
@@ -54,7 +67,51 @@ export function simulate(players = PLAYERS) {
   return { t, out, players };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+export const LINEUP_DRAWS = 41, LINEUP_SEASONS = 3, LINEUP_GAMES = 200, LINEUP_TIERS = { low: 0.1, mid: 0.5 };
+const r3 = x => Math.round(x * 1000) / 1000;
+
+/* the engine player of a grown created player: his grown display numbers back to raw values (as makePlayer does at creation) */
+export function grownEngine(made, days) {
+  const p = { ...made.player, age: AGE_FIXED }, pit = !!p.role, v = viewOf(p, made.ratings, growTo(p, made.ratings, days));
+  const out = { ...v.player };
+  for (const k of KEYS[pit ? 'pit' : 'bat']) out[k] = r3(ratingsOf.raw(pit, k, v.ratings[k]));
+  if (!pit) out.avg = AVG_FIT(out.con);
+  return { player: out, ovr: v.ratings.ovr, pot: made.ratings.pot };
+}
+
+/* the created player of build c for team t at potential rank q of LINEUP_DRAWS seeds, grown `seasons` seasons */
+export function tierPlayer(c, t, q, taken, seasons = LINEUP_SEASONS, draws = LINEUP_DRAWS) {
+  const seeds = Array.from({ length: draws }, (_, j) => mix(SEASON_SEED, 794, t, 8, j))
+    .map(seed => [makePlayer(seed, c).ratings.pot, seed]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const seed = rank(seeds, q)[1];
+  let made; for (let n = 0; ; n++) { made = makePlayer(seed, { ...c, nameDraw: n }); if (!taken.has(made.player.name)) break; }
+  return grownEngine(made, seasons * DAYS_PER_SEASON);
+}
+
+/* buildValues rows per tier: { low: {'bat:con': {value, ovr: [per team], pot: [per team], ...}}, mid: {...} } */
+export function lineupValues({ games = LINEUP_GAMES, kinds = CREATE.kinds, seasons = LINEUP_SEASONS, draws = LINEUP_DRAWS } = {}) {
+  const out = {};
+  for (const [tier, q] of Object.entries(LINEUP_TIERS)) {
+    const seen = {};
+    const make = (kind, main, t, c, taken) => {
+      const g = tierPlayer(c, t, q, taken, seasons, draws), k = `${kind}:${main}`;
+      (seen[k] = seen[k] || { ovr: [], pot: [] }).ovr.push(g.ovr); seen[k].pot.push(g.pot);
+      return g.player;
+    };
+    const rows = buildValues({ games, kinds, make, log: () => {}, mains: k => CREATE.keys[k] });
+    out[tier] = Object.fromEntries(Object.entries(rows).map(([k, r]) => [k, { ...r, ...seen[k] }]));
+  }
+  return out;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) && process.argv.includes('--lineup')) {
+  const i = process.argv.indexOf('--games'), games = i > 0 ? Number(process.argv[i + 1]) : LINEUP_GAMES;
+  const out = lineupValues({ games }), sg = x => (x >= 0 ? '+' : '') + x.toFixed(3);
+  console.log(`pot_spread --lineup (#794): pure builds at potential rank ${Object.entries(LINEUP_TIERS).map(([k, q]) => `${k} ${q}`).join(', ')} of ${LINEUP_DRAWS} seeds, grown ${LINEUP_SEASONS} seasons hands-off, ` +
+    `in the weakest 一軍 slot; ${games} paired games per team (runs per game vs that 一軍 starter)`);
+  for (const k of Object.keys(out.low)) console.log(`  ${k.padEnd(10)} ` + Object.entries(out).map(([tier, rows]) => { const r = rows[k];
+    return `${tier}: pot ${Math.min(...r.pot)}..${Math.max(...r.pot)} ovr ${Math.min(...r.ovr)}..${Math.max(...r.ovr)} value ${sg(r.value)}`; }).join('   '));
+} else if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const i = process.argv.indexOf('--players'), n = i > 0 ? Number(process.argv[i + 1]) : PLAYERS;
   const { t, out } = simulate(n), pct = x => `${(100 * x).toFixed(0)} %`;
   console.log(`pot_spread (#794): ${n} players per kind (seed ${SIM_SEED}), even points, default split, age ${AGE_FIXED}; 一軍 bottom quartile ${t.bottom}, median ${t.median}`);

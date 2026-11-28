@@ -1,9 +1,11 @@
-/* Scheduled guild games, the pure core (#809 part 1). No imports but season.js, no clock, no randomness, no DOM, no network, no engine:
+/* Scheduled guild games, the pure core (#809 part 1). No imports but season.js and agentset.js, no clock, no randomness, no DOM, no network, no engine:
  * the tool hands in `play` (the engine's simGame + boxFromStream, rule 10) and `rosterOf`. Never official (rule 24): nothing here is
  * the ledger or cloudball-league. Same inputs = same bytes (rule 11). Functions never run any of this (10 ms CPU, #809); a Node run does,
  * then publishes the static files below.
  *
  *   export  = { guilds: [ { id, name, base, members: [ { leader, coach, player } ], settings } ] }   (public data only, no agent ids)
+ *     player = { name, kind, ovr, pos, tactics? }: `tactics` = his 經紀人 set (league/agentset.js, #795 part 4b); the lock keeps it in canonical
+ *     form (freezeSet) only when it is valid, of his kind and not all-neutral, so a lock without sets is byte for byte the old one
  *   files written by guildNight (path -> text), `<date>` = YYYY-MM-DD, `<season>` = a whole number:
  *     league/site/guilds/lock-<date>.json      the frozen guilds of that night, sorted by id
  *     league/site/guilds/night-<date>.json     that night's games: { date, commit, games: [ { home, away, seed, replays, score, lines } ] }
@@ -17,6 +19,7 @@
  *   shardOf(key)                            0..LINE_SHARDS-1 (FNV-1a of the key)
  *   guildNight({ exp, date, commit, season, night, prev, play, rosterOf })   the four kinds of file above */
 import * as S from './season.js';
+import { validateSet, freezeSet, isNeutral } from './agentset.js';
 
 export const LINE_SHARDS = 256;
 export const TIE_REPLAYS = 8;
@@ -29,10 +32,17 @@ export const shardOf = key => fnv(key) % LINE_SHARDS;
 const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const sortKeys = o => Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]]));
 
+/* #795 part 4b: the member's 經紀人 set as the lock keeps it ({} = none: missing, invalid, another kind, or all-neutral) */
+const tacticsOf = p => {
+  const t = p.tactics;
+  if (!t || typeof t !== 'object' || t.kind !== p.kind || validateSet(t).length || isNeutral(t)) return {};
+  return { tactics: freezeSet(t) };
+};
+
 export function freeze(exp, date, commit) {
   const guilds = (exp && Array.isArray(exp.guilds) ? exp.guilds : []).map(g => ({
     id: g.id, name: g.name, base: g.base, settings: g.settings === undefined ? null : g.settings,
-    members: (g.members || []).map(m => ({ leader: !!m.leader, coach: !!m.coach, player: m.player ? { name: m.player.name, kind: m.player.kind, ovr: m.player.ovr, pos: m.player.pos ?? null } : null })),
+    members: (g.members || []).map(m => ({ leader: !!m.leader, coach: !!m.coach, player: m.player ? { name: m.player.name, kind: m.player.kind, ovr: m.player.ovr, pos: m.player.pos ?? null, ...tacticsOf(m.player) } : null })),
   })).sort(byId);
   return { date, commit, guilds };
 }

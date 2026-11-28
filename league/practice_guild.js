@@ -14,6 +14,7 @@
  *   guildShare(a, g, commit, base)    the 友誼賽 share link (league/friendly.js) + `m=`
  *   practiceMembers(view)             the members of a guild page view ({ player } rows) as link members: only his own players, pitchers other than SP are RP, at most MEMBERS_MAX
  *   practiceLink({ members, base, opp, sp, seed, commit, page })   the link of a guild's practice game: the guild is the HOME side on team index `base`, `opp` is the NPC team, `sp` the guild's starter place 0..4; { link } or { problem }
+ *   guildPlay(x, m, base)             for play.html: { status: 'none' (no m) | 'invalid' | 'ok', reason, rosters, team } (rosters = guildRosters; team = the side's team index to patch into the viewer's ENGINE.ROSTERS)
  *   guildOpening(s, m, engine, base)  friendlyOpening with the guild's rosters: { status, reason, opening, names } (names = members who found a seat) */
 import { friendlyShare, friendlyProblem, parseFriendly, friendlyOpening } from './friendly.js';
 import { guildRoster } from './guild_roster.js';
@@ -101,4 +102,15 @@ export function guildOpening(s, m, engine, base) {
   try { rosters = guildRosters(g, a, base); } catch (e) { return { status: 'invalid', reason: (e && e.message) || String(e), opening: null, names: [] }; }
   const r = friendlyOpening(s, engine, rosters);
   return { status: r.status, reason: r.reason, opening: r.opening, names: rosters.names };
+}
+
+export function guildPlay(x, m, base) {
+  if (m === null || m === undefined || m === '') return { status: 'none', reason: null, rosters: undefined, team: -1 };
+  const a = parseFriendly(x), g = parseMembers(m);
+  const bad = r => ({ status: 'invalid', reason: r, rosters: undefined, team: -1 });
+  if (!a) return bad('x is not <away>-<home>-<awaySP>-<homeSP>-<seed>');
+  if (a.own) return bad('a guild game carries no single own player');
+  const why = friendlyProblem(a) || (g ? null : 'm is not <side>~<member>...');
+  if (why) return bad(why);
+  try { return { status: 'ok', reason: null, rosters: guildRosters(g, a, base), team: guildTeam(g, a) }; } catch (e) { return bad((e && e.message) || String(e)); }
 }
