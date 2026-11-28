@@ -26,6 +26,7 @@ import { siteFile } from '../season_site.js';
 import { advanceYear, seasonEnd } from '../turnover.js';
 import { siteRoster } from '../site_roster.js';
 import { owedFor, recordOwed } from '../grudges.js';
+import { emptyRivals, recordGrudges } from '../rivals.js';
 import { recordInjuries, outOn, pickHealthyStarter, healthyGame } from '../injuries.js';
 
 export const SITE_OUT = fileURLToPath(new URL('../site/season.json', import.meta.url));
@@ -45,7 +46,8 @@ export const siteRosters = (players, tier) => TEAMS.map(t => siteRoster(players,
 /* rosters: one { bat, pit, bench } per TEAMS index; the default stays the factory ROSTERS (seed 704 and every older check are byte for byte the same).
  * feud (#379 part 9): simGame grudge options, e.g. { grudge: true, retaliate: true }; off by default (no feud = every game as before).
  * With it, each game gets the pair's last `owed` from the grudge book (league/grudges.js) as opts.owed, the log line keeps it as
- * `owedIn` (so the game replays), and the counted game's `owed` replaces the pair's entry; the run returns the final `grudges` book.
+ * `owedIn` (so the game replays), and the counted game's `owed` replaces the pair's entry; the run returns the final `grudges` book
+ * and `rivals` (#379 part 13, league/rivals.js: the season's grudge totals per player and team pair, for 宿敵 text).
  * injury (#379 part 11): true = simGame opts.injury; off by default (every game as before). The league keeps the injured list
  * (league/injuries.js): a player out tonight leaves the lineup / bullpen (healthyRoster) and the rotation skips him
  * (pickHealthyStarter). The log line keeps `out` ({ <team index>: names }) so the game replays with healthyGame (league/injuries.js);
@@ -55,7 +57,7 @@ export { healthyGame };
 export function runSeason(seed, { rosters = ROSTERS, feud, injury } = {}) {
   const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i]));
   const schedule = S.makeSchedule(ids), table = S.newStandings(ids), rot = S.newRotation(ids), log = [];
-  let book = {}, injured = [];
+  let book = {}, injured = [], rivals = emptyRivals();
   function play(day, slot, g, phase) {
     const sides = [g.away, g.home], teams = sides.map(id => ix[id]);
     const outs = teams.map(t => (injury ? outOn(injured, t, day) : []));
@@ -71,7 +73,7 @@ export function runSeason(seed, { rosters = ROSTERS, feud, injury } = {}) {
       if (awayRuns === homeRuns) continue;
       const res = { home: g.home, away: g.away, homeRuns, awayRuns };
       log.push({ day, phase, ...res, starters: sides.map((id, k) => rosters[ix[id]].pit[sp[k]].name), replays: n, slot, sp: sp.slice(), seed: (seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0, ...(owedIn ? { owedIn } : {}), ...(out ? { out } : {}) });
-      if (feud) book = recordOwed(book, teams, game.owed);
+      if (feud) { book = recordOwed(book, teams, game.owed); rivals = recordGrudges(rivals, teams, game.grudges); }
       if (injury) injured = recordInjuries(injured, game.injuries, day);
       return res;
     }
@@ -80,7 +82,7 @@ export function runSeason(seed, { rosters = ROSTERS, feud, injury } = {}) {
   schedule.forEach((night, day) => night.forEach((g, slot) => S.applyResult(table, play(day, slot, g, 'season'))));
   const fin = S.newFinal(table);
   for (let g = S.nextFinalGame(fin); g; g = S.nextFinalGame(fin)) S.applyFinalResult(fin, play(S.SEASON_NIGHTS + fin.games.length, FINAL_SLOT, g, 'final'));
-  return { seed, schedule, standings: S.rank(table).map(id => ({ id, ...table.teams[id] })), final: fin, champion: S.champion(fin), log, rot, ...(feud ? { grudges: book, feud } : {}), ...(injury ? { injured, injury: true } : {}) };
+  return { seed, schedule, standings: S.rank(table).map(id => ({ id, ...table.teams[id] })), final: fin, champion: S.champion(fin), log, rot, ...(feud ? { grudges: book, rivals, feud } : {}), ...(injury ? { injured, injury: true } : {}) };
 }
 
 /* Chained seasons of the 試跑 (#749): season 1 plays `seed`; after each season the display league (players.json format) is
