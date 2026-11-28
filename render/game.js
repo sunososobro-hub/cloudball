@@ -2092,7 +2092,7 @@ const VOICE=window.COMMENTARY.createVoice({onTalk:talk=>{talkDuck=talk?window.CO
 let sayOn=false,booth=null,boothFor=null,hello=null;
 function say(who,text,urgent){if(sayOn)VOICE.say(WHO[who]||who,text,{urgent:!!urgent})}
 /* #133: one fetch per script, shared by the booth, the compact clock and the highlights, and started behind the entry card (createBooth copies the lines, so sharing the parsed script is safe) */
-const scriptP=new Map(),loadScript=seed=>{if(window.FARM||window.LEDGER_GAME||window.FRIENDLY)return Promise.reject(new Error('replayed record: no commentary script (silent, feed only, #600 #592 #751)'));if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
+const scriptP=new Map(),loadScript=seed=>{if(window.FARM||window.LEDGER_GAME||window.FRIENDLY||window.TRIAL_GAME)return Promise.reject(new Error('replayed record: no commentary script (silent, feed only, #600 #592 #751 #743)'));if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
 if(window.FARM_NOTE)window.READY.then(()=>note(window.FARM_NOTE));
 if(window.OPENING)loadScript(window.OPENING.seed).catch(()=>{});/* fetched while the park compiles, not after the click */
 function makeBooth(script){const g=game;return window.COMMENTARY.createBooth({stream:g.stream,seed:g.seed,bank:window.COMMENTARY_BANK,script,teams:g.teams.map(i=>TEAMS[i]),describe:x=>g.ev[x.f].desc})}
@@ -2336,7 +2336,7 @@ $('hlAgain').onclick=()=>startHighlights();
 $('hlFull').onclick=()=>{hlStop();seekTo(0);plSetPaused(false)};
 function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart+CYCLE*1000;
   if(mode==='studio')return{cls:'',txt:'動作片場',sub:studio?`${studio.e.desc||''}・${studio.spd}×`:''};
-  if(mode==='opening')return{cls:'',txt:window.FRIENDLY?'友誼賽（非正式）':window.FARM?'二軍比賽（重播）':window.LEDGER_GAME?'正式比賽（重播）':'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
+  if(mode==='opening')return{cls:'',txt:window.FRIENDLY?'友誼賽（非正式）':window.TRIAL_GAME?'一軍試跑（重播）':window.FARM?'二軍比賽（重播）':window.LEDGER_GAME?'正式比賽（重播）':'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
   if(mode==='practice')return{cls:'',txt:window.SITE&&window.SITE.dev?'開發模式':'季前熱身賽',sub:window.SITE&&window.SITE.dev?`${speed}× 速度・兩隊都由你調度`:''};
   if(mode==='replay')return{cls:'',txt:`重播中（${fmtT(gameStart)} 場）`,sub:`${speed}× 速度・不影響直播`};
   if(T<game.dur)return{cls:'live',txt:'直播中',sub:`${fmtT(gameStart)} 開打・下一場 ${fmtT(next)}`};
