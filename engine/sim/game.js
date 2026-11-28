@@ -13,7 +13,7 @@ import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
 import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, BASES, spotXZ, dist, clamp, runnerTimeline, fielderStart, runPace } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
-import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple, resolveDoubledOff } from '../rules/fielding.js';
+import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple, resolveDoubledOff, resolveRundownHome } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
@@ -69,6 +69,7 @@ export function simGame(seed, decisions, opts) {
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
   const obsR = mulberry32((seed ^ K.OBSTRUCTION_SALT) >>> 0);   /* #614 part 15: obstruction draws, apart so R, rare and look keep their sequences */
+  const rd3R = mulberry32((seed ^ K.RD3_SALT) >>> 0);   /* #614 part 16: runner caught off third, apart so R, rare and look keep their sequences */
   const visitR = mulberry32((seed ^ K.VISIT_SALT) >>> 0);   /* #614 part 11: catcher visits (timing only), drawn apart so R and look keep their sequences */  /* #614 part 9: outcomes of rare plays (catcher's interference), drawn apart so the main sequence R is not shifted */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
@@ -626,7 +627,13 @@ export function simGame(seed, decisions, opts) {
                 if (B[2]) { moves.push([3, HOME, B[2]]); runs++; nb[2] = null; }
                 if (B[1] && !nb[2]) { moves.push([2, 3, B[1]]); nb[2] = B[1]; nb[1] = null; }
                 result = 'groundout'; desc = COPY.groundAdvance(name, fielder);
-              } else { result = 'groundout'; desc = COPY.groundOut(name, fielder); }
+              } else {
+                /* #614 part 16: the runner on third (first open) broke on contact; the fielder throws home and he is run down
+                 * between third and home (resolveRundownHome). The batter is safe at first: a fielder's choice */
+                const rd3 = B[2] && !B[0] && st.outs < K.OUTS_PER_HALF - 1 && fielder !== 'C' && rd3R() < K.RD3_OF_GB_HOLD_P ? resolveRundownHome(ctx) : null;
+                if (rd3) { plan = rd3.plan; outs = rd3.outs; nb[2] = null; nb[0] = name; play.rd3 = true; result = 'fielders_choice'; desc = COPY.rundownHome(name, fielder, B[2]); }
+                else { result = 'groundout'; desc = COPY.groundOut(name, fielder); }
+              }
               st.b = nb;
             } else {
               /* the defence could not make any play in time: an infield hit. Forced runners move up one base. */
