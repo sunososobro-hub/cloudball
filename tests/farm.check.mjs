@@ -16,7 +16,7 @@ import { serialize } from '../league/tools/farm_record.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bad = [], fail = m => bad.push(m);
-const MAX_BYTES = 1024, SEASON_GAMES = 100;
+const MAX_BYTES = 1024, MAX_BYTES_ROSTERS = 8192, SEASON_GAMES = 100;   /* a record without opts.rosters is small; with the two lineups (#748 part 2) it may be MAX_BYTES_ROSTERS */
 const file = readFileSync(path.join(ROOT, 'league/site/farm_games.json'), 'utf8');
 let list = [];
 try { list = JSON.parse(file); } catch (e) { fail(`farm_games.json does not parse: ${e.message}`); }
@@ -32,7 +32,8 @@ for (const rec of list) {
   if (why) { fail(`${rec && rec.id}: ${why}`); continue; }
   if (seen.has(rec.id)) fail(`${rec.id} twice`);
   seen.add(rec.id);
-  if (recordBytes(rec) > MAX_BYTES) fail(`${rec.id}: ${recordBytes(rec)} bytes > ${MAX_BYTES}`);
+  const cap = rec.opts && rec.opts.rosters ? MAX_BYTES_ROSTERS : MAX_BYTES;
+  if (recordBytes(rec) > cap) fail(`${rec.id}: ${recordBytes(rec)} bytes > ${cap}`);
   if (rec.engine.version !== engine.ENGINE_VERSION) { older++; continue; }   /* pinned to an older engine: only the CDN can replay it */
   asked.length = 0;
   const r = await replayFarm(list, rec.id, local);

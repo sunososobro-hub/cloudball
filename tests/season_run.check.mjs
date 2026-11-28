@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const S = await import(pathToFileURL(path.join(ROOT, 'league/season.js')));
-const { runSeason, farmGames, FARM_SEED_BASE } = await import(pathToFileURL(path.join(ROOT, 'league/tools/season_run.mjs')));
+const { runSeason, runSeasons, farmGames, siteRosters, PLAYERS_IN, FARM_SEED_BASE } = await import(pathToFileURL(path.join(ROOT, 'league/tools/season_run.mjs')));
 const E = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const F = await import(pathToFileURL(path.join(ROOT, 'league/farm.js')));
 const { ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'league/players.js')));
@@ -72,6 +72,27 @@ for (const seed of [1, 2]) {
   }
 }
 eq(JSON.stringify(ROSTERS), before, 'ROSTERS unchanged by a season');
+
+/* #748 part 2: the rosters the site shows reach the engine (一軍 nights and 二軍 games); the default stays the factory ROSTERS */
+const { readFileSync } = await import('node:fs');
+const players = JSON.parse(readFileSync(PLAYERS_IN, 'utf8')), names = tier => siteRosters(players, tier).map(r => new Set([...r.bat, ...r.pit].map(p => p.name)));
+const farmRs = siteRosters(players, 2), firstNames = names(1), farmNames = names(2), ids = E.TEAMS.map(t => t.id);
+eq(JSON.stringify(runSeason(704)), JSON.stringify(runSeason(704, { rosters: ROSTERS })), 'default rosters = ROSTERS');
+farmRs.forEach((r, i) => eq(new Set(r.bat.map(p => p.pos)).size, 9, `${ids[i]} 二軍 lineup positions`));
+const sr = runSeason(1, { rosters: siteRosters(players, 1) });
+for (const x of sr.log) for (const [k, id] of [x.away, x.home].entries()) if (!firstNames[ids.indexOf(id)].has(x.starters[k])) bad(`一軍 night ${x.day}: starter ${x.starters[k]} is not on ${id}'s 一軍`);
+eq(JSON.stringify(runSeason(1, { rosters: siteRosters(players, 1) })), JSON.stringify(sr), '一軍 on site rosters: same seed, same season');
+const fr = farmGames(1, { commit: 'abcdef1', rosters: farmRs }), fr2 = farmGames(1, { commit: 'abcdef1', rosters: farmRs });
+eq(JSON.stringify(fr2), JSON.stringify(fr), '二軍 on site rosters: same seed, same records');
+for (const r of fr) {
+  const rep = await F.replayFarm(fr, r.id, async () => E), [a, h] = r.teams, text = JSON.stringify(rep.box && rep.box.line);
+  if (rep.status !== 'ok') { bad(`二軍 ${r.id}: replay ${rep.status} ${rep.reason}`); continue; }
+  const g = E.simGame(r.seed, {}, { teams: r.teams, rosters: farmRs }), used = new Set(JSON.stringify(E.boxFromStream(g.stream)).match(/"(?:[^"\\]|\\.)*"/g)?.map(x => JSON.parse(x)) || []);
+  for (const n of [...firstNames[a], ...firstNames[h]]) if (used.has(n)) bad(`二軍 ${r.id}: box score names 一軍 player ${n}`);
+  if (![...used].some(n => farmNames[a].has(n)) || ![...used].some(n => farmNames[h].has(n))) bad(`二軍 ${r.id}: box score names no 二軍 player of a side`);
+  if (JSON.stringify(rep.game.stream) !== JSON.stringify(g.stream)) bad(`二軍 ${r.id}: record replay differs from the game on the full rosters`);
+}
+if (runSeasons(1, { seasons: 2, players }).length !== 2) bad('runSeasons: two seasons expected');
 
 console.log(`season_run: final rules by hand + ${SEASONS} seeded seasons with no fan file, each to a champion`);
 if (problems.length) { console.error(`FAILED: ${problems.length} season_run problem(s)`); for (const p of problems.slice(0, 20)) console.error('  ' + p); process.exit(1); }

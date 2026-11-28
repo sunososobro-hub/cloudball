@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { ROSTERS } from '../league/players.js';
 import { ratingsOf } from '../league/ratings.js';
-import { buildSite, validateSite, siteFiles, OUT_DIR, TIER, SYSTEM_SECOND_PER_KIND } from '../league/tools/site.mjs';
+import { buildSite, validateSite, siteFiles, OUT_DIR, TIER, fullSecond } from '../league/tools/site.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const problems = [], bad = m => problems.push(m);
@@ -33,14 +33,14 @@ if (files) {
   if (files.teams.season !== '0') bad(`season is ${files.teams.season}, expected "0"`);
   if (files.teams.teams.length !== 4) bad(`${files.teams.teams.length} teams, expected 4`);
   const n = ROSTERS.reduce((s, t) => s + t.bat.length + t.pit.length, 0);
-  const all = Object.values(files.players), first = all.filter(p => p.tier === TIER.FIRST), farm = all.filter(p => p.tier === TIER.SECOND), per = 2 * SYSTEM_SECOND_PER_KIND;
+  const all = Object.values(files.players), first = all.filter(p => p.tier === TIER.FIRST), farm = all.filter(p => p.tier === TIER.SECOND), per = fullSecond()[files.teams.teams[0].id].length;   /* #748 part 2: a full 二軍 per team */
   /* day-1 snapshot (#565 part 4): the factory league run DAY1_SEASONS turnover seasons ahead, so the roster size per team is what the
    * factory gave (一軍 + 二軍), the 一軍 is (nearly) full, ages are mixed, somebody waits in the call-up queue and the 自由市場 is not empty */
   const size = ROSTERS.length ? ROSTERS[0].bat.length + ROSTERS[0].pit.length + per : 0;
   if (first.length < n - 4 || first.length > n) bad(`day 1: ${first.length} 一軍 players, expected ${n - 4}..${n}`);
   for (const t of files.teams.teams) {
     const mine = all.filter(p => p.team === t.id && (p.tier === TIER.FIRST || p.tier === TIER.SECOND)).length;
-    if (mine !== size) bad(`team ${t.id}: ${mine} players in 一軍 + 二軍, the factory league has ${size}`);
+    if (mine < size) bad(`team ${t.id}: ${mine} players in 一軍 + 二軍, fewer than the ${size} of a full 一軍 + 二軍`);
   }
   const ages = first.map(p => p.age);
   if (Math.max(...ages) - Math.min(...ages) < 10) bad(`day 1: 一軍 ages ${Math.min(...ages)}..${Math.max(...ages)} are not mixed`);
