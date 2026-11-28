@@ -20,6 +20,7 @@ import { farmRecord } from '../farm.js';
 import { OUT as FARM_OUT, serialize as farmSerialize } from './farm_record.mjs';
 import { siteFile } from '../season_site.js';
 import { advanceYear, seasonEnd } from '../turnover.js';
+import { siteRoster } from '../site_roster.js';
 
 export const SITE_OUT = fileURLToPath(new URL('../site/season.json', import.meta.url));
 /* one night per line, so a new season reads as a small diff */
@@ -29,22 +30,25 @@ export const PLAYERS_IN = fileURLToPath(new URL('../site/players.json', import.m
 export const MIN_SITE_DAYS = 90;                  /* the 試跑 file covers at least this many nights (#749) */
 export const SEASON_SEED_STEP = 1000;             /* season k plays seed + (k-1) * step: its game seeds (seed*1000 + ...) never meet another season's */
 export const TIE_REPLAYS = 10;
+/* The rosters the site shows, as the engine wants them (#748 part 2): one { bat, pit, bench } per team in TEAMS order, tier 1 = 一軍, 2 = 二軍. */
+export const siteRosters = (players, tier) => TEAMS.map(t => siteRoster(players, t.id, tier));
 const GAME_SEED_STEP = 10, SUBSEED_STEP = 1;      /* seed of a game = seed*1000 + day*10 + slot (+ replay number) */
 const FINAL_SLOT = 0;
 
-export function runSeason(seed) {
+export function runSeason(seed, { rosters } = {}) {
+  const R = rosters || ROSTERS;   /* default = the factory ROSTERS: seed 704 and every older check stay byte for byte */
   const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i]));
   const schedule = S.makeSchedule(ids), table = S.newStandings(ids), rot = S.newRotation(ids), log = [];
   function play(day, slot, g, phase) {
     const sides = [g.away, g.home];
-    const sp = sides.map(id => S.pickStarter(rot, id, ROSTERS[ix[id]].pit, day));
+    const sp = sides.map(id => S.pickStarter(rot, id, R[ix[id]].pit, day));
     sides.forEach((id, k) => S.recordStart(rot, id, sp[k], day));
     for (let n = 0; n <= TIE_REPLAYS; n++) {
-      const game = simGame((seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0, {}, { teams: sides.map(id => ix[id]), starters: sp });
+      const game = simGame((seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0, {}, { teams: sides.map(id => ix[id]), starters: sp, ...(rosters ? { rosters } : {}) });
       const [awayRuns, homeRuns] = game.final.sc;
       if (awayRuns === homeRuns) continue;
       const res = { home: g.home, away: g.away, homeRuns, awayRuns };
-      log.push({ day, phase, ...res, starters: sides.map((id, k) => ROSTERS[ix[id]].pit[sp[k]].name), replays: n });
+      log.push({ day, phase, ...res, starters: sides.map((id, k) => R[ix[id]].pit[sp[k]].name), replays: n });
       return res;
     }
     throw new Error(`season ${seed} day ${day}: still tied after ${TIE_REPLAYS} replays`);
@@ -56,15 +60,15 @@ export function runSeason(seed) {
 }
 
 /* Chained seasons of the 試跑 (#749): season 1 plays `seed`; after each season the display league (players.json format) is
- * aged a year and goes through seasonEnd with a seed derived from the season seed. Engine rosters stay the factory ROSTERS
- * until #748 hands the site rosters to the engine, so the turnover is display data only (rule 10). Each run gets `.season`
+ * aged a year and goes through seasonEnd with a seed derived from the season seed. Given `players`, each season is played by the 一軍 the
+ * site shows at that point (#748 part 2: siteRosters(league, 1)); without it the factory ROSTERS play (rule 10: the engine alone decides results). Each run gets `.season`
  * and (except the last) `.turnover` = { retired, culled, called, signed, released, rookies } counts. Pure but for the engine. */
 export const turnoverSeed = (seed, k) => (Math.imul(seed >>> 0, 0x9e3779b1) ^ Math.imul(k, 0x85ebca6b)) >>> 0;
 export function runSeasons(seed, { seasons = 0, minDays = MIN_SITE_DAYS, players } = {}) {
   const runs = [];
   let league = players, days = 0;
   for (let k = 1; seasons ? k <= seasons : days < minDays; k++) {
-    const run = runSeason(seed + (k - 1) * SEASON_SEED_STEP);
+    const run = runSeason(seed + (k - 1) * SEASON_SEED_STEP, league ? { rosters: siteRosters(league, 1) } : {});
     run.season = k; days += new Set(run.log.map(x => x.day)).size; runs.push(run);
     if (seasons ? k < seasons : days < minDays) {
       const r = seasonEnd(advanceYear(league), { seed: turnoverSeed(seed, k) });
@@ -77,14 +81,16 @@ export function runSeasons(seed, { seasons = 0, minDays = MIN_SITE_DAYS, players
 
 /* 二軍 day runner (#600 part 4): one 二軍 game per 一軍 pairing on every season night, same teams, own seed block
  * (FARM_SEED_BASE keeps them apart from the 一軍 seeds above). The engine plays them; the record keeps seed + commit +
- * result (farm.js). Lineups: the default rosters (系統 players, no fan file). Ids continue after `startId`. Pure but for the engine. */
+ * result (farm.js). Lineups: the default rosters, or `rosters` (#748 part 2: siteRosters(players, 2), the full 系統 二軍; each record then carries both sides in
+ * opts.rosters, an array by team index with null for the teams not playing, so the replay needs nothing else). Ids continue after `startId`. Pure but for the engine. */
 export const FARM_SEED_BASE = 1_000_000_000;
-export function farmGames(seed, { commit, startId = 1 } = {}) {
+export function farmGames(seed, { commit, startId = 1, rosters } = {}) {
   const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i])), out = [];
   S.makeSchedule(ids).forEach((night, day) => night.forEach((g, slot) => {
     const teams = [g.away, g.home].map(id => ix[id]), gseed = (FARM_SEED_BASE + seed * 1000 + day * GAME_SEED_STEP + slot) >>> 0;
-    const b = boxFromStream(simGame(gseed, {}, { teams }).stream);
-    out.push(farmRecord({ id: `f-${startId + out.length}`, day, seed: gseed, commit, version: ENGINE_VERSION, teams, score: b.score, line: b.line }));
+    const opts = rosters ? { rosters: rosters.map((r, i) => (teams.includes(i) ? r : null)) } : undefined;
+    const b = boxFromStream(simGame(gseed, {}, { teams, ...opts }).stream);
+    out.push(farmRecord({ id: `f-${startId + out.length}`, day, seed: gseed, commit, version: ENGINE_VERSION, teams, opts, score: b.score, line: b.line }));
   }));
   return out;
 }
@@ -97,7 +103,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const commit = a.includes('--commit') ? a[a.indexOf('--commit') + 1] : execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
     const seasons = a.includes('--seasons') ? Number(a[a.indexOf('--seasons') + 1]) : 0;
     if (!Number.isInteger(seasons) || seasons < 0) { console.error('--seasons must be a whole number >= 1'); process.exit(2); }
-    const runs = runSeasons(seed, { seasons, players: JSON.parse(readFileSync(PLAYERS_IN, 'utf8')) });
+    const runs = runSeasons(seed, { seasons, players: JSON.parse(readFileSync(PLAYERS_IN, 'utf8')) });   /* 一軍 = the snapshot's */
     const text = siteSerialize(siteFile(runs, { start, commit, version: ENGINE_VERSION }));
     if (a.includes('--write')) { writeFileSync(SITE_OUT, text); console.log(`wrote ${SITE_OUT}`); } else process.stdout.write(text);
     process.exit(0);
@@ -106,7 +112,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const list = existsSync(FARM_OUT) ? JSON.parse(readFileSync(FARM_OUT, 'utf8')) : [];
     const next = list.reduce((m, r) => Math.max(m, Number(String(r.id).slice(2)) || 0), 0) + 1;
     const commit = a.includes('--commit') ? a[a.indexOf('--commit') + 1] : execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
-    const recs = farmGames(seed, { commit, startId: next });
+    const recs = farmGames(seed, { commit, startId: next, rosters: siteRosters(JSON.parse(readFileSync(PLAYERS_IN, 'utf8')), 2) });   /* 二軍 = the snapshot's full 二軍 */
     for (const r of recs) console.log(JSON.stringify(r));
     if (a.includes('--write')) { writeFileSync(FARM_OUT, farmSerialize(list.concat(recs))); console.log(`wrote ${recs.length} records (f-${next}..)`); }
     process.exit(0);

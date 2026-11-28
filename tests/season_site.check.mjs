@@ -11,7 +11,7 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const imp = p => import(pathToFileURL(path.join(ROOT, p)));
 const { siteFile, seasonAt, dayIndex, health } = await imp('league/season_site.js');
-const { runSeason, runSeasons, siteSerialize, PLAYERS_IN, MIN_SITE_DAYS } = await imp('league/tools/season_run.mjs');
+const { runSeason, runSeasons, siteSerialize, siteRosters, PLAYERS_IN, MIN_SITE_DAYS } = await imp('league/tools/season_run.mjs');
 const { readFileSync } = await import('node:fs');
 const { combine } = await imp('ui/site/shared.js');
 const { view } = await imp('ui/site/home.js');
@@ -28,7 +28,8 @@ eq(file.nights.map(n => n.day), file.nights.map((_, i) => i), 'nights count on w
 if (file.nights.length < MIN_SITE_DAYS) bad(`default file covers ${file.nights.length} nights, want >= ${MIN_SITE_DAYS}`);
 eq(file.seasons.map(x => x.nights).reduce((a, b) => a + b, 0), file.nights.length, 'seasons add up to the nights');
 eq(file.seasons.map(x => !!x.turnover), file.seasons.map((_, i) => i < file.seasons.length - 1), 'turnover between seasons, none after the last');
-eq(JSON.stringify(file.seasons[0].champion), JSON.stringify(runSeason(3).champion), 'season 1 = the single-season run of the same seed');
+const snapshot = JSON.parse(readFileSync(PLAYERS_IN, 'utf8'));
+eq(JSON.stringify(file.seasons[0].champion), JSON.stringify(runSeason(3, { rosters: siteRosters(snapshot, 1) }).champion), 'season 1 = the single-season run of the same seed on the snapshot 一軍 (#748 part 2)');
 const two = JSON.parse(execFileSync(process.execPath, [...args, '--seasons', '2'], { encoding: 'utf8' }));
 eq([two.seasons.length, two.nights.length, two.nights[two.seasons[0].nights].season, two.nights[two.seasons[0].nights].day], [2, two.seasons[0].nights + two.seasons[1].nights, 2, two.seasons[0].nights], '--seasons 2: season 2 opens the night after the final');
 if (file.champion !== file.seasons[file.seasons.length - 1].champion) bad('file champion is the last season\'s');

@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const S = await import(pathToFileURL(path.join(ROOT, 'league/season.js')));
-const { runSeason, farmGames, FARM_SEED_BASE } = await import(pathToFileURL(path.join(ROOT, 'league/tools/season_run.mjs')));
+const { runSeason, farmGames, siteRosters, PLAYERS_IN, FARM_SEED_BASE } = await import(pathToFileURL(path.join(ROOT, 'league/tools/season_run.mjs')));
 const E = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const F = await import(pathToFileURL(path.join(ROOT, 'league/farm.js')));
 const { ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'league/players.js')));
@@ -69,6 +69,32 @@ for (const seed of [1, 2]) {
     const why = F.farmProblem(r); if (why) bad(`${tag} ${r.id}: ${why}`);
     const rep = await F.replayFarm(recs, r.id, async () => E);
     if (rep.status !== 'ok') bad(`${tag} ${r.id}: replay ${rep.status} ${rep.reason}`);
+  }
+}
+/* #748 part 2: the engine plays the rosters the site shows (players.json). A season on the snapshot 一軍 names only 一軍 starters of the playing
+ * team; a 二軍 record carries both full 二軍 sides in opts.rosters, replays byte for byte, its box score names only those two 二軍s, every
+ * 二軍 lineup has 9 distinct positions, and the same seed gives the same bytes. */
+{
+  const players = JSON.parse((await import('node:fs')).readFileSync(PLAYERS_IN, 'utf8')), names = (tier, id) => new Set(Object.values(players).filter(p => p.team === id && p.tier === tier).map(p => p.name));
+  const first = siteRosters(players, 1), farm = siteRosters(players, 2), ids = E.TEAMS.map(x => x.id);
+  const s1 = runSeason(3, { rosters: first });
+  eq(json(runSeason(3, { rosters: first })), json(s1), 'snapshot season: same seed, same season');
+  if (!s1.champion) bad('snapshot season: no champion');
+  for (const x of s1.log) x.starters.forEach((n, k) => { const id = k ? x.home : x.away; if (!names(1, id).has(n)) bad(`snapshot season day ${x.day}: starter ${n} is not a 一軍 player of ${id}`); });
+  eq(json(runSeason(3)), json(runSeason(3, {})), 'no rosters = the factory season');
+  const recs = farmGames(1, { commit: 'abcdef1', rosters: farm }), again = farmGames(1, { commit: 'abcdef1', rosters: farm });
+  eq(recs.length, 12, '二軍 on site rosters: one game per 一軍 game');
+  eq(JSON.stringify(again), JSON.stringify(recs), '二軍 on site rosters: same seed, same bytes');
+  const everyone = Object.values(players).map(p => p.name);
+  for (const r of recs) {
+    const why = F.farmProblem(r); if (why) bad(`二軍 ${r.id}: ${why}`);
+    const rep = await F.replayFarm(recs, r.id, async () => E);
+    if (rep.status !== 'ok') bad(`二軍 ${r.id}: replay ${rep.status} ${rep.reason}`);
+    const text = JSON.stringify(rep.box), own = r.teams.flatMap(i => [...names(2, ids[i])]), seen = everyone.filter(n => text.includes(n));
+    for (const n of seen) if (!own.includes(n)) bad(`二軍 ${r.id}: box score names ${n}, not a 二軍 player of ${r.teams.map(i => ids[i])}`);
+    if (!seen.length) bad(`二軍 ${r.id}: box score names nobody`);
+    for (const i of r.teams) if (new Set(r.opts.rosters[i].bat.map(p => p.pos)).size !== 9) bad(`二軍 ${r.id}: lineup of ${ids[i]} has no 9 distinct positions`);
+    r.opts.rosters.forEach((x, i) => { if (!r.teams.includes(i) && x !== null) bad(`二軍 ${r.id}: roster of a team that does not play`); });
   }
 }
 eq(JSON.stringify(ROSTERS), before, 'ROSTERS unchanged by a season');

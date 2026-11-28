@@ -10,7 +10,7 @@ import { ROSTERS } from '../league/players.js';
 import { TEAMS } from '../league/teams.js';
 import { ratingsOf } from '../league/ratings.js';
 import { CREATE } from '../league/freeagents.js';
-import { buildSite, fullSecond, SECOND_BULLPEN } from '../league/tools/site.mjs';
+import { buildSite, fullSecond, fillSecond, SECOND_BULLPEN } from '../league/tools/site.mjs';
 import { siteRoster } from '../league/site_roster.js';
 import { simGame, boxFromStream } from '../engine/index.js';
 import { ROTATION_SIZE } from '../engine/constants.js';
@@ -49,6 +49,23 @@ for (const [i, t] of ROSTERS.entries()) {
   const farm = siteRoster(rows, tid, 2);
   if (new Set(farm.bat.map(p => p.pos)).size !== 9) bad(`${tid} 二軍 lineup has ${new Set(farm.bat.map(p => p.pos)).size} positions, expected 9`);
   if (farm.pit.slice(0, ROTATION_SIZE).some(p => p.role !== 'SP')) bad(`${tid} 二軍: the first ${ROTATION_SIZE} pitchers are not all starters`);
+}
+
+{   /* fillSecond (part 2): tops a lopsided 二軍 up, adds only, same input = same bytes, a full 二軍 comes back unchanged */
+  const lop = JSON.parse(JSON.stringify(rows)), mine = Object.entries(lop).filter(([, p]) => p.team === TEAMS[0].id && p.tier === 2);
+  for (const [id, p] of mine) if ((p.role === 'B' && p.pos !== 'C') || (p.role === 'P' && p.pos !== 'SP')) delete lop[id];   /* leaves a catcher and starters only */
+  const f = fillSecond(lop), g = fillSecond(lop);
+  if (JSON.stringify(f) !== JSON.stringify(g)) bad('fillSecond: two calls differ');
+  if (JSON.stringify(fillSecond(f)) !== JSON.stringify(f)) bad('fillSecond: a full 二軍 changed');
+  if (JSON.stringify(fillSecond(rows)) !== JSON.stringify(rows)) bad('fillSecond: the full factory 二軍 changed');
+  for (const [id, p] of Object.entries(lop)) if (JSON.stringify(f[id]) !== JSON.stringify(p)) bad(`fillSecond: ${id} was changed`);
+  const farm = siteRoster(f, TEAMS[0].id, 2);
+  if (new Set(farm.bat.map(p => p.pos)).size !== 9 || farm.pit.filter(p => p.role === 'SP').length < ROTATION_SIZE || farm.pit.filter(p => p.role !== 'SP').length < SECOND_BULLPEN) bad('fillSecond: the topped-up 二軍 is not a full roster');
+  const named = Object.values(f).map(p => p.name);
+  if (new Set(named).size !== named.length) bad('fillSecond: a name is used twice');
+  const crowd = JSON.parse(JSON.stringify(rows)), extra = Object.entries(crowd).find(([, p]) => p.team === TEAMS[0].id && p.tier === 2 && p.role === 'B');
+  crowd['x-dup'] = { ...extra[1], name: 'Crowd Extra', overall: 99 };   /* a tenth batter at an owned position: the lineup keeps 9 distinct positions */
+  if (new Set(siteRoster(crowd, TEAMS[0].id, 2).bat.map(p => p.pos)).size !== 9) bad('lineup: a surplus batter pushed a position out');
 }
 
 const tiers = tier => TEAMS.map(t => siteRoster(rows, t.id, tier)), play = (rs, seed) => simGame(seed, {}, { rosters: rs, teams: [0, 1] });

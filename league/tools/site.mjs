@@ -62,7 +62,7 @@ export function systemSecond(teams = TEAMS, rosters = ROSTERS) {
   return out;
 }
 
-/* #748 part 1: a FULL 二軍 per team (not wired into the export yet, part 2): one batter per position of CREATE.positions (the nine of a lineup,
+/* #748 part 1: a FULL 二軍 per team (the export uses it since part 2): one batter per position of CREATE.positions (the nine of a lineup,
  * DH included), ROTATION_SIZE starters, then SECOND_BULLPEN relievers (roles cycled over the non-SP roles). Same recipe and seeds as systemSecond
  * (an even spread of the creation budget, names unique in the league), so two calls give the same bytes. */
 export const SECOND_BULLPEN = 4, FULL_SECOND_SEED = 748;
@@ -85,6 +85,43 @@ export function fullSecond(teams = TEAMS, rosters = ROSTERS) {
   return out;
 }
 
+/* One players.json row from a player in the roster format of league/players.js. */
+export function siteRow(p, team, tier, rate = ratingsOf) {
+  const { ovr, ...abilities } = rate(p);
+  return { name: p.name, num: p.num, age: p.age, role: p.role ? 'P' : 'B', pos: p.role || p.pos,
+    hand: p.role ? p.throws : p.hand, overall: ovr, abilities, team, tier, ...(p.system === true ? { system: true } : {}) };
+}
+
+/* #748 part 2: turnover leaves a 二軍 lopsided (6 batters, 13 batters, no starter at a position...), so after it every team's 二軍 is topped up with 系統 players
+ * until it can field a game: one batter at each position of CREATE.positions (the nine of a lineup, DH included), ROTATION_SIZE starters, SECOND_BULLPEN
+ * relievers. Only missing seats are filled, nobody is moved or removed, so a full 二軍 comes back unchanged. Same recipe as fullSecond (an even spread of the
+ * creation budget); a name already in the league or an id in use is skipped by trying the next draw. Pure and seeded: same rows = same bytes.
+ * players: the players.json object; returns a new one (new rows appended after the old ones). */
+export const FILL_SECOND_SEED = 7480;
+export function fillSecond(players, teams = TEAMS) {
+  const out = { ...players }, taken = new Set(Object.values(out).map(p => p.name)), look = { head: 0, skin: 0, hair: 0 }, relief = CREATE.roles.filter(r => r !== 'SP');
+  teams.forEach((t, ti) => {
+    const mine = Object.values(out).filter(p => p.team === t.id && p.tier === TIER.SECOND);
+    const sp = mine.filter(p => p.role === 'P' && p.pos === 'SP').length, rp = mine.filter(p => p.role === 'P' && p.pos !== 'SP').length;
+    const need = [...CREATE.positions.filter(pos => !mine.some(p => p.role === 'B' && p.pos === pos)).map(pos => ({ kind: 'bat', pos })),
+      ...Array.from({ length: Math.max(0, ROTATION_SIZE - sp) }, () => ({ kind: 'pit', role: 'SP' })),
+      ...Array.from({ length: Math.max(0, SECOND_BULLPEN - rp) }, (_, i) => ({ kind: 'pit', role: relief[(rp + i) % relief.length] }))];
+    need.forEach((slot, k) => {
+      const keys = CREATE.keys[slot.kind], per = CREATE.budget[slot.kind] / keys.length, points = Object.fromEntries(keys.map(key => [key, per]));
+      const c = slot.kind === 'bat' ? { kind: 'bat', pos: slot.pos, bats: 'R', build: 'normal', look, points } : { kind: 'pit', role: slot.role, throws: 'R', build: 'normal', look, points };
+      let made;
+      for (let n = 0; ; n++) {
+        const seed = mixSeed(FILL_SECOND_SEED, ti, k, n >> 4);
+        made = makePlayer(seed, { ...c, nameDraw: n & 15 });
+        if (!taken.has(made.player.name) && !out[made.player.id]) break;
+      }
+      taken.add(made.player.name);
+      out[made.player.id] = siteRow({ ...made.player, system: true }, t.id, TIER.SECOND);
+    });
+  });
+  return out;
+}
+
 /* buildSite({ teams, rosters, rate, games, second, free }) -> { teams, players, games } (plain objects, ready for JSON).
  * second: { teamId: [player in the roster format of league/players.js] } (二軍); free: [player] (free agents).
  * Both are empty in season 0 until players are placed there. games: [{ id, date, file, rec }] (rec = parsed recording). */
@@ -92,9 +129,7 @@ export function buildSite({ teams = TEAMS, rosters = ROSTERS, rate = ratingsOf, 
   const players = {};
   const add = (p, team, tier) => {
     if (players[p.id]) throw new Error(`player id ${p.id} appears twice`);
-    const { ovr, ...abilities } = rate(p);
-    players[p.id] = { name: p.name, num: p.num, age: p.age, role: p.role ? 'P' : 'B', pos: p.role || p.pos,
-      hand: p.role ? p.throws : p.hand, overall: ovr, abilities, team, tier, ...(p.system === true ? { system: true } : {}) };
+    players[p.id] = siteRow(p, team, tier, rate);
   };
   const record = Object.fromEntries(teams.map(t => [t.id, { w: 0, l: 0 }]));
   const gameRows = games.map(({ id, date, file, rec }) => {
@@ -178,7 +213,7 @@ export function validateSite({ teams, players, games }) {
 /* The three files as text, exactly as written. */
 export function siteFiles(root = path.resolve(LEAGUE, '..'), fans = []) {
   const games = RECORDED_GAMES.map(g => ({ ...g, rec: parseRecording(readFileSync(path.join(root, g.file), 'utf8')) }));
-  const site = day1(buildSite({ games, second: placeFans(systemSecond(), fans) }));
+  const day = day1(buildSite({ games, second: placeFans(fullSecond(), fans) })), site = { ...day, players: fillSecond(day.players) };
   return Object.fromEntries(Object.entries(site).map(([k, v]) => [`${k}.json`, JSON.stringify(v, null, 2) + '\n']));
 }
 
