@@ -8,6 +8,7 @@ import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
 import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S, PITCH_S } from './field.js';
 import { specOfRow } from '../preview-spec.js';
+import { BUNT_CLIP_URL, BUNT_CLIP_T0, buntClipTime, buntClipW } from '../../render/bunt_clip.js';
 
 export const CAM = { fov: 42, pos: [0, 9, -24], look: [0, 3, 30] };      // #563 part 3: broadcast angle, low behind home plate, pitcher and plate framed
 /** #563 part 3: the camera follows a ball in play like the broadcast: it widens and rises toward CAM_HIT and leans toward the ball (CAM_LEAN of its way, never
@@ -45,6 +46,11 @@ export function pitchAct(t) {
 }
 /** Batter: the result kinds that swing (whiff, foul, contact, popup, a ball in play); a take, a ball and a bunt do not use this clip. */
 export const swings = out => { const k = out && out.res && out.res.kind; return k === 'whiff' || k === 'foul' || k === 'contact' || k === 'popup' || (!!(out && out.play) && !out.play.bunt && k !== 'bunt' && k !== 'foulBunt'); };
+/** #563 part 5: the batter squares to bunt (a bunt, a foul bunt, a bunted ball in play); the same clip and timing as the broadcast (render/bunt_clip.js, game.js BUNT_SQUARE_*). */
+export const BUNT_LEAD = 1.05, BUNT_DUR = .45;
+export const bunts = out => { const k = out && out.res && out.res.kind; return k === 'bunt' || k === 'foulBunt' || !!(out && out.play && out.play.bunt); };
+/** Batter bunt: {ct, w} at scripted time t (the ball reaches the plate at PITCH_S = ARRIVE). Pure; picture only (rule 10). */
+export const buntAct = t => ({ ct: buntClipTime(t, PITCH_S, BUNT_LEAD, BUNT_DUR), w: buntClipW(true, t, PITCH_S, BUNT_LEAD, BUNT_DUR) });
 /** Batter: {ct, w} at scripted time t (ball reaches the plate at PITCH_S); `hit` = a ball in play (the swing lets go sooner). */
 export function swingAct(t, hit) {
   const a = PITCH_S - SW.lead - SW.inS, o = hit ? SW.outHit : SW.out;
@@ -139,6 +145,7 @@ export async function createField3D(canvas, THREE, opts = {}) {
     if (!S) return;
     if (fp && clips.pitch) { const a = pitchAct(t); setAct(fp, clips.pitch, a.ct, a.w, PM.start, !!fp.mirrored); }
     if (fb && clips.swing && S.swing) { const a = swingAct(t, S.hit); setAct(fb, clips.swing, a.ct, a.w, SW.start, false); }
+    if (fb && clips.bunt && S.bunt) { const a = buntAct(t); setAct(fb, clips.bunt, a.ct, a.w, BUNT_CLIP_T0, false); }
   };
   function frame(now) {
     const t = ((now - t0) / 1000) * speed - WINDUP_S, p = ballAt(S, t);
@@ -155,7 +162,7 @@ export async function createField3D(canvas, THREE, opts = {}) {
     draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; clearActs(); }
   }
   const api = {
-    play(out) { api.skip(); S = buildBeats(out); S.swing = swings(out); S.hit = !!(out && out.play); trailN = 0; loadAct('pitch', PITCH_CLIP_URL); loadAct('swing', SWING_CLIP_URL);
+    play(out) { api.skip(); S = buildBeats(out); S.swing = swings(out); S.bunt = bunts(out); S.hit = !!(out && out.play); trailN = 0; loadAct('pitch', PITCH_CLIP_URL); loadAct('swing', SWING_CLIP_URL); loadAct('bunt', BUNT_CLIP_URL);
       for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z }); }
       t0 = performance.now(); raf = requestAnimationFrame(frame); },
     skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); clearActs(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); cam.fov = CAM.fov; cam.position.set(...CAM.pos); cam.lookAt(...CAM.look); cam.updateProjectionMatrix(); draw(); },
