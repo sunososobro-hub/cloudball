@@ -483,6 +483,18 @@ export const EJECT_BATTER_MAX_P = 0.45;
  * game against that opponent with GRUDGE_CARRY of it (memory fades, a new umpire, no warning yet). No draw; no opts.owed = 0, so
  * games without it are unchanged. First guess, no data yet. */
 export const GRUDGE_CARRY = 0.5;
+/* short injuries (#379 part 10, off): with INJURY_ON (simGame opts.injury overrides) the engine draws, after the last out, one
+ * chance per player who appeared (every batting row, every pitcher who faced a batter), INJURY_P, plus INJURY_HBP_P for each time he
+ * was hit by a pitch, from its own seeded RNG (INJURY_SALT), so R and every other RNG keep their sequences and the game itself never
+ * changes. An injured player misses INJURY_DAYS[0]..INJURY_DAYS[1] whole game days (drawn only for him); nothing permanent. simGame
+ * returns `injuries`, [{ team, name, id, days, hbp }]; the league skips him until he is back. First guesses, not fitted: MLB puts
+ * roughly 0.01 players per player-game on the injured list, most short day-to-day knocks never reach it; a hit batter misses a game
+ * or two now and then. */
+export const INJURY_ON = false;
+export const INJURY_SALT = 0x01a7e2d5;
+export const INJURY_P = 0.004;
+export const INJURY_HBP_P = 0.05;
+export const INJURY_DAYS = [1, 5];
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
 export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */
