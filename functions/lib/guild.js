@@ -9,6 +9,23 @@ import { TEAMS } from '../../league/teams.js';
 export const NAME_MAX = 12;                       /* characters (code points) of a guild name */
 export const GUILD_SEATS = 10;                  /* members per guild (the rest of the lineup is NPC fill): limited roster seats, owner 2026-11-28 */
 export const REF_LEN = 10;
+/* the lineup is by slot number, so it stays valid when members come and go: batting slots 0..8 are the nine lineup spots of the base team,
+ * rotation slots 0..4 its five starters (the engine's ROTATION_SIZE); a member sits in the slot of the NPC he replaced (part 2 / 5) */
+export const BAT_SLOTS = 9;
+export const ROTATION_SLOTS = 5;
+export const AUTO_LINEUP = { batting: Array.from({ length: BAT_SLOTS }, (_, i) => i), sp: 0 };
+/* lineup problem: '' when `order` is each of the nine batting slots exactly once and `sp` a rotation slot */
+export const lineupProblem = (order, sp) => {
+  if (!Array.isArray(order) || order.length !== BAT_SLOTS) return `order must list ${BAT_SLOTS} batters`;
+  if (new Set(order).size !== BAT_SLOTS || order.some(x => !Number.isInteger(x) || x < 0 || x >= BAT_SLOTS)) return `order must use each of the slots 0..${BAT_SLOTS - 1} once`;
+  if (!Number.isInteger(sp) || sp < 0 || sp >= ROTATION_SLOTS) return `sp must be a rotation slot 0..${ROTATION_SLOTS - 1}`;
+  return '';
+};
+/* what the game plays at the lock: the saved lineup, else (nothing saved, or a row that no longer parses) the automatic one */
+export const lineupAtLock = row => {
+  try { const batting = JSON.parse(row && row.batting); if (row && !lineupProblem(batting, row.sp)) return { batting, sp: row.sp, saved: true }; } catch (e) { /* fall through */ }
+  return { ...AUTO_LINEUP, saved: false };
+};
 export const BASES = TEAMS.map(t => t.id);
 /* a guild name: 1..NAME_MAX characters, no control characters, no < > & " ' (it is drawn as text, never as markup) */
 export const nameProblem = raw => {
@@ -24,9 +41,10 @@ const viewOf = async (db, g, viewer) => {
   const rows = (await db.prepare(`SELECT m.agent_id, p.name, p.kind, p.ovr, p.player FROM guild_members m
     LEFT JOIN players p ON p.agent_id = m.agent_id WHERE m.guild_id = ?1 ORDER BY m.joined_at, m.agent_id`).bind(g.id).all()).results;
   const team = TEAMS.find(t => t.id === g.base);
+  const lineup = lineupAtLock(await db.prepare('SELECT batting, sp FROM guild_lineups WHERE guild_id = ?1').bind(g.id).first());
   /* a member's ref names him to the 領隊 for a removal without showing his agent id */
   const refs = await Promise.all(rows.map(async r => (await sha256(`${g.id}:${r.agent_id}`)).slice(0, REF_LEN)));
-  return { id: g.id, name: g.name, base: { id: g.base, name: team ? team.name : g.base }, created: g.created_at,
+  return { id: g.id, name: g.name, base: { id: g.base, name: team ? team.name : g.base }, created: g.created_at, lineup,
     /* agent ids never leave the server: roles are flags on the member rows */
     members: rows.map((r, i) => {
       let pos = null; try { const p = JSON.parse(r.player || 'null'); pos = p && (p.pos || p.role) || null; } catch (e) { /* no player */ }
@@ -119,6 +137,38 @@ export const remove = guarded(async ({ request, db, agent }) => {
     db.prepare('DELETE FROM guild_members WHERE agent_id = ?1 AND guild_id = ?2').bind(target, g.id),
   ]);
   return json(200, { ok: true, guild: await viewOf(db, g, agent.id) });
+}, { needKey: true });
+
+/* POST /api/guild/lineup { order, sp }: the 總教練 saves the batting order and the starting pitcher (replaces the last save; no move counted) */
+export const lineup = guarded(async ({ request, db, agent }) => {
+  const body = await readBody(request);
+  if (!body) return fail(400, 'invalid', { reasons: ['no lineup given'] });
+  const bad = lineupProblem(body.order, body.sp);
+  if (bad) return fail(400, 'invalid', { reasons: [bad] });
+  const g = await myGuild(db, agent);
+  if (!g) return fail(404, 'none');
+  if (g.coach !== agent.id) return fail(403, 'coach');
+  await db.prepare(`INSERT INTO guild_lineups (guild_id, batting, sp, saved_at) VALUES (?1, ?2, ?3, ?4)
+    ON CONFLICT(guild_id) DO UPDATE SET batting = excluded.batting, sp = excluded.sp, saved_at = excluded.saved_at`).bind(g.id, JSON.stringify(body.order), body.sp, Date.now()).run();
+  return json(200, { ok: true, guild: await viewOf(db, g, agent.id) });
+}, { needKey: true });
+
+/* POST /api/guild/coach { ref }: the 領隊 hands the 總教練 seat to a member (the ref from the guild view; his own ref takes it back) */
+export const coach = guarded(async ({ request, db, agent }) => {
+  const body = await readBody(request);
+  if (!body || typeof body.ref !== 'string') return fail(400, 'invalid', { reasons: ['no member given'] });
+  const g = await myGuild(db, agent);
+  if (!g) return fail(404, 'none');
+  if (g.leader !== agent.id) return fail(403, 'leader');
+  const rows = (await db.prepare('SELECT agent_id FROM guild_members WHERE guild_id = ?1').bind(g.id).all()).results;
+  let target = null;
+  for (const r of rows) if ((await sha256(`${g.id}:${r.agent_id}`)).slice(0, REF_LEN) === body.ref) target = r.agent_id;
+  if (!target) return fail(404, 'member');
+  if (target !== g.coach) {
+    if (!(await countMove(db, agent))) return limited();
+    await db.prepare('UPDATE guilds SET coach = ?2 WHERE id = ?1').bind(g.id, target).run();
+  }
+  return json(200, { ok: true, guild: await viewOf(db, { ...g, coach: target }, agent.id) });
 }, { needKey: true });
 
 export { methodNotAllowed };

@@ -72,6 +72,8 @@ const SCHEMA = [
   'CREATE INDEX IF NOT EXISTS guild_members_guild ON guild_members (guild_id)',
   /* #800 part 2: the fan's own move counter (caps.js kind 'move'); it outlives the member row, which a leave deletes. One row per fan, made on his first move */
   'CREATE TABLE IF NOT EXISTS guild_fans (agent_id TEXT PRIMARY KEY, moved_day INTEGER NOT NULL DEFAULT 0, moves_today INTEGER NOT NULL DEFAULT 0)',
+  /* #800 part 3: the 總教練's saved lineup, one row per guild (guild.js): order = JSON of the nine batting-slot numbers in batting order, sp = rotation slot */
+  'CREATE TABLE IF NOT EXISTS guild_lineups (guild_id TEXT PRIMARY KEY, batting TEXT NOT NULL, sp INTEGER NOT NULL, saved_at INTEGER NOT NULL)',
 ];
 /* #437: a 系統 filler is a players row whose agent_id is 'sys:<pid>' (no agent holds it) and whose player JSON has system:true.
  * Even spread of the budget, positions / roles in turn, so nobody is a star; made once, marked in `meta`. */
