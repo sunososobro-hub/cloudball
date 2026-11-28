@@ -5,22 +5,26 @@
  *   node league/tools/record.mjs <seed> --write    write league/preseason/opening.json (first recording only)
  *   node league/tools/record.mjs <seed> --write --remaster   replace an existing recording: a deliberate act,
  *                                                   state it in the PR title and update FROZEN in tests/opening.check.mjs
+ *   node league/tools/record.mjs <seed> --from <file.json>   the input the game comes from; a 試跑 file (`trial: true`,
+ *                                                   league/trial.js) is refused with a named reason and nothing is written (#750)
  *
  * Tool only: it imports the engine, which the league data files themselves never do.
  * The record also keeps the umpire crew of crewFor(seed) and both teams' coaching staff as they were on the day. */
 import { createHash } from 'node:crypto';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { simGame, ENGINE_VERSION } from '../../engine/index.js';
 import { TEAMS } from '../teams.js';
 import { staffOf, umpire, crewFor } from '../staff.js';
 import { RECORDING_FORMAT, encodeGame, decodeGame } from '../recording.js';
+import { assertOfficial } from '../trial.js';
 
 export const OUT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../preseason/opening.json');
 export const sha256 = text => createHash('sha256').update(text).digest('hex');
 
-export function buildRecording(seed) {
+export function buildRecording(seed, { from } = {}) {
+  assertOfficial(from, 'record.mjs');
   const game = simGame(seed, {});
   const text = encodeGame(game);
   const back = decodeGame(text);
@@ -50,7 +54,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const [seedArg, ...flags] = process.argv.slice(2);
   const seed = Number(seedArg);
   if (!Number.isInteger(seed) || seed < 0) { console.error('usage: node league/tools/record.mjs <seed> [--write [--remaster]]'); process.exit(2); }
-  const rec = buildRecording(seed), out = serialize(rec);
+  const fromAt = flags.indexOf('--from');
+  let rec;
+  try { rec = buildRecording(seed, { from: fromAt < 0 ? undefined : JSON.parse(readFileSync(flags[fromAt + 1], 'utf8')) }); }
+  catch (e) { console.error(e.message); process.exit(1); }
+  const out = serialize(rec);
   console.log(`seed ${seed}, engine ${ENGINE_VERSION}, ${rec.head.hash}, ${(out.length / 1024).toFixed(0)} KB, crew ${Object.values(rec.head.crew).map(u => u.id).join(' ')}`);
   if (!flags.includes('--write')) process.exit(0);
   if (existsSync(OUT) && !flags.includes('--remaster')) { console.error('opening.json already exists: re-recording is a remaster, pass --remaster on purpose'); process.exit(1); }

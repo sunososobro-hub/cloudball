@@ -42,6 +42,9 @@
 
 - #748 part 1: `site.mjs` `fullSecond()` (9 batters one per position + `ROTATION_SIZE` SP + `SECOND_BULLPEN` relievers per team, not wired into the export yet) and `site_roster.js` `siteRoster(players, team, tier)` (site rows -> engine `{ bat, pit, bench: [] }` via `ratingsOf.raw`; display numbers exact, overall within 2) + `tests/second_full.check.mjs`. Part 2: wire `fullSecond` into `siteFiles` (regenerate `players.json`, watch the leaguesite / turnover checks), `runSeason` / `farmGames` take rosters, regenerate `season.json` / `farm_games.json`.
 
+## #750 試跑 reset
+- Owner says "start" (with a date): run `node league/tools/season_run.mjs --reset --start YYYY-MM-DD --write` and open a data PR. season.json restarts at day 0 on that date (clean table); trial 二軍 records (`trial: true`) leave farm_games.json, ids restart at f-1; players.json and D1 fan players are never touched.
+- `league/trial.js`: every trial file carries `trial: true`; `record.mjs` (`buildRecording(seed, { from })`, `--from file`) refuses it (`TRIAL_REFUSED`). `tests/trial_reset.check.mjs`. Trap: after the reset season.json still says `trial: true` (the page needs it) until official games go to cloudball-league.
 - #743 part 3: `season_site.js` `health(file, today, hour)` (pure; newest revealed night, games shown, engine commit[0..7], `ageHours` since that night's Taipei midnight, `stale` > `STALE_HOURS` 36) + a one-line tag on the 試跑 panel (red when stale). Nightly mechanism = no cron: `season.json` holds 94 precomputed nights and the page reveals them by Taipei date (cost 0; the tag turns red when the file runs out, refill with `season_run.mjs --site --write`). `tests/season_site.check.mjs` covers it by hand.
 
 ## #743 part 3 refill (PR #756; the health line itself is PR #757)
