@@ -480,15 +480,19 @@ export function simGame(seed, decisions, opts) {
             /* #614 part 7: ground-rule double: an air-ball double whose roll reaches the wall bounces over it; the ball is dead
              * and every runner gets exactly two bases (the runner from first stops at third) */
             const groundRule = res === '2B' && type !== 'GB' && !bunt && Math.sqrt(lx * lx + lz * lz) * K.HIT_ROLL_FACTOR > K.FENCE_R - K.WALL_PICKUP && R() < K.GRD_OF_WALL_2B_P;
+            /* extra bases taken (#794 part 3): the runner's spd raises, the outfielder's arm lowers the chance he takes the
+             * extra base (same one draw each, only the threshold moves; spd 1 and arm 1 give the old chance exactly) */
+            const holdArm = OUTFIELD_KEYS.includes(fielder) ? clamp(1 - (armOf(def)(fielder) - 1) * K.XB_HOLD_PER_ARM, ...K.XB_ARM_RANGE) : 1;
+            const xbP = (p, runner) => p * clamp(1 + (spdOf(off, runner) - 1) * K.XB_PER_SPD, ...K.XB_SPD_RANGE) * holdArm;
             for (let i = 2; i >= 0; i--) {
               if (!B[i]) continue; let to = i + 1 + adv;
               if (bobble || wildThrow) { to = Math.min(HOME, to + 1); moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i]; continue; }
-              if (res === '1B' && i === 1 && R() < K.SCORE_FROM_2ND_ON_SINGLE) to = HOME;
+              if (res === '1B' && i === 1 && R() < xbP(K.SCORE_FROM_2ND_ON_SINGLE, B[i])) to = HOME;
               else if (res === '1B' && i === 1 && OUTFIELD_KEYS.includes(fielder) && st.outs < K.OUTS_PER_HALF - 1 && R() < K.SEND_FROM_2ND_ON_SINGLE_P) {
                 sendHome = true; moves.push([2, HOME, B[1]]); continue;   /* scores or is out: decided by the throw below */
               }
-              if (res === '1B' && i === 0 && !nb[2] && R() < K.FIRST_TO_THIRD_ON_SINGLE) to = 3;
-              if (res === '2B' && i === 0 && !groundRule && R() < K.SCORE_FROM_1ST_ON_DOUBLE) to = HOME;
+              if (res === '1B' && i === 0 && !nb[2] && R() < xbP(K.FIRST_TO_THIRD_ON_SINGLE, B[i])) to = 3;
+              if (res === '2B' && i === 0 && !groundRule && R() < xbP(K.SCORE_FROM_1ST_ON_DOUBLE, B[i])) to = HOME;
               to = Math.min(HOME, to); while (to < HOME && nb[to - 1]) to++;
               moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i];
             }

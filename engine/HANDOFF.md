@@ -27,6 +27,7 @@
 - #826 (0.4.36): a bunt no longer stacks runners: the runner on third goes only when forced, the one on second only while third is free (balk then bunt with 2nd + 3rd used to put two on third); `tests/bunt_stack.check.mjs` (seed 58126 pinned); 1000-seed outcome print unchanged.
 - #379 part 5: bench-clearing behind `BENCH_CLEAR_ON` (off; `opts.benchClear`, needs retaliation): right after a retaliation pitch, `BENCH_CLEAR_P` x batter temperament (cap `BENCH_CLEAR_MAX_P`) from the `feud` RNG; frame `BENCH` (`BENCH_CLEAR_DUR`, `off`/`def`, no state change), stream `bench_clearing`, copy `benchClear`; timing only; render does not know `BENCH` yet; `tests/benchclear.check.mjs`. Left: ejections, grudges across games, rivalries, injuries.
 - #81 (0.4.10): a "stay" pick on the pitching vote brings the pitching coach out (`VIS` frame, `MOUND_VISIT_DUR`, stream `mound_visit`), once per pitcher; no draw, outcomes unchanged, only later times move.
+- #794 part 3 (0.4.36): extra bases taken (1st->3rd and 2nd->home on a single, 1st->home on a double) scale with the runner's spd (`XB_PER_SPD`) and the fielding outfielder's arm (`XB_HOLD_PER_ARM`), same draw; coach IBB from the 9th (`IBB_COACH_MIN_INNING`, IBB/game 0.32 -> 0.24); `tests/xbt.check.mjs`.
 
 ## Next
 1. #23 done: part 1 (0.4.10) `LEAD_PRIMARY` between pitches; part 2 (0.4.14) steal break fitted to the draw between `STEAL_FIRST_MOVE` (`STEAL3_FIRST_MOVE`) and `STEAL_BREAK_LAST` at `STEAL_SPEED`, throw right after `CATCHER_POP`, safe by `STEAL_SAFE_BY`; hold <= 0.17 s.
