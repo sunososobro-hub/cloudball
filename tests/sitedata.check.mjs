@@ -49,6 +49,15 @@ for (const [what, html] of [['no player', myPlayerView(full, '')], ['unknown id'
   { const t = mergeCreated(full, [{ ...rows[0], player: { ...rows[0].player, temper: '溫和' } }, { ...rows[1], player: { ...rows[1].player, temper: 'angry' } }]).players;
     if (t['fa-1'].temper !== '溫和' || 'temper' in t['fa-2'] || 'temper' in d.players['fa-1']) bad('#379: a created player keeps a valid chosen temperament only'); }
   if (render('fa', mergeCreated(missing, rows)).includes('目前沒有人') || !/目前沒有人/.test(render('fa', mergeCreated(missing, null)))) bad('#399: no API rows = the old empty state; rows alone fill an empty site'); }
+/* #438: a created player placed in 二軍 sits in the 二軍 tab only, one placed in 自由市場 in the 自由市場 tab only; 我的球員 names the place and offers the move */
+{ const mk = (id, name, place) => ({ id, kind: 'bat', player: { id, name, num: 5, pos: 'SS', hand: 'R', age: 21, ...(place ? { place } : {}) }, ratings: { ovr: 55, con: 60, pow: 50, eye: 50, spd: 50, arm: 50 } });
+  const d = mergeCreated(full, [mk('pl-s', '二軍新人', 'second'), mk('pl-f', '市場新人', 'free'), mk('pl-o', '舊球員', null)]);
+  const mi = render('minors', d), fa = render('fa', d), cnt = (h, n) => h.split(n).length - 1;
+  if (cnt(mi, '二軍新人') !== 1 || mi.includes('市場新人') || mi.includes('舊球員')) bad('#438: 二軍 tab lists the 二軍-placed player once and nobody else');
+  if (cnt(fa, '市場新人') !== 1 || cnt(fa, '舊球員') !== 1 || fa.includes('二軍新人')) bad('#438: 自由市場 tab lists free / unplaced players once, not the 二軍 one');
+  const a = myPlayerView(d, 'pl-s'), b = myPlayerView(d, 'pl-f');
+  if (!a.includes('目前在二軍') || !a.includes('data-place="free"') || !b.includes('目前在自由市場') || !b.includes('data-place="second"')) bad('#438: 我的球員 shows the place and a button to the other one');
+  if (myPlayerView(d, 'a1').includes('data-place')) bad('#438: a published player gets no move button'); }
 const ag = readFileSync(path.join(ROOT, 'ui/agent.js'), 'utf8');
 if (/Object\.entries\(LOOK\)|外觀：/.test(ag)) bad('agent.js: the look chips (head, skin, hair) stay hidden until #151 (#341)');
 if (seasonLabel(full) !== '熱身賽' || seasonLabel(plain) !== '' || seasonLabel(combine({ teams: { season: '1', teams: [] } })) !== '第 1 季') bad('season label comes from teams.json season only: 0 reads 熱身賽 (#343), later seasons 第 N 季');

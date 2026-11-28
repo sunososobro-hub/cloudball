@@ -33,7 +33,17 @@ async function releaseMine(act, msg) {
   myId = '';
   if (act === 'switch') location.href = 'agent.html'; else draw();
 }
-$('view').addEventListener('click', e => { const b = e.target.closest && e.target.closest('button[data-act]'); return b ? releaseMine(b.dataset.act, $('view').querySelector('.switch-msg')) : undefined; });
+/* #438: move the created player between 二軍 and 自由市場 (one POST; only the place changes, then the tab is drawn again) */
+async function movePlace(to, msg) {
+  let key = null; try { key = localStorage.getItem(AGENT_KEY); } catch (e) { /* storage blocked */ }
+  const say = t => { msg.textContent = t; msg.hidden = !t; };
+  if (!key) return say('這個瀏覽器沒有你的帳號鑰匙。');
+  let b = null; try { const res = await fetch('/api/player/place', { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ place: to }), cache: 'no-store' }); b = await res.json().catch(() => null); } catch (e) { /* offline */ }
+  if (!b || !b.ok) return say('還沒開放，或現在連不上。');
+  const p = data.players[myId]; if (p) { p.place = b.place; p.tier = b.place === 'second' ? 2 : 3; } draw();
+}
+$('view').addEventListener('click', e => { const m = e.target.closest && e.target.closest('button[data-place]'); if (m && m.dataset.place) return movePlace(m.dataset.place, $('view').querySelector('.place-msg'));
+  const b = e.target.closest && e.target.closest('button[data-act]'); return b ? releaseMine(b.dataset.act, $('view').querySelector('.switch-msg')) : undefined; });
 addEventListener('hashchange', draw);
 draw();
 /* created players (#399): the D1 list, a few pages at most; no answer (closed, offline, no API on this host) = no rows, no error screen */

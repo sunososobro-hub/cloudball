@@ -12,11 +12,19 @@
  *   friendlyUrl(a, version)           'play.html?x=...' (+ '&v=<engine version>' when given: the link pins the engine it was made on, #751 part 2)
  *   friendlyPin(v, engineVersion)     null when the link's pin matches (or has none), else a one-line note: same arrangement on another engine may play another game
  *   friendlyProblem(a)                named reason why an arrangement is not playable, or null
- *   friendlyOpening(s, engine)        { arrangement, opening: { seed, game, friendly: s } | null, status, reason } */
+ *   friendlyOpening(s, engine)        { arrangement, opening: { seed, game, friendly: s } | null, status, reason }
+ *
+ * Share link (#751 part 2): `play.html?x=<arrangement>&e=<engine commit>`. `e` (7..40 hex) pins the engine commit the game is computed
+ * with, so a friend gets the same game byte for byte after the engine moves on (rule 11 only promises that for one commit; same pin as
+ * the farm records, league/replay.js). No `e` = the page's own engine (part 1 links keep working).
+ *   friendlyPin(e)                    { ok: true, commit: sha | null } or { ok: false, reason } (bad `e` is never ignored)
+ *   friendlyShare(a, commit, base)    absolute or relative link carrying the arrangement and the pin
+ *   friendlyOpeningAt(s, e, load)     async friendlyOpening with the engine `load(commit)` returns; load is asked only when `e` is given */
 export const TEAM_COUNT = 4;
 export const STARTERS = 5;
 export const X_RE = /^([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,10})$/;
 export const SEED_MAX = 0xffffffff;
+export const COMMIT_RE = /^[0-9a-f]{7,40}$/;
 
 export function parseFriendly(s) {
   const m = typeof s === 'string' ? X_RE.exec(s) : null;
@@ -58,4 +66,31 @@ export function friendlyOpening(s, engine) {
   } catch (e) {
     return { arrangement: a, opening: null, status: 'unavailable', reason: (e && e.message) || String(e) };
   }
+}
+
+export function friendlyCommitPin(e) {
+  if (e === null || e === undefined || e === '') return { ok: true, commit: null };
+  if (typeof e !== 'string' || !COMMIT_RE.test(e)) return { ok: false, reason: 'e is not a 7..40 hex engine commit' };
+  return { ok: true, commit: e };
+}
+
+export function friendlyShare(a, commit, base = 'play.html') {
+  const pin = friendlyCommitPin(commit || null);
+  if (!pin.ok) throw new Error(pin.reason);
+  const why = friendlyProblem(a);
+  if (why) throw new Error(why);
+  return `${base}?x=${friendlyParam(a)}${pin.commit ? `&e=${pin.commit}` : ''}`;
+}
+
+export async function friendlyOpeningAt(s, e, load) {
+  const pin = friendlyCommitPin(e);
+  if (!pin.ok) return { arrangement: parseFriendly(s), opening: null, status: 'invalid', reason: pin.reason };
+  if (!pin.commit) return friendlyOpening(s, await load(null));
+  const a = parseFriendly(s), why = a ? friendlyProblem(a) : 'x is not <away>-<home>-<awaySP>-<homeSP>-<seed>';
+  if (why) return { arrangement: a, opening: null, status: 'invalid', reason: why };
+  let engine;
+  try { engine = await load(pin.commit); } catch (err) { return { arrangement: a, opening: null, status: 'unavailable', reason: `engine ${pin.commit}: ${(err && err.message) || err}` }; }
+  const r = friendlyOpening(s, engine);
+  if (r.opening) r.opening.engine = pin.commit;
+  return r;
 }
