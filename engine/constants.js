@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.35';
+export const ENGINE_VERSION = '0.4.36';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -229,6 +229,15 @@ export const IFF_DROP_PICKUP = 0.8;
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;
 export const FIRST_TO_THIRD_ON_SINGLE = 0.29;
 export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
+/* Extra bases taken (#794 part 3): the three chances above are multiplied by the runner's speed factor and the fielding
+ * outfielder's arm factor (spd 1 and arm 1 = exactly the chance above). Data: Baseball-Reference XBT% (extra bases taken
+ * on singles / doubles) runs about 40% for the league, 55-65% for the fastest regulars and 20-25% for the slowest, i.e.
+ * roughly +-40% around average for spd 1.3 / 0.7; Statcast arm strength (league OF ~88 mph, elite 95+) moves the
+ * opponents' advance rate on balls to that fielder by about +-20%, the ARM_MIN..ARM_MIN + ARM_SPAN band (0.85..1.15). */
+export const XB_PER_SPD = 1.3;
+export const XB_SPD_RANGE = [0.6, 1.4];
+export const XB_HOLD_PER_ARM = 1.4;
+export const XB_ARM_RANGE = [0.78, 1.22];
 /* Advancing on a throw (#38): on an outfield single that scores the runner from second, the outfielder throws home
  * with this chance (he is safe: the throw arrives after him) and the batter, with second open, takes it on the throw.
  * First guess, not tuned: about one try in three; it only moves a runner, never adds an out. */
