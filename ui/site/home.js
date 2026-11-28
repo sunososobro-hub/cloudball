@@ -3,6 +3,7 @@
 import { esc, safeUrl, empty, teamOf, teamName, teamCss, tierOneRows, meanOverall, bestOf, logoImg } from './shared.js';
 import { replayLink } from './games.js';
 import { AGENT_PAGE } from './me.js';
+import { seasonAt } from '../../league/season_site.js';
 
 const finished = g => g && Array.isArray(g.score) && g.score.length === 2;
 const newestFirst = games => games.filter(finished).map((g, i) => [g, i]).sort((a, b) => String(b[0].date).localeCompare(String(a[0].date)) || b[1] - a[1]).map(x => x[0]);
@@ -47,11 +48,30 @@ function videos(d, list) {
   return `<section aria-label="比賽影片"><h2 class="sec">比賽影片<a class="more" href="#games">全部影片</a></h2><div class="vids">${items}</div></section>`;
 }
 
+/* 試跑 season panel (#743 part 1): day N, tonight's pairings with starters (二軍 mirrors them), last night's scores,
+ * standings from league/season.js. Read-only, not official (rule 24). No file or no date -> 賽季尚未開始. */
+export function trialPanel(d) {
+  const s = d.trial && d.today ? seasonAt(d.trial, d.today) : null;
+  const head = `<h2 class="sec">試跑賽季<span class="tag">試跑・非正式</span></h2>`;
+  if (!s) return `<section class="trial" aria-label="試跑賽季">${head}${empty('賽季尚未開始')}</section>`;
+  const nm = id => esc(teamName(d, id));
+  const pair = g => `<li><span class="pr">${nm(g.away)} <span class="at">對</span> ${nm(g.home)}</span>${g.starters.length === 2 ? `<small>先發 ${esc(g.starters[0])}・${esc(g.starters[1])}</small>` : ''}</li>`;
+  const score = g => `<li><span class="pr">${nm(g.away)} <b class="num">${esc(g.score[0])} : ${esc(g.score[1])}</b> ${nm(g.home)}</span></li>`;
+  const dayLine = s.state === 'before' ? `賽季尚未開始・${esc(d.trial.start)} 開打` : s.state === 'over' ? `賽季結束${s.champion ? `・冠軍 ${nm(s.champion)}` : ''}`
+    : `第 ${s.day + 1} 天，共 ${s.total} 天${s.phase === 'final' ? '・冠軍賽' : ''}`;
+  const parts = [`<p class="eyebrow">${dayLine}</p>`];
+  if (s.tonight.length) parts.push(`<h3>今晚（一軍、二軍同組）</h3><ul class="gl">${s.tonight.map(pair).join('')}</ul>`);
+  if (s.last.length) parts.push(`<h3>昨晚</h3><ul class="gl">${s.last.map(score).join('')}</ul>`);
+  const rows = s.standings.map((t, i) => `<tr><td class="num rk">${i + 1}</td><td>${nm(t.id)}</td><td class="num">${t.w}</td><td class="num">${t.l}</td><td class="num">${t.rf}</td><td class="num">${t.ra}</td></tr>`).join('');
+  parts.push(`<div class="tblscroll"><table class="dt st"><thead><tr><th>名次</th><th>球團</th><th>勝</th><th>敗</th><th>得分</th><th>失分</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+  return `<section class="trial" aria-label="試跑賽季">${head}${parts.join('')}</section>`;
+}
+
 export function view(d) {
   const list = newestFirst(d.games), top = [];
   if (list.length) top.push(hero(d, list[0]));
   top.push(joinCard());
-  const blocks = [`<div class="top2">${top.join('')}</div>`];
+  const blocks = [`<div class="top2">${top.join('')}</div>`, trialPanel(d)];
   if (d.teams.length) blocks.push(table(d), teamCards(d));
   if (list.length) blocks.push(videos(d, list));
   if (!d.teams.length && !list.length) blocks.push(empty('聯盟資料還沒發布。'));

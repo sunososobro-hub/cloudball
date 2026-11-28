@@ -1,0 +1,11 @@
+{"trial":true,"seed":1,"start":"2026-11-28","engine":{"commit":"ed196de3fdf65d9c53b47dcce497fd3678433647","version":"0.4.30"},"nights":[
+  {"day":0,"phase":"season","games":[{"home":"pheasants","away":"muntjacs","starters":["李冠均","許柏廷"],"score":[2,3]},{"home":"owls","away":"macaques","starters":["吳子豪","楊柏宇"],"score":[7,5]}]},
+  {"day":1,"phase":"season","games":[{"home":"owls","away":"pheasants","starters":["王冠傑","林建勳"],"score":[1,7]},{"home":"muntjacs","away":"macaques","starters":["鄭浩宇","洪承翰"],"score":[11,1]}]},
+  {"day":2,"phase":"season","games":[{"home":"pheasants","away":"macaques","starters":["張書豪","彭宇翔"],"score":[0,1]},{"home":"muntjacs","away":"owls","starters":["王書豪","林冠霖"],"score":[6,3]}]},
+  {"day":3,"phase":"season","games":[{"home":"muntjacs","away":"pheasants","starters":["郭彥均","郭哲瑋"],"score":[2,1]},{"home":"macaques","away":"owls","starters":["黃承佑","徐建廷"],"score":[12,5]}]},
+  {"day":4,"phase":"season","games":[{"home":"pheasants","away":"owls","starters":["黃宗翰","許子豪"],"score":[5,6]},{"home":"macaques","away":"muntjacs","starters":["葉家宏","楊冠傑"],"score":[1,4]}]},
+  {"day":5,"phase":"season","games":[{"home":"macaques","away":"pheasants","starters":["許柏廷","吳子豪"],"score":[9,5]},{"home":"owls","away":"muntjacs","starters":["李冠均","楊柏宇"],"score":[3,0]}]},
+  {"day":6,"phase":"final","games":[{"home":"pheasants","away":"owls","starters":["林建勳","王冠傑"],"score":[4,1]}]},
+  {"day":7,"phase":"final","games":[{"home":"owls","away":"pheasants","starters":["彭宇翔","王書豪"],"score":[11,6]}]},
+  {"day":8,"phase":"final","games":[{"home":"pheasants","away":"owls","starters":["黃承佑","郭彥均"],"score":[2,4]}]}
+],"champion":"pheasants"}
