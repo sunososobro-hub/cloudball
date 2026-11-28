@@ -36,7 +36,7 @@ idle run costs almost nothing. Change the procedure here, never in the prompts. 
 - A write that is really blocked: do not work around it; report `卡住：沒權限 <the blocked command>`.
 
 ## Bans (every role)
-- Never touch `main`, release PRs, tags, scheduled tasks, `LICENSE`, `TRADEMARKS.md`, secrets or permissions.
+- Workers and the reviewer never touch `main`, release PRs, tags, scheduled tasks, `LICENSE`, `TRADEMARKS.md`, secrets or permissions (the manager window / release routine may open and merge dev→main release PRs and tags, rule W11).
 - No paid API call, ever (rule 17). No `git stash`. Never force push.
 - The owner decides direction and taste only. Every technical question is yours: decide, do not ask.
 
