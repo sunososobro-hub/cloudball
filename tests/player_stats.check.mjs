@@ -110,12 +110,14 @@ eq(careerRows(stats, 'a1', 'B', 3)[0].shape, null, 'career row without shape row
   const html = myPlayerView({ ...combine({ teams: [], players: pl2, games: [], trial: tr, stats }), today: '2026-12-03' }, 'a1');
   if (!html.includes('play.html?t=1-1')) fail('一軍 log row lacks play.html?t=<night>-<slot>'); if (!html.includes('play.html?t=0-1')) fail('一軍 log row of night 0 lacks its link');
   if (!html.includes('對 新竹爆肝貓頭鷹')) fail('一軍 log row lacks the opponent');
+  /* #804 part 8: next to each replay link, the same replay started at his first plate appearance (play.html &p=<id>) */
+  if (!/play\.html\?t=1-1&(amp;)?p=a1">看他的打席</.test(html)) fail('一軍 log row lacks the 看他的打席 link (&p=<id>)');
   const rec = rd('league/site/farm_games.json').find(r => r.trial === true && r.opts && r.opts.rosters), pid = rec.opts.rosters[0].bat[0].id, tix = rec.teams[0];
   const mine2 = { name: '丁', role: 'B', pos: 'SS', age: 24, overall: 60, tier: 2, team: ['pheasants', 'owls', 'macaques', 'x'][0] };
   const { TEAMS } = await import('../league/teams.js'); mine2.team = TEAMS[tix].id;
   const st2 = { trial: true, cols: COLS, players: { [pid]: [[1, rec.day, 4, 4, 1, 0, 0, 0, 0, 0, 0]] }, pitchers: {} }, tr2 = { ...trial, nights: [0, 1, 2, 3, 4, 5].map(day => ({ season: 1, day, phase: 'season', games: [game] })) };
   const t2 = '2026-12-0' + (rec.day + 2), h2 = myPlayerView({ ...combine({ teams: [], players: { [pid]: mine2 }, games: [], trial: tr2, stats: st2, farm: rd('league/site/farm_games.json') }), today: t2 }, pid);
-  if (!h2.includes(`play.html?f=${rec.id}`)) fail('二軍 log row lacks play.html?f=<id>'); if (h2.includes('play.html?t=')) fail('a 二軍 player got a 一軍 link');
+  if (!h2.includes(`play.html?f=${rec.id}`)) fail('二軍 log row lacks play.html?f=<id>'); if (!h2.includes(`p=${pid}">看他的打席`)) fail('二軍 log row lacks the 看他的打席 link'); if (h2.includes('play.html?t=')) fail('a 二軍 player got a 一軍 link');
   const h3 = myPlayerView({ ...combine({ teams: [], players: { [pid]: mine2 }, games: [], trial: tr2, stats: st2, farm: [{ ...rec, opts: { rosters: [{ bat: [], pit: [] }, { bat: [], pit: [] }] } }] }), today: t2 }, pid);
   if (h3.includes('play.html?f=')) fail('a 二軍 record that does not hold him must not link'); }
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }

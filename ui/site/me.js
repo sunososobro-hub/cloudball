@@ -6,6 +6,7 @@ import { farmGameOn, farmUrl } from '../../league/farm.js';
 import { TEAMS } from '../../league/teams.js';
 import { seasonAt, nightDate } from '../../league/season_site.js';
 import { trialUrl } from '../../league/trial_games.js';
+import { paLink } from '../../render/pa_start.js';
 import { seasonLine, lineText, pitchLine, pitchText, batLog, pitLog, batGameText, pitGameText, careerRows, careerText, shapeText } from '../../league/player_stats.js';
 /* #586: 二軍 daily text report; `d.day` (a whole number, from the data) is today, else REPORT_DAY. Text only.
  * #600 part 3: report day N (1-based) is 二軍 night N - 1 of league/site/farm_games.json (`d.farm`); a day whose team played a
@@ -23,6 +24,8 @@ const statBox = (d, id, p) => { if (!d.trial || !d.stats || !d.today) return '';
  * when that record holds him on a roster). Rows come from the same file as the season line; a night without a record stays plain text. */
 export const LOG_TITLE = '最近 10 場（試跑）';
 const REPLAY_NOTE = '看重播';
+/* #804 part 8: the same replay, started at his first plate appearance (a pitcher: his first pitch), play.html `&p=<id>` (render/pa_start.js) */
+export const PA_NOTE = '看他的打席', PIT_NOTE = '看他投球';
 const logRow = (d, id, p, s, { day, row }) => {
   const ix = TEAMS.findIndex(t => t.id === p.team), mine = ix >= 0 ? TEAMS[ix] : null;
   let vs = '', href = '';
@@ -31,7 +34,7 @@ const logRow = (d, id, p, s, { day, row }) => {
   else if (mine) { const n = d.trial.nights.find(x => x.day === day), k = n ? n.games.findIndex(g => g.home === mine.id || g.away === mine.id) : -1;
     if (k >= 0) { const g = n.games[k]; vs = TEAMS.find(t => t.id === (g.home === mine.id ? g.away : g.home)); href = trialUrl(day, k); } }
   const text = p.role === 'P' ? pitGameText(row) : batGameText(row);
-  return `<li>${esc(nightDate(d.trial.start, day))}　${vs ? `對 ${esc(vs.name || teamName(d, vs.id))}　` : ''}${esc(text)}${href ? ` <a class="farm-replay" href="${esc(href)}">${REPLAY_NOTE}</a>` : ''}</li>`;
+  return `<li>${esc(nightDate(d.trial.start, day))}　${vs ? `對 ${esc(vs.name || teamName(d, vs.id))}　` : ''}${esc(text)}${href ? ` <a class="farm-replay" href="${esc(href)}">${REPLAY_NOTE}</a> <a class="farm-replay" href="${esc(paLink(href, id))}">${p.role === 'P' ? PIT_NOTE : PA_NOTE}</a>` : ''}</li>`;
 };
 const logBox = (d, id, p) => { if (!d.trial || !d.stats || !d.today) return ''; const s = seasonAt(d.trial, d.today); if (!s || s.state === 'before') return '';
   const rows = (p.role === 'P' ? pitLog : batLog)(d.stats, id, s.season, s.day); return rows.length ? `<section class="game-log"><h3>${LOG_TITLE}</h3><ul>${rows.map(r => logRow(d, id, p, s, r)).join('')}</ul></section>` : ''; };
