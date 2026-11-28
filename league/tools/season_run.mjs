@@ -25,6 +25,7 @@ import { OUT as FARM_OUT, serialize as farmSerialize } from './farm_record.mjs';
 import { siteFile } from '../season_site.js';
 import { advanceYear, seasonEnd } from '../turnover.js';
 import { siteRoster } from '../site_roster.js';
+import { owedFor, recordOwed } from '../grudges.js';
 
 export const SITE_OUT = fileURLToPath(new URL('../site/season.json', import.meta.url));
 /* one night per line, so a new season reads as a small diff */
@@ -40,20 +41,27 @@ const FINAL_SLOT = 0;
 /* #748 part 2: the rosters the site shows, in the engine shape. tier 1 = 一軍 (the 試跑 nights), tier 2 = 二軍 (the farm games). One entry per TEAMS index. */
 export const siteRosters = (players, tier) => TEAMS.map(t => siteRoster(players, t.id, tier));
 
-/* rosters: one { bat, pit, bench } per TEAMS index; the default stays the factory ROSTERS (seed 704 and every older check are byte for byte the same). */
-export function runSeason(seed, { rosters = ROSTERS } = {}) {
+/* rosters: one { bat, pit, bench } per TEAMS index; the default stays the factory ROSTERS (seed 704 and every older check are byte for byte the same).
+ * feud (#379 part 9): simGame grudge options, e.g. { grudge: true, retaliate: true }; off by default (no feud = every game as before).
+ * With it, each game gets the pair's last `owed` from the grudge book (league/grudges.js) as opts.owed, the log line keeps it as
+ * `owedIn` (so the game replays), and the counted game's `owed` replaces the pair's entry; the run returns the final `grudges` book. */
+export function runSeason(seed, { rosters = ROSTERS, feud } = {}) {
   const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i]));
   const schedule = S.makeSchedule(ids), table = S.newStandings(ids), rot = S.newRotation(ids), log = [];
+  let book = {};
   function play(day, slot, g, phase) {
-    const sides = [g.away, g.home];
+    const sides = [g.away, g.home], teams = sides.map(id => ix[id]);
     const sp = sides.map(id => S.pickStarter(rot, id, rosters[ix[id]].pit, day));
     sides.forEach((id, k) => S.recordStart(rot, id, sp[k], day));
+    const owedIn = feud ? owedFor(book, teams) : undefined;
+    const fo = feud ? { ...feud, ...(owedIn ? { owed: owedIn } : {}) } : {};
     for (let n = 0; n <= TIE_REPLAYS; n++) {
-      const game = simGame((seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0, {}, { teams: sides.map(id => ix[id]), starters: sp, rosters });
+      const game = simGame((seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0, {}, { teams, starters: sp, rosters, ...fo });
       const [awayRuns, homeRuns] = game.final.sc;
       if (awayRuns === homeRuns) continue;
       const res = { home: g.home, away: g.away, homeRuns, awayRuns };
-      log.push({ day, phase, ...res, starters: sides.map((id, k) => rosters[ix[id]].pit[sp[k]].name), replays: n, slot, sp: sp.slice(), seed: (seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0 });
+      log.push({ day, phase, ...res, starters: sides.map((id, k) => rosters[ix[id]].pit[sp[k]].name), replays: n, slot, sp: sp.slice(), seed: (seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0, ...(owedIn ? { owedIn } : {}) });
+      if (feud) book = recordOwed(book, teams, game.owed);
       return res;
     }
     throw new Error(`season ${seed} day ${day}: still tied after ${TIE_REPLAYS} replays`);
@@ -61,7 +69,7 @@ export function runSeason(seed, { rosters = ROSTERS } = {}) {
   schedule.forEach((night, day) => night.forEach((g, slot) => S.applyResult(table, play(day, slot, g, 'season'))));
   const fin = S.newFinal(table);
   for (let g = S.nextFinalGame(fin); g; g = S.nextFinalGame(fin)) S.applyFinalResult(fin, play(S.SEASON_NIGHTS + fin.games.length, FINAL_SLOT, g, 'final'));
-  return { seed, schedule, standings: S.rank(table).map(id => ({ id, ...table.teams[id] })), final: fin, champion: S.champion(fin), log, rot };
+  return { seed, schedule, standings: S.rank(table).map(id => ({ id, ...table.teams[id] })), final: fin, champion: S.champion(fin), log, rot, ...(feud ? { grudges: book } : {}) };
 }
 
 /* Chained seasons of the 試跑 (#749): season 1 plays `seed`; after each season the display league (players.json format) is
