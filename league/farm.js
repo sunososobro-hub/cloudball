@@ -4,6 +4,7 @@
  *
  * A record is the shape league/replay.js reads, plus three fields of its own:
  *   id            'f-<n>' (unique in the file; the page opens it as play.html?f=<id>)
+ *   trial         true for a 試跑 game (#750: cleared by `season_run.mjs --reset`, never official); absent otherwise
  *   tier          2
  *   day           season night (0-based) the game was played
  *   seed, engine { commit, version }, teams [awayIndex, homeIndex], decisions {}, opts (lineups: `opts.rosters`)
@@ -31,14 +32,15 @@ export const farmUrl = id => `play.html?f=${encodeURIComponent(id)}`;
 export function farmProblem(rec) {
   if (!rec || typeof rec !== 'object') return 'record is not an object';
   if (typeof rec.id !== 'string' || !ID_RE.test(rec.id)) return 'id missing or not f-<n>';
+  if (rec.trial !== undefined && rec.trial !== true) return 'trial is neither true nor absent';
   if (rec.tier !== FARM_TIER) return 'tier is not 2';
   if (!Number.isInteger(rec.day) || rec.day < 0) return 'day missing or not a night number';
   if (rec.decisions !== undefined && !(rec.decisions && typeof rec.decisions === 'object' && Object.keys(rec.decisions).length === 0)) return '二軍 games have no fan decisions';
   return recordProblem(rec);
 }
 
-export function farmRecord({ id, day, seed, commit, version, teams = [0, 1], opts, score, line }) {
-  const rec = { id, tier: FARM_TIER, day, seed, engine: { commit, version }, teams, decisions: {} };
+export function farmRecord({ id, trial, day, seed, commit, version, teams = [0, 1], opts, score, line }) {
+  const rec = { id, ...(trial ? { trial: true } : {}), tier: FARM_TIER, day, seed, engine: { commit, version }, teams, decisions: {} };
   if (opts && Object.keys(opts).length) rec.opts = opts;
   rec.result = { score, line_score: line };
   const why = farmProblem(rec);

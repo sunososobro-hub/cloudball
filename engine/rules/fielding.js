@@ -121,6 +121,39 @@ export function resolveGround(ctx, { tryDoublePlay = false, leadBase = null } = 
   return { kind: 'out', plan, outs: [forceOut({ runner: ctx.batter, from: 0, base: 1, fielder: '1B', forced: true, ballAt: toFrame(plan.arrive), touchAt: toFrame(plan.CV.at), runnerAt: toFrame(batterAt) })] };
 }
 
+/* Triple play around the horn (#614 part 12): nobody out, runners on first and second (bases loaded too), a grounder to
+ * the third baseman. He steps on third (force on the runner from second), throws to second (force on the runner from first),
+ * and the pivot relays to first (force on the batter): 5-4-3. Returns the plan and three force outs, or null when any one
+ * of the three cannot beat its runner (then the play stays the ordinary double play). */
+export function resolveTriple(ctx) {
+  const B = ctx.bases, f = ctx.play.fielder;
+  if (f !== '3B' || !B[0] || !B[1] || ctx.outs !== 0) return null;
+  const plan = chase(ctx), toBag = dist(plan.stand, THIRD_BAG);
+  const touch3 = plan.catchT + K.SOLO_SETUP + (toBag < K.COVER_NEAR ? 0 : runTime(toBag, K.COVER_SPEED));
+  const r3At = slideArrival(2, 3);
+  if (!beats(plan.catchT, touch3, r3At)) return null;
+  const PV = '2B', CVkey = '1B', TD = dist(THIRD_BAG, SECOND_PIVOT), TD2 = dist(SECOND_PIVOT, FIRST_BAG);
+  const th = throwPlan(ctx.arm(f), f, TD, null), th2 = throwPlan(ctx.arm(PV), PV, TD2, null);
+  const xfer = K.XFER_RUSH, pivotAt = coverArrival(fielderStart(PV, B, ctx.outs), SECOND_PIVOT, K.FIELD_REACT, K.PIVOT_SPEED);
+  const a1 = Math.max(touch3 + xfer + th.flight, pivotAt), r2At = slideArrival(1, 2);
+  if (!beats(a1, pivotAt, r2At)) return null;
+  const coverAt = coverArrival(fielderStart(CVkey, B, ctx.outs), FIRST_BAG, K.FIELD_REACT + K.COVER_REACT, K.COVER_SPEED);
+  const pxfer = K.XFER_RUSH, arrive = Math.max(a1 + pxfer + th2.flight, coverAt), batterAt = batterArrival();
+  if (!beats(arrive, coverAt, batterAt)) return null;
+  Object.assign(plan, { dp: true, tp: true, touch3, bag3: THIRD_BAG, PV, PVspot: SECOND_PIVOT, CV: { key: CVkey, spot: FIRST_BAG, base: 1, at: coverAt }, pivotAt,
+    xfer: touch3 - plan.catchT + xfer, v: th.v, TD, TT: th.flight, t0: touch3 + xfer, a1, pxfer, t1: a1 + pxfer, TD2, V2: th2.v, TT2: th2.flight, arrive,
+    rt: Math.max(plan.catchT + K.RETURN_AFTER_CATCH, touch3 + xfer + K.RETURN_AFTER_THROW) });
+  plan.actions.push({ t: touch3, a: 'touch', f, base: 3 }, { t: plan.t0, a: 'throw', f, to: PV }, { t: pivotAt, a: 'cover', f: PV, base: 2 },
+    { t: a1, a: 'receive', f: PV, base: 2 }, { t: a1, a: 'touch', f: PV, base: 2 }, { t: plan.t1, a: 'throw', f: PV, to: CVkey },
+    { t: coverAt, a: 'cover', f: CVkey, base: 1 }, { t: arrive, a: 'receive', f: CVkey, base: 1 }, { t: arrive, a: 'touch', f: CVkey, base: 1 });
+  const outs = [
+    forceOut({ runner: B[1], from: 2, base: 3, fielder: f, forced: isForced(2, B, true), ballAt: toFrame(plan.catchT), touchAt: toFrame(touch3), runnerAt: toFrame(r3At) }),
+    forceOut({ runner: B[0], from: 1, base: 2, fielder: PV, forced: isForced(1, B, true), ballAt: toFrame(a1), touchAt: toFrame(pivotAt), runnerAt: toFrame(r2At) }),
+    forceOut({ runner: ctx.batter, from: 0, base: 1, fielder: CVkey, forced: true, ballAt: toFrame(arrive), touchAt: toFrame(coverAt), runnerAt: toFrame(batterAt) }),
+  ];
+  return { kind: 'tp', plan, outs };
+}
+
 /* Ball caught in the air. tagUp: { from, to } of a runner who tags up and goes (he is safe:
  * the throw is made, and arrives after him), or null. */
 export function resolveFly(ctx, tagUp = null, drop = false) {

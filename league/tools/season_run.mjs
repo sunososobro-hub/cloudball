@@ -2,6 +2,9 @@
  *
  *   node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write [--replace]]]   (--farm: the 二軍 of league/site/players.json)
  *   node league/tools/season_run.mjs --site --start YYYY-MM-DD [--seed N] [--seasons K] [--days N] [--commit sha] [--write]   (#743/#749: league/site/season.json, 試跑)
+ *   node league/tools/season_run.mjs --reset --start YYYY-MM-DD [--seed N] [--seasons K] [--commit sha] [--write]   (#750: the owner's start)
+ * --reset = the official start: season.json is played again from day 0 on `start` (no night before it, clean standings) and
+ * farm_games.json loses every trial record (ids restart at f-1). players.json and the fan players (D1) are never touched.
  * --site chains seasons (#749): season k+1 starts the night after season k's final; between seasons the display league
  * (league/site/players.json) goes through advanceYear + seasonEnd. Default K = enough seasons to cover MIN_SITE_DAYS nights; --days N covers N nights instead (#743 part 3, the refill: same
  * seed + start + commit rewrites the same nights and adds more; a new commit replays everything, so refill only before the start or on an unchanged engine).
@@ -94,14 +97,33 @@ export function farmGames(seed, { commit, startId = 1, rosters } = {}) {
     const teams = [g.away, g.home].map(id => ix[id]), gseed = (FARM_SEED_BASE + seed * 1000 + day * GAME_SEED_STEP + slot) >>> 0;
     const opts = rosters && { rosters: ids.map((_, i) => teams.includes(i) ? { ...rosters[i], bat: rosters[i].bat.map(slimPlayer), pit: rosters[i].pit.map(slimPlayer) } : null) };
     const b = boxFromStream(simGame(gseed, {}, { teams, ...(opts || {}) }).stream);
-    out.push(farmRecord({ id: `f-${startId + out.length}`, day, seed: gseed, commit, version: ENGINE_VERSION, teams, opts, score: b.score, line: b.line }));
+    out.push(farmRecord({ id: `f-${startId + out.length}`, trial: true, day, seed: gseed, commit, version: ENGINE_VERSION, teams, opts, score: b.score, line: b.line }));
   }));
   return out;
+}
+
+/* The owner's start (#750): the new season file from day 0 on `start` and the 二軍 file without its trial records.
+ * Same inputs = same bytes; `players` is read only. Returns the texts to write. */
+export function resetFiles({ seed = 1, start, commit, version = ENGINE_VERSION, seasons = 0, players, farm = [] }) {
+  const runs = runSeasons(seed, { seasons, players });
+  return { season: siteSerialize(siteFile(runs, { start, commit, version })), farm: farmSerialize(farm.filter(r => !(r && r.trial === true))) };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const a = process.argv.slice(2), seed = a.includes('--seed') ? Number(a[a.indexOf('--seed') + 1]) : 1;
   if (!Number.isInteger(seed)) { console.error('usage: node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write]]'); process.exit(2); }
+  if (a.includes('--reset')) {
+    const start = a.includes('--start') ? a[a.indexOf('--start') + 1] : '';
+    const commit = a.includes('--commit') ? a[a.indexOf('--commit') + 1] : execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+    const seasons = a.includes('--seasons') ? Number(a[a.indexOf('--seasons') + 1]) : 0;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !Number.isInteger(seasons) || seasons < 0) { console.error('usage: node league/tools/season_run.mjs --reset --start YYYY-MM-DD [--seed N] [--seasons K] [--commit sha] [--write]'); process.exit(2); }
+    const farm = existsSync(FARM_OUT) ? JSON.parse(readFileSync(FARM_OUT, 'utf8')) : [];
+    const out = resetFiles({ seed, start, commit, seasons, players: JSON.parse(readFileSync(PLAYERS_IN, 'utf8')), farm });
+    const left = JSON.parse(out.farm).length;
+    console.log(`reset: season.json from ${start} (seed ${seed}), 二軍 ${farm.length} -> ${left} records`);
+    if (a.includes('--write')) { writeFileSync(SITE_OUT, out.season); writeFileSync(FARM_OUT, out.farm); console.log(`wrote ${SITE_OUT} and ${FARM_OUT}`); }
+    process.exit(0);
+  }
   if (a.includes('--site')) {
     const start = a.includes('--start') ? a[a.indexOf('--start') + 1] : '';
     const commit = a.includes('--commit') ? a[a.indexOf('--commit') + 1] : execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();

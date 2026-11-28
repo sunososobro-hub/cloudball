@@ -2,6 +2,7 @@
  * 開始 goes to play.html?x=... (league/friendly.js), which plays the game with the engine in the browser. */
 import { TEAMS } from '../league/teams.js';
 import { ROSTERS } from '../league/players.js';
+import { ENGINE_VERSION } from '../engine/constants.js';
 import { STARTERS, friendlyUrl, friendlyProblem } from '../league/friendly.js';
 
 const $ = id => document.getElementById(id);
@@ -28,7 +29,7 @@ function draw() {
   side(0, 'awayTeam', 'awaySP'); side(1, 'homeTeam', 'homeSP');
   const a = { away: st.away, home: st.home, sp: st.sp, seed: st.seed }, why = friendlyProblem(a);
   $('need').textContent = why ? (st.away === st.home ? '客隊和主隊要不同隊。' : '種子要是 0 到 4294967295 的整數。') : '';
-  $('go').disabled = !!why;
+  $('go').disabled = !!why; $('share').disabled = !!why;
 }
 
 $('seed').addEventListener('input', e => {
@@ -36,11 +37,20 @@ $('seed').addEventListener('input', e => {
   st.seed = /^[0-9]{1,10}$/.test(v) ? Number(v) : -1;
   draw();
 });
+$('share').onclick = async () => {
+  const a = { away: st.away, home: st.home, sp: st.sp.slice(), seed: st.seed };
+  if (friendlyProblem(a)) return;
+  const url = new URL(friendlyUrl(a, ENGINE_VERSION), location.href).href, say = t => { $('shared').textContent = t; };
+  try {
+    if (navigator.share) await navigator.share({ title: '雲端職棒 友誼賽', url });
+    else { await navigator.clipboard.writeText(url); say('已複製。朋友打開就是同一場。'); }
+  } catch (e) { if (!e || e.name !== 'AbortError') say(url); }
+};
 $('dice').onclick = () => { st.seed = roll(); $('seed').value = String(st.seed); draw(); };
 $('form').addEventListener('submit', e => {
   e.preventDefault();
   const a = { away: st.away, home: st.home, sp: st.sp.slice(), seed: st.seed };
-  if (!friendlyProblem(a)) location.href = friendlyUrl(a);
+  if (!friendlyProblem(a)) location.href = friendlyUrl(a, ENGINE_VERSION);
 });
 st.seed = roll(); $('seed').value = String(st.seed);
 $('status').hidden = true; $('form').hidden = false;
