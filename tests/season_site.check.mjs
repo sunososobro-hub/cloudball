@@ -11,7 +11,8 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const imp = p => import(pathToFileURL(path.join(ROOT, p)));
 const { siteFile, seasonAt, dayIndex } = await imp('league/season_site.js');
-const { runSeason, siteSerialize } = await imp('league/tools/season_run.mjs');
+const { runSeason, runSeasons, siteSerialize, PLAYERS_IN, MIN_SITE_DAYS } = await imp('league/tools/season_run.mjs');
+const { readFileSync } = await import('node:fs');
 const { combine } = await imp('ui/site/shared.js');
 const { view } = await imp('ui/site/home.js');
 const problems = [], bad = s => problems.push(s), eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) bad(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
@@ -20,10 +21,18 @@ const problems = [], bad = s => problems.push(s), eq = (a, b, m) => { if (JSON.s
 const args = [path.join(ROOT, 'league/tools/season_run.mjs'), '--site', '--start', '2026-11-28', '--seed', '3', '--commit', 'abc'];
 const out1 = execFileSync(process.execPath, args, { encoding: 'utf8' }), out2 = execFileSync(process.execPath, args, { encoding: 'utf8' });
 if (out1 !== out2) bad('season_run --site: two runs differ');
-const run = runSeason(3), file = siteFile(run, { start: '2026-11-28', commit: 'abc', version: JSON.parse(out1).engine.version });
-if (siteSerialize(file) !== out1) bad('season_run --site output differs from siteFile(runSeason(3))');
-eq(file.nights.flatMap(n => n.games.map(g => g.score)), run.log.map(x => [x.awayRuns, x.homeRuns]), 'file scores = engine scores');
-eq(file.nights.length, run.log.reduce((m, x) => Math.max(m, x.day), 0) + 1, 'one entry per night');
+const runs = runSeasons(3, { players: JSON.parse(readFileSync(PLAYERS_IN, 'utf8')) }), file = siteFile(runs, { start: '2026-11-28', commit: 'abc', version: JSON.parse(out1).engine.version });
+if (siteSerialize(file) !== out1) bad('season_run --site output differs from siteFile(runSeasons(3))');
+eq(file.nights.flatMap(n => n.games.map(g => g.score)), runs.flatMap(r => r.log.map(x => [x.awayRuns, x.homeRuns])), 'file scores = engine scores, all seasons');
+eq(file.nights.map(n => n.day), file.nights.map((_, i) => i), 'nights count on without a gap across seasons');
+if (file.nights.length < MIN_SITE_DAYS) bad(`default file covers ${file.nights.length} nights, want >= ${MIN_SITE_DAYS}`);
+eq(file.seasons.map(x => x.nights).reduce((a, b) => a + b, 0), file.nights.length, 'seasons add up to the nights');
+eq(file.seasons.map(x => !!x.turnover), file.seasons.map((_, i) => i < file.seasons.length - 1), 'turnover between seasons, none after the last');
+eq(JSON.stringify(file.seasons[0].champion), JSON.stringify(runSeason(3).champion), 'season 1 = the single-season run of the same seed');
+const two = JSON.parse(execFileSync(process.execPath, [...args, '--seasons', '2'], { encoding: 'utf8' }));
+eq([two.seasons.length, two.nights.length, two.nights[two.seasons[0].nights].season, two.nights[two.seasons[0].nights].day], [2, two.seasons[0].nights + two.seasons[1].nights, 2, two.seasons[0].nights], '--seasons 2: season 2 opens the night after the final');
+if (file.champion !== file.seasons[file.seasons.length - 1].champion) bad('file champion is the last season\'s');
+if (file.nights.length > 200 || Buffer.byteLength(out1) > 60000) bad(`file too large for Pages: ${Buffer.byteLength(out1)} bytes`);
 
 /* hand-made file: A,B,C,D, two nights + nothing else */
 const hand = { trial: true, seed: 0, start: '2026-12-01', engine: { commit: 'x', version: 'y' }, champion: 'A', nights: [
@@ -47,14 +56,38 @@ eq([before.state, before.tonight, before.last, before.standings.every(t => t.w +
 eq(seasonAt(null, '2026-12-02'), null, 'missing file');
 eq(seasonAt({ ...hand, trial: false }, '2026-12-02'), null, 'not a trial file');
 
+/* two seasons by hand (#749): A,B,C,D; season 1 = nights 0-1 (night 1 is its final), season 2 = nights 2-3 */
+const g2 = (h, a, sc) => ({ home: h, away: a, starters: ['x', 'y'], score: sc });
+const hand2 = { trial: true, seed: 0, start: '2026-12-01', engine: { commit: 'x', version: 'y' }, champion: 'C', nights: [
+  { season: 1, day: 0, phase: 'season', games: [g2('A', 'B', [2, 5]), g2('C', 'D', [4, 1])] },
+  { season: 1, day: 1, phase: 'final', games: [g2('A', 'D', [0, 1])] },
+  { season: 2, day: 2, phase: 'season', games: [g2('B', 'A', [3, 1]), g2('D', 'C', [0, 2])] },
+  { season: 2, day: 3, phase: 'final', games: [g2('B', 'C', [1, 0])] },
+] };
+const lastOne = seasonAt(hand2, '2026-12-02');   /* night 1 = the last night of season 1's schedule: tonight is its final */
+eq([lastOne.season, lastOne.seasonDay, lastOne.seasonTotal, lastOne.phase, lastOne.lastSeason], [1, 1, 2, 'final', 1], 'last night of season 1');
+eq(lastOne.standings.map(t => `${t.id} ${t.w}-${t.l} ${t.rf}-${t.ra}`), ['A 1-0 5-2', 'D 1-0 4-1', 'B 0-1 2-5', 'C 0-1 1-4'], 'standings of season 1 after night 0')
+const openNo2 = seasonAt(hand2, '2026-12-03');   /* first night of season 2: standings from zero, last night is season 1's final with its score */
+eq([openNo2.season, openNo2.seasonDay, openNo2.seasonTotal, openNo2.lastSeason, openNo2.phase], [2, 0, 2, 1, 'season'], 'first night of season 2');
+eq(openNo2.standings.every(t => t.w + t.l === 0 && t.rf === 0), true, 'season 2 standings start from zero');
+eq(openNo2.last.map(g => [g.score, g.phase]), [[[0, 1], 'final']], 'last night = season 1 final, score shown');
+eq(openNo2.tonight.map(g => g.score), [undefined, undefined], 'season 2 opening night: no score');
+const mid2 = seasonAt(hand2, '2026-12-04');
+eq(mid2.standings.map(t => `${t.id} ${t.w}-${t.l} ${t.rf}-${t.ra}`).sort(), ['A 1-0 3-1', 'B 0-1 1-3', 'C 0-1 0-2', 'D 1-0 2-0'], 'season 2 table only counts season 2');
+const over2 = seasonAt(hand2, '2026-12-05');
+eq([over2.state, over2.season, over2.champion], ['over', 2, 'C'], 'two seasons over');
+eq([seasonAt(hand2, '2026-11-30').season, seasonAt(hand2, '2026-11-30').state], [1, 'before'], 'before the start: season 1');
+
 /* the 首頁 */
 const teams = { season: '0', teams: ['A', 'B', 'C', 'D'].map(id => ({ id, name: id + '隊' })) };
 const none = view({ ...combine({ teams }), today: '2026-12-02' });
 if (!none.includes('賽季尚未開始') || !none.includes('試跑')) bad('home: no season file shows 賽季尚未開始 under 試跑');
 const page = view({ ...combine({ teams, trial: hand }), today: '2026-12-02' });
-for (const want of ['第 2 天，共 2 天', 'C隊 <span class="at">對</span> B隊', '先發 c2・b2', '昨晚', '>2 : 5<', '試跑・非正式'])
+for (const want of ['第 1 季（試跑）', '第 2 天，共 2 天', 'C隊 <span class="at">對</span> B隊', '先發 c2・b2', '昨晚', '>2 : 5<', '試跑・非正式'])
   if (!page.includes(want)) bad(`home with a season file: missing ${want}`);
 if (page.includes('>3 : 0<')) bad('home: tonight\'s score must stay hidden');
+const p2 = view({ ...combine({ teams, trial: hand2 }), today: '2026-12-03' });
+for (const want of ['第 2 季（試跑）', '第 1 天，共 2 天', '昨晚']) if (!p2.includes(want)) bad(`home on season 2 night 1: missing ${want}`);
 const real = view({ ...combine({ teams, trial: file }), today: '2026-11-28' });
 if (!real.includes('第 1 天') || real.includes('昨晚')) bad('home on opening day: day 1, no last night');
 

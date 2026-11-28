@@ -61,10 +61,10 @@ export function trialPanel(d) {
   /* #743 part 2: last night's pairing links to its 二軍 record (play.html?f=<id>, same teams, same night); no record -> plain text.
    * The 試跑 一軍 games are not recorded (rule 24: nothing official), so they have no replay of their own. */
   const ixOf = id => TEAMS.findIndex(t => t.id === id);
-  const farmOf = g => { const r = farmGameOn(d.farm, ixOf(g.away), s.day - 1); return r && r.teams[0] === ixOf(g.away) && r.teams[1] === ixOf(g.home) ? r : null; };
+  const farmOf = g => { const r = s.lastSeason === 1 ? farmGameOn(d.farm, ixOf(g.away), s.day - 1) : null; return r && r.teams[0] === ixOf(g.away) && r.teams[1] === ixOf(g.home) ? r : null; };
   const score = g => { const r = farmOf(g); return `<li><span class="pr">${nm(g.away)} <b class="num">${esc(g.score[0])} : ${esc(g.score[1])}</b> ${nm(g.home)}</span>${r ? `<a class="farm-replay" href="${esc(farmUrl(r.id))}">二軍重播</a>` : ''}</li>`; };
   const dayLine = s.state === 'before' ? `賽季尚未開始・${esc(d.trial.start)} 開打` : s.state === 'over' ? `賽季結束${s.champion ? `・冠軍 ${nm(s.champion)}` : ''}`
-    : `第 ${s.day + 1} 天，共 ${s.total} 天${s.phase === 'final' ? '・冠軍賽' : ''}`;
+    : `第 ${s.season} 季（試跑）・第 ${s.seasonDay + 1} 天，共 ${s.seasonTotal} 天${s.phase === 'final' ? '・冠軍賽' : ''}`;
   const parts = [`<p class="eyebrow">${dayLine}</p>`];
   if (s.tonight.length) parts.push(`<h3>今晚（一軍、二軍同組）</h3><ul class="gl">${s.tonight.map(pair).join('')}</ul>`);
   if (s.last.length) parts.push(`<h3>昨晚</h3><ul class="gl">${s.last.map(score).join('')}</ul>`);
