@@ -68,10 +68,19 @@ export const pitGameText = r => `${inningsText(r[PI.outs])} 局　面對 ${r[PI.
 
 /* #804 part 6: career by season (the 輪迴). One row per finished season (season < `before`) in which the id has at least one game, oldest first:
  *   careerRows(stats, id, role, before)   [{ season, line }]   line = tally / pitchTally of that whole season; role 'P' reads `pitchers`, else `players`
- *   careerText(line, pit)                 the season line text of a row. Age and overall at that time are not in the file (left for a later part). */
+ *   careerText(line, pit)                 the season line text of a row. Part 7: each row also carries `shape` ({ age, ovr } or null). */
 export function careerRows(stats, id, role, before) {
   const pit = role === 'P', src = stats && stats.trial === true ? (pit ? stats.pitchers : stats.players) : null, rows = src && Array.isArray(src[id]) ? src[id] : [];
   const seasons = [...new Set(rows.map(r => r && r[0]))].filter(k => Number.isInteger(k) && k < before).sort((a, b) => a - b);
-  return seasons.map(k => ({ season: k, line: (pit ? pitchLine : seasonLine)(stats, id, k, Infinity) })).filter(x => x.line);
+  return seasons.map(k => ({ season: k, line: (pit ? pitchLine : seasonLine)(stats, id, k, Infinity), shape: shapeOf(stats, id, k) })).filter(x => x.line);
 }
 export const careerText = (line, pit) => (pit ? pitchText(line) : lineText(line));
+/* #804 part 7: age and overall of each season. File key `shape`: { <player id>: [ [season, age, ovr], ... ] } (SCOLS), written by league/tools/player_stats.mjs
+ * from the season's roster (league/ratings.js, display only), never from the stats. shapeOf(stats, id, season) -> { age, ovr } or null; shapeText -> '年齡 24　綜合 61'. */
+export const SCOLS = ['season', 'age', 'ovr'];
+export function shapeOf(stats, id, season) {
+  const rows = stats && stats.trial === true && stats.shape && Array.isArray(stats.shape[id]) ? stats.shape[id] : [];
+  const r = rows.find(x => Array.isArray(x) && x.length === SCOLS.length && x.every(Number.isInteger) && x[0] === season);
+  return r ? { age: r[1], ovr: r[2] } : null;
+}
+export const shapeText = sh => `年齡 ${sh.age}　綜合 ${sh.ovr}`;

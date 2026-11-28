@@ -10,12 +10,13 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { COLS, PCOLS } from '../player_stats.js';
+import { COLS, PCOLS, SCOLS } from '../player_stats.js';
+import { ratingsOf } from '../ratings.js';
 
 const site = n => fileURLToPath(new URL(`../site/${n}`, import.meta.url));
 export const OUT = site('player_stats.json');
 const block = m => `{\n${Object.keys(m).sort().map(id => `  ${JSON.stringify(id)}:${JSON.stringify(m[id])}`).join(',\n')}\n}`;
-export const serialize = f => JSON.stringify({ ...f, players: {}, pitchers: {} }).replace('"players":{}', `"players":${block(f.players)}`).replace('"pitchers":{}', `"pitchers":${block(f.pitchers)}`) + '\n';
+export const serialize = f => JSON.stringify({ ...f, players: {}, pitchers: {}, shape: {} }).replace('"players":{}', `"players":${block(f.players)}`).replace('"pitchers":{}', `"pitchers":${block(f.pitchers)}`).replace('"shape":{}', `"shape":${block(f.shape)}`) + '\n';
 
 /* one game's pitching rows: { <pitcher name>: [bf, outs, k, bb, r] } per side (side = the DEFENDING team). Runs and outs go to the pitcher on the mound. */
 export function pitchingFromStream(stream) {
@@ -36,7 +37,7 @@ const seasonOfDay = (seasons, day) => (seasons.filter(s => s.firstDay <= day).po
 /* trial = trial_games.json, farm = farm_games.json (array), seasonFile = season.json (the season of a 二軍 night) */
 export function build({ trial, farm, seasonFile, engine }) {
   const { simGame, boxFromStream } = engine;
-  const players = {}, pitchers = {}, games = [];
+  const players = {}, pitchers = {}, shape = {}, games = [];
   for (const g of trial.games) games.push({ season: g.season, day: g.day, seed: g.seed, score: g.score, teams: g.teams, opts: { starters: g.sp, rosters: trial.seasons[g.season - 1].rosters }, where: `一軍 ${g.day}-${g.slot}` });
   for (const r of farm) if (r.trial === true && r.opts && r.opts.rosters) games.push({ season: seasonOfDay(seasonFile.seasons, r.day), day: r.day, seed: r.seed, score: r.result.score, teams: r.teams, opts: r.opts, where: `二軍 ${r.id}` });
   for (const g of games) {
@@ -48,15 +49,20 @@ export function build({ trial, farm, seasonFile, engine }) {
         if (!pit[name]) throw new Error(`${g.where}: pitcher ${name} is not on the roster`);
         (pitchers[pit[name]] = pitchers[pit[name]] || []).push([g.season, g.day, ...v]);
       }
-      const r = g.opts.rosters[t], ids = Object.fromEntries([...r.bat, ...(r.bench || [])].map(p => [p.name, p.id]));
+      const r = g.opts.rosters[t];
+      for (const p of [...r.bat, ...(r.bench || []), ...r.pit]) {   /* #804 part 7: his age and overall (league/ratings.js) of the season, first roster seen */
+        const rows = shape[p.id] = shape[p.id] || [];
+        if (!rows.some(x => x[0] === g.season)) rows.push([g.season, p.age, ratingsOf(p).ovr]);
+      }
+      const ids = Object.fromEntries([...r.bat, ...(r.bench || [])].map(p => [p.name, p.id]));
       for (const [name, b] of Object.entries(box.players[side])) {
         if (!ids[name]) throw new Error(`${g.where}: batter ${name} is not on the roster`);
         (players[ids[name]] = players[ids[name]] || []).push([g.season, g.day, b.pa, b.ab, b.h, b.d, b.t, b.hr, b.bb, b.hbp, b.sf]);
       }
     });
   }
-  for (const rows of [...Object.values(players), ...Object.values(pitchers)]) rows.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  return { trial: true, engine: trial.engine, cols: COLS, pcols: PCOLS, players, pitchers };
+  for (const rows of [...Object.values(players), ...Object.values(pitchers), ...Object.values(shape)]) rows.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return { trial: true, engine: trial.engine, cols: COLS, pcols: PCOLS, scols: SCOLS, players, pitchers, shape };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
