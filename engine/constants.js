@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.34';
+export const ENGINE_VERSION = '0.4.35';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -332,6 +332,11 @@ export const RD_OF_PO_P = 0.3;
  * Data: estimate. MLB line-drive double plays are roughly 0.1 a game for both teams (Retrosheet play-by-play, LD + DP lines);
  * 0.28 gives 0.091 a game here (seeds 1-2000; about two in three runners who broke get back in time). */
 export const LD_DOUBLED_OFF_P = 0.28;
+/* #614 part 14: line-drive triple play. With nobody out and a second runner on, this share of the broken-runner liners above
+ * had him off too (a hit-and-run with two on sends both; a bad read is one man). Taken from the low end of the same `rare`
+ * number, so no new draw. Data: estimate. MLB has about 5 triple plays a season (2430 games, ~0.002 a game; SABR triple-play
+ * list), about a third of them on a caught liner. 0.2 gives 0.0008 a game here (seeds 1-10000), plus ~0.0003 ground 5-4-3s. */
+export const LD_BOTH_BROKE_OF_P = 0.2;
 export const LD_RETURN_TURN = 0.45;       /* s: a runner going full speed stops, turns and starts back (about 2 steps) */
 export const LD_SOLO_R = 6;               /* m: a fielder who catches it this close to the runner's bag steps on it himself */
 export const RD_RELEASE = 0.4;
