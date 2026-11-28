@@ -26,10 +26,10 @@ export const isDev = hostname => {
   return h === '' || h === 'localhost' || h === '127.0.0.1' || h === '::1' || h.slice(-(PAGES_HOST.length + 1)) === '.' + PAGES_HOST;
 };
 
-const json = (status, body, headers) => new Response(JSON.stringify(body), {
+export const json = (status, body, headers) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers },
 });
-const fail = (status, why, more) => json(status, { ok: false, why, ...more });
+export const fail = (status, why, more) => json(status, { ok: false, why, ...more });
 export const methodNotAllowed = allow => () => new Response(null, { status: 405, headers: { Allow: allow } });
 
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -56,6 +56,11 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS reg_salt (day TEXT PRIMARY KEY, salt TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS reg_seen (day TEXT NOT NULL, h TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS reg_seen_day ON reg_seen (day, h)',
+  /* #800 part 1: a guild (functions/lib/guild.js). leader / coach are agent ids; one guild per fan = guild_members.agent_id is the key */
+  `CREATE TABLE IF NOT EXISTS guilds (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, base TEXT NOT NULL, leader TEXT NOT NULL UNIQUE,
+     coach TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+  'CREATE TABLE IF NOT EXISTS guild_members (agent_id TEXT PRIMARY KEY, guild_id TEXT NOT NULL, joined_at INTEGER NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS guild_members_guild ON guild_members (guild_id)',
 ];
 /* #437: a 系統 filler is a players row whose agent_id is 'sys:<pid>' (no agent holds it) and whose player JSON has system:true.
  * Even spread of the budget, positions / roles in turn, so nobody is a star; made once, marked in `meta`. */
@@ -80,7 +85,7 @@ const ready = new WeakMap();
 const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).then(() => seedSystem(db)).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
 
 /* every handler: closed unless the binding exists on a dev host; one small catch so nothing ever breaks the page */
-const guarded = (handler, { needKey = false } = {}) => async ctx => {
+export const guarded = (handler, { needKey = false } = {}) => async ctx => {
   try {
     const { request, env } = ctx;
     if (!env || !env.DB || !isDev(new URL(request.url).hostname)) return fail(503, 'closed');
@@ -98,7 +103,7 @@ const guarded = (handler, { needKey = false } = {}) => async ctx => {
   } catch (e) { return fail(500, 'error'); }
 };
 
-const readBody = async request => {
+export const readBody = async request => {
   const raw = await request.text();
   if (raw.length > BODY_MAX) return null;
   try { const v = JSON.parse(raw); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch (e) { return null; }
