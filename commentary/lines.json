@@ -224,6 +224,16 @@
     "runner_placed": { "priority": 1, "silence": 0, "exchanges": [
       { "call": "延長賽，{team}的二壘上先放一位跑者。", "response": "這個制度讓比賽更快分出勝負。" },
       { "call": "延長賽的規定，二壘先有人，{team}從得點圈開始進攻。" }
+    ] },
+    "three_balls": { "priority": 0, "silence": 0.5, "exchanges": [
+      { "call": "{count}，投手有點被逼到牆角。" },
+      { "call": "球數來到{count}，打者占了上風。" },
+      { "call": "{count}，投手下一球得投進來。" }
+    ] },
+    "half_start": { "priority": 0, "silence": 0.3, "exchanges": [
+      { "call": "{inning}局{half}，{team}進攻。" },
+      { "call": "換{team}上場打擊，現在是{inning}局{half}。" },
+      { "call": "{inning}局{half}開始，{team}打擊。" }
     ] }
   },
   "guests": {
@@ -325,6 +335,30 @@
     {"on": ["single", "double", "triple"], "side": "down", "lines": [["fan", "守備快一步就接到了嘛。"], ["color", "差一步就是一個安打的距離。"]]},
     {"on": ["single", "double", "triple"], "side": "down", "lines": [["fan", "不要緊，後面還有人。"]]},
     {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "owls", "lines": [["fan", "又掛一個出局，我的咖啡都涼了。"]]},
-    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "owls", "lines": [["fan", "這種節奏，我今晚大概要睡在座位上了。"], ["color", "你睡著之前，先把球看完。"]]}
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "guest": "owls", "lines": [["fan", "這種節奏，我今晚大概要睡在座位上了。"], ["color", "你睡著之前，先把球看完。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "又來了，我的心臟要受不了了！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "沒關係，我們還有很多機會！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "這個打席我連零食都忘了吃。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "不要緊張，不要緊張，下一棒就來了！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "嗚——我的手心都濕了。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "我們的球棒今天是不是放在家裡了？"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "別急，這才剛熱身而已啦！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "對面的投手今天有點東西喔。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "我喊得喉嚨都乾了，還是沒用。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "沒事沒事，我先喝口水再繼續喊。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "那一球其實不難打的，真的。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "大家加油啊，現在不是低頭的時候！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "好！這球收得真乾淨！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "我就說嘛，今天的投手狀況很好！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "漂亮，一個一個慢慢收！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "耶！我的飲料都灑出來了！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "守備今天太穩了，我放心了。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "站穩啊，對面的打者別想輕鬆！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "這下氣勢在我們這邊了！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "太好了，我可以先坐下喘口氣。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "對面的棒子今天被我們看透了！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "好球好球，繼續保持！"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "這種投法，我可以看一整晚。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "我的聲音都喊啞了，但是值得！"]]}
   ]
 }

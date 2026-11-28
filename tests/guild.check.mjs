@@ -142,6 +142,19 @@ if (JSON.stringify(ho.body?.guild?.lineup) !== JSON.stringify({ batting: auto, s
 is('the old 總教練 saves a lineup', await save(ka, LU, 0), 403, 'coach');
 is('the new 總教練 saves a lineup', await save(kb, LU, 0), 200);
 is('the 領隊 takes the seat back', await hand(ka, mine.ref), 200);
+/* #808: an unchanged lineup writes nothing; the save number SAVES_PER_DAY + 1 of a day is 429 limit */
+{
+  const { SAVES_PER_DAY } = await import('../functions/lib/caps.js');
+  is('a lineup to start from', await save(ka, LU, 2), 200);
+  const before = db.sql.prepare('SELECT total_changes() AS n').get().n;
+  is('the same lineup again', await save(ka, LU, 2), 200);
+  if (db.sql.prepare('SELECT total_changes() AS n').get().n !== before) bad('an unchanged lineup save must write nothing (no row, no counter)');
+  let n = 0, last;
+  for (let i = 0; i < SAVES_PER_DAY + 2; i++) { last = await save(ka, auto, i % 2 ? 4 : 3); if (last.status === 429) break; n++; }
+  if (last.status !== 429 || last.body?.why !== 'limit') bad('lineup save past SAVES_PER_DAY must be 429 limit');
+  if (n > SAVES_PER_DAY) bad(`${n} lineup saves accepted in one day, the cap is ${SAVES_PER_DAY}`);
+  if (db.sql.prepare('SELECT COUNT(*) AS n FROM guild_lineups').get().n !== 1) bad('capped lineup saves must still be one row per guild');
+}
 if (/[0-9a-f]{64}/.test(JSON.stringify(ho.body))) bad('a hand-over answer must not show an agent id');
 if (guild.lineupAtLock({ batting: 'not json', sp: 0 }).saved || guild.lineupAtLock({ batting: '[1,2]', sp: 0 }).saved || guild.lineupAtLock(null).saved) bad('a row that does not parse, or off the rules, must fall back to the automatic lineup');
 is('the member leaves again', await call(guild.leave, env, { method: 'POST', k: kb }), 200);

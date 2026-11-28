@@ -110,7 +110,10 @@ function triggerOf(x, m) {
   switch (x.type) {
     case 'game_start': return 'game_start';
     case 'pitch': return x.count[0] === 0 && x.count[1] === 0 ? 'batter_up' : null;
-    case 'call': if (x.count[0] === 3 && x.count[1] === 2 && x.call !== 'foul') return 'full_count'; return x.count[1] === 2 && x.call !== 'foul' && x.call !== 'ball' ? 'two_strikes' : null;
+    case 'call': if (x.count[0] === 3 && x.count[1] === 2 && x.call !== 'foul') return 'full_count';
+      if (x.call === 'ball' && x.count[0] === 3 && x.count[1] < 2) return 'three_balls';   /* #606 part 6: 3-0 / 3-1 after a ball, the count is spoken */
+      return x.count[1] === 2 && x.call !== 'foul' && x.call !== 'ball' ? 'two_strikes' : null;
+    case 'half_start': return 'half_start';   /* #606 part 6: inning, half and the batting team (outs and bases are always 0 / empty here; the extra-inning runner is `runner_placed`) */
     case 'runner_advance': return x.how === 'steal' ? 'stolen_base' : x.how === 'wild_pitch' ? 'wild_pitch' : x.how === 'passed_ball' ? 'passed_ball' : null;   /* balk: its own event below */
     case 'balk': return 'balk';
     case 'pickoff': return x.safe ? 'pickoff_safe' : x.rundown ? 'pickoff_rundown' : 'pickoff_out';
@@ -201,6 +204,7 @@ export function validateBank(bank) {
 export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => '' }) {
   const rng = mulberry32((seed ^ 0xc0ffee) >>> 0), mem = createMemory(teams, seed), rules = bank.rules || {}, lines = [], recent = [];
   const gags = { chosen: null, flags: new Set(), used: new Set() };   /* the one running gag of this game and how far it has got */
+  const colorSaid = new Map();   /* colour wordings said so far this game (#607 cap) */
   const turns = new Map();   /* how often each exchange was said: its response and "alt" wordings are said in turn */
   /* the fan guest has his own random stream, so his picks never shift what the other two pick */
   const colorRng = mulberry32((seed ^ 0xc0102) >>> 0);   /* the colour voice's own stream too (#607): rules.colorChance never shifts the other picks */
@@ -234,7 +238,15 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
     turns.set(ex, turn + 1);
     /* #607: the colour voice answers only some calls; a gag line keeps its response, it is the set-up or the payoff */
     const colorChance = T.colorChance !== undefined ? T.colorChance : rules.colorChance !== undefined ? rules.colorChance : 1;
-    if (ex.response && (ex.gag || ex.needs || colorRoll < colorChance)) lines.push(at(x, 'color', say(wordings[turn % wordings.length], slots, 'color'), { delay: delay + RESPONSE_DELAY, priority }));
+    if (ex.response && (ex.gag || ex.needs || colorRoll < colorChance)) {
+      /* #607: a wording already said twice this game is skipped for the next one of the same exchange (the turn still advances, so no RNG is drawn) */
+      let w = wordings[turn % wordings.length];
+      for (let k = 1; k < wordings.length && (colorSaid.get(w) || 0) >= 2; k++) w = wordings[(turn + k) % wordings.length];
+      if ((colorSaid.get(w) || 0) < 2) {   /* every wording of this exchange is used up: the call stands alone */
+        lines.push(at(x, 'color', say(w, slots, 'color'), { delay: delay + RESPONSE_DELAY, priority }));
+        colorSaid.set(w, (colorSaid.get(w) || 0) + 1);
+      }
+    }
     quietUntil = x.t + (rules.minGapSec || 0);
     /* the fan guest, after the two professionals, only on moments where the play is over */
     if (!guest || !FAN_TRIGGERS.has(name)) continue;
