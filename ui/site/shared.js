@@ -1,6 +1,7 @@
 /* Text-first data site (#335, split by tab in #344; roster cards in #353): the helpers every tab file uses. Pure: no DOM, no network, no game maths (rule 10).
  * A tab file (ui/site/<tab>.js) imports this file and nothing else from ui/, so two windows can edit two tabs without touching one file. */
 import { TEAMS } from '../../league/teams.js'; /* rule 9: ui/ may read league/; only the team colour is taken from it */
+import { placeOf } from '../../league/freeagents.js'; /* #438: where a created player starts (display only) */
 import { temperOf, isTemper } from '../../league/temper.js'; /* #379: the temperament shown on the open card (display only) */
 export const MY_PLAYER_KEY = 'cloudball.myPlayerId';
 export const TIER_LABEL = { 1: '一軍', 2: '二軍', 3: '自由市場' };
@@ -36,7 +37,7 @@ export function mergeCreated(d, rows) {
     if (p.system !== true) { const at = Object.keys(players).find(k => players[k].system === true && players[k].tier === 2 && (players[k].role === 'P') === pit); if (at !== undefined) delete players[at]; }
     const keys = pit ? ['stuff', 'ctrl', 'arm'] : ['con', 'pow', 'eye', 'spd', 'arm'];
     players[id] = { name: p.name, num: p.num, age: p.age, role: pit ? 'P' : 'B', pos: pit ? (p.role === 'SP' ? 'SP' : 'RP') : p.pos, hand: pit ? p.throws : p.hand,
-      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: 3, ...(p.system === true ? { system: true } : {}), ...(isTemper(p.temper) ? { temper: p.temper } : {}) };
+      overall: R.ovr, abilities: Object.fromEntries(keys.filter(k => R[k] != null).map(k => [k, R[k]])), team: null, tier: p.system !== true && placeOf(p) === 'second' ? 2 : 3, ...(p.system === true ? { system: true } : { place: placeOf(p) }), ...(isTemper(p.temper) ? { temper: p.temper } : {}) };
   }
   return { ...d, players };
 }
