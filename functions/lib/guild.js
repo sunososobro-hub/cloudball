@@ -121,4 +121,22 @@ export const remove = guarded(async ({ request, db, agent }) => {
   return json(200, { ok: true, guild: await viewOf(db, g, agent.id) });
 }, { needKey: true });
 
+/* GET /api/guilds/export[?after=<guild id>]: every guild with its members and saved settings for the nightly Node run (#809 part 2), one page at a time.
+ * Public data only (the shape league/guild_night.js reads): no agent id, no member ref. Keyset paging by guild id, EXPORT_PAGE guilds a page; `next` is the
+ * last id of a full page (pass it as ?after=), null on the last one. Two reads per page, no write. `settings` stays null until the settings store exists (#795). */
+export const EXPORT_PAGE = 50;
+export const exportPage = guarded(async ({ request, db }) => {
+  const after = new URL(request.url).searchParams.get('after') || '';
+  if (after && !/^[0-9a-f]{12}$/.test(after)) return fail(400, 'invalid', { reasons: ['after is a guild id'] });
+  const gs = (await db.prepare('SELECT id, name, base, leader, coach FROM guilds WHERE id > ?1 ORDER BY id LIMIT ?2').bind(after, EXPORT_PAGE).all()).results;
+  const mem = gs.length ? (await db.prepare(`SELECT m.guild_id, m.agent_id, p.name, p.kind, p.ovr, p.player FROM guild_members m LEFT JOIN players p ON p.agent_id = m.agent_id
+    WHERE m.guild_id IN (${gs.map((_, i) => '?' + (i + 1)).join(',')}) ORDER BY m.guild_id, m.joined_at, m.agent_id`).bind(...gs.map(g => g.id)).all()).results : [];
+  const guilds = gs.map(g => ({ id: g.id, name: g.name, base: g.base, settings: null,
+    members: mem.filter(r => r.guild_id === g.id).map(r => {
+      let pos = null; try { const p = JSON.parse(r.player || 'null'); pos = p && (p.pos || p.role) || null; } catch (e) { /* no player */ }
+      return { leader: r.agent_id === g.leader, coach: r.agent_id === g.coach, player: r.name ? { name: r.name, kind: r.kind, ovr: r.ovr, pos } : null };
+    }) }));
+  return json(200, { ok: true, guilds, next: gs.length === EXPORT_PAGE ? gs[gs.length - 1].id : null });
+});
+
 export { methodNotAllowed };
