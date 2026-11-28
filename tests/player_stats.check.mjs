@@ -10,9 +10,10 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { COLS, PCOLS, tally, seasonLine, rate, lineText, pitchTally, pitchLine, pitchText, inningsText } from '../league/player_stats.js';
+import { COLS, PCOLS, tally, seasonLine, rate, lineText, pitchTally, pitchLine, pitchText, inningsText, batLog, pitLog, batGameText, pitGameText } from '../league/player_stats.js';
 import { myPlayerView, combine } from '../ui/site-data.js';
-import { STAT_NONE } from '../ui/site/me.js';
+import { STAT_NONE, LOG_TITLE } from '../ui/site/me.js';
+import { nightDate } from '../league/season_site.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bad = [], fail = m => bad.push(m), eq = (a, b, m) => { if (a !== b) fail(`${m}: got ${a}, want ${b}`); };
@@ -60,6 +61,35 @@ if (page('p1', '2026-12-02').includes('2 場')) fail('tonight leaked into the pi
 if (page('a1', '2026-11-30').includes('season-line')) fail('a line before the season starts');
 if (!page('z1', '2026-12-03').includes(STAT_NONE)) fail('a player without rows must read STAT_NONE');
 if (myPlayerView({ ...combine({ teams: [], players, games: [], trial }), today: '2026-12-03' }, 'a1').includes('season-line')) fail('missing stats file must show no line');
+/* #804 part 3: the game log */
+eq(batLog(stats, 'a1', 1, 99).map(x => x.day).join(), '2,1,0', 'batter log: newest night first');
+eq(batLog(stats, 'a1', 1, 2).map(x => x.day).join(), '1,0', 'batter log: only nights before idx');
+eq(batLog(stats, 'a1', 1, 99, 2).length, 2, 'batter log: n caps the rows');
+eq(batLog(stats, 'a1', 2, 99).length, 1, 'batter log: only the asked season'); eq(batLog(stats, 'bad', 1, 99).length, 0, 'batter log: bad row skipped');
+eq(pitLog(stats, 'p1', 1, 99).length, 2, 'pitcher log'); eq(pitLog(null, 'p1', 1, 99).length, 0, 'pitcher log: no file');
+eq(batGameText(rows[1]), '4 打數 1 安打　全壘打 1', 'batter game text'); eq(pitGameText(prow[0]), '7 局　面對 27 人　失 3 分　K 7　BB 2', 'pitcher game text');
+eq(nightDate('2026-12-01', 2), '12-03', 'night date'); eq(nightDate('x', 2), '', 'bad start gives no date');
+{ const on3 = page('a1', '2026-12-03'), li = (on3.match(/<section class="game-log">[\s\S]*?<\/section>/) || [''])[0];
+  if (!li.includes(LOG_TITLE)) fail('batter page lacks the game log'); eq((li.match(/<li>/g) || []).length, 2, 'log rows = nights before today');
+  if (!li.includes('12-02') || !li.includes('12-01')) fail('log rows lack their dates'); if (li.includes('12-03')) fail('tonight leaked into the log');
+  if (page('a1', '2026-12-02').match(/<li>12-02/)) fail('log shows tonight');
+  const pl = (page('p1', '2026-12-03').match(/<section class="game-log">[\s\S]*?<\/section>/) || [''])[0];
+  if (!pl.includes('面對')) fail('pitcher log lacks the pitching text'); if (pl.includes('打數')) fail('pitcher log has batting text');
+  if (page('z1', '2026-12-03').includes('game-log')) fail('a player without rows gets a log');
+  if (page('a1', '2026-11-30').includes('game-log')) fail('a log before the season starts'); }
+/* log links: a 一軍 player links to play.html?t=<night>-<slot> with the opponent, a 二軍 player to ?f=<id> only when the record holds him */
+{ const pl2 = { a1: { ...players.a1, tier: 1, team: 'pheasants' } }, tr = { ...trial, nights: [0, 1, 2].map(day => ({ season: 1, day, phase: 'season', games: [{ home: 'macaques', away: 'x', score: [0, 1] }, { home: 'owls', away: 'pheasants', score: [1, 2] }] })) };
+  const html = myPlayerView({ ...combine({ teams: [], players: pl2, games: [], trial: tr, stats }), today: '2026-12-03' }, 'a1');
+  if (!html.includes('play.html?t=1-1')) fail('一軍 log row lacks play.html?t=<night>-<slot>'); if (!html.includes('play.html?t=0-1')) fail('一軍 log row of night 0 lacks its link');
+  if (!html.includes('對 新竹爆肝貓頭鷹')) fail('一軍 log row lacks the opponent');
+  const rec = rd('league/site/farm_games.json').find(r => r.trial === true && r.opts && r.opts.rosters), pid = rec.opts.rosters[0].bat[0].id, tix = rec.teams[0];
+  const mine2 = { name: '丁', role: 'B', pos: 'SS', age: 24, overall: 60, tier: 2, team: ['pheasants', 'owls', 'macaques', 'x'][0] };
+  const { TEAMS } = await import('../league/teams.js'); mine2.team = TEAMS[tix].id;
+  const st2 = { trial: true, cols: COLS, players: { [pid]: [[1, rec.day, 4, 4, 1, 0, 0, 0, 0, 0, 0]] }, pitchers: {} }, tr2 = { ...trial, nights: [0, 1, 2, 3, 4, 5].map(day => ({ season: 1, day, phase: 'season', games: [game] })) };
+  const t2 = '2026-12-0' + (rec.day + 2), h2 = myPlayerView({ ...combine({ teams: [], players: { [pid]: mine2 }, games: [], trial: tr2, stats: st2, farm: rd('league/site/farm_games.json') }), today: t2 }, pid);
+  if (!h2.includes(`play.html?f=${rec.id}`)) fail('二軍 log row lacks play.html?f=<id>'); if (h2.includes('play.html?t=')) fail('a 二軍 player got a 一軍 link');
+  const h3 = myPlayerView({ ...combine({ teams: [], players: { [pid]: mine2 }, games: [], trial: tr2, stats: st2, farm: [{ ...rec, opts: { rosters: [{ bat: [], pit: [] }, { bat: [], pit: [] }] } }] }), today: t2 }, pid);
+  if (h3.includes('play.html?f=')) fail('a 二軍 record that does not hold him must not link'); }
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
 /* the shipped file */

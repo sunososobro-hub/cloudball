@@ -66,6 +66,9 @@ export function health(file, today, hour = 0) {
   return { date, games: shown.reduce((a, n) => a + n.games.length, 0), commit: String(eng.commit || '').slice(0, 7), version: String(eng.version || ''), ageHours, stale: ageHours != null && ageHours > STALE_HOURS };
 }
 
+/* #804 part 3: 'MM-DD' of night `day` (0-based) of a file that starts on `start` */
+export const nightDate = (start, day) => (DATE_RE.test(String(start)) && Number.isInteger(day) ? new Date(Date.parse(start + 'T00:00:00Z') + day * DAY_MS).toISOString().slice(5, 10) : '');
+
 export function seasonAt(file, today) {
   if (!okFile(file)) return null;
   const idx = dayIndex(file.start, today);
