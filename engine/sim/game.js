@@ -317,7 +317,8 @@ export function simGame(seed, decisions, opts) {
       }
       const pit0 = RR[def].pit[st.pi[def]], bi = st.lu[off], bat = RR[off].bat[bi], bs = stats[off][row[off][bi]], ps = pst[def][st.pi[def]];
       const tire = Math.max(0, st.pc[def] - K.TIRE_AFTER_PITCHES);
-      const pit = { name: pit0.name, stuff: pit0.stuff * (1 - tire * K.TIRE_STUFF_PER_PITCH), ctrl: pit0.ctrl * (1 - tire * K.TIRE_CTRL_PER_PITCH) };
+      const velo = 1 + (clamp(pit0.arm || 1, K.ARM_MIN, K.ARM_MIN + K.ARM_SPAN) - 1) * K.PIT_ARM_STUFF_W;
+      const pit = { name: pit0.name, stuff: pit0.stuff * velo * (1 - tire * K.TIRE_STUFF_PER_PITCH), ctrl: pit0.ctrl * (1 - tire * K.TIRE_CTRL_PER_PITCH) };
       const line = COPY.batLine(bs), pline = COPY.pitLine(ps);
       const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def), vavg: rangeOf(def), pace: runPace(bat.spd) });
       const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; st.phAsked = false; st.prAsked = false; };

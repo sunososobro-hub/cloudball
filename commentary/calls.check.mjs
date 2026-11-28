@@ -1,6 +1,6 @@
 /* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-5): node commentary/calls.check.mjs
  *   - over SEEDS games, each of wild pitch, passed ball, balk, safe pickoff, the catcher's mound visit, pickoff out, rundown, catcher interference
- *     triple play, pinch hitter, pinch runner, defensive substitution, the extra-inning runner and the line-drive double play (triple play about 0.0003 a game: pinned seed 1131, teams [3, 0], as tests/tripleplay.check.mjs)
+ *     triple play, pinch hitter, pinch runner, defensive substitution, the extra-inning runner and the line-drive double play (triple play about 0.0003 a game: pinned seed 78, teams [2, 3], as tests/tripleplay.check.mjs)
  *     is called at least once (the drafted line sits on an event of that kind)
  *   - those lines are name-free: no player name, no {desc}, no unfilled slot
  *   - each call key has at least 2 wordings (3 where it fires more than once a game on average) */
@@ -43,7 +43,7 @@ for (const [k, min] of Object.entries(WORDINGS)) {
   const n = ((bank.triggers[k] || {}).exchanges || []).length;
   if (n < min) bad(`bank: ${k} has ${n} wording(s), needs ${min}`);
 }
-const GAMES = [...Array.from({ length: SEEDS }, (_, i) => ({ seed: i + 1 })), { seed: 1157, teams: [1, 2] }];
+const GAMES = [...Array.from({ length: SEEDS }, (_, i) => ({ seed: i + 1 })), { seed: 78, teams: [2, 3] }];
 for (const { seed, teams: pin } of GAMES) {
   const g = simGame(seed, {}, pin ? { teams: pin } : undefined), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
   const booth = createBooth({ stream: g.stream, seed, bank, teams, describe });

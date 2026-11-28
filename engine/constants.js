@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.38';
+export const ENGINE_VERSION = '0.4.39';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -96,6 +96,12 @@ export const HBP_P = 0.0077;              /* chance that a taken pitch outside t
  * about 5.4e-4 per PA = ~0.04 a game for both teams. MLB swings ~1.9 times a PA (47% of ~3.9 pitches, Statcast) -> 2.8e-4 a swing,
  * but this engine swings more often: 2.8e-4 gave 0.054 a game (seeds 1-2000), scaled to 0.04 -> 2.1e-4 (0.035 on seeds 1-2000) */
 export const CI_OF_SWING = 0.00021;
+/* #794 part 5: a pitcher's `arm` is his arm strength, so it also adds velocity: his stuff on every pitch is multiplied by
+ * 1 + (arm - 1) x PIT_ARM_STUFF_W, arm clamped to the ARM_MIN..ARM_MIN + ARM_SPAN band (0.85..1.15 -> stuff x0.9625..1.0375,
+ * about -+2.6 km/h on the gun via KMH_PER_STUFF). Before this pitcher arm only fed pickoff / fielding throws, so the arm
+ * build was the weakest pitcher build (season_sim --builds). Tuned on --builds (data in PR #794 part 5): arm build within
+ * the even build's band. The factory staffs average arm 1.007, so league totals barely move. */
+export const PIT_ARM_STUFF_W = 0.25;
 export const TIRE_AFTER_PITCHES = 85;
 export const TIRE_STUFF_PER_PITCH = 0.003;
 export const TIRE_CTRL_PER_PITCH = 0.002;

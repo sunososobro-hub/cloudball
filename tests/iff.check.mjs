@@ -14,6 +14,9 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const GAMES = 1500, MIN_DECLARED = 0.1, EPS = 1e-6;
+/* #794 part 5 (engine 0.4.38) moved every stream and left no dropped infield fly in seeds 1..GAMES: these pinned seeds
+ * (found by sweeping 1..6000) hold one each, so the drop path stays checked. Re-pin when the stream moves again. */
+const DROP_SEEDS = [2633, 2800];
 /* stream times and hang are rounded to 1 ms each (engine/sim/game.js round3), so t + hang can be up to 1.5 ms off the exact landing
  * (seed 721 at engine 0.4.37: out 6579.079 = contact 6575.068 + hang 4.012 rounded) */
 const STREAM_EPS = 1.5e-3;
@@ -22,7 +25,7 @@ const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 if (typeof K.IFF_DROP_PICKUP !== 'number') bad('IFF_DROP_PICKUP is missing from engine/constants.js');
 
 let declared = 0, drops = 0;
-for (let s = 1; s <= GAMES; s++) {
+for (const s of [...Array.from({ length: GAMES }, (_, i) => i + 1), ...DROP_SEEDS]) {
   const g = K.simGame(s, {}, { teams: [s % 4, (s + 1) % 4] }), S = g.stream;
   for (const e of g.ev) {
     if (e.k !== 'P' || e.r !== 'inplay' || !e.play || !e.s0) continue;
@@ -52,7 +55,7 @@ for (let s = 1; s <= GAMES; s++) {
   }
 }
 if (declared / GAMES < MIN_DECLARED) bad(`${declared} declared infield flies in ${GAMES} games (${(declared / GAMES).toFixed(3)}/game < ${MIN_DECLARED})`);
-if (!drops) bad(`no dropped infield fly in ${GAMES} games`);
+if (!drops) bad(`no dropped infield fly in ${GAMES} games + pinned seeds ${DROP_SEEDS}`);
 const again = JSON.stringify(K.simGame(55, {}).stream) === JSON.stringify(K.simGame(55, {}).stream);
 if (!again) bad('seed 55 gives two different streams');
 console.log(`iff: ${declared} declared infield flies in ${GAMES} games (${(declared / GAMES).toFixed(3)}/game), ${drops} dropped`);
