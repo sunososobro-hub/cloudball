@@ -53,7 +53,7 @@ export function runSeason(seed, { rosters = ROSTERS } = {}) {
       const [awayRuns, homeRuns] = game.final.sc;
       if (awayRuns === homeRuns) continue;
       const res = { home: g.home, away: g.away, homeRuns, awayRuns };
-      log.push({ day, phase, ...res, starters: sides.map((id, k) => rosters[ix[id]].pit[sp[k]].name), replays: n });
+      log.push({ day, phase, ...res, starters: sides.map((id, k) => rosters[ix[id]].pit[sp[k]].name), replays: n, slot, sp: sp.slice(), seed: (seed * 1000 + day * GAME_SEED_STEP + slot + n * SUBSEED_STEP * 100000) >>> 0 });
       return res;
     }
     throw new Error(`season ${seed} day ${day}: still tied after ${TIE_REPLAYS} replays`);
@@ -73,8 +73,8 @@ export function runSeasons(seed, { seasons = 0, minDays = MIN_SITE_DAYS, players
   const runs = [];
   let league = players, days = 0;
   for (let k = 1; seasons ? k <= seasons : days < minDays; k++) {
-    const run = runSeason(seed + (k - 1) * SEASON_SEED_STEP, { rosters: siteRosters(league, 1) });
-    run.season = k; days += new Set(run.log.map(x => x.day)).size; runs.push(run);
+    const rosters = siteRosters(league, 1), run = runSeason(seed + (k - 1) * SEASON_SEED_STEP, { rosters });
+    run.season = k; run.rosters = rosters; days += new Set(run.log.map(x => x.day)).size; runs.push(run);
     if (seasons ? k < seasons : days < minDays) {
       const r = seasonEnd(advanceYear(league), { seed: turnoverSeed(seed, k) });
       league = r.players;
@@ -102,11 +102,33 @@ export function farmGames(seed, { commit, startId = 1, rosters } = {}) {
   return out;
 }
 
+/* 一軍 試跑 replays (#743 part 4): league/site/trial_games.json from the same runs as season.json (league/trial_games.js has the shape).
+ * Every game is played again here with its logged seed to get the line score the replay checks; the engine plays it (rule 10). */
+export const TRIAL_OUT = fileURLToPath(new URL('../site/trial_games.json', import.meta.url));
+const slimRoster = r => ({ ...r, bat: r.bat.map(slimPlayer), pit: r.pit.map(slimPlayer) });
+export function trialFile(runs, { commit = '', version = ENGINE_VERSION } = {}) {
+  const ids = TEAMS.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i])), seasons = [], games = [];
+  let offset = 0;
+  runs.forEach((run, i) => {
+    const rosters = run.rosters || ROSTERS;
+    seasons.push({ n: i + 1, rosters: rosters.map(slimRoster) });
+    const days = [...new Set(run.log.map(x => x.day))].sort((a, b) => a - b);
+    for (const x of run.log) {
+      const teams = [ix[x.away], ix[x.home]], game = simGame(x.seed, {}, { teams, starters: x.sp, rosters });
+      const b = boxFromStream(game.stream);
+      games.push({ day: offset + x.day, slot: x.slot, season: i + 1, teams, sp: x.sp, seed: x.seed, score: b.score, line: b.line });
+    }
+    offset += days.length;
+  });
+  return { trial: true, engine: { commit, version }, seasons, games };
+}
+export const trialSerialize = f => JSON.stringify({ ...f, games: [] }).replace('"games":[]', `"games":[\n${f.games.map(g => '  ' + JSON.stringify(g)).join(',\n')}\n]`) + '\n';
+
 /* The owner's start (#750): the new season file from day 0 on `start` and the 二軍 file without its trial records.
  * Same inputs = same bytes; `players` is read only. Returns the texts to write. */
 export function resetFiles({ seed = 1, start, commit, version = ENGINE_VERSION, seasons = 0, players, farm = [] }) {
   const runs = runSeasons(seed, { seasons, players });
-  return { season: siteSerialize(siteFile(runs, { start, commit, version })), farm: farmSerialize(farm.filter(r => !(r && r.trial === true))) };
+  return { season: siteSerialize(siteFile(runs, { start, commit, version })), trial: trialSerialize(trialFile(runs, { commit, version })), farm: farmSerialize(farm.filter(r => !(r && r.trial === true))) };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -121,7 +143,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const out = resetFiles({ seed, start, commit, seasons, players: JSON.parse(readFileSync(PLAYERS_IN, 'utf8')), farm });
     const left = JSON.parse(out.farm).length;
     console.log(`reset: season.json from ${start} (seed ${seed}), 二軍 ${farm.length} -> ${left} records`);
-    if (a.includes('--write')) { writeFileSync(SITE_OUT, out.season); writeFileSync(FARM_OUT, out.farm); console.log(`wrote ${SITE_OUT} and ${FARM_OUT}`); }
+    if (a.includes('--write')) { writeFileSync(SITE_OUT, out.season); writeFileSync(TRIAL_OUT, out.trial); writeFileSync(FARM_OUT, out.farm); console.log(`wrote ${SITE_OUT}, ${TRIAL_OUT} and ${FARM_OUT}`); }
     process.exit(0);
   }
   if (a.includes('--site')) {
@@ -133,7 +155,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (!Number.isInteger(days) || days < 1) { console.error('--days must be a whole number >= 1'); process.exit(2); }
     const runs = runSeasons(seed, { seasons, minDays: days, players: JSON.parse(readFileSync(PLAYERS_IN, 'utf8')) });
     const text = siteSerialize(siteFile(runs, { start, commit, version: ENGINE_VERSION }));
-    if (a.includes('--write')) { writeFileSync(SITE_OUT, text); console.log(`wrote ${SITE_OUT}`); } else process.stdout.write(text);
+    if (a.includes('--write')) { writeFileSync(SITE_OUT, text); writeFileSync(TRIAL_OUT, trialSerialize(trialFile(runs, { commit, version: ENGINE_VERSION }))); console.log(`wrote ${SITE_OUT} and ${TRIAL_OUT}`); } else process.stdout.write(text);
     process.exit(0);
   }
   if (a.includes('--farm')) {   /* node season_run.mjs --seed N --farm [--commit sha] [--write]: the commit must be pushed (jsDelivr) */
