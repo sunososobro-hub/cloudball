@@ -21,6 +21,8 @@
 - #607 part 7: 51 fan exchanges on walk / hit_by_pitch / intentional_walk / error / double_play / home_run / run_scores / sac / half_end / pitching_change / hits (52 fan-only-ish, 10 with one colour reply), `bank.tts.json` regenerated (1328 clips). Season max colour 15x, fan 25x; wordings > 3x colour 55, fan 81 (the out groups still carry most fan lines, the pool needs more lines there).
 - #607 part 8: 44 fan-only out-group exchanges (22 down, 22 up; strikeout / out / double play / fielder's choice), `colorChance` 0.45 -> 0.5 (fan-only lines take slots colour used: colour 37.9 lines/game fell under the 40 floor, now 41.2), `bank.tts.json` regenerated (1504 clips). Wordings > 3x a season: fan 81 -> 70, colour 55 -> 58; max colour 15x, fan 26x. Pool still needs more lines on every trigger, then the ceilings.
 
+- #607 part 9: 53 guest-own fan exchanges (owls / pheasants / macaques / muntjacs: out-up, some out-down, hit-up), because the tiny own pools (1 line per guest on out-up) carried `fanOwnShare` 0.3 and one wording was heard 26x. Fan max 26x -> 15x, wordings > 3x fan 70 -> 68, colour 58 -> 57 (40.3 lines/game, fan 43.7); `bank.tts.json` regenerated (1557 clips). Next: more colour wordings on every trigger and the shared fan pool, then the ceilings (<= 3x a season).
+
 ## Next (board order, #68 queue wins)
 1. #68 line is empty after #82 part 2: report 「沒單可做」 unless the manager adds an issue.
 2. Frozen game (seed 704) keeps its recorded pitching-change lines; naming coaches there needs a re-synth (owner's paid call).

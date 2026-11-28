@@ -2,9 +2,12 @@
  * own player, with the points pool: every cell has − / +, a raise must be paid for by a cut elsewhere (the pool is the all-neutral grid).
  * Rows other than 一般 follow 一般 until a cell is set. Edits are a local draft (localStorage, per player id) until the explicit 儲存 button
  * POSTs /api/player/agentset (one row, overwritten, #808 save cap). Nothing here touches a game outcome (rule 10): the engine reads the
- * saved set at the game lock (part 4b). The pure helpers (stepCell, readDraft) are exported for tests/agentsetbox.check.mjs. */
+ * saved set at the game lock (part 4b). The pure helpers (stepCell, readDraft, tryLink) are exported for tests/agentsetbox.check.mjs.
+ * Part 8: 試試看 opens the 友誼賽 picker with the current draft (`friendly.html?t=`, league/friendly_agent.js): a browser-only practice
+ * game, never official (rule 24), no save needed. */
 import { SITUATIONS, FREQS, LABELS, NORMAL, LEVEL_MIN, LEVEL_MAX, LEVEL_NEUTRAL, AGENT_POOL,
   defaultSet, validateSet, resolveSet, freezeSet, pointsLeft } from '../league/agentset.js';
+import { agentParam } from '../league/friendly_agent.js';
 
 export const DRAFT_PREFIX = 'cloudball.agentDraft.';
 /* level words, LEVEL_MIN..LEVEL_MAX (game content) */
@@ -23,6 +26,9 @@ export function stepCell(set, situation, freq, delta) {
   const out = freezeSet({ v: set.v, kind: set.kind, rows });
   return validateSet(out).length ? null : out;
 }
+
+/* the 試試看 link for a set: the 友誼賽 picker carrying it (#795 part 8) */
+export const tryLink = set => `friendly.html?t=${agentParam(set)}`;
 
 /* the stored draft of this player when it is a valid set of his kind, else null */
 export function readDraft(storage, pid, kind) {
@@ -43,7 +49,8 @@ export function agentSetBox({ api, key, pid, kind, storage, isClosed }) {
 
   const grid = el('div', 'as-grid'), pool = el('p', 'left'), note = el('p', 'status'), save = el('button', 'btn'), reset = el('button', 'btn ghost');
   note.setAttribute('role', 'status'); save.type = 'button'; reset.type = 'button'; save.textContent = '儲存'; reset.textContent = '全部照常';
-  const bar = el('div', 'as-bar'); bar.append(save, reset);
+  const tryIt = el('a', 'btn ghost', '試試看'); tryIt.title = '用這份草稿開一場友誼賽（不算正式比賽，不用先存）';
+  const bar = el('div', 'as-bar'); bar.append(save, reset, tryIt);
 
   function draw() {
     const g = resolveSet(draft), rows = draft.rows || {};
@@ -69,6 +76,7 @@ export function agentSetBox({ api, key, pid, kind, storage, isClosed }) {
     pool.textContent = `經紀點數 ${AGENT_POOL[kind]}，剩 ${left} 點。要在一格多一點，就得在別格少一點。灰色的格子跟著「一般」。`;
     const dirty = !same(draft, saved);
     save.disabled = !dirty; save.textContent = dirty ? '儲存' : '已儲存';
+    tryIt.href = tryLink(draft);
   }
   function edit(next) { if (!next) return; draft = next; writeDraft(storage, pid, draft); note.textContent = ''; note.classList.remove('err'); draw(); }
 

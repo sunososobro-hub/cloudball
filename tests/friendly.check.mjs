@@ -135,7 +135,7 @@ if (/Math\.random|Date\b|fetch\(/.test(readFileSync(path.join(ROOT, 'league/engi
   const own3 = readFileSync(path.join(ROOT, 'league/friendly_own.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''), me3 = readFileSync(path.join(ROOT, 'ui/friendly_me.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   if (/Math\.random|Date\b|fetch\(|localStorage|document\./.test(own3)) fail('league/friendly_own.js uses a clock, randomness, the network, storage or the DOM');
   if (/setItem|removeItem|sendBeacon|method\s*:|ledger|farm_games/.test(me3)) fail('ui/friendly_me.js writes or touches the ledger');
-  if (!/friendlyOpeningAt\(xp,q\.get\('e'\),[^;]*,ros\)/.test(play) || !/parseOwn\(op\)/.test(play)) fail('play.html does not play ?o= with the own player');
+  if (!/friendlyOpeningAt\(xp,q\.get\('e'\),[^;]*,ros(?:,ag\?[^;]*)?\)/.test(play) || !/parseOwn\(op\)/.test(play)) fail('play.html does not play ?o= with the own player');
   if (!/id="ownBox"/.test(page) || !/myBatter/.test(ui) || !/ownOf/.test(ui)) fail('friendly.html / ui/friendly.js has no own player choice');
 }
 
