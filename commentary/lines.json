@@ -58,11 +58,11 @@
     ] },
     "strikeout": { "priority": 1, "silence": 0.2, "exchanges": [
       { "call": "三振！" },
-      { "call": "揮空了，三振出局！", "response": "這一球投得很刁。" },
-      { "call": "三振！打者出局。", "response": "配球很聰明，前面幾球都是在鋪這一球。" },
-      { "when": { "batterKToday": { "min": 3 } }, "call": "打者今天第{n:batterKToday}次三振。", "response": "帽子戲法了，今天真的不是他的日子。" },
-      { "when": { "batterKToday": 2 }, "call": "又被三振了，今天第二次。", "response": "兩次了，回休息區臉色應該不太好看。" },
-      { "when": { "pitcherK": { "min": 6 } }, "call": "投手今天第{n:pitcherK}次三振！", "response": "今天他這顆球真的很犀利。" }
+      { "call": "揮空了，三振出局！", "response": "這一球投得很刁。", "alt": ["球從好球帶邊邊角角擦過去，打者很難受。", "這球的位置太刁了，看起來好球，其實揮不到。", "投手把球藏得很好，打者只能硬揮。", "最後這球變化很大，打者完全被騙到。"] },
+      { "call": "三振！打者出局。", "response": "配球很聰明，前面幾球都是在鋪這一球。", "alt": ["前面都在布局，最後一球才收網。", "這個配球從第一球就開始算計了。", "前面讓他看慢的，最後來個快的，他來不及。", "捕手跟投手默契很好，這球是設計好的。"] },
+      { "when": { "batterKToday": { "min": 3 } }, "call": "打者今天第{n:batterKToday}次三振。", "response": "帽子戲法了，今天真的不是他的日子。", "alt": ["三個三振收集齊了，今天他的棒子在休息。", "今天他一點都碰不到球，回去要好好檢討。", "這種日子，打者只想趕快結束。"] },
+      { "when": { "batterKToday": 2 }, "call": "又被三振了，今天第二次。", "response": "兩次了，回休息區臉色應該不太好看。", "alt": ["兩個三振，這個打席要調整一下。", "連續被三振，下次要換個思路了。", "他回休息區大概會一直搖頭。"] },
+      { "when": { "pitcherK": { "min": 6 } }, "call": "投手今天第{n:pitcherK}次三振！", "response": "今天他這顆球真的很犀利。", "alt": ["今天他的球威很夠，打者都很辛苦。", "他今天的控球和球速都在線上。", "這樣的投球內容，今天可以投很久。"] }
     ] },
     "walk": { "priority": 1, "silence": 0.4, "exchanges": [
       { "call": "四壞球，保送。" },
@@ -129,20 +129,20 @@
       { "call": "守備出了差錯。", "response": "這球送人家上壘，投手心裡一定很不是滋味。" }
     ] },
     "pitching_change": { "priority": 2, "silence": 0, "exchanges": [
-      { "call": "{team}要換投手了。", "response": "牛棚應該早就在熱身了。" },
-      { "call": "教練走出來了，{team}要換人。", "response": "換個節奏，看能不能壓得住。" },
-      { "call": "{team}換投，教練跟主審比了手勢。", "response": "這一換，他心裡應該早有劇本了。" },
-      { "call": "投手教練先上去講了幾句，總教練還是決定換人。", "response": "給了機會，球數到了就是到了。" }
+      { "call": "{team}要換投手了。", "response": "牛棚應該早就在熱身了。", "alt": ["牛棚那邊早有人暖身了，換人不意外。", "這個時間點換人，教練的準備是做足了。", "新投手上來，先看他的第一顆球。"] },
+      { "call": "教練走出來了，{team}要換人。", "response": "換個節奏，看能不能壓得住。", "alt": ["換個人，換個氣氛，也許局面就不一樣。", "新投手要快點進入狀況，不能讓對手喘氣。", "教練希望換人以後，場上的節奏換個樣子。"] },
+      { "call": "{team}換投，教練跟主審比了手勢。", "response": "這一換，他心裡應該早有劇本了。", "alt": ["這個調度，看得出來是想好才走出來的。", "教練心裡早有安排，這一換有他的想法。", "換人這件事，教練應該已經想了一陣子。"] },
+      { "call": "投手教練先上去講了幾句，總教練還是決定換人。", "response": "給了機會，球數到了就是到了。", "alt": ["球數到了，該休息了，沒什麼好說的。", "先發投手已經盡力了，接下來交給後面的人。", "投到這裡剛剛好，不要硬撐。"] }
     ] },
     "fan_decision": { "priority": 1, "silence": 0.2, "exchanges": [
       { "call": "看台上的球迷有意見了，教練團照做。", "response": "有魄力。好壞大家一起扛。" },
       { "call": "聽到了嗎？球迷的聲音很清楚。", "response": "教練有在聽喔，這個調度有意思。" }
     ] },
     "half_end": { "priority": 1, "silence": 0.1, "exchanges": [
-      { "when": { "halfRuns": { "min": 1 } }, "call": "{inning}局{half}結束，{team}這局拿下{n:halfRuns}分，現在比數{n:awayScore}比{n:homeScore}。", "response": "有拿到分就好，這局沒有白打。" },
-      { "when": { "inning": { "min": 7 }, "tied": 1 }, "call": "{inning}局{half}打完，{n:awayScore}比{n:homeScore}，還是平手。", "response": "接下來每一分都要命。" },
+      { "when": { "halfRuns": { "min": 1 } }, "call": "{inning}局{half}結束，{team}這局拿下{n:halfRuns}分，現在比數{n:awayScore}比{n:homeScore}。", "response": "有拿到分就好，這局沒有白打。", "alt": ["這局有進帳，回休息區可以喘口氣了。", "拿到分數，下半局心情都會輕鬆一點。", "一分一分累積，這局打得有意義。"] },
+      { "when": { "inning": { "min": 7 }, "tied": 1 }, "call": "{inning}局{half}打完，{n:awayScore}比{n:homeScore}，還是平手。", "response": "接下來每一分都要命。", "alt": ["進入後半段，一個失誤就可能決定比賽。", "平手的局面，下一分就是關鍵。", "這時候誰先拿到分，誰就占了上風。"] },
       { "when": { "inning": { "min": 7 }, "margin": { "min": 1, "max": 2 } }, "gag": "bet", "needs": ["bet"], "once": true, "call": "{inning}局{half}結束，{leadTeam}領先{n:margin}分。", "response": "差這一點點，鹹酥雞誰請還很難講。" },
-      { "when": { "inning": { "min": 7 }, "margin": { "min": 1, "max": 2 } }, "call": "{inning}局{half}結束，{leadTeam}領先{n:margin}分。", "response": "一支長打就追上來的距離。" },
+      { "when": { "inning": { "min": 7 }, "margin": { "min": 1, "max": 2 } }, "call": "{inning}局{half}結束，{leadTeam}領先{n:margin}分。", "response": "一支長打就追上來的距離。", "alt": ["這個差距，一支安打加一個長打就拉近了。", "分數不算大，後面還有機會。", "落後的一方還在射程內，不能放棄。"] },
       { "when": { "inning": { "min": 7 }, "margin": { "min": 5 } }, "call": "{inning}局{half}結束，{leadTeam}領先{n:margin}分。", "response": "分數拉開了，落後的那邊要靠一個大局。" }
     ] },
     "walkoff": { "priority": 2, "silence": 0, "exchanges": [
@@ -249,6 +249,12 @@
     {"on": ["pitching_change"], "side": "down", "lines": [["fan", "換掉了喔？我覺得他還可以投啊。"], ["color", "教練每天看他牛棚，看得比你清楚啦。"]]},
     {"on": ["pitching_change"], "side": "up", "lines": [["fan", "把他打下去了啦！"], ["color", "這叫換投，不叫打下去。好啦，也差不多。"]]},
     {"on": ["pitching_change"], "side": "up", "when": {"inning": {"min": 7}, "margin": {"max": 2}}, "once": true, "lines": [["fan", "教練出手了。"], ["color", "每個教練都有自己的考量，慢慢看。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "down", "lines": [["fan", "沒事，下一棒一定會打出來。"], ["color", "你這句話今天說第幾次了？"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "好球！投得太漂亮了！"], ["color", "小聲一點，隔壁的人在看你。"]]},
+    {"on": ["strikeout", "groundout", "flyout", "lineout", "popout", "double_play", "fielders_choice"], "side": "up", "lines": [["fan", "這就是我們的投手！"], ["color", "好，你先把飲料放下來再說。"]]},
+    {"on": ["pitching_change"], "side": "down", "lines": [["fan", "又換人？我才剛記住前一個的球路。"], ["color", "你記得住才怪，教練比你更清楚。"]]},
+    {"on": ["pitching_change"], "side": "down", "lines": [["fan", "教練，你確定嗎？"], ["color", "他確定得很，你就別替他緊張。"]]},
+    {"on": ["pitching_change"], "side": "up", "lines": [["fan", "對面換投手了，看他們怎麼辦。"], ["color", "他們也在看你，沒有比較輕鬆。"]]},
     {"on": ["half_end"], "side": "any", "when": {"inning": {"max": 3}}, "once": true, "lines": [["fan", "主審，我今天會盯著你的好球帶喔。"], ["color", "主審有自己的好球帶，你就當作沒看到吧。"]]},
     {"on": ["game_end", "walkoff"], "side": "up", "lines": [["fan", "贏啦——！我們贏啦！"], ["color", "恭喜，今晚可以好好睡了。"]]},
     {"on": ["walkoff"], "side": "up", "lines": [["fan", "再見啦——！"], ["pbp", "你可以把我的手放開了。"]]},
