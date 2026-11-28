@@ -36,6 +36,7 @@ export const COPY = {
   checkSwing: (ump, swing) => `，捕手請${ump === 3 ? '三' : '一'}壘審判定半揮棒：${swing ? '有出棒，好球' : '沒有出棒'}`,
   walk: n => `${n} 四壞球保送`,
   hbp: n => `${n} 觸身球上壘`,
+  benchClear: (b, p) => `${b} 衝向投手丘找 ${p}，兩隊板凳清空，裁判把雙方拉開並警告兩隊`,
   catcherInterference: n => `${n} 揮棒碰到捕手手套，捕手妨礙打擊，上一壘`,
   forcedIn: runs => `，擠回 ${runs} 分`,
   droppedThird: (n, looking, safe, runs, tag) => `${n} ${looking ? '站著不動' : '揮棒落空'}，三振，捕手漏接${safe ? `，不死三振跑上一壘${runs ? `，擠回 ${runs} 分` : ''}` : tag ? '，撿起球追上觸殺出局' : '，傳一壘刺殺出局'}`,

@@ -405,6 +405,13 @@ export const RETALIATE_ON = false;
 export const RETALIATE_P = 0.15;
 export const RETALIATE_MAX_P = 0.4;
 export const FEUD_SALT = 0x0f3e0d17;      /* #379 part 4: seed offset of the seeded RNG for retaliation draws */
+/* bench-clearing (#379 part 5, off; needs RETALIATE_ON); simGame opts.benchClear overrides. Right after a retaliation pitch the hit
+ * batter may charge the mound and both benches empty: BENCH_CLEAR_P x the batter's temperament factor, capped, from the feud RNG.
+ * Timing only (a BENCH frame of BENCH_CLEAR_DUR, stream `bench_clearing`); ejections are a later part. First guesses, no data yet. */
+export const BENCH_CLEAR_ON = false;
+export const BENCH_CLEAR_P = 0.2;
+export const BENCH_CLEAR_MAX_P = 0.35;
+export const BENCH_CLEAR_DUR = 240;     /* s: benches and bullpens empty, umpires separate the players, both benches are warned */
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
 export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */
