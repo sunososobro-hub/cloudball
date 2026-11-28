@@ -59,15 +59,16 @@ function throwTo(plan, ctx, cover, { rushBudget = null, notBefore = 0 } = {}) {
   return plan;
 }
 
-const batterArrival = () => sinceContact(runnerTimeline(0, 1, { kind: 'inplay' }).arriveT);
-const slideArrival = (from, to) => sinceContact(runnerTimeline(from, to, { kind: 'inplay', slide: true }).arriveT);
+/* ctx.pace (#794): the batter-runner's pace (runPace of his spd; missing = 1); other runners run at RUN_SPEED. */
+const batterArrival = ctx => sinceContact(runnerTimeline(0, 1, { kind: 'inplay', pace: ctx.pace || 1 }).arriveT);
+const slideArrival = (from, to, ctx = null) => sinceContact(runnerTimeline(from, to, { kind: 'inplay', slide: true, pace: from === 0 && ctx ? ctx.pace || 1 : 1 }).arriveT);
 const coverOf = (base, fielder) => base === 3 ? (fielder === '3B' ? 'SS' : '3B') : (fielder === 'SS' ? '2B' : 'SS');
 
 /* Ground ball that the defence fields cleanly.
  * tryDoublePlay: go second-to-first. leadBase: (bunt) go for the lead runner at this base.
  * Returns kind: 'dp' | 'fc' (lead runner out, batter safe) | 'out' (batter out at first) | 'safe' (nobody out). */
 export function resolveGround(ctx, { tryDoublePlay = false, leadBase = null } = {}) {
-  const B = ctx.bases, batterAt = batterArrival(), f = ctx.play.fielder;
+  const B = ctx.bases, batterAt = batterArrival(ctx), f = ctx.play.fielder;
   if (leadBase) {
     const plan = chase(ctx), from = leadBase - 1, runner = B[from - 1], runnerAt = slideArrival(from, leadBase);
     const forced = isForced(from, B, true), key = coverOf(leadBase, f);
@@ -138,7 +139,7 @@ export function resolveTriple(ctx) {
   const a1 = Math.max(touch3 + xfer + th.flight, pivotAt), r2At = slideArrival(1, 2);
   if (!beats(a1, pivotAt, r2At)) return null;
   const coverAt = coverArrival(fielderStart(CVkey, B, ctx.outs), FIRST_BAG, K.FIELD_REACT + K.COVER_REACT, K.COVER_SPEED);
-  const pxfer = K.XFER_RUSH, arrive = Math.max(a1 + pxfer + th2.flight, coverAt), batterAt = batterArrival();
+  const pxfer = K.XFER_RUSH, arrive = Math.max(a1 + pxfer + th2.flight, coverAt), batterAt = batterArrival(ctx);
   if (!beats(arrive, coverAt, batterAt)) return null;
   Object.assign(plan, { dp: true, tp: true, touch3, bag3: THIRD_BAG, PV, PVspot: SECOND_PIVOT, CV: { key: CVkey, spot: FIRST_BAG, base: 1, at: coverAt }, pivotAt,
     xfer: touch3 - plan.catchT + xfer, v: th.v, TD, TT: th.flight, t0: touch3 + xfer, a1, pxfer, t1: a1 + pxfer, TD2, V2: th2.v, TT2: th2.flight, arrive,
@@ -213,7 +214,7 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch =
   if (wildThrow) {
     /* advancing on an error (#38): the infielder throws to first in a hurry and the ball sails past the bag into foul
      * ground (nobody receives it); the batter and every runner take an extra base on it */
-    throwTo(plan, ctx, { key: null, spot: PAST_FIRST, base: null }, { rushBudget: batterArrival() - K.FORCE_MARGIN - plan.catchT });
+    throwTo(plan, ctx, { key: null, spot: PAST_FIRST, base: null }, { rushBudget: batterArrival(ctx) - K.FORCE_MARGIN - plan.catchT });
     plan.wild = true;
     return { plan, outs: [] };
   }
@@ -241,7 +242,7 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch =
     /* out on the bases (#38): the batter tries to stretch the single into a double; the outfielder throws to the
      * middle infielder covering second beside the lane. Held to TAG_EARLY before him (a close play); safe when the
      * ball cannot be there by then. */
-    const runnerAt = slideArrival(0, 2);
+    const runnerAt = slideArrival(0, 2, ctx);
     throwTo(plan, ctx, { key, spot: SECOND_TAG, base: 2 }, { notBefore: runnerAt - K.TAG_EARLY });
     plan.tagPlay = true;
     if (!beats(plan.arrive, plan.CV.at, runnerAt)) return { plan, outs: [], safe: true };
@@ -250,7 +251,7 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch =
     return { plan, outs: [out], safe: false };
   }
   /* bobble (#38): ctx.fumble already delays the pickup; the ball comes in to the relay at second only after the batter is there */
-  return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }, { notBefore: bobble ? slideArrival(0, 2) + K.TAG_LATE : 0 }), outs: [] };
+  return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }, { notBefore: bobble ? slideArrival(0, 2, ctx) + K.TAG_LATE : 0 }), outs: [] };
 }
 
 /* Steal of second on a pitch that is not put in play. wantOut: the simulation's draw says the
