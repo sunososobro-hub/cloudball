@@ -57,6 +57,7 @@ export const COPY = {
   outAtHome: runner => `，${runner} 衝本壘遭觸殺出局`,
   outStretching: () => `，硬闖二壘遭觸殺出局`,
   errAdvance: f => `，${FIELDER_NAME[f]}漏接失誤，跑者多推進一個壘包`,
+  obstruction: () => '，打者繞過一壘被一壘手擋住，妨礙跑壘，安全進佔二壘',
   wildThrow: f => `，${FIELDER_NAME[f]}傳一壘暴傳，跑者多推進一個壘包`,
   groundOut: (n, f) => `${n} ${FIELDER_NAME[f]}前滾地球出局`,
   lineTriplePlay: (n, f, r, r2) => `${n} 平飛球被${FIELDER_NAME[f]}接殺，${r} 和 ${r2} 都來不及回壘，三殺！`,
