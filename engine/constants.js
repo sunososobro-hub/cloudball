@@ -555,3 +555,16 @@ export const AGENT_EARLY_PITCHES = 2;                            /* "early" = th
 export const AGENT_STEAL_TRY_MULT = [0, 0.5, 1, 1.5, 2];         /* the runner's chance to go once a steal is considered */
 export const AGENT_STEAL_OK_MULT = [1.04, 1.02, 1, 0.97, 0.94];  /* success chance: a choosy runner picks his pitch, a steal-happy one runs into bad jumps */
 export const AGENT_BUNT_MULT = [0, 0.5, 1, 1.3, 1.6];            /* chance the batter offers a sacrifice when the bunt is on the table (capped at 1) */
+/* ---- #795 part 2b: the pitcher's frequencies, same indexing (middle entry exactly 1). First estimates: part 3 tunes them.
+ * fastball share: more fastballs = more strikes (fewer walks) AND batters time them (more contact, fewer strikeouts). */
+export const AGENT_FASTBALL_SHARE_MULT = [0.6, 0.8, 1, 1.2, 1.4];       /* share of 直球 in his mix (factory 0.5 -> 0.3..0.7) */
+export const AGENT_FASTBALL_SHARE_MAX = 0.85;                          /* never a fastball-only pitcher */
+export const AGENT_FASTBALL_ZONE_MULT = [0.95, 0.975, 1, 1.025, 1.05];  /* chance the pitch is in the zone */
+export const AGENT_FASTBALL_CONTACT_MULT = [0.95, 0.975, 1, 1.025, 1.05];   /* batter's contact chance on a swing */
+/* edges: pitch to the corners = fewer pitches in the zone (more walks) AND zone strikes harder to hit (more strikeouts) */
+export const AGENT_EDGE_ZONE_MULT = [1.06, 1.03, 1, 0.97, 0.94];
+export const AGENT_EDGE_CONTACT_MULT = [1.05, 1.025, 1, 0.97, 0.94];   /* contact on a swing at a pitch in the zone */
+/* pickoff: throw over more = more pickoffs and fewer steal tries of the runner on first AND more balks */
+export const AGENT_PICKOFF_MULT = [0, 0.5, 1, 1.5, 2];                  /* PO_P and POF_P (throw-overs) */
+export const AGENT_PICKOFF_HOLD_MULT = [1.3, 1.15, 1, 0.85, 0.7];       /* the runner on first's chance to go once a steal of second is considered */
+export const AGENT_PICKOFF_BALK_MULT = [0.5, 0.75, 1, 1.5, 2];          /* BK_P with runners on */
