@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.33';
+export const ENGINE_VERSION = '0.4.34';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -474,6 +474,11 @@ export const RETURN_AFTER_THROW = 0.7;
 
 /* ---- running ---- */
 export const RUN_SPEED = 7.8;
+/* Batter-runner pace (#794): his `spd` scales RUN_SPEED out of the box (infield hits, beating the double play, stretching
+ * a single), so a speed build pays off at the plate, not only on steals. Statcast sprint speed: league average 27 ft/s,
+ * elite 30 (+11%), slow 24 (-11%); created players reach spd ~1.3 at the cap, factory players ~0.9-1.3. */
+export const RUN_PACE_PER_SPD = 0.35;
+export const RUN_PACE_RANGE = [0.88, 1.12];
 export const WALK_SPEED = 4.5;            /* trot on a walk */
 /* #266: home-run trot. MLB trots run about 22-23 s home to home (Statcast / Tater Trot Tracker averages, 2015-2024);
  * 4 x 27.43 m at 5.0 m/s with RUN_ACCEL is 22.4 s. Every runner of a home run trots at this pace. */

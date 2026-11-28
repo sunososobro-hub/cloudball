@@ -27,7 +27,7 @@ let myTeam=-1;try{const v=localStorage.getItem('zu_team');if(v!==null)myTeam=+v}
 let DB=null,UID=null,unsubDec=null,unsubVotes=null,voteDocs=[];let parkHook=null;/* #203: set once the park exists; reskins it for the home team of the game */
 const DEC_KEY=/^[PSI]\d+$/;
 /* #775: the engine plays a triple play with moves=[] (nobody advances, rule 10); the picture still shows the three runners going for their bases, from the out records */
-const tpFix=g=>{for(const e of g.ev)if(e.play&&e.play.tp&&e.moves&&!e.moves.length)e.moves=e.outs.map(o=>[o.from,o.base,o.runner,runnerTimeline(o.from,o.base,{kind:'inplay',slide:o.base>=2})]);return g};
+const tpFix=g=>{for(const e of g.ev)if(e.play&&e.play.tp&&e.moves&&!e.moves.length)e.moves=e.outs.map(o=>[o.from,o.base,o.runner,runnerTimeline(o.from,o.base,{kind:'inplay',slide:o.base>=2,pace:o.from===0?e.play.pace||1:1})]);return g};
 const tpStand=(cx,cz,B3,catchT,touch3,u)=>{const k=sat01((u-catchT)/(touch3-catchT));return[lerp(cx,B3[0],k),lerp(cz,B3[1],k)]};/* #775: 3B walks from where he fielded it to third, there at touch3 */
 function regen(){game=tpFix(simGame(seedCur,decisions));if(parkHook)parkHook()}
 function loadGame(gs){gameStart=gs;seedCur=seedOf(gs);decisions={};myVotes={};regen();$('seedTag').textContent=`引擎 ${ENGINE_VERSION}・種子 #${seedCur.toString(16)}`;lastIdx=-1;subscribeGame()}
