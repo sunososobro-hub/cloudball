@@ -14,7 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { guildRoster } from '../league/guild_roster.js';
 import { siteRoster } from '../league/site_roster.js';
 import { readExport, readPrev, makePlay } from '../league/tools/guild_night.mjs';
-import { guildNight, GUILD_DIR } from '../league/guild_night.js';
+import { guildNight, GUILD_DIR, PIT_COLS, shardOf } from '../league/guild_night.js';
+import { memberLine } from '../league/guild_lines.js';
 
 const problems = [], bad = m => problems.push(m);
 const players = JSON.parse(readFileSync(fileURLToPath(new URL('../league/site/players.json', import.meta.url)), 'utf8'));
@@ -57,6 +58,16 @@ const nightFile = JSON.parse(a[`${GUILD_DIR}/night-2026-12-01.json`]);
 if (!nightFile.games.length) bad('no game was played');
 for (const g of nightFile.games) for (const k of Object.keys(g.lines)) if (!nm.has(k.slice(k.indexOf(':') + 1))) bad(`a line of a non-member: ${k}`);
 if (nightFile.games.some(g => g.score[0] === g.score[1])) bad('a tied game');
+/* pitching lines: members only, 5 numbers, outs add up, and the same row sits in its shard next to the batting rows */
+const pitNames = new Set(guildRoster(sps, base).names), pitRows = nightFile.games.flatMap(g => Object.entries(g.pitching || {}));
+if (!pitRows.length) bad('no pitching line of a member was written');
+for (const [k, row] of pitRows) {
+  if (!pitNames.has(k.slice(k.indexOf(':') + 1)) && !nm.has(k.slice(k.indexOf(':') + 1))) bad(`a pitching line of a non-member: ${k}`);
+  if (row.length !== PIT_COLS.length || !row.every(Number.isInteger)) bad(`pitching row of ${k} is not ${PIT_COLS.length} whole numbers`);
+  const sh = JSON.parse(a[`${GUILD_DIR}/lines/1/${String(shardOf(k)).padStart(3, '0')}.json`]);
+  if (!sh[k] || !sh[k].some(r => r.length === PIT_COLS.length + 1 && r[0] === 0 && r.slice(1).join() === row.join())) bad(`pitching row of ${k} is not in its shard`);
+  if (memberLine(sh, k) !== null) bad(`memberLine read the pitching rows of ${k} as batting`);
+}
 
 /* readPrev reads back what a night wrote; the next night continues it */
 const dir = mkdtempSync(path.join(tmpdir(), 'gnight-'));

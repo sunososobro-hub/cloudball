@@ -6,7 +6,7 @@
  *   export  = { guilds: [ { id, name, base, members: [ { leader, coach, player } ], settings } ] }   (public data only, no agent ids)
  *   files written by guildNight (path -> text), `<date>` = YYYY-MM-DD, `<season>` = a whole number:
  *     league/site/guilds/lock-<date>.json      the frozen guilds of that night, sorted by id
- *     league/site/guilds/night-<date>.json     that night's games: { date, commit, games: [ { home, away, seed, replays, score, lines } ] }
+ *     league/site/guilds/night-<date>.json     that night's games: { date, commit, games: [ { home, away, seed, replays, score, lines, pitching? } ] }   (pitching = members' pitcher rows [PIT_COLS], when `play` returns them)
  *     league/site/guilds/standings.json        guild standings after that night, rank() order
  *     league/site/guilds/lines/<season>/<NNN>.json  one of LINE_SHARDS files: { <player key>: [ [night, ...LINE_COLS], ... ] }
  *   A fan adds rows to one shard of one season, never a file: the file count is fixed (Pages limit 20,000 files).
@@ -20,6 +20,7 @@ import * as S from './season.js';
 export const LINE_SHARDS = 256;
 export const TIE_REPLAYS = 8;
 export const LINE_COLS = ['pa', 'ab', 'h', 'd', 't', 'hr', 'bb', 'hbp', 'sf'];
+export const PIT_COLS = ['bf', 'outs', 'k', 'bb', 'r'];   /* a pitcher row of a shard = [night, ...PIT_COLS] (6 numbers, a batter row has 10) */
 export const GUILD_DIR = 'league/site/guilds';
 
 const fnv = s => { let h = 0x811c9dc5; for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return h >>> 0; };
@@ -67,7 +68,7 @@ export function guildNight({ exp, date, commit, season, night, prev = {}, play, 
       if (r.score[0] !== r.score[1]) done = { seed, replays: n, r };
     }
     if (!done) throw new Error(`guildNight: ${away} v ${home} still tied after ${TIE_REPLAYS} replays`);
-    const { r } = done, lines = {};
+    const { r } = done, lines = {}, pitching = {};
     [away, home].forEach((gid, k) => {
       for (const [name, b] of Object.entries(r.players[k] || {})) {
         const key = `${gid}:${name}`, row = LINE_COLS.map(c => b[c] | 0);
@@ -75,9 +76,15 @@ export function guildNight({ exp, date, commit, season, night, prev = {}, play, 
         const sh = shardRows(shardOf(key));
         (sh[key] = sh[key] || []).push([night, ...row]);
       }
+      for (const [name, v] of Object.entries((r.pitching && r.pitching[k]) || {})) {
+        const key = `${gid}:${name}`, row = PIT_COLS.map((c, i) => v[i] | 0);
+        pitching[key] = row;
+        const sh = shardRows(shardOf(key));
+        (sh[key] = sh[key] || []).push([night, ...row]);
+      }
     });
     S.applyResult(table, { home, away, homeRuns: r.score[1], awayRuns: r.score[0] });
-    games.push({ home, away, seed: done.seed, replays: done.replays, score: r.score.slice(), lines: sortKeys(lines) });
+    games.push({ home, away, seed: done.seed, replays: done.replays, score: r.score.slice(), lines: sortKeys(lines), ...(Object.keys(pitching).length ? { pitching: sortKeys(pitching) } : {}) });
   }
   const files = {};
   const put = (path, v) => { files[path] = JSON.stringify(v) + '\n'; };

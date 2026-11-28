@@ -12,6 +12,7 @@ import path from 'node:path';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { simGame, boxFromStream, TEAMS } from '../../engine/index.js';
+import { pitchingFromStream } from './player_stats.mjs';
 import { guildNight, GUILD_DIR, LINE_SHARDS } from '../guild_night.js';
 import { guildRoster } from '../guild_roster.js';
 import { siteRoster } from '../site_roster.js';
@@ -50,9 +51,10 @@ export function makePlay(players) {
   };
   const play = (seed, { home, away }) => {
     const rosters = [away, home], sp = rosters.map((r, k) => ((seed >>> (3 + 4 * k)) >>> 0) % Math.max(1, r.pit.filter(p => p.role === 'SP').length));
-    const box = boxFromStream(simGame(seed, {}, { teams: [0, 1], rosters, starters: sp }).stream);
-    /* only the members' batting lines count; the NPCs' do not (nobody follows them, and the shards stay small) */
-    return { score: box.score.slice(), players: box.players.map((side, k) => Object.fromEntries(Object.entries(side).filter(([nm]) => names.get(rosters[k]).includes(nm)))) };
+    const stream = simGame(seed, {}, { teams: [0, 1], rosters, starters: sp }).stream, box = boxFromStream(stream), pit = pitchingFromStream(stream);
+    const mine = (side, k) => Object.fromEntries(Object.entries(side).filter(([nm]) => names.get(rosters[k]).includes(nm)));
+    /* only the members' batting and pitching lines count; the NPCs' do not (nobody follows them, and the shards stay small) */
+    return { score: box.score.slice(), players: box.players.map(mine), pitching: pit.map(mine) };
   };
   return { play, rosterOf };
 }
