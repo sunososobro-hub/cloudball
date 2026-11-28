@@ -9,7 +9,7 @@
  * Plan times are seconds after contact. Out records use seconds into the pitch frame. */
 import * as K from '../constants.js';
 import { BASES, BASE_PATH, HOME, FIELD_HOME, dist, fielderStart, runDist, runTime, runnerTimeline, throwPlan, coverArrival, clamp } from './field.js';
-import { forceOut, tagOut, flyCatch, infieldFly, isForced, beats } from './outs.js';
+import { forceOut, tagOut, flyCatch, infieldFly, doubledOff, isForced, beats } from './outs.js';
 
 export const HIT_LIKE = ['1B', '2B', '3B', 'E'];   /* results where the ball is not caught or fielded for an out */
 const FIRST_BAG = [BASES[1][0] - K.BAG_FOOT, BASES[1][1]];
@@ -176,6 +176,33 @@ export function resolveFly(ctx, tagUp = null, drop = false) {
     plan.tagPlay = true;
   } else throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null });
   return { plan, outs: [out] };
+}
+
+/* Line-drive double play (#614 part 13): an infielder catches a liner and the runner on `base` broke on contact. He has gone
+ * from his secondary lead since BAT_RUN_DELAY; at the catch he stops (LD_RETURN_TURN) and runs back. The catcher of the ball
+ * steps on the bag himself when he is within LD_SOLO_R of it, else throws to its cover. Returns the plan and two outs (the
+ * catch, the runner doubled off), or null when the runner gets back first (then the play is an ordinary lineout). */
+export function resolveDoubledOff(ctx, base) {
+  const plan = chase(ctx), f = plan.fielder, runner = ctx.bases[base - 1];
+  const bag = base === 1 ? FIRST_BAG : base === 2 ? SECOND_PIVOT : THIRD_BAG;
+  const off = K.LEAD_PITCH + runDist(plan.catchT - K.BAT_RUN_DELAY, K.RUN_SPEED);
+  const runnerAt = plan.catchT + K.LD_RETURN_TURN + runTime(off, K.RUN_SPEED);
+  const caught = flyCatch({ batter: ctx.batter, fielder: f, fielderAt: toFrame(plan.fielderAt), ballDownAt: toFrame(plan.ballDownAt), at: toFrame(plan.catchT) });
+  const toBag = dist(plan.stand, bag);
+  let key = f, ballAt = plan.catchT, touchAt;
+  if (toBag < K.LD_SOLO_R) {
+    touchAt = plan.catchT + K.SOLO_SETUP + (toBag < K.COVER_NEAR ? 0 : runTime(toBag, K.COVER_SPEED));
+    Object.assign(plan, { solo: true, soloAt: touchAt, arrive: touchAt, rt: touchAt + K.SOLO_HOLD });
+  } else {
+    key = base === 1 ? (f === '1B' ? '2B' : '1B') : coverOf(base, f);
+    throwTo(plan, ctx, { key, spot: bag, base }, { rushBudget: runnerAt - K.FORCE_MARGIN - plan.catchT });
+    ballAt = plan.arrive; touchAt = plan.CV.at;
+  }
+  if (!beats(ballAt, touchAt, runnerAt)) return null;
+  plan.actions.push({ t: Math.max(ballAt, touchAt), a: 'touch', f: key, base });
+  Object.assign(plan, { ldDp: { base, runner, off, runnerAt } });
+  const out = doubledOff({ runner, from: base, base, fielder: key, caughtAt: toFrame(plan.catchT), ballAt: toFrame(ballAt), touchAt: toFrame(touchAt), runnerAt: toFrame(runnerAt) });
+  return { plan, outs: [caught, out] };
 }
 
 /* Hit, error or home run: nobody is out (except a runner sent home or a batter stretching a single, below). The ball comes back in to second base.

@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.32';
+export const ENGINE_VERSION = '0.4.33';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -325,6 +325,15 @@ export const PO_REACT = 0.3;
  * (a short infield toss, under run.mjs MAX_THROW). Estimate, not a fit: Retrosheet scores about a third of MLB pickoffs at
  * first as "picked off, caught stealing" (POCS: the runner broke for second), most of them run down between the bases. */
 export const RD_OF_PO_P = 0.3;
+/* #614 part 13: line-drive double play. Of the liners an infielder (P included) catches with a runner on and fewer than two
+ * outs, this share find the runner nearest the catch broken on contact (a hit-and-run or a bad read): drawn from `rare`, so R
+ * keeps its sequence. Whether he is doubled off is then timing: he has run from his secondary lead (LEAD_PITCH) since
+ * BAT_RUN_DELAY, needs LD_RETURN_TURN to stop and turn, and runs back at RUN_SPEED; the ball must be held on his base first.
+ * Data: estimate. MLB line-drive double plays are roughly 0.1 a game for both teams (Retrosheet play-by-play, LD + DP lines);
+ * 0.28 gives 0.091 a game here (seeds 1-2000; about two in three runners who broke get back in time). */
+export const LD_DOUBLED_OFF_P = 0.28;
+export const LD_RETURN_TURN = 0.45;       /* s: a runner going full speed stops, turns and starts back (about 2 steps) */
+export const LD_SOLO_R = 6;               /* m: a fielder who catches it this close to the runner's bag steps on it himself */
 export const RD_RELEASE = 0.4;
 export const RD_THROW_V = 25;
 export const RD_TURN = 0.5;
