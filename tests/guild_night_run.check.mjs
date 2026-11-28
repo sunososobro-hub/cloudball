@@ -5,6 +5,9 @@
  *   - the same export + night gives different bytes (run twice), or a line in a file names an NPC (only members' batting lines);
  *   - readExport does not merge pages / drop a repeated guild, readPrev does not read back what a night wrote, or a second night does not continue the first one's standings;
  *   - two guilds of ONE base team play the same roster (the rosters sit at slots 0 and 1), or an unknown base team is not named;
+ *   - (#795 part 4b) the lock does not keep a valid member 經紀人 set in canonical form, keeps an invalid / other-kind / neutral one, a lock without
+ *     sets changes; guildRoster does not map a set to the seated (renamed) name; gameAgents lends a set to a same-named player of the other side;
+ *     a neutral set changes a game, a set does not change any of 8 games, or the same set twice gives different games;
  *   - the tool writes anything without --write (the check runs the pure functions only and writes nothing).
  * Usage: node tests/guild_night_run.check.mjs */
 import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -14,7 +17,9 @@ import { fileURLToPath } from 'node:url';
 import { guildRoster } from '../league/guild_roster.js';
 import { siteRoster } from '../league/site_roster.js';
 import { readExport, readPrev, makePlay } from '../league/tools/guild_night.mjs';
-import { guildNight, GUILD_DIR } from '../league/guild_night.js';
+import { guildNight, GUILD_DIR, freeze } from '../league/guild_night.js';
+import { gameAgents } from '../league/tools/guild_night.mjs';
+import { freezeSet } from '../league/agentset.js';
 
 const problems = [], bad = m => problems.push(m);
 const players = JSON.parse(readFileSync(fileURLToPath(new URL('../league/site/players.json', import.meta.url)), 'utf8'));
@@ -84,6 +89,30 @@ try {
 const ro = rosterOf(g1), ro2 = rosterOf(sps);
 if (JSON.stringify(ro) === JSON.stringify(ro2)) bad('two guilds of one base team got one roster');
 try { rosterOf({ id: 'dddddddddddd', base: 'nowhere', members: [] }); bad('an unknown base team was accepted'); } catch (e) { if (!/nowhere/.test(e.message)) bad('the unknown base error does not name the team'); }
+
+/* #795 part 4b: the 經紀人 set from the export, through the lock, into the engine */
+const edges = { v: 1, kind: 'pit', rows: { normal: { edges: 4, pickoff: 0 }, risp: { edges: 4 } } };
+const withT = (mm, t) => ({ ...mm, player: { ...mm.player, tactics: t } });
+const tg = { ...g1, members: [withT(g1.members[0], { v: 1, kind: 'bat', rows: { normal: { steal: 4, bunt: 0 } } }), g1.members[1], withT(g1.members[2], edges),
+  withT(g1.members[3], { v: 1, kind: 'bat', rows: { normal: { steal: 4, bunt: 4, swing_early: 4 } } }), g1.members[4]] };
+const lk = freeze({ guilds: [tg, withT({ ...crowd, members: crowd.members.slice(0, 2) }, null)].map((g, i) => i ? { ...g, members: [withT(g.members[0], { v: 1, kind: 'pit', rows: { normal: { edges: 4 } } }), withT(g.members[1], { v: 1, kind: 'bat', rows: {} })] } : g) }, '2026-12-10', 'abc1234');
+const lm = lk.guilds.find(x => x.id === g1.id).members, lc = lk.guilds.find(x => x.id === crowd.id).members;
+if (JSON.stringify(lm[2].player.tactics) !== JSON.stringify(freezeSet(edges)) || JSON.stringify(lm[0].player.tactics) !== JSON.stringify(freezeSet(tg.members[0].player.tactics))) bad('the lock must keep a valid set in canonical form');
+if ('tactics' in lm[3].player) bad('the lock kept a set over the points pool');
+if ('tactics' in lc[0].player || 'tactics' in lc[1].player) bad('the lock kept a set of the other kind or an all-neutral set');
+if (JSON.stringify(freeze({ guilds: [g1, sps] }, 'd', 'c')).includes('tactics')) bad('a lock without sets must not name tactics');
+const lockedG = lk.guilds.find(x => x.id === g1.id), gr = guildRoster(lockedG, base);
+if (JSON.stringify(Object.keys(gr.agents).sort()) !== JSON.stringify(['阿丙', '阿甲'].sort())) bad(`guildRoster agents = ${Object.keys(gr.agents).join()}`);
+const ga = gameAgents([gr.roster, base], [{ ...gr.agents, [base.bat[1].name]: edges }, {}]);
+if (!ga || ga[base.bat[1].name] || !ga['阿丙']) bad('gameAgents must drop a name that also plays on the other side and keep the others');
+if (gameAgents([base, base], [{}, {}]) !== null) bad('gameAgents of no sets must be null (factory game)');
+const tp = makePlay(players), plain = makePlay(players);
+const neutralG = { ...g1, members: g1.members.map((mm, i) => i === 2 ? withT(mm, { v: 1, kind: 'pit', rows: {} }) : mm) };
+const runs = (pl, gA) => [0, 1, 2, 3, 4, 5, 6, 7].map(sd => JSON.stringify(pl.play(1000 + sd, { home: pl.rosterOf(sps), away: pl.rosterOf(freeze({ guilds: [gA] }, 'd', 'c').guilds[0]) })));
+const r0 = runs(plain, g1), rN = runs(tp, neutralG), rT = runs(tp, tg), rT2 = runs(makePlay(players), tg);
+if (rN.join() !== r0.join()) bad('a neutral set changed a game');
+if (rT.every((x, i) => x === r0[i])) bad('a non-neutral set changed none of 8 games (not read by the engine?)');
+if (rT.join() !== rT2.join()) bad('the same sets gave different games');
 
 if (problems.length) { console.log('FAIL guild_night_run:\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log(`ok guild_night_run: ${nightFile.games.length} games a night, ${Object.keys(a).length} files, byte-identical twice, night 2 continues night 1`);

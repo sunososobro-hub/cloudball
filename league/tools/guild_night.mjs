@@ -39,19 +39,29 @@ export function readPrev(dir, season) {
   return prev;
 }
 
+/* #795 part 4b: one game's simGame opts.agents ({ <name>: frozen 經紀人 set }) from both sides' seated members; the engine keys sets by name,
+ * so a member name that also plays on the other side gets none (neutral) rather than lending his set to that player. null = no set (factory game). */
+export function gameAgents(rosters, sides) {
+  const onSide = rosters.map(r => new Set([...r.bat, ...r.pit, ...(r.bench || [])].map(p => p.name))), out = {};
+  (sides || []).forEach((a, k) => { for (const [name, set] of Object.entries(a || {})) if (!onSide[1 - k].has(name)) out[name] = set; });
+  return Object.keys(out).length ? out : null;
+}
+
 /* the engine as the core's `play` and `rosterOf`: the two rosters sit at team slots 0 (away) and 1 (home), so two guilds of one base team still differ */
 export function makePlay(players) {
-  const ids = TEAMS.map(t => t.id), names = new WeakMap();
+  const ids = TEAMS.map(t => t.id), names = new WeakMap(), sets = new WeakMap();
   const rosterOf = g => {
     const ix = ids.indexOf(g.base);
     if (ix < 0) throw new Error(`guild ${g.id}: unknown base team ${g.base}`);
-    const { roster, names: who } = guildRoster(g, siteRoster(players, g.base, TEAM_ONE));
+    const { roster, names: who, agents } = guildRoster(g, siteRoster(players, g.base, TEAM_ONE));
     names.set(roster, who);
+    sets.set(roster, agents);
     return roster;
   };
   const play = (seed, { home, away }) => {
     const rosters = [away, home], sp = rosters.map((r, k) => ((seed >>> (3 + 4 * k)) >>> 0) % Math.max(1, r.pit.filter(p => p.role === 'SP').length));
-    const stream = simGame(seed, {}, { teams: [0, 1], rosters, starters: sp }).stream, box = boxFromStream(stream), pit = pitchingFromStream(stream);
+    const agents = gameAgents(rosters, rosters.map(r => sets.get(r)));
+    const stream = simGame(seed, {}, { teams: [0, 1], rosters, starters: sp, ...(agents ? { agents } : {}) }).stream, box = boxFromStream(stream), pit = pitchingFromStream(stream);
     /* only the members' lines count (batting, and pitching of a pitcher member: #804 part 5); the NPCs' do not (nobody follows them, and the shards stay small) */
     const mine = (side, k) => Object.fromEntries(Object.entries(side).filter(([nm]) => names.get(rosters[k]).includes(nm)));
     return { score: box.score.slice(), players: box.players.map(mine), pitchers: pit.map(mine) };

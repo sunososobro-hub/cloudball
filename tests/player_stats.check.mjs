@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { COLS, PCOLS, tally, seasonLine, rate, lineText, pitchTally, pitchLine, pitchText, inningsText, batLog, pitLog, batGameText, pitGameText, careerRows, careerText } from '../league/player_stats.js';
+import { COLS, PCOLS, tally, seasonLine, rate, lineText, pitchTally, pitchLine, pitchText, inningsText, batLog, pitLog, batGameText, pitGameText, careerRows, careerText, SCOLS, shapeOf, shapeText } from '../league/player_stats.js';
 import { myPlayerView, combine } from '../ui/site-data.js';
 import { STAT_NONE, LOG_TITLE, CAREER_TITLE } from '../ui/site/me.js';
 import { nightDate } from '../league/season_site.js';
@@ -84,11 +84,23 @@ eq(careerRows(stats, 'a1', 'B', 2)[0].line.g, 3, 'career: a whole season, not cu
 eq(careerRows(stats, 'p1', 'P', 3).map(x => x.season).join(), '1,2', 'career: pitcher rows'); eq(careerRows(stats, 'p1', 'B', 3).length, 0, 'career: a batter has no pitching rows');
 eq(careerRows(stats, 'bad', 'B', 9).length, 0, 'career: bad row skipped'); eq(careerRows(null, 'a1', 'B', 9).length, 0, 'career: no file'); eq(careerRows({ trial: false, players: { a1: rows } }, 'a1', 'B', 9).length, 0, 'career: not a trial file');
 eq(careerText(careerRows(stats, 'a1', 'B', 2)[0].line, false), lineText(seasonLine(stats, 'a1', 1, 99)), 'career text = season line text');
+/* #804 part 7: age and overall per season, rows [season, age, ovr] under `shape` */
+const st7 = { ...stats, shape: { a1: [[1, 24, 60], [2, 25, 61]], p1: [[1, 24, 70]], bad: [[1, 'x', 2]] } };
+eq(shapeOf(st7, 'a1', 2).ovr, 61, 'shape: the asked season'); eq(shapeOf(st7, 'a1', 1).age, 24, 'shape: age');
+eq(shapeOf(st7, 'a1', 3), null, 'shape: a season without a row'); eq(shapeOf(st7, 'bad', 1), null, 'shape: bad row skipped');
+eq(shapeOf(stats, 'a1', 1), null, 'shape: file without the key'); eq(shapeOf(null, 'a1', 1), null, 'shape: no file'); eq(shapeOf({ ...st7, trial: false }, 'a1', 1), null, 'shape: not a trial file');
+eq(shapeText({ age: 24, ovr: 60 }), '年齡 24　綜合 60', 'shape text'); eq(SCOLS.join(), 'season,age,ovr', 'shape columns');
+eq(careerRows(st7, 'a1', 'B', 3).map(x => x.shape && x.shape.ovr).join(), '60,61', 'career rows carry age / overall of their season');
+eq(careerRows(stats, 'a1', 'B', 3)[0].shape, null, 'career row without shape rows still lists');
 { const trial2 = { ...trial, seasons: [{ n: 1, firstDay: 0, nights: 3 }, { n: 2, firstDay: 3, nights: 3 }], nights: [0, 1, 2, 3, 4, 5].map(day => ({ season: day < 3 ? 1 : 2, day, phase: 'season', games: [game] })) };
   const pg = (id, today) => myPlayerView({ ...combine({ teams: [], players, games: [], trial: trial2, stats }), today }, id);
   const cb = (pg('a1', '2026-12-05').match(/<section class="career">[\s\S]*?<\/section>/) || [''])[0];
   if (!cb.includes(CAREER_TITLE) || !cb.includes('第 1 季') || cb.includes('第 2 季')) fail('batter page: career lists season 1 only while season 2 runs');
   if (!pg('p1', '2026-12-05').includes('class="career"')) fail('pitcher page lacks the career');
+  const pg7 = (id, today) => myPlayerView({ ...combine({ teams: [], players, games: [], trial: trial2, stats: st7 }), today }, id);
+  const cb7 = (pg7('a1', '2026-12-05').match(/<section class="career">[\s\S]*?<\/section>/) || [''])[0];
+  if (!cb7.includes('年齡 24　綜合 60')) fail('career row lacks age and overall of that season'); if (cb7.includes('年齡 25')) fail('career shows the running season age');
+  if (!cb.includes('第 1 季　1 場') && !cb.includes('第 1 季　3 場')) fail('career row without shape lost its line');
   if (pg('a1', '2026-12-03').includes('class="career"') && !pg('a1', '2026-12-03').includes('第 1 季')) fail('career box without a row');
   if (page('a1', '2026-12-03').includes('class="career"')) fail('one season only: no career rows yet');
   if (pg('z1', '2026-12-05').includes('class="career"')) fail('a player without rows gets a career');
@@ -111,6 +123,9 @@ function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').
 /* the shipped file */
 const ship = rd('league/site/player_stats.json'), tg = rd('league/site/trial_games.json'), farm = rd('league/site/farm_games.json');
 if (ship.trial !== true || JSON.stringify(ship.cols) !== JSON.stringify(COLS)) fail('shipped file: trial / cols');
+if (JSON.stringify(ship.scols) !== JSON.stringify(SCOLS)) fail('shipped file: scols');
+for (const [id, list] of Object.entries(ship.shape || {})) list.forEach(r => { if (r.length !== SCOLS.length || !r.every(Number.isInteger) || r[1] < 15 || r[2] < 1 || r[2] > 100) fail(`shipped ${id}: bad shape row ${JSON.stringify(r)}`); });
+for (const id of [...Object.keys(ship.players), ...Object.keys(ship.pitchers || {})]) if (!(ship.shape || {})[id]) { fail(`shipped file: ${id} has stats but no shape row`); break; }
 if (JSON.stringify(ship.engine) !== JSON.stringify(tg.engine)) fail('shipped file engine differs from trial_games.json');
 const ofRoster = r => (r ? [...r.bat, ...(r.bench || [])].map(p => p.id) : []);
 const known = new Set([...tg.seasons.flatMap(s => s.rosters.flatMap(ofRoster)), ...farm.flatMap(r => ((r.opts && r.opts.rosters) || []).flatMap(ofRoster))]);
