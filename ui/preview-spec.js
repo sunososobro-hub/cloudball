@@ -52,8 +52,14 @@ export const sameSpec = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.strin
    `kit` and `cap` ride in the spec, so a different kit or cap is a different preview. */
 export const FREE_KIT = { jersey: 0x7d8794, pants: 0xe6e6e6, sock: 0x7d8794, cap: 0x7d8794 };
 export const KITS = [{ id: 'free', label: '自由球員' }, ...TEAMS.map(t => ({ id: t.id, label: t.short }))];
-export const DEFAULT_DRESS = { kit: 'free', cap: true };
-export const withDress = (spec, d) => ({ ...spec, kit: KITS.some(k => k.id === (d && d.kit)) ? d.kit : DEFAULT_DRESS.kit, cap: !d || d.cap !== false });
+/* #595 part 2: pose buttons. Only poses render/ really has: 站姿 (the #439 standing hold the preview always drew) and 打擊姿勢 (the stance keyframe S of
+   `BK` in render/game.js poseBatter: shoulders yaw, lean, head turned to the pitcher, stride and back leg; hands and bat stay at the #439 hold, which
+   is the game's S hand position within a few cm). A fielding ready stance is NOT in render/ (fielders stand until a ball is hit; crouch() is only the
+   catcher, tags and low catches), so it is not offered here (#595 comment, never invented). BAT_STANCE copies BK[k][0]; tests/preview.check.mjs holds them equal. */
+export const POSES = [{ id: 'stand', label: '站姿' }, { id: 'bat', label: '打擊姿勢' }];
+export const BAT_STANCE = { yaw: -.15, lean: .12, head: 1.1, back: -.2, stride: .2, hipsK: .6 };   /* radians; hips yaw = yaw * hipsK as in poseBatter */
+export const DEFAULT_DRESS = { kit: 'free', cap: true, pose: 'stand' };
+export const withDress = (spec, d) => ({ ...spec, kit: KITS.some(k => k.id === (d && d.kit)) ? d.kit : DEFAULT_DRESS.kit, cap: !d || d.cap !== false, pose: POSES.some(q => q.id === (d && d.pose)) ? d.pose : DEFAULT_DRESS.pose });
 /* PL = render/players.js (kitInk, KIT_ROAD_PANTS); returns hex colours for jersey, pants, sock, cap */
 export function kitPaint(id, PL) {
   const t = TEAMS.find(x => x.id === id); if (!t) return { ...FREE_KIT };

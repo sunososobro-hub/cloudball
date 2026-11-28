@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CREATE, makePlayer, validateCreate } from '../league/freeagents.js';
-import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND, KITS, FREE_KIT, withDress, kitPaint, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf } from '../ui/preview-spec.js';
+import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND, KITS, POSES, BAT_STANCE, FREE_KIT, withDress, kitPaint, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf } from '../ui/preview-spec.js';
 
 const problems = [], bad = m => problems.push(m);
 /* points come from CREATE, so a change of the budget or the ability list never breaks this guard */
@@ -82,6 +82,18 @@ if (PL) for (const v of LOOK_CHIPS.hair.keys()) if (PL.gearOf(PL.headOfPlayer({ 
     for (const [i, p] of pa.entries()) for (const part of ['jersey', 'pants', 'sock', 'cap']) if (!Number.isInteger(p[part]) || p[part] < 0 || p[part] > 0xffffff) bad(`kit ${ids[i]}: ${part} is not a colour`);
     for (const p of pa.slice(1)) if (p.pants === FREE_KIT.pants) bad('a team kit must change the pants too');
   }
+}
+
+/* #595 part 2: pose buttons. Each pose gives a different spec for a batter and a pitcher; default is the standing hold; the stance numbers are the
+   game's stance keyframe (BK column S in render/game.js); no fielding stance is offered because render/ has none */
+{
+  const ids = POSES.map(q => q.id), b0 = specOfChoice(base), p0 = specOfChoice(pit);
+  if (ids.join() !== 'stand,bat') bad(`pose buttons must be stand + batting stance (render/ has no fielding stance): ${ids}`);
+  for (const sp of [b0, p0]) { const ds = POSES.map(q => withDress(sp, { kit: 'free', cap: true, pose: q.id })); if (sameSpec(ds[0], ds[1])) bad(`${sp.kind}: stand and batting stance give the same preview spec`); }
+  if (withDress(b0, {}).pose !== 'stand' || withDress(b0, { pose: 'nope' }).pose !== 'stand') bad('default pose must be stand');
+  if (JSON.stringify(withDress(b0, { pose: 'bat' }).body) !== JSON.stringify(b0.body)) bad('pose must not change the body');
+  const BK = /const BK=\{([^;]*)\};/.exec(readFileSync('render/game.js', 'utf8')), num = k => { const m = BK && new RegExp(k + ':\\[(-?[\\d.]+)').exec(BK[1]); return m ? Number(m[1]) : NaN; };
+  for (const [k, v] of [['yaw', BAT_STANCE.yaw], ['lean', BAT_STANCE.lean], ['head', BAT_STANCE.head], ['back', BAT_STANCE.back], ['stride', BAT_STANCE.stride]]) if (num(k) !== v) bad(`BAT_STANCE.${k} ${v} differs from render/game.js BK.${k}[0] ${num(k)}`);
 }
 
 /* #441 part 3: opens from the front with a close-up of the head; the turn button flips front/back; the head frame follows the height */

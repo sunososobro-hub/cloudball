@@ -3,9 +3,9 @@
  *
  * The page works without it: three.js and the player pack load after first paint (a plain silhouette shows meanwhile), and when
  * neither WebGPU nor WebGL is there, or any download fails, the box says so and the form keeps working with numbers only.
- * One standing pose; kit buttons and a cap toggle (#595 part 1; poses are part 2). #441 part 3: it opens from the front with a close-up of the head; 轉身 shows the back, 全身 / 特寫 switches the frame;
+ * Kit buttons and a cap toggle (#595 part 1), pose buttons 站姿 / 打擊姿勢 (part 2; no fielding stance exists in render/). #441 part 3: it opens from the front with a close-up of the head; 轉身 shows the back, 全身 / 特寫 switches the frame;
  * drag sideways to turn it by hand (touch-action: pan-y keeps the page scrollable). Nothing moves by itself, so it draws on demand only. */
-import { sameSpec, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf, KITS, DEFAULT_DRESS, withDress, kitPaint } from './preview-spec.js';
+import { sameSpec, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf, KITS, POSES, BAT_STANCE, DEFAULT_DRESS, withDress, kitPaint } from './preview-spec.js';
 
 const SKIN = 0xc99572;   /* skin is the game's default until #151 decides the look numbers; the kit colours come from ui/preview-spec.js kitPaint (#595) */
 const FOV = 28, MAX_DPR = 2, CAM_RISE = 0.09;
@@ -56,20 +56,23 @@ export function makePreview(host) {
 
     const dress = s => {
       const hx = PL.headOfPlayer({ id: s.id ?? 'draw:' + (s.seed ?? ''), look: { head: s.head, skin: 0, hair: s.hair } }), hIx = PL.gearOf(hx).hair;   /* #541: chips untouched = the look hashed from his id, as in the game */
-      const key = s.kind + '|' + hIx + '|' + s.kit + '|' + s.cap;
+      const key = s.kind + '|' + hIx + '|' + s.kit + '|' + s.cap + '|' + s.pose;
       if (!f || built !== key) {   /* #441: the hair colour is a material of the figure, so a new pick builds it again (geometry is cached) */
         if (f) { pivot.remove(f.g); bat = null; }   /* body geometry is cached in players.js, so nothing to free */
         kind = s.kind; hairIx = hIx; built = key;
-        const batter = s.kind === 'bat';
+        const batter = s.kind === 'bat' || s.pose === 'bat';   /* the batting stance needs the bat, so a pitcher gets one too */
         const paint = kitPaint(s.kit, PL);   /* the cap is made of the jersey material, so a team kit (jersey = cap colour) and the grey kit need no extra step */
         f = PL.makePlayer({ jersey: paint.jersey, pants: paint.pants, sock: paint.sock, skin: SKIN, hair: PL.HAIR_TONES[hairIx], head: s.cap ? 'cap' : 'none', role: batter ? 'batter' : undefined, throws: 'R', glove: !batter, parent: pivot });
         if (f.glove) f.glove.traverse(m => { if (m.isMesh) m.material = new THREE.MeshStandardMaterial({ color: LEATHER, roughness: 0.6 }); });
         if (batter) {   /* bat held in the right hand, barrel up and a little forward: the one pose (was rotation.x -0.35, which laid the barrel flat behind the hip) */
           bat = PL.makeBat(BAT_COLOR); f.sockets.handR.add(bat); bat.rotation.x = BAT_GRIP_X; f.arms[1].rotation.x = BAT_ARM_X;
         }
+        if (s.pose === 'bat') {   /* stance keyframe S of render/game.js poseBatter, body only (ui/preview-spec.js BAT_STANCE) */
+          const R = f.rig, B = BAT_STANCE; R.up.rotation.set(B.lean, B.yaw, 0); R.hips.rotation.y = B.yaw * B.hipsK; R.hg.rotation.y = B.head; R.l0.rotation.z = B.back; R.l1.rotation.z = B.stride;
+        }
       }
       f.setBuild(s.body, s.ht, hx);
-      if (s.kind === 'bat') f.g.scale.x = s.hand === 'L' ? -1 : 1; else f.setThrows(s.hand === 'L' ? 'L' : 'R');
+      if (s.kind === 'bat') f.g.scale.x = s.hand === 'L' ? -1 : 1; else if (s.pose === 'bat') f.g.scale.x = s.hand === 'L' ? -1 : 1; else f.setThrows(s.hand === 'L' ? 'L' : 'R');
       f.setNum(s.num); ht = s.ht; fit();
     };
 
@@ -88,11 +91,12 @@ export function makePreview(host) {
 
   const chips = () => {
     if (!kitBar) return;
-    kitBar.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kit ? b.dataset.kit === dressing.kit : dressing.cap)));
+    kitBar.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kit ? b.dataset.kit === dressing.kit : b.dataset.pose ? b.dataset.pose === dressing.pose : dressing.cap)));
   };
   const redress = () => { chips(); if (spec) { spec = withDress(spec, dressing); if (ready && !dead) api.apply(spec); } };
   if (kitBar) {
     for (const k of KITS) { const b = document.createElement('button'); b.type = 'button'; b.dataset.kit = k.id; b.textContent = k.label; b.onclick = () => { dressing.kit = k.id; redress(); }; kitBar.appendChild(b); }
+    for (const q of POSES) { const b = document.createElement('button'); b.type = 'button'; b.dataset.pose = q.id; b.textContent = q.label; b.onclick = () => { dressing.pose = q.id; redress(); }; kitBar.appendChild(b); }
     const c = document.createElement('button'); c.type = 'button'; c.className = 'cap'; c.onclick = () => { dressing.cap = !dressing.cap; c.textContent = dressing.cap ? '脫帽' : '戴帽'; redress(); }; c.textContent = '脫帽'; kitBar.appendChild(c);
     chips();
   }
