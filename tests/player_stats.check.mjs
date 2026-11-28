@@ -10,9 +10,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { COLS, PCOLS, tally, seasonLine, rate, lineText, pitchTally, pitchLine, pitchText, inningsText, batLog, pitLog, batGameText, pitGameText } from '../league/player_stats.js';
+import { COLS, PCOLS, tally, seasonLine, rate, lineText, pitchTally, pitchLine, pitchText, inningsText, batLog, pitLog, batGameText, pitGameText, careerRows, careerText } from '../league/player_stats.js';
 import { myPlayerView, combine } from '../ui/site-data.js';
-import { STAT_NONE, LOG_TITLE } from '../ui/site/me.js';
+import { STAT_NONE, LOG_TITLE, CAREER_TITLE } from '../ui/site/me.js';
 import { nightDate } from '../league/season_site.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -77,6 +77,22 @@ eq(nightDate('2026-12-01', 2), '12-03', 'night date'); eq(nightDate('x', 2), '',
   if (!pl.includes('面對')) fail('pitcher log lacks the pitching text'); if (pl.includes('打數')) fail('pitcher log has batting text');
   if (page('z1', '2026-12-03').includes('game-log')) fail('a player without rows gets a log');
   if (page('a1', '2026-11-30').includes('game-log')) fail('a log before the season starts'); }
+/* #804 part 6: career by season = finished seasons only, oldest first, whole-season lines */
+eq(careerRows(stats, 'a1', 'B', 2).map(x => x.season).join(), '1', 'career: only seasons before the current one');
+eq(careerRows(stats, 'a1', 'B', 3).map(x => x.season).join(), '1,2', 'career: oldest first');
+eq(careerRows(stats, 'a1', 'B', 2)[0].line.g, 3, 'career: a whole season, not cut at a night');
+eq(careerRows(stats, 'p1', 'P', 3).map(x => x.season).join(), '1,2', 'career: pitcher rows'); eq(careerRows(stats, 'p1', 'B', 3).length, 0, 'career: a batter has no pitching rows');
+eq(careerRows(stats, 'bad', 'B', 9).length, 0, 'career: bad row skipped'); eq(careerRows(null, 'a1', 'B', 9).length, 0, 'career: no file'); eq(careerRows({ trial: false, players: { a1: rows } }, 'a1', 'B', 9).length, 0, 'career: not a trial file');
+eq(careerText(careerRows(stats, 'a1', 'B', 2)[0].line, false), lineText(seasonLine(stats, 'a1', 1, 99)), 'career text = season line text');
+{ const trial2 = { ...trial, seasons: [{ n: 1, firstDay: 0, nights: 3 }, { n: 2, firstDay: 3, nights: 3 }], nights: [0, 1, 2, 3, 4, 5].map(day => ({ season: day < 3 ? 1 : 2, day, phase: 'season', games: [game] })) };
+  const pg = (id, today) => myPlayerView({ ...combine({ teams: [], players, games: [], trial: trial2, stats }), today }, id);
+  const cb = (pg('a1', '2026-12-05').match(/<section class="career">[\s\S]*?<\/section>/) || [''])[0];
+  if (!cb.includes(CAREER_TITLE) || !cb.includes('第 1 季') || cb.includes('第 2 季')) fail('batter page: career lists season 1 only while season 2 runs');
+  if (!pg('p1', '2026-12-05').includes('class="career"')) fail('pitcher page lacks the career');
+  if (pg('a1', '2026-12-03').includes('class="career"') && !pg('a1', '2026-12-03').includes('第 1 季')) fail('career box without a row');
+  if (page('a1', '2026-12-03').includes('class="career"')) fail('one season only: no career rows yet');
+  if (pg('z1', '2026-12-05').includes('class="career"')) fail('a player without rows gets a career');
+  if (pg('a1', '2026-11-30').includes('class="career"')) fail('career before the season starts'); }
 /* log links: a 一軍 player links to play.html?t=<night>-<slot> with the opponent, a 二軍 player to ?f=<id> only when the record holds him */
 { const pl2 = { a1: { ...players.a1, tier: 1, team: 'pheasants' } }, tr = { ...trial, nights: [0, 1, 2].map(day => ({ season: 1, day, phase: 'season', games: [{ home: 'macaques', away: 'x', score: [0, 1] }, { home: 'owls', away: 'pheasants', score: [1, 2] }] })) };
   const html = myPlayerView({ ...combine({ teams: [], players: pl2, games: [], trial: tr, stats }), today: '2026-12-03' }, 'a1');
