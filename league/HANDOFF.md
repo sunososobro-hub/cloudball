@@ -54,7 +54,8 @@
 ## #804 我的球員 season line
 - Part 1: `player_stats.js` (pure: `tally`, `seasonLine`, `lineText`) + `site/player_stats.json` (one row per batter per recorded 試跑 game, 一軍 `trial_games.json` + 二軍 `farm_games.json`) + `tools/player_stats.mjs` (replays each game, stops on a score mismatch; run it with `--engine <worktree of the data commit>` while the data engine is older than HEAD) + `tests/player_stats.check.mjs`. `ui/site/me.js` sums rows of nights before today (batters only).
 - Trap: regenerate `player_stats.json` after anything that rewrites `season.json` / `trial_games.json` / `farm_games.json` (`season_run.mjs --reset`, a refill, a new engine commit); `--reset` does not do it yet.
-- Left: pitcher line (needs pitching lines in the engine box), game log (part 2), career by season (part 3, #749), guild page (#800).
+- Part 2 (pitchers): `pitchers` key in `player_stats.json` = `[season, day, bf, outs, k, bb, r]` per pitcher per game, counted by the tool from the engine stream (`pitchingFromStream`: outs / runs go to the pitcher on the mound, so RA9 not ERA; no engine change). Page shows 局 / BF / RA9 / K9 / BB9. Check: runs allowed per night = recorded scores.
+- Left: game log, career by season (#749), guild page (#800).
 
 ## Guild nights (#809)
 - Done: `league/guild_night.js` pure core (freeze, fixtures, sharded lines, standings) + `tests/guild_night.check.mjs`.
