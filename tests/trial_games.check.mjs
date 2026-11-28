@@ -3,6 +3,7 @@
  *     season.json game at the same night and slot, or two builds differ by a byte,
  *   - the shipped league/site/trial_games.json does not cover every season.json game (same night, slot, teams, score, engine),
  *   - a bad `t`, a missing game or a changed score is not refused,
+ *   - with feud + injury on (#379 part 12): a game with `out` / `opts` does not replay `ok` to the season log's score, or none has them,
  *   - the 首頁 last-night rows do not link each game to play.html?t=<night>-<slot>.
  * The shipped file is not replayed here: its engine is the commit season.json names (jsDelivr), not this checkout.
  * Usage: node tests/trial_games.check.mjs */
@@ -38,6 +39,23 @@ for (const g of tf.games) {
   if (r.status !== 'ok' || !r.opening || r.opening.game.final.sc.join() !== g.score.join()) bad(`night ${g.day} slot ${g.slot}: replay ${r.status} ${r.reason}`);
 }
 
+/* #379 part 12: feud + injury on, every game (incl. injured lineups and carried grudges) replays to the logged score */
+const FEUD = { grudge: true, retaliate: true, benchClear: true };
+const fr = runSeasons(5, { seasons: 2, players, feud: FEUD, injury: true }), ft = trialFile(fr, { commit: 'abc1234' });
+const flog = fr.flatMap((r, i) => r.log.map(x => ({ ...x, season: i + 1 })));
+let withOut = 0, withOwed = 0;
+for (const [k, g] of ft.games.entries()) {
+  const x = flog[k];
+  if (g.score.join() !== [x.awayRuns, x.homeRuns].join()) bad(`feud night ${g.day} slot ${g.slot}: trial score ${g.score} != log ${x.awayRuns}-${x.homeRuns}`);
+  if (g.out) withOut++;
+  if (g.opts && g.opts.owed) withOwed++;
+  if (!g.opts || g.opts.injury !== true || g.opts.grudge !== true) bad(`feud night ${g.day} slot ${g.slot}: opts missing`);
+  const r = await TG.trialOpening(ft, TG.trialParam(g.day, g.slot), local);
+  if (r.status !== 'ok' || r.opening.game.final.sc.join() !== g.score.join()) bad(`feud night ${g.day} slot ${g.slot}: replay ${r.status} ${r.reason}`);
+}
+if (!withOut || !withOwed) bad(`feud build: ${withOut} games with out, ${withOwed} with owed; both expected > 0`);
+if (tf.games.some(g => 'out' in g || 'opts' in g)) bad('feud / injury off: trial lines must not get out / opts');
+
 /* refusals */
 for (const t of ['', 'x', '1-', '-1', '1-2-3', null, 5]) if (TG.parseTrial(t)) bad(`parseTrial(${JSON.stringify(t)}) should be null`);
 if ((await TG.trialOpening(tf, '9999-0', local)).status !== 'unknown') bad('missing game must be unknown');
@@ -66,4 +84,4 @@ if (!h.includes('href="play.html?t=0-0"') || !h.includes('href="play.html?t=0-1"
 if (view({ ...combine({ teams, trial: hand }), today: '2026-12-01' }).includes('一軍重播')) bad('home: opening day has no last night, no link');
 
 if (problems.length) { console.error('trial_games check FAILED:\n- ' + problems.join('\n- ')); process.exit(1); }
-console.log(`trial_games: ${tf.games.length} fresh games replay ok; shipped file covers ${shipSite.nights.length} nights, engine ${String(ship.engine.commit).slice(0, 7)}`);
+console.log(`trial_games: ${tf.games.length} fresh games replay ok; feud+injury ${ft.games.length} ok (${withOut} with out, ${withOwed} with owed); shipped file covers ${shipSite.nights.length} nights, engine ${String(ship.engine.commit).slice(0, 7)}`);
