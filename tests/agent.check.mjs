@@ -179,7 +179,7 @@ for (let i = 0; i < lib.PAGE_SIZE + 5; i++) {
   for (c.nameDraw = 0; c.nameDraw <= lib.DRAW_CAP; c.nameDraw++) if ((await call(lib.create, lenv, { method: 'POST', k, body: c })).status !== 409) break;
 }
 const p0 = await call(lib.list, lenv, { url: '/api/freeagents?page=0' }); is('list page 0', p0, 200);
-const p1 = await call(lib.list, lenv, { url: '/api/freeagents?page=1' }); is('list page 1', p1, 200);
+const p1 = await call(lib.list, lenv, { url: `/api/freeagents?after=${encodeURIComponent(p0.body?.next)}` }); is('list page 1 (cursor)', p1, 200);
 const n0 = p0.body?.players?.length, n1 = p1.body?.players?.length, total = lister.sql.prepare('SELECT COUNT(*) n FROM players').get().n;
 if (n0 !== lib.PAGE_SIZE || p0.body.more !== (total > lib.PAGE_SIZE)) bad(`page 0 holds ${n0} players, more=${p0.body?.more}; ${total} stored`);
 if (n0 + n1 !== total || p1.body?.more !== false) bad(`pages hold ${n0 + n1} of ${total} players`);
@@ -198,6 +198,33 @@ if (junk.body?.sort !== 'ovr' || junk.body?.players?.map(p => p.ovr).some((o, i,
 const everything = JSON.stringify([p0.body, p1.body, newest.body]);
 for (const t of lister.sql.prepare('SELECT agent_id FROM players').all()) if (everything.includes(t.agent_id)) bad('the public list shows an agent id');
 is('list page past the max', await call(lib.list, lenv, { url: `/api/freeagents?page=${lib.MAX_PAGE + 1}` }), 400, 'page');
+/* #806: keyset paging walks every sort to the end with no row twice and none missing; each list query uses an index (no scan, no sort step)
+ * and reads at most PAGE_SIZE + 1 rows whatever the page; a bad cursor is a 400 */
+{ const seen = [], plans = [], spy = { sql: lister.sql, batch: lister.batch, prepare: t => { const st = lister.prepare(t); if (/FROM players\s+(WHERE[^O]*)?ORDER BY/.test(t) && /LIMIT \?1/.test(t)) return { ...st, bind: (...a) => { plans.push({ t, a }); return st.bind(...a); } }; return st; } };
+  for (const sort of ['ovr', 'new', 'con', 'pow', 'eye', 'spd', 'arm', 'stuff', 'ctrl', 'pot']) {
+    const ids = []; let after = '', n = 0;
+    for (;;) { const r = await call(lib.list, { DB: spy }, { url: `/api/freeagents?sort=${sort}${after}` }); if (r.status !== 200) { bad(`sort=${sort} cursor step ${n}: ${r.status}`); break; }
+      ids.push(...r.body.players.map(p => p.id)); if (!r.body.more) break; after = `&after=${encodeURIComponent(r.body.next)}`; if (++n > 20) { bad(`sort=${sort} never ends`); break; } }
+    if (new Set(ids).size !== ids.length || ids.length !== total) bad(`sort=${sort} walked ${ids.length} rows (${new Set(ids).size} distinct) of ${total}`);
+    seen.push(sort); }
+  if (!plans.length) bad('no list query was seen');
+  for (const { t, a } of plans) {
+    const plan = lister.sql.prepare('EXPLAIN QUERY PLAN ' + t).all(...a).map(r => r.detail).join(' | ');
+    if (!/USING (COVERING )?INDEX players_/.test(plan) || /SCAN players(?! USING)|TEMP B-TREE/.test(plan)) bad(`a list query is not an index walk: ${plan}`);
+    if (lister.sql.prepare(t).all(...a).length > lib.PAGE_SIZE + 1) bad('a list query returned more than PAGE_SIZE + 1 rows'); }
+  for (const x of ['abc', '1~2', 'x~y~z~w', '1~1~1~a;b', '1~1~1~1~1~1']) if ((await call(lib.list, lenv, { url: `/api/freeagents?sort=con&after=${encodeURIComponent(x)}` })).status !== 400) bad(`cursor ${x} must be a 400`);
+  /* the ability columns follow ovr: a growth write-back moves them with the grown ratings, and the ability sort reads them */
+  const row = lister.sql.prepare("SELECT pid, ratings FROM players WHERE kind = 'pit' AND agent_id NOT LIKE 'sys:%' LIMIT 1").get();
+  const r0 = JSON.parse(row.ratings), col = lister.sql.prepare('SELECT a_stuff s, a_ctrl c, a_arm a FROM players WHERE pid = ?').get(row.pid);
+  if (col.s !== Math.round(r0.stuff) || col.c !== Math.round(r0.ctrl) || col.a !== Math.round(r0.arm)) bad('the ability columns differ from the creation ratings at create time');
+  const bt = lister.sql.prepare("SELECT a_stuff s FROM players WHERE kind = 'bat' LIMIT 1").get(); if (bt.s !== -1) bad('a batter must hold -1 for stuff'); }
+
+/* #806 migration: a players table made before the a_* columns gets them, filled from the stored ratings, and the list works on it */
+{ const old = makeDb(); old.sql.exec("CREATE TABLE players (agent_id TEXT PRIMARY KEY, pid TEXT NOT NULL, name TEXT NOT NULL UNIQUE, kind TEXT NOT NULL, ovr INTEGER NOT NULL, player TEXT NOT NULL, ratings TEXT NOT NULL, created_at INTEGER NOT NULL)");
+  old.sql.prepare("INSERT INTO players VALUES ('free:o1', 'o1', 'Old One', 'pit', 60, '{\"id\":\"o1\"}', '{\"ovr\":60,\"stuff\":71,\"ctrl\":55,\"arm\":50}', 1)").run();
+  const r = await call(lib.list, { DB: old }, { url: '/api/freeagents?sort=stuff' });
+  const c = old.sql.prepare("SELECT a_stuff s, a_con c FROM players WHERE pid = 'o1'").get();
+  if (r.status !== 200 || c?.s !== 71 || c?.c !== -1) bad(`an old players table is not migrated: ${r.status} ${JSON.stringify(c)}`); }
 
 /* nothing here may reach the engine's results or the production site by accident */
 const src = readFileSync(path.join(ROOT, 'functions/lib/agents.js'), 'utf8');
@@ -218,7 +245,7 @@ if (/engine\//.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))) bad('functions/lib/ag
   if (sdb.sql.prepare('SELECT 1 FROM players WHERE pid = ?').get(oldest)) bad('the fan did not replace the oldest filler of his kind');
   if (sdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id NOT LIKE 'sys:%'").get().n !== 1) bad('the fan row is missing');
   const again = makeDb(), aenv = { DB: again }; await call(lib.register, aenv, { method: 'POST', k: key() });
-  if (again.sql.prepare("SELECT COUNT(*) n FROM meta").get().n !== 1) bad('the seed marker is not written once');
+  if (again.sql.prepare("SELECT COUNT(*) n FROM meta WHERE k = 'system_seeded'").get().n !== 1) bad('the seed marker is not written once');
   await call(lib.list, aenv, { url: '/api/freeagents' }); if (again.sql.prepare("SELECT COUNT(*) n FROM players").get().n !== 2 * lib.SYSTEM_PER_KIND) bad('fillers were seeded twice');
   const listed = await call(lib.list, senv, { url: '/api/freeagents' }); if (!listed.body?.players?.some(p => p.player.system === true)) bad('the public list does not show the system flag'); }
 
