@@ -427,6 +427,11 @@ export const BENCH_CLEAR_ON = false;
 export const BENCH_CLEAR_P = 0.2;
 export const BENCH_CLEAR_MAX_P = 0.35;
 export const BENCH_CLEAR_DUR = 240;     /* s: benches and bullpens empty, umpires separate the players, both benches are warned */
+/* ejection (#379 part 6, off; needs BENCH_CLEAR_ON); simGame opts.eject overrides. After a bench-clearing the umpire ejects the pitcher
+ * who threw at the batter with EJECT_PITCHER_P (feud RNG); his team must bring in the next reliever before the next pitch (no vote).
+ * With no reliever left he stays in (the staff is used up). Batter ejections are a later part. First guess, no data yet. */
+export const EJECT_ON = false;
+export const EJECT_PITCHER_P = 0.5;
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
 export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */

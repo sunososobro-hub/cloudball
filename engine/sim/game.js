@@ -44,6 +44,8 @@ export function simGame(seed, decisions, opts) {
   let warned = false;                                  /* after a retaliation the umpire has warned both benches: no more in this game */
   const feud = mulberry32((seed ^ K.FEUD_SALT) >>> 0);  /* #379 part 4: retaliation draws apart, so R keeps its sequence until one happens */
   const benchOn = retaliateOn && (opts.benchClear ?? K.BENCH_CLEAR_ON);   /* #379 part 5: needs retaliation; off = part 4 games byte for byte */
+  const ejectOn = benchOn && (opts.eject ?? K.EJECT_ON);   /* #379 part 6: needs bench-clearing; off = part 5 games byte for byte */
+  const ejected = [false, false];                      /* the team's pitcher was ejected: the next reliever comes in before the next pitch */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
@@ -170,6 +172,17 @@ export function simGame(seed, decisions, opts) {
       /* ---- pitching change ---- */
       /* The question comes up a little before the coach himself would act. His own pick: a reliever who is asked
        * about comes out; a starter stays until his pitch budget (shorter with every run allowed, and late) is spent. */
+      /* #379 part 6: an ejected pitcher leaves before the next pitch; no vote, no tired() draw. No reliever left: he stays in. */
+      if (ejected[def]) {
+        ejected[def] = false;
+        if (st.pi[def] < RR[def].pit.length - 1) {
+          const cur = RR[def].pit[st.pi[def]], nx = RR[def].pit[st.pi[def] + 1];
+          const s0 = snap(); st.pi[def]++; st.pc[def] = 0; st.ra[def] = 0; st.hold[def] = 0;
+          emit('substitution', t, { team: def, role: 'pitcher', out: cur.name, in: nx.name, ejected: true });
+          pushFrame({ t, d: K.CHANGE_DUR, k: 'CHG', desc: COPY.ejectChange(TT[def], cur, nx), s0, s1: snap(), def, ejected: true });
+          continue;
+        }
+      }
       const spBudget = K.SP_LIMIT_PITCHES - st.ra[def] * K.SP_LIMIT_PER_RUN - (st.inn >= K.SP_LATE_INNING ? K.SP_LATE_CUT : 0);
       const tired = () => st.pi[def] === 0 ? (st.pc[def] > spBudget - span(R, K.SP_ASK_BEFORE) || st.ra[def] >= span(R, K.SP_PULL_RUNS)) : (st.pc[def] > span(R, K.RP_PULL_PITCHES) || st.ra[def] >= K.RP_PULL_RUNS);
       if (st.pi[def] < RR[def].pit.length - 1 && st.hold[def] <= 0 && tired()) {
@@ -722,6 +735,11 @@ export function simGame(seed, decisions, opts) {
         if (e.retal && benchOn && !over && feud() < Math.min(K.BENCH_CLEAR_MAX_P, K.BENCH_CLEAR_P * K.GRUDGE_TEMPER_SCALE[temperOf(bat)])) {
           emit('bench_clearing', t, { team: off, batter: bat.name, pitcher: pit0.name });
           pushFrame({ t, d: K.BENCH_CLEAR_DUR, k: 'BENCH', desc: COPY.benchClear(bat.name, pit0.name), s0: snap(), s1: snap(), off, def, big: K.BIG.HUGE });
+          /* #379 part 6: the umpire may eject the pitcher who threw at him (feud RNG, after the bench-clearing draw) */
+          if (ejectOn && feud() < K.EJECT_PITCHER_P) {
+            ejected[def] = true;
+            emit('ejection', t, { team: def, player: pit0.name, role: 'pitcher', reason: 'retaliation' });
+          }
         }
         if (st.outs >= K.OUTS_PER_HALF && !paDone) break;
         /* #614 part 3: two strikes after a foul bunt: the coach mostly takes the bunt off and lets him swing away */
