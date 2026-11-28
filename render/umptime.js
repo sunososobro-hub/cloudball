@@ -1,12 +1,12 @@
 /* #609 part 3a: the plate umpire's "time" and "play" (pure, no DOM, no three.js). Read from the engine events only (rule 12);
  * a pure function of (event, previous event, time), like plateSignal in umpsig.js.
- *   time  a VOTE, CHG, VIS or SUB frame starts: both hands up
+ *   time  a VOTE, CHG, VIS, CVIS or SUB frame starts: both hands up
  *   play  a pitch frame that follows such a frame: the right arm points at the pitcher (a balk or an intentional walk has its own signal)
  * timeSignal(e, prev, u) -> null | {kind, w, arms}: w 0..1 is how far he is into the signal, arms = [rx,ry,rz, lx,ly,lz] in the
  * umpire's upper-body frame (+z forward, +x his RIGHT), the frame of umpsig.js. Infield fly is not here (part 3b). */
 export const TM_UP = .25, TM_DOWN = .35;
 export const TIME_AT = .3, TIME_HOLD = 1.0, PLAY_AT = .15, PLAY_HOLD = .9;
-export const TIME_KINDS = new Set(['VOTE', 'CHG', 'VIS', 'SUB']);
+export const TIME_KINDS = new Set(['VOTE', 'CHG', 'VIS', 'CVIS', 'SUB']);   /* CVIS: the catcher's mound visit (#614 part 11) */
 export const TM_STAND = .8;                                    /* how far he straightens out of the crouch at full signal */
 const REST_R = [.25, .1, .45], REST_L = [-.25, .1, .45];
 const UP_R = [.3, 1.25, .1], UP_L = [-.3, 1.25, .1];

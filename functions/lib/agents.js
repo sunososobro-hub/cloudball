@@ -5,7 +5,7 @@
  * Account: the browser makes a random 32-byte key (64 hex characters) and sends it as `Authorization: Bearer <key>`.
  * The server keeps only SHA-256(key). No password, no e-mail, no cookie.
  * Who counts: the owner's word in #179. Game outcomes are never touched here (rule 10): a created player is a row. */
-import { validateCreate, makePlayer, drawName, CREATE } from '../../league/freeagents.js';
+import { validateCreate, makePlayer, drawName, CREATE, PLACES, DEFAULT_PLACE, isPlace } from '../../league/freeagents.js';
 import { releaseInactive, canClaim, FREE_TIER } from '../../league/inactive.js';
 import { growTo, viewOf, checkpointOf, CKPT_EVERY } from '../../league/growth.js';
 
@@ -187,13 +187,16 @@ export const mine = guarded(async ({ db, agent }) => {
 /* POST /api/player: create the one player of this agent. The body is the choice of league/freeagents.js (kind, position or
  * role, hand, build, look, points, nameDraw); the server judges it with validateCreate and draws everything else from the seed it made. */
 export const create = guarded(async ({ request, db, agent }) => {
-  const choice = await readBody(request);
-  if (!choice) return fail(400, 'invalid', { reasons: ['no choice given'] });
+  const body = await readBody(request);
+  if (!body) return fail(400, 'invalid', { reasons: ['no choice given'] });
+  /* #438: `place` is the start place, not part of the player choice of league/freeagents.js; left out = DEFAULT_PLACE */
+  const { place = DEFAULT_PLACE, ...choice } = body;
   const reasons = validateCreate(choice);
+  if (!isPlace(place)) reasons.push(`place must be one of ${PLACES.join(', ')}`);
   if (choice.nameDraw > DRAW_CAP) reasons.push(`nameDraw must be at most ${DRAW_CAP}`);
   if (reasons.length) return fail(400, 'invalid', { reasons });
   if (await db.prepare('SELECT 1 AS x FROM players WHERE agent_id = ?1').bind(agent.id).first()) return fail(409, 'already');
-  const { player, ratings } = makePlayer(agent.seed >>> 0, choice);
+  const made = makePlayer(agent.seed >>> 0, choice), ratings = made.ratings, player = { ...made.player, place };
   try {
     await db.prepare('INSERT INTO players (agent_id, pid, name, kind, ovr, player, ratings, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)')
       .bind(agent.id, player.id, player.name, choice.kind, ratings.ovr, JSON.stringify(player), JSON.stringify(ratings), Date.now()).run();
@@ -257,4 +260,14 @@ export const reclaim = guarded(async ({ request, db, agent }) => {
     db.prepare('DELETE FROM releases WHERE pid = ?1').bind(pid));
   await db.batch(steps);
   return json(200, { ok: true, reclaimed: pid, released: cur ? cur.pid : null });
+}, { needKey: true });
+
+/* POST /api/player/place {place}: #438, this agent moves his player between 二軍 and 自由市場 (either way, any time). Only
+ * player.place changes: ratings, ovr, records and the growth checkpoint stay as they are (rule 10). */
+export const place = guarded(async ({ request, db, agent }) => {
+  const body = await readBody(request), to = body ? body.place : undefined;
+  if (!isPlace(to)) return fail(400, 'invalid', { reasons: [`place must be one of ${PLACES.join(', ')}`] });
+  const done = await db.prepare("UPDATE players SET player = json_set(player, '$.place', ?2) WHERE agent_id = ?1").bind(agent.id, to).run();
+  if (!done.meta.changes) return fail(404, 'none');
+  return json(200, { ok: true, place: to });
 }, { needKey: true });

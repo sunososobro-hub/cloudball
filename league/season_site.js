@@ -47,6 +47,25 @@ export function dayIndex(start, today) {
 const okGame = g => g && typeof g.home === 'string' && typeof g.away === 'string' && Array.isArray(g.score) && g.score.length === 2;
 const okFile = f => f && f.trial === true && Array.isArray(f.nights) && f.nights.length && f.nights.every(n => Number.isInteger(n.day) && Array.isArray(n.games) && n.games.every(okGame));
 
+/* #743 part 3, the health line. The nights are computed ahead and revealed by date (no cron, no server, cost 0), so "newest night" is
+ * the last night before today that the file holds. A night counts as computed when its calendar day ends (Taipei midnight).
+ *   health(file, today, hour = 0)  null when the file is missing / bad, else
+ *     { date: 'YYYY-MM-DD' of the newest revealed night | null, games: revealed games so far, commit: first 7 chars, version,
+ *       ageHours: hours since that night ended (null before the first), stale: ageHours > STALE_HOURS (the file ran out) }
+ *   `hour` = Taipei hour of day 0..23 (the page passes it; a date alone reads midnight). */
+export const STALE_HOURS = 36;
+export function health(file, today, hour = 0) {
+  if (!okFile(file)) return null;
+  const idx = dayIndex(file.start, today);
+  if (idx == null) return null;
+  const shown = file.nights.filter(n => n.day < idx), newest = shown.reduce((m, n) => Math.max(m, n.day), -1);
+  const h = Number.isFinite(hour) ? Math.min(23, Math.max(0, Math.floor(hour))) : 0;
+  const ageHours = newest < 0 ? null : (idx - (newest + 1)) * 24 + h;
+  const date = newest < 0 ? null : new Date(Date.parse(file.start + 'T00:00:00Z') + newest * DAY_MS).toISOString().slice(0, 10);
+  const eng = file.engine || {};
+  return { date, games: shown.reduce((a, n) => a + n.games.length, 0), commit: String(eng.commit || '').slice(0, 7), version: String(eng.version || ''), ageHours, stale: ageHours != null && ageHours > STALE_HOURS };
+}
+
 export function seasonAt(file, today) {
   if (!okFile(file)) return null;
   const idx = dayIndex(file.start, today);

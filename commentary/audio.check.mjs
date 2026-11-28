@@ -5,7 +5,7 @@
  *   3. timing of a recorded game (every line of the frozen game given a file): only lines with a
  *      file are spoken, no two lines overlap, no line starts before its event, priority-2 calls are
  *      never moved or dropped, no line holds the next call back more than CALL_GRACE. */
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, unlinkSync, existsSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -96,5 +96,32 @@ try {
   const dropped = booth.plan.filter(l => l.drop && l.drop !== 'no audio').length;
   if (!errs.length) console.log(`OK: scripts match their audio folders, wiring adds and clears files, recorded timing holds (${booth.lines.length} spoken, ${dropped} dropped for room in the test game).`);
 } finally { rmSync(tmp, { recursive: true, force: true }); }
+
+/* the bank sheet (#604) is the one `make-sheet.mjs --bank` writes from lines.json */
+{
+  const r = spawnSync(process.execPath, [path.join(DIR, 'tools', 'make-sheet.mjs'), '--bank', '--check'], { encoding: 'utf8' });
+  if (r.status !== 0) bad(`audio/bank.tts.json is missing or out of date: run node commentary/tools/make-sheet.mjs --bank\n${r.stdout}${r.stderr}`);
+}
+
+/* Cloudflare Pages free plan (#604): at most 20,000 files per site and 25 MiB per file; the tree here is checked
+ * with margin so a bank of mp3 files cannot fail the deploy later. The bank is one file per clip (633 now). */
+const MAX_FILE_BYTES = 25 * 1024 * 1024, MAX_FILES = 18000;
+const deployProblems = (files, sizeOf) => {
+  const out = [];
+  if (files.length > MAX_FILES) out.push(`${files.length} files in the deployable tree (more than ${MAX_FILES}; Cloudflare Pages allows 20,000)`);
+  for (const f of files) if (sizeOf(f) > MAX_FILE_BYTES) out.push(`${f} is ${(sizeOf(f) / 1048576).toFixed(1)} MiB (more than 25 MiB, the Cloudflare Pages limit)`);
+  return out;
+};
+{
+  const ROOT = path.resolve(DIR, '..');
+  const sized = n => deployProblems(Array.from({ length: n }, (_, i) => `f${i}`), () => 1);
+  if (sized(MAX_FILES).length || !sized(MAX_FILES + 1).length) bad('the file-count limit does not trip at exactly 18,000 files');
+  if (deployProblems(['a'], () => MAX_FILE_BYTES).length || !deployProblems(['a'], () => MAX_FILE_BYTES + 1).length) bad('the file-size limit does not trip at exactly 25 MiB');
+  const ls = spawnSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 });
+  if (ls.status === 0) {
+    const files = ls.stdout.split('\0').filter(f => f && existsSync(path.join(ROOT, f)));
+    for (const m of deployProblems(files, f => statSync(path.join(ROOT, f)).size)) bad(m);
+  }
+}
 
 if (errs.length) { console.error(errs.join('\n')); process.exit(1); }
