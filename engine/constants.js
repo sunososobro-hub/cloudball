@@ -542,3 +542,11 @@ export const HOLD_OFF = 0.8;
 export const DP_SHIFT = 0.3;
 export const HOLD2_SHIFT = 0.4;
 export const HOT3_SHIFT = 0.5;
+/* ---- 經紀人 agent set (#795 part 2): a created player's own pre-set frequencies (the league agent set), read by the engine as
+ * decision inputs. Each table is indexed by the cell's level LEVEL_MIN..LEVEL_MAX (0..4); the middle entry (LEVEL_NEUTRAL)
+ * is exactly 1, so a neutral or missing set plays today's game byte for byte. First estimates: part 3 (season sim) tunes them. */
+export const AGENT_SWING_EARLY_MULT = [0.8, 0.9, 1, 1.1, 1.2];   /* swing chance (zone and chase) before AGENT_EARLY_PITCHES pitches of the PA */
+export const AGENT_EARLY_PITCHES = 2;                            /* "early" = the first two pitches of the at-bat (counts 0-0, 1-0, 0-1) */
+export const AGENT_STEAL_TRY_MULT = [0, 0.5, 1, 1.5, 2];         /* the runner's chance to go once a steal is considered */
+export const AGENT_STEAL_OK_MULT = [1.04, 1.02, 1, 0.97, 0.94];  /* success chance: a choosy runner picks his pitch, a steal-happy one runs into bad jumps */
+export const AGENT_BUNT_MULT = [0, 0.5, 1, 1.3, 1.6];            /* chance the batter offers a sacrifice when the bunt is on the table (capped at 1) */
