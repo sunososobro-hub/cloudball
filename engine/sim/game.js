@@ -57,6 +57,7 @@ export function simGame(seed, decisions, opts) {
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
+  const obsR = mulberry32((seed ^ K.OBSTRUCTION_SALT) >>> 0);   /* #614 part 15: obstruction draws, apart so R, rare and look keep their sequences */
   const visitR = mulberry32((seed ^ K.VISIT_SALT) >>> 0);   /* #614 part 11: catcher visits (timing only), drawn apart so R and look keep their sequences */  /* #614 part 9: outcomes of rare plays (catcher's interference), drawn apart so the main sequence R is not shifted */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
@@ -149,10 +150,10 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'ci' ? 'catcher_interference' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.r === 'inplay' && m[0] === 0 && e.play && e.play.obstruction ? 'obstruction' : e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'ci' ? 'catcher_interference' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
-    if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0, groundRule: e.play && e.play.groundRule ? true : undefined, retaliation: e.retal ? true : undefined });
+    if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0, groundRule: e.play && e.play.groundRule ? true : undefined, obstruction: e.play && e.play.obstruction ? true : undefined, retaliation: e.retal ? true : undefined });
     out.sort((a, b) => a.time - b.time);
     for (const o of out) emit(o.type, o.time, o.data);
   };
@@ -512,24 +513,30 @@ export function simGame(seed, decisions, opts) {
             const throwHome = !bobble && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
             /* out on the bases (#38): the batter tries to stretch an outfield single into a double; the throw decides */
             const stretch = !bobble && !throwHome && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && !nb[1] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.STRETCH_1B_P;
-            const bTo = throwHome || stretch || bobble || wildThrow ? 2 : adv;
+            /* #614 part 15: obstruction (OBR 6.01(h)(2)): on an outfield single with second open, the batter rounding first runs into the
+             * first baseman, who has no ball and is not fielding; the umpire awards him second, the base he would have reached.
+             * Scored a single plus an error on 1B (OBR 9.12(c)); the other runners keep the bases the single gave them */
+            const obstruct = !bobble && !throwHome && !sendHome && !stretch && res === '1B' && OUTFIELD_KEYS.includes(fielder) && !nb[1] && obsR() < K.OBSTRUCTION_OF_OF_1B_P;
+            const bTo = throwHome || stretch || bobble || wildThrow || obstruct ? 2 : adv;
             moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb;
             if (bobble) { ctx.fumble = K.OF_BOBBLE_TIME; play.errAdvance = true; }
             if (wildThrow) play.wildThrow = true;
             if (groundRule) play.groundRule = true;
-            const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble, wildThrow }); plan = h.plan;
+            if (obstruct) play.obstruction = true;
+            const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble, wildThrow, obstruct }); plan = h.plan;
             if (sendHome) { if (h.safe) runs++; else { outs = h.outs; play.outHome = true; } }
             if (throwHome) { play.onThrow = true; }
             let hitRes = res;   /* the scorer's hit: a stretch that is safe is a double, one thrown out stays a single */
             if (stretch) { if (h.safe) hitRes = '2B'; else { outs = h.outs; play.outStretch = true; nb[1] = null; } }
             if (res === 'E') { st.E[def]++; result = 'error'; desc = COPY.error(name, type === 'GB'); }
-            else { if (bobble) st.E[def]++; bs.h++; st.H[off]++; ps.h++; if (hitRes === '2B') bs.d++; if (hitRes === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[hitRes]; desc = groundRule ? COPY.groundRuleDouble(name) : COPY.hit(name, hitRes); }
+            else { if (bobble || obstruct) st.E[def]++; bs.h++; st.H[off]++; ps.h++; if (hitRes === '2B') bs.d++; if (hitRes === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[hitRes]; desc = groundRule ? COPY.groundRuleDouble(name) : COPY.hit(name, hitRes); }
             if (runs) desc += COPY.drivesIn(runs);
             if (play.onThrow) desc += COPY.onThrow(name);
             if (play.outHome) desc += COPY.outAtHome(B[1]);
             if (play.outStretch) desc += COPY.outStretching();
             if (bobble) desc += COPY.errAdvance(fielder);
             if (wildThrow) desc += COPY.wildThrow(fielder);
+            if (obstruct) desc += COPY.obstruction();
             e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;

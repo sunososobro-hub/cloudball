@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.36';
+export const ENGINE_VERSION = '0.4.37';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -44,6 +44,7 @@ export const HBP_CHECK_DUR = 20;           /* s: the trainer and the manager che
 export const MOUND_VISIT_DUR = 16;
 /* #614 part 11: the catcher's mound visit (frame `CVIS`, stream `mound_visit` staff `catcher`). Timing only: drawn from its own seeded RNG
  * (`VISIT_SALT`), so R and the looks RNG keep their sequences; no outcome reads it. */
+export const OBSTRUCTION_SALT = 0x0b57c7ed; /* #614 part 15: seed offset of the RNG for obstruction draws (one per outfield single with second open) */
 export const VISIT_SALT = 0x0b15175a;      /* seed offset of the RNG that decides catcher visits */
 export const MOUND_VISIT_LIMIT = 4;        /* mound visits per team per nine innings, coach and catcher together (OBR 5.10(m), 4 since 2024) */
 export const MOUND_VISIT_EXTRA = 1;        /* one more for each extra inning a team starts with none left (OBR 5.10(m)) */
@@ -256,6 +257,11 @@ export const STRETCH_1B_P = 0.03;
  * a game between both teams; only some of those are bobbles on a single). */
 export const OF_BOBBLE_1B_P = 0.012;
 export const OF_BOBBLE_TIME = 1.6;
+/* #614 part 15: obstruction on an outfield single with second open: the batter rounding first is impeded by the first
+ * baseman (no ball, not fielding) with this chance and is awarded second (OBR 6.01(h)(2)), single + E3 (OBR 9.12(c)).
+ * Estimate, not fitted: MLB calls obstruction a few dozen times a season (Retrosheet `OBS`, roughly 20-40 in ~2,430 games),
+ * ~0.01 a game, and only part of those are on the batter at first; this aims at ~0.01 a game. */
+export const OBSTRUCTION_OF_OF_1B_P = 0.0015;
 /* Advancing on an error (#38): a reached-on-error ground ball to an infielder other than the first baseman is a wild
  * throw past first with this chance: the ball ends WILD_THROW_PAST metres (x, z) beyond the bag in foul territory, the
  * batter takes second and every runner two bases. First guess, not tuned (MLB infield errors split roughly evenly
