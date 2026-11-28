@@ -92,7 +92,7 @@ const seenCols = db.sql.prepare('PRAGMA table_info(reg_seen)').all().map(c => c.
 if (seenCols !== 'day,h') bad(`reg_seen must hold only day and h, has ${seenCols}`);
 const seen = db.sql.prepare('SELECT * FROM reg_seen').all();
 if (seen.some(r => r.h.includes('1.1.1.1') || r.h.includes('2.2.2.2'))) bad('an address is stored in the clear');
-for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases', 'meta', 'agent_seen', 'guilds', 'guild_members'].includes(t)) bad(`unexpected table ${t}`);
+for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases', 'meta', 'agent_seen', 'guilds', 'guild_members', 'guild_fans'].includes(t)) bad(`unexpected table ${t}`);
 db.sql.prepare("UPDATE reg_seen SET day='2000-01-01'").run(); db.sql.prepare("UPDATE reg_salt SET day='2000-01-01'").run();
 is('a new day', await call(lib.register, env, { method: 'POST', k: k3, ip: '3.3.3.3' }), 201);
 if (db.sql.prepare("SELECT COUNT(*) n FROM reg_seen WHERE day < date('now')").get().n || db.sql.prepare("SELECT COUNT(*) n FROM reg_salt WHERE day < date('now')").get().n) bad('rows of an older day were not deleted');
