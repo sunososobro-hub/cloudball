@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as engine from '../engine/index.js';
-import { PRACTICE_PER_DAY, practiceLeft, practiceUse, practiceLink, practiceOpening } from '../league/practice.js';
+import { PRACTICE_PER_DAY, DAY_RE, practiceLeft, practiceUse, practiceLink, practiceOpening } from '../league/practice.js';
 import { parseFriendly, friendlyOpening } from '../league/friendly.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -66,6 +66,23 @@ if (digest() !== before) fail('a practice game changed an official file (rule 24
 const src = readFileSync(path.join(ROOT, 'league/practice.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 if (/\bimport\s*\(/.test(src) || /^\s*import\b(?!.*from '\.\/friendly\.js')/m.test(src)) fail('league/practice.js imports something but ./friendly.js');
 if (/Math\.random|Date\b|fetch\(|XMLHttpRequest|sendBeacon|ledger|farm_games|localStorage/.test(src)) fail('league/practice.js uses a clock, randomness, the network, the ledger or localStorage by name');
+
+/* part 2: the 友誼賽 page spends the daily limit (ui/practice_limit.js), nothing leaves the browser */
+{
+  const L = await import('../ui/practice_limit.js');
+  if (L.dayKey(new Date(2026, 10, 5)) !== '2026-11-05' || !DAY_RE.test(L.dayKey())) fail(`dayKey ${L.dayKey(new Date(2026, 10, 5))}`);
+  const m = mem();
+  if (L.gamesLeft(m, D1) !== PRACTICE_PER_DAY) fail('page limit: fresh day is not full');
+  for (let i = 0; i < PRACTICE_PER_DAY; i++) if (!L.takeGame(m, D1).ok) fail(`page limit: game ${i + 1} refused`);
+  if (L.takeGame(m, D1).ok || L.gamesLeft(m, D1) !== 0) fail('page limit: past the limit is allowed');
+  if (L.gamesLeft(m, D2) !== PRACTICE_PER_DAY) fail('page limit: next day does not reset');
+  if (!L.takeGame({}, D1).ok) fail('page limit: a blocked store stops the game');
+  const lim = readFileSync(path.join(ROOT, 'ui/practice_limit.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  if (/fetch\(|XMLHttpRequest|sendBeacon|method\s*:/.test(lim)) fail('ui/practice_limit.js calls the network');
+  const fj = readFileSync(path.join(ROOT, 'ui/friendly.js'), 'utf8'), fh = readFileSync(path.join(ROOT, 'friendly.html'), 'utf8');
+  if (!/takeGame\(\)\.ok/.test(fj) || !/gamesLeft\(\)/.test(fj) || !fh.includes('id="left"')) fail('友誼賽 page does not spend / show the daily limit');
+  if (digest() !== before) fail('the page limit changed an official file (rule 24)');
+}
 
 if (bad.length) { console.log(`practice FAIL (${bad.length})`); for (const m of bad) console.log(' - ' + m); process.exit(1); }
 console.log(`practice ok: 0 calls in a game, limit ${PRACTICE_PER_DAY}/day, link replays byte for byte`);

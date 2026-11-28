@@ -8,7 +8,8 @@
  *     league/site/guilds/lock-<date>.json      the frozen guilds of that night, sorted by id
  *     league/site/guilds/night-<date>.json     that night's games: { date, commit, games: [ { home, away, seed, replays, score, lines } ] }
  *     league/site/guilds/standings.json        guild standings after that night, rank() order
- *     league/site/guilds/lines/<season>/<NNN>.json  one of LINE_SHARDS files: { <player key>: [ [night, ...LINE_COLS], ... ] }
+ *     league/site/guilds/lines/<season>/<NNN>.json  one of LINE_SHARDS files: { <player key>: [ [night, ...LINE_COLS], ... ] }; a pitcher's rows are [night, ...PIT_COLS]
+ *       (`play` may return `pitchers` next to `players`: per side { <name>: [bf, outs, k, bb, r] }, the engine's own count, rule 10)
  *   A fan adds rows to one shard of one season, never a file: the file count is fixed (Pages limit 20,000 files).
  *
  *   freeze(exp, date, commit)               the lock snapshot (sorted by id; only public fields)
@@ -20,6 +21,7 @@ import * as S from './season.js';
 export const LINE_SHARDS = 256;
 export const TIE_REPLAYS = 8;
 export const LINE_COLS = ['pa', 'ab', 'h', 'd', 't', 'hr', 'bb', 'hbp', 'sf'];
+export const PIT_COLS = ['bf', 'outs', 'k', 'bb', 'r'];   /* #804 part 5: a pitcher's row (league/player_stats.js PCOLS without season, day) */
 export const GUILD_DIR = 'league/site/guilds';
 
 const fnv = s => { let h = 0x811c9dc5; for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return h >>> 0; };
@@ -69,6 +71,11 @@ export function guildNight({ exp, date, commit, season, night, prev = {}, play, 
     if (!done) throw new Error(`guildNight: ${away} v ${home} still tied after ${TIE_REPLAYS} replays`);
     const { r } = done, lines = {};
     [away, home].forEach((gid, k) => {
+      for (const [name, v] of Object.entries((r.pitchers && r.pitchers[k]) || {})) {
+        const key = `${gid}:${name}`, row = PIT_COLS.map((c, i) => v[i] | 0), sh = shardRows(shardOf(key));
+        lines[key] = row;
+        (sh[key] = sh[key] || []).push([night, ...row]);
+      }
       for (const [name, b] of Object.entries(r.players[k] || {})) {
         const key = `${gid}:${name}`, row = LINE_COLS.map(c => b[c] | 0);
         lines[key] = row;

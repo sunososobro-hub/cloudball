@@ -58,6 +58,16 @@ if (!nightFile.games.length) bad('no game was played');
 for (const g of nightFile.games) for (const k of Object.keys(g.lines)) if (!nm.has(k.slice(k.indexOf(':') + 1))) bad(`a line of a non-member: ${k}`);
 if (nightFile.games.some(g => g.score[0] === g.score[1])) bad('a tied game');
 
+/* #804 part 5: a pitcher member gets pitching rows [night, bf, outs, k, bb, r] in his shard (the engine's own count), a batter none; NPC pitchers none */
+const two = guildNight({ exp: { guilds: [g1, sps] }, date: '2026-12-09', commit: 'abc1234', season: 1, night: 0, prev: {}, play, rosterOf });   /* two guilds: nobody on a bye */
+const shards = Object.entries(two).filter(([p]) => p.includes('/lines/')).map(([, t]) => JSON.parse(t));
+const rowsOf = n => shards.flatMap(sh => Object.entries(sh).filter(([k]) => k.slice(k.indexOf(':') + 1) === n).flatMap(([, r]) => r));
+const pr = rowsOf('阿丙');
+if (!pr.length || pr.some(r => r.length !== 6 || !r.every(Number.isInteger))) bad('the pitcher member has no valid pitching rows');
+if (pr.length && pr.every(r => r[1] === 0)) bad('the pitcher member faced no batter in any game');
+if (rowsOf('阿甲').some(r => r.length !== 10)) bad('a batter member got a pitching row');
+if (shards.flatMap(sh => Object.keys(sh)).some(k => !nm.has(k.slice(k.indexOf(':') + 1)))) bad('a shard key of a non-member (NPC pitcher?)');
+
 /* readPrev reads back what a night wrote; the next night continues it */
 const dir = mkdtempSync(path.join(tmpdir(), 'gnight-'));
 try {

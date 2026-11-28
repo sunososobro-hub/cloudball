@@ -16,7 +16,7 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { simGame, ROSTERS } = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/constants.js')));
-const GAMES = 1000;
+const GAMES = 2000;   /* 1000 until engine 0.4.37 (#815): on and off part ways after the first pinch hitter, so runs/game differs by sample noise (~0.2 sd at 1000 games: seeds 1-1000 0.44, 1001-2000 0.01, 2001-3000 0.10); same DRIFT, twice the games */
 const DRIFT = { 'runs/game': 0.4, 'K%': 0.01, 'BB%': 0.01, AVG: 0.008, OBP: 0.008, SLG: 0.015 };
 const opts = (s, on) => ({ teams: [s % 4, (s + 1) % 4], pinchHit: on, pinchRun: false, defSub: false });   /* other substitutions off: this check follows pinch hitters only (#436 part 8) */
 const problems = [], bad = s => problems.push(s);
@@ -38,6 +38,8 @@ const rates = games => {
   return { 'runs/game': runs / games.length, 'K%': k / pa, 'BB%': bb / pa, AVG: h / ab, OBP: (h + bb + hbp) / (ab + bb + hbp + sf), SLG: tb / ab };
 };
 
+/* keep only what rates() reads, so GAMES games fit in memory */
+const slim = g => ({ final: g.final, stats: g.stats, stream: g.stream.filter(x => x.type === 'pa_end') });
 const off = [], on = [];
 let subs = 0;
 for (let s = 1; s <= GAMES; s++) {
@@ -46,7 +48,7 @@ for (let s = 1; s <= GAMES; s++) {
   const base0 = simGame(s, {}, opts(s, false));
   const g = simGame(s, {}, opts(s, true));
   if (JSON.stringify(g.stream) !== JSON.stringify(simGame(s, {}, opts(s, true)).stream)) bad(`seed ${s}: not deterministic with pinchHit`);
-  off.push(base0); on.push(g);
+  off.push(slim(base0)); on.push(slim(g));
   if (g.batters.some((b, k) => b.length !== g.stats[k].length)) bad(`seed ${s}: batters and stats rows differ`);
 
   /* walk the stream: positions per slot, who is out of the game, the decision before each substitution */
