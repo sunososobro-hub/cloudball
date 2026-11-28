@@ -2385,6 +2385,7 @@ const STUDIO_ACTS=[
   ['跑壘','tag3','高飛接殺・二壘跑者回壘衝三壘',e=>pl(e,p=>p.res==='out')&&e.plan.tagPlay&&e.plan.CV.base===3],
   ['跑壘','sf23','高飛犧牲打・二壘跑者跟進三壘',e=>pl(e,p=>p.res==='out'&&p.type==='FB')&&(e.moves||[]).some(m=>m[0]===3&&m[1]===4)&&(e.moves||[]).some(m=>m[0]===2&&m[1]===3),STUDIO_SEEDS_RARE],
   ['跑壘','k3','振落・球漏接、捕手追球傳一壘',e=>e.k==='P'&&e.k3&&e.plan&&e.plan.k3,STUDIO_SEEDS_RARE],
+  ['傳球','iffdrop','內野高飛必死球・野手漏接，撿起回傳（打者仍出局）',e=>e.k==='P'&&e.r==='inplay'&&e.plan&&e.plan.drop,STUDIO_SEEDS_RARE],/* #739 */
   ['跑壘','wp','暴投・跑者推進（捕手追球）',e=>e.k==='P'&&e.wp&&!e.pb],
   ['跑壘','pb','捕逸・球彈出手套（捕手追球）',e=>e.k==='P'&&e.pb,STUDIO_SEEDS_RARE],
   ['跑壘','bk','投手犯規・投球動作中止，跑者推進',e=>e.k==='P'&&e.bk,STUDIO_SEEDS_RARE],
