@@ -12,7 +12,7 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
-const GAMES = 1500, SEEDS = [1131, 2273, 7269, 8463];
+const GAMES = 1500, SEEDS = [1334, 1451, 2220, 2273];
 const WANT = [[3, '3B', 2], [2, '2B', 1], [1, '1B', 0]];   /* base, fielder, the runner's starting base */
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 
