@@ -4,6 +4,8 @@ import { trainShell, callupText } from './train.js';
 import { minorsDays } from '../../league/minors_report.js';
 import { farmGameOn, farmUrl } from '../../league/farm.js';
 import { TEAMS } from '../../league/teams.js';
+import { seasonAt } from '../../league/season_site.js';
+import { seasonLine, lineText } from '../../league/player_stats.js';
 /* #586: 二軍 daily text report; `d.day` (a whole number, from the data) is today, else REPORT_DAY. Text only.
  * #600 part 3: report day N (1-based) is 二軍 night N - 1 of league/site/farm_games.json (`d.farm`); a day whose team played a
  * recorded game links to its 3D replay (play.html?f=<id>), a day without a record stays plain text. */
@@ -11,6 +13,11 @@ export const REPORT_DAY = 30, REPLAY_LABEL = '看重播';
 const replayOf = (d, p, day) => { const g = farmGameOn(d.farm, TEAMS.findIndex(t => t.id === p.team), day - 1); return g ? ` <a class="farm-replay" href="${esc(farmUrl(g.id))}">${REPLAY_LABEL}</a>` : ''; };
 const reportBox = (d, id, p) => { if (p.tier !== 2) return ''; const day = Number.isInteger(d.day) && d.day >= 1 ? d.day : REPORT_DAY;
   return `<section class="minors-report"><h3>二軍日報（最近 7 天）</h3><ul>${minorsDays(id, p, day).map(l => `<li>第 ${l.day} 天　${esc(l.text)}${replayOf(d, p, l.day)}</li>`).join('')}</ul></section>`; };
+/* #804 part 1: the 試跑 season line of a batter, summed from league/site/player_stats.json (the engine's box lines of the recorded scheduled games;
+ * the page only adds rows, rule 10) over the nights already before today. Practice and friendly games are never in that file. Pitchers: left. */
+export const STAT_NONE = '本季還沒有出賽紀錄。';
+const statBox = (d, id, p) => { if (p.role === 'P' || !d.trial || !d.stats || !d.today) return ''; const s = seasonAt(d.trial, d.today); if (!s || s.state === 'before') return '';
+  const l = seasonLine(d.stats, id, s.season, s.day); return `<section class="season-line"><h3>試跑 第 ${esc(s.season)} 季成績</h3><p>${l ? esc(lineText(l)) : STAT_NONE}</p></section>`; };
 /* #438: a created player's place (二軍 / 自由市場) and one button to move him to the other (wired in site-page.js; POST /api/player/place) */
 export const PLACE_TEXT = { second: ['二軍', '明天開始出賽，每場都有成績單。'], free: ['自由市場', '等球隊來挑。'] };
 const placeBox = p => { if (p.team != null || p.system === true || !PLACE_TEXT[p.place]) return ''; const to = p.place === 'second' ? 'free' : 'second';
@@ -29,5 +36,5 @@ export function view(d, id, sub) {
   if (sub === 'train') return trainShell;
   const where = p.team == null ? TIER_LABEL[p.tier === 2 ? 2 : 3] : p.tier === 3 ? TIER_LABEL[3] : `${esc(teamName(d, p.team))}　${esc(TIER_LABEL[p.tier] || '')}`;
   const trainEntry = '<p class="agent-entry"><a href="#me/train">訓練</a></p>';
-  return `<section class="me"><h2>${esc(p.name)}</h2><dl><dt>位置</dt><dd>${pos(p)}</dd><dt>年齡</dt><dd>${esc(p.age)}</dd><dt>綜合</dt><dd class="num">${esc(p.overall)}</dd><dt>目前</dt><dd>${where}</dd><dt>狀態</dt><dd class="callup">${esc(callupText(d.players, id))}</dd><dt>能力</dt><dd>${abilityText(p) || '—'}</dd></dl>${placeBox(p)}${trainEntry}${reportBox(d, id, p)}${switchBox()}${agentEntry('建立或管理你的球員')}</section>`;
+  return `<section class="me"><h2>${esc(p.name)}</h2><dl><dt>位置</dt><dd>${pos(p)}</dd><dt>年齡</dt><dd>${esc(p.age)}</dd><dt>綜合</dt><dd class="num">${esc(p.overall)}</dd><dt>目前</dt><dd>${where}</dd><dt>狀態</dt><dd class="callup">${esc(callupText(d.players, id))}</dd><dt>能力</dt><dd>${abilityText(p) || '—'}</dd></dl>${placeBox(p)}${trainEntry}${statBox(d, id, p)}${reportBox(d, id, p)}${switchBox()}${agentEntry('建立或管理你的球員')}</section>`;
 }
