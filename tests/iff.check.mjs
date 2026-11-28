@@ -14,6 +14,9 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const GAMES = 1500, MIN_DECLARED = 0.1, EPS = 1e-6;
+/* stream times and hang are rounded to 1 ms each (engine/sim/game.js round3), so t + hang can be up to 1.5 ms off the exact landing
+ * (seed 721 at engine 0.4.37: out 6579.079 = contact 6575.068 + hang 4.012 rounded) */
+const STREAM_EPS = 1.5e-3;
 const INF = ['P', 'C', '1B', '2B', '3B', 'SS'];
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 if (typeof K.IFF_DROP_PICKUP !== 'number') bad('IFF_DROP_PICKUP is missing from engine/constants.js');
@@ -38,7 +41,7 @@ for (let s = 1; s <= GAMES; s++) {
     drops++;
     if (!contact.dropped) bad(`${at}: contact not flagged dropped`);
     if (outs[0]?.reason !== 'infield_fly') bad(`${at}: dropped infield fly out ${outs[0]?.reason}`);
-    if (outs[0] && outs[0].t + EPS < contact.t + contact.hang) bad(`${at}: out before the ball came down`);
+    if (outs[0] && outs[0].t + STREAM_EPS < contact.t + contact.hang) bad(`${at}: out before the ball came down`);
     if (acts.some(a => a.action === 'catch')) bad(`${at}: a dropped ball is caught`);
     const drop = acts.find(a => a.action === 'drop' && a.fielder === p.fielder), pick = acts.find(a => a.action === 'field' && a.fielder === p.fielder);
     if (!drop || !pick || Math.abs(pick.t - drop.t - K.IFF_DROP_PICKUP) > 1e-3) bad(`${at}: no drop then pick-up ${K.IFF_DROP_PICKUP} s later`);

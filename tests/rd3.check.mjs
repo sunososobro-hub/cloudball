@@ -1,7 +1,7 @@
 /* Rundown off third (#614 part 16): a groundout to an infielder with a runner on third, first open, < 2 outs and the runner
  * held; in RD3_OF_GB_HOLD_P of them (own RNG, RD3_SALT) he broke on contact, the fielder throws home and he is run down
  * between third and home (`resolveRundownHome`). Fails when
- *   - a seed in SEEDS (found at engine 0.4.38) has none, or the rate over GAMES seeds is outside RATE,
+ *   - a seed in SEEDS (found at engine 0.4.39) has none, or the rate over GAMES seeds is outside RATE,
  *   - the out is not a tag on the runner from third by 3B (SS when 3B fielded it), or not before he gets back,
  *   - the ball does not go fielder -> C -> cover, or the tag is not in the base path between third and home,
  *   - the batter is not on first after the play, a run scores, the result is not fielders_choice or the line lacks 夾,
@@ -13,7 +13,7 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const KK = await import(pathToFileURL(path.join(ROOT, 'engine/constants.js')));
-const GAMES = 1500, SEEDS = [29, 77], RATE = [0.004, 0.02];
+const GAMES = 1500, SEEDS = [37, 77], RATE = [0.004, 0.02];
 const BASE_PATH = 27.43;
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 

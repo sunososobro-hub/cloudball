@@ -1,6 +1,8 @@
 /* Guild page (guild.html, #800 part 1): found a guild (name + base team), see its page. Same account as agent.html: the random key kept in
  * localStorage, sent as a Bearer header; the server judges every choice again (functions/lib/guild.js). No answer = 「還沒開放」. */
 import { seasonAt } from '../league/season_site.js';
+import { guildPower } from '../league/guild_power.js';
+import { siteRoster } from '../league/site_roster.js';
 import { memberKey, shardUrl, memberText, GUILD_NONE } from '../league/guild_lines.js';
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊', SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
@@ -33,6 +35,19 @@ async function lineFor(g, name) {
   const key = memberKey(g.id, name); return memberText(await getJson(shardUrl(seasonNo, key)), key);
 }
 
+/* #800 part 4: 戰力 (投球 / 打擊 / 守備, 1..100, display only) of the guild on its base team's 一軍 roster, from league/guild_power.js; players.json is the published site file */
+const FIRST_TIER = 1;
+async function powerBox(parent, g) {
+  const box = el('p', 'left power', '戰力：…'); parent.appendChild(box);
+  const players = await getJson('league/site/players.json');
+  if (!players) { box.textContent = '戰力：讀不到球員資料。'; return; }
+  try {
+    const members = g.members.filter(m => m.player).map(m => ({ player: { name: m.player.name, kind: m.player.kind, ovr: m.player.ovr, pos: m.player.pos } }));
+    const p = guildPower({ id: g.id, members }, siteRoster(players, g.base.id, FIRST_TIER));
+    box.textContent = `戰力 ${p.all}（投球 ${p.pit}・打擊 ${p.bat}・守備 ${p.def}）。只是顯示，不影響比賽。`;
+  } catch (e) { box.textContent = '戰力：算不出來。'; }
+}
+
 function showGuild(g, seats = 10) {
   const iAmLeader = g.members.some(m => m.leader && m.me), iAmCoach = g.members.some(m => m.coach && m.me);
   const s = $('mine'); s.replaceChildren(el('h2', null, g.name));
@@ -42,6 +57,7 @@ function showGuild(g, seats = 10) {
   const nameOf = m => (m && m.player ? m.player.name : '你');
   roles.append(el('dt', null, '領隊'), el('dd', null, nameOf(who('leader'))), el('dt', null, '總教練'), el('dd', null, nameOf(who('coach'))));
   s.appendChild(roles);
+  powerBox(s, g);
   s.appendChild(el('h3', null, '隊員'));
   const ul = el('ul', 'roster');
   for (const m of g.members) {

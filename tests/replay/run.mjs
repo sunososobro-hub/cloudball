@@ -41,6 +41,10 @@ const TAG_LANE_CLEAR = 0.3;   /* a fielder waiting to tag stands at least this f
 const GOOD_START_RUNS = 1, GOOD_START_PITCHES = 80;
 /* Innings per start of the reference league (MLB 2025 starters, about 5.2) and how far the default sample may be from it. */
 const IP_PER_START = 5.2, IP_PER_START_TOL = 0.15;
+/* Infield singles (#815, engine 0.4.34): no bunt hits. Estimate, to check against a FanGraphs IFH count: MLB IFH% is about
+ * 6-7% of grounders, ~21 grounders a game (both teams) -> about 1.2 a game. A 1000-game sample of ~1.1 a game has a standard
+ * error of 0.035; 0.3 = three of them plus 0.2 for the estimate. Before #815 the engine made 0.03 a game. */
+const IFH_PER_GAME = 1.2, IFH_PER_GAME_TOL = 0.3;
 
 /* Reference league: MLB 2025 regular season (2,430 games; league totals from Baseball Savant, runs and
  * intentional walks from the league pitching line). GIDP and steals: MLB 2026 through early August.
@@ -439,7 +443,10 @@ const show = (x, digits, percent) => percent ? pct(x) : digits === 3 ? f3(x) : x
 if (GAMES >= RATE_SAMPLE_MIN) {
   for (const [key, label, ref, tol, digits, percent] of REFERENCE) if (!(Math.abs(A[key] - ref) <= tol)) fail('league', `${label} is ${show(A[key], digits, percent)}, reference ${show(ref, digits, percent)} (tolerance ${show(tol, digits, percent)})`);
   if (!(Math.abs(ipPerStart - IP_PER_START) <= IP_PER_START_TOL)) fail('league', `IP/start is ${ipPerStart.toFixed(2)}, reference ${IP_PER_START} (tolerance ${IP_PER_START_TOL})`);
-  console.log(`rates within tolerance of the reference league on ${REFERENCE.length + 1} measures`);
+  const ifhPerGame = (results.infield_single || 0) / GAMES;
+  if (!(Math.abs(ifhPerGame - IFH_PER_GAME) <= IFH_PER_GAME_TOL)) fail('league', `IFH/game is ${ifhPerGame.toFixed(2)}, reference ${IFH_PER_GAME} (tolerance ${IFH_PER_GAME_TOL})`);
+  console.log(`IFH/game ${ifhPerGame.toFixed(2)}`);
+  console.log(`rates within tolerance of the reference league on ${REFERENCE.length + 2} measures`);
 } else console.log(`rates not checked against the reference league: fewer than ${RATE_SAMPLE_MIN} games`);
 console.log(`outs ${totalOuts}: ` + Object.entries(outReasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', '));
 console.log('plate appearances: ' + Object.entries(results).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', '));

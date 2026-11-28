@@ -41,7 +41,8 @@ export function simGame(seed, decisions, opts) {
   const grudgeOn = opts.grudge ?? K.GRUDGE_ON;        /* #379 part 3: off = factory games byte for byte */
   const grudges = [];                                  /* one row per hit batter: { inning, half, from, to, temper, score } */
   const retaliateOn = grudgeOn && (opts.retaliate ?? K.RETALIATE_ON);   /* #379 part 4: needs the record; off = part 3 games byte for byte */
-  const owed = [0, 0];                                 /* grudge points a team holds for its hit batters, cleared at its pitcher's next chance */
+  /* grudge points a team holds for its hit batters, cleared at its pitcher's next chance; #379 part 8: GRUDGE_CARRY of the last meeting's */
+  const owed = TI.map(ti => grudgeOn && opts.owed && opts.owed[ti] > 0 ? opts.owed[ti] * K.GRUDGE_CARRY : 0);
   let warned = false;                                  /* after a retaliation the umpire has warned both benches: no more in this game */
   const feud = mulberry32((seed ^ K.FEUD_SALT) >>> 0);  /* #379 part 4: retaliation draws apart, so R keeps its sequence until one happens */
   const benchOn = retaliateOn && (opts.benchClear ?? K.BENCH_CLEAR_ON);   /* #379 part 5: needs retaliation; off = part 4 games byte for byte */
@@ -490,6 +491,9 @@ export function simGame(seed, decisions, opts) {
             else if (type === 'LD') { d = res === 'out' ? (R() < K.LD_SHALLOW_P ? span(R, K.LD_SHALLOW_DIST) : span(R, K.LD_DEEP_DIST)) : span(R, K.LD_HIT_DIST); hang = d / K.LD_SPEED; peak = span(R, K.LD_PEAK); }
             else if (type === 'PU') { d = span(R, K.PU_DIST); hang = span(R, K.PU_HANG); peak = span(R, K.PU_PEAK); }
             else { d = span(R, res === 'HR' ? K.FB_HR_DIST : res === 'out' ? K.FB_OUT_DIST : K.FB_HIT_DIST); hang = span(R, K.FB_HANG); peak = span(R, K.FB_PEAK); }
+            /* #815: a share of the grounders the defence fields are slow rollers (choppers, swinging bunts): drawn from `rare`
+             * so R keeps its sequence; the timing in resolveGround decides whether the batter beats the throw (infield hit) */
+            if (type === 'GB' && res === 'out' && rare() < K.GB_SLOW_P) { d = span(rare, K.GB_SLOW_DIST); hang = d / span(rare, K.GB_SLOW_SPEED); }
             if (res === '3B') { d = Math.max(d, K.TRIPLE_MIN_DIST); hang = Math.max(hang, d / K.HIT_HORIZ_SPEED_MAX); }
           }
           const land = spotXZ(spray, d);
@@ -816,6 +820,6 @@ export function simGame(seed, decisions, opts) {
   fin.outs = K.OUTS_PER_HALF;
   ev.push({ t, d: 1e9, k: 'END', desc: winner < 0 ? COPY.tie(fin.sc) : COPY.final(TT[winner], fin.sc), s0: fin, s1: fin });
   const out = { ev, stream, dur: t, stats, batters, pst, final: fin, wp, lp, staff: RR.map(r => r.pit), teams: TI, seed, engine: K.ENGINE_VERSION };
-  if (grudgeOn) out.grudges = grudges;
+  if (grudgeOn) { out.grudges = grudges; out.owed = { [TI[0]]: owed[0], [TI[1]]: owed[1] }; }
   return out;
 }

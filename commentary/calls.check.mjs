@@ -43,7 +43,7 @@ for (const [k, min] of Object.entries(WORDINGS)) {
   const n = ((bank.triggers[k] || {}).exchanges || []).length;
   if (n < min) bad(`bank: ${k} has ${n} wording(s), needs ${min}`);
 }
-const GAMES = [...Array.from({ length: SEEDS }, (_, i) => ({ seed: i + 1 })), { seed: 1131, teams: [3, 0] }];
+const GAMES = [...Array.from({ length: SEEDS }, (_, i) => ({ seed: i + 1 })), { seed: 1157, teams: [1, 2] }];
 for (const { seed, teams: pin } of GAMES) {
   const g = simGame(seed, {}, pin ? { teams: pin } : undefined), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
   const booth = createBooth({ stream: g.stream, seed, bank, teams, describe });

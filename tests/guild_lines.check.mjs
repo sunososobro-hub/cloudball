@@ -5,7 +5,7 @@
  *   - the module imports anything but the two league files, or uses Math.random, Date or the network.
  * Usage: node tests/guild_lines.check.mjs */
 import { readFileSync } from 'node:fs';
-import { memberKey, shardUrl, memberLine, memberText, GUILD_NONE } from '../league/guild_lines.js';
+import { memberKey, shardUrl, memberLine, pitchLine, memberText, GUILD_NONE } from '../league/guild_lines.js';
 import { shardOf, LINE_SHARDS } from '../league/guild_night.js';
 
 const bad = [], eq = (a, b, m) => { if (a !== b) bad.push(`${m}: got ${a}, expected ${b}`); };
@@ -21,6 +21,15 @@ const l = memberLine(shard, key);
 eq(l.g, 2, 'games'); eq(l.pa, 9, 'pa'); eq(l.ab, 8, 'ab'); eq(l.h, 3, 'h'); eq(l.hr, 1, 'hr');
 eq(l.avg, 3 / 8, 'avg'); eq(l.obp, 4 / 9, 'obp'); eq(l.slg, (3 + 1 + 3) / 8, 'slg');
 eq(memberText(shard, key).includes('打席 9'), true, 'text shows PA');
+/* #804 part 5: pitching rows [night, bf, outs, k, bb, r]; batting rows of the same key are not read as pitching and the other way round */
+const pk = memberKey('g1', '阿投'), ps = { [pk]: [[1, 20, 18, 5, 2, 3], [2, 10, 9, 1, 1, 0]] };
+const pl = pitchLine(ps, pk);
+eq(pl.g, 2, 'pitch games'); eq(pl.bf, 30, 'bf'); eq(pl.outs, 27, 'outs'); eq(pl.k, 6, 'k'); eq(pl.bb, 3, 'bb'); eq(pl.r, 3, 'r');
+eq(pl.ra9, 3, 'ra9'); eq(pl.k9, 6, 'k9'); eq(pl.bb9, 3, 'bb9');
+eq(memberText(ps, pk).includes('RA9 3.00'), true, 'text shows RA9');
+eq(memberText(ps, pk).includes('9 局'), true, 'text shows innings');
+eq(pitchLine(shard, key), null, 'a batter has no pitching line'); eq(memberLine(ps, pk), null, 'a pitcher has no batting line');
+eq(memberText({ [pk]: [[1, 'x', 18, 5, 2, 3]] }, pk), GUILD_NONE, 'bad pitching row');
 for (const [name, s, k] of [['missing key', shard, 'g9:nobody'], ['null shard', null, key], ['array shard', [], key], ['bad row', { [key]: [[1, 'x', 4, 2, 1, 0, 0, 1, 0, 0]] }, key], ['short row', { [key]: [[1, 2]] }, key], ['not a list', { [key]: 5 }, key]])
   eq(memberText(s, k), GUILD_NONE, name);
 
