@@ -40,11 +40,7 @@ $('seed').addEventListener('input', e => {
   st.seed = /^[0-9]{1,10}$/.test(v) ? Number(v) : -1;
   draw();
 });
-$('dice').onclick = () => { $('copy').onclick = async () => {
-  const box = $('share');
-  try { await navigator.clipboard.writeText(box.value); $('copied').textContent = '已複製連結'; } catch { box.select(); $('copied').textContent = '請長按上面的連結複製'; }
-};
-st.seed = roll(); $('seed').value = String(st.seed); draw(); };
+$('dice').onclick = () => { st.seed = roll(); $('seed').value = String(st.seed); draw(); };
 $('form').addEventListener('submit', e => {
   e.preventDefault();
   const a = { away: st.away, home: st.home, sp: st.sp.slice(), seed: st.seed };

@@ -9,7 +9,8 @@
  *
  *   parseFriendly(s)                  { away, home, sp: [awaySP, homeSP], seed } or null
  *   friendlyParam(a)                  the `x` value of an arrangement
- *   friendlyUrl(a)                    'play.html?x=...'
+ *   friendlyUrl(a, version)           'play.html?x=...' (+ '&v=<engine version>' when given: the link pins the engine it was made on, #751 part 2)
+ *   friendlyPin(v, engineVersion)     null when the link's pin matches (or has none), else a one-line note: same arrangement on another engine may play another game
  *   friendlyProblem(a)                named reason why an arrangement is not playable, or null
  *   friendlyOpening(s, engine)        { arrangement, opening: { seed, game, friendly: s } | null, status, reason }
  *
@@ -33,7 +34,16 @@ export function parseFriendly(s) {
 }
 
 export const friendlyParam = a => `${a.away}-${a.home}-${a.sp[0]}-${a.sp[1]}-${a.seed}`;
-export const friendlyUrl = a => `play.html?x=${friendlyParam(a)}`;
+export const VERSION_RE = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,4}$/;
+export const friendlyUrl = (a, version) => `play.html?x=${friendlyParam(a)}${version && VERSION_RE.test(version) ? `&v=${version}` : ''}`;
+
+/* Rule 11 promises the same game only on the same engine. The page has no build step and cannot load an older engine by version,
+ * so a link made on another version still plays, with a note that the game may differ. */
+export function friendlyPin(v, engineVersion) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v !== 'string' || !VERSION_RE.test(v)) return '連結上的引擎版本看不懂，這場可能和朋友看到的不同';
+  return v === engineVersion ? null : `這個連結是用引擎 ${v} 做的，現在是 ${engineVersion}，這場可能和朋友看到的不同`;
+}
 
 export function friendlyProblem(a) {
   if (!a || typeof a !== 'object') return 'no arrangement';
@@ -58,14 +68,14 @@ export function friendlyOpening(s, engine) {
   }
 }
 
-export function friendlyPin(e) {
+export function friendlyCommitPin(e) {
   if (e === null || e === undefined || e === '') return { ok: true, commit: null };
   if (typeof e !== 'string' || !COMMIT_RE.test(e)) return { ok: false, reason: 'e is not a 7..40 hex engine commit' };
   return { ok: true, commit: e };
 }
 
 export function friendlyShare(a, commit, base = 'play.html') {
-  const pin = friendlyPin(commit || null);
+  const pin = friendlyCommitPin(commit || null);
   if (!pin.ok) throw new Error(pin.reason);
   const why = friendlyProblem(a);
   if (why) throw new Error(why);
@@ -73,7 +83,7 @@ export function friendlyShare(a, commit, base = 'play.html') {
 }
 
 export async function friendlyOpeningAt(s, e, load) {
-  const pin = friendlyPin(e);
+  const pin = friendlyCommitPin(e);
   if (!pin.ok) return { arrangement: parseFriendly(s), opening: null, status: 'invalid', reason: pin.reason };
   if (!pin.commit) return friendlyOpening(s, await load(null));
   const a = parseFriendly(s), why = a ? friendlyProblem(a) : 'x is not <away>-<home>-<awaySP>-<homeSP>-<seed>';

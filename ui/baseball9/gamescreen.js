@@ -5,10 +5,14 @@ import { createGame, SHIFTS, MODE_NAME } from './game.js';
 import { PT } from './practice.js';
 import { SPEEDS } from './field.js';
 import { openField } from './field3d.js';
+import { PLAYER, loadMe } from './me.js';
 import { describeHalf, describeBases, describeCount, describeScore, describeLine, describeGameResult, canSteal } from './text.js';
 
 const $ = id => document.getElementById(id);
 const APPS = { pull: '拉打', mid: '中間', push: '推打', bunt: '觸擊' };
+/* #563 part 6: the fan's own player (?player=<id>) in the 3D picture: his look on the batter / batter-runner when you bat, on the pitcher when you pitch. Picture only. */
+let me = PLAYER ? { id: PLAYER } : null;
+if (PLAYER) loadMe(PLAYER).then(s => { if (s) me = s; });
 let opening = false, field = null, speedI = 0, g = null, mode = 'one', app = 'mid', ptk = 'fb', shift = 'N', steal = false, hold = false;
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -40,7 +44,7 @@ function play(r, c) {
   try { o = g.pitch(bats ? { mode, r, c, steal, app } : { pt: ptk, r, c, hold, shift }); }
   catch (e) { $('gtxt').textContent = String(e.message || e); return; }
   const li = el('li', '', o.txt); $('glog').prepend(li); $('gtxt').textContent = o.txt;
-  if (field) field.play(o);            // picture only: reads the result, never changes it
+  if (field) { if (me && field.setMe) field.setMe(me, bats ? 'bat' : 'pitch'); field.play(o); }            // picture only: reads the result, never changes it
   if (o.paEnd) steal = hold = false;
   if (o.halfEnded && !g.S.over) app = 'mid';
   if (g.S.over) { const res = g.result(); window.baseball9GameResult = res; $('gend').textContent = describeGameResult(res); $('gend').hidden = false; }

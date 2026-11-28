@@ -4,7 +4,7 @@
  *   - TEMPER_SHARE does not add to 100 or does not match TEMPERS,
  *   - a create choice with a valid `temper` is refused, an invalid one accepted, or makePlayer does not store it,
  *   - choosing a temperament changes any other field of the made player or his ratings (no effect on ability, no draw),
- *   - the engine imports league/temper.js (it does not read temperament yet).
+ *   - an engine file other than engine/sim/game.js imports league/temper.js (#379 part 3: only the grudge record reads it).
  * static.mjs runs this file. Usage: node tests/temper.check.mjs */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -63,9 +63,9 @@ for (const base of [BAT, PIT]) {
   if ('temper' in makePlayer(5, base).player) bad(`${base.kind}: temper stored although none was chosen`);
 }
 
-/* engine does not import it */
+/* only the game sim imports it (#379 part 3, the grudge record) */
 const walk = d => readdirSync(d).flatMap(f => { const p = path.join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
-for (const f of walk(path.join(ROOT, 'engine')).filter(f => f.endsWith('.js'))) if (/temper\.js/.test(readFileSync(f, 'utf8'))) bad(`${path.relative(ROOT, f)} imports league/temper.js`);
+for (const f of walk(path.join(ROOT, 'engine')).filter(f => f.endsWith('.js'))) if (path.relative(ROOT, f).split(path.sep).join('/') !== 'engine/sim/game.js' && /temper\.js/.test(readFileSync(f, 'utf8'))) bad(`${path.relative(ROOT, f)} imports league/temper.js`);
 
 if (problems.length) { console.error('temper.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log(`temper.check ok: ${all.length} factory players ${TEMPERS.map(t => `${t} ${count[t]}`).join(', ')}; chosen tempers stored, nothing else moves`);

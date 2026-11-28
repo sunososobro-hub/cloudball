@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as engine from '../engine/index.js';
 import { ROSTERS } from '../league/players.js';
-import { TEAM_COUNT, STARTERS, parseFriendly, friendlyParam, friendlyUrl, friendlyProblem, friendlyOpening, friendlyPin, friendlyShare, friendlyOpeningAt } from '../league/friendly.js';
+import { TEAM_COUNT, STARTERS, parseFriendly, friendlyParam, friendlyUrl, friendlyProblem, friendlyOpening, friendlyPin, friendlyCommitPin, friendlyShare, friendlyOpeningAt } from '../league/friendly.js';
 import { ENGINE_PIN } from '../league/engine_pin.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -28,6 +28,10 @@ const a = { away: 2, home: 0, sp: [4, 1], seed: 4000000000 };
 if (friendlyProblem(a)) fail(`good arrangement refused: ${friendlyProblem(a)}`);
 if (JSON.stringify(parseFriendly(friendlyParam(a))) !== JSON.stringify(a)) fail('parse(param(a)) != a');
 if (friendlyUrl(a) !== 'play.html?x=2-0-4-1-4000000000') fail(`url ${friendlyUrl(a)}`);
+if (friendlyUrl(a, engine.ENGINE_VERSION) !== `play.html?x=2-0-4-1-4000000000&v=${engine.ENGINE_VERSION}`) fail('pinned url');
+if (friendlyUrl(a, 'x;y') !== friendlyUrl(a)) fail('a bad version is put in the url');
+if (friendlyPin(null, '0.4.32') !== null || friendlyPin('0.4.32', '0.4.32') !== null) fail('matching or missing pin gives a note');
+if (!friendlyPin('0.4.31', '0.4.32') || !friendlyPin('<b>', '0.4.32')) fail('other or bad pin gives no note');
 for (const [what, b] of [['same team', { ...a, home: 2 }], ['team 4', { ...a, away: TEAM_COUNT }], ['starter outside the SP', { ...a, sp: [STARTERS, 0] }], ['seed over uint32', { ...a, seed: 2 ** 32 }], ['negative seed', { ...a, seed: -1 }], ['no sp', { ...a, sp: [1] }]])
   if (!friendlyProblem(b)) fail(`${what} is playable`);
 for (const s of ['', 'x', '1-2-3', '1-2-3-4-5-6', '1-1-0-0-1', '0-1-9-0-1', '0-1-0-0-99999999999', null, undefined, '../../x'])
@@ -54,6 +58,7 @@ if (/Math\.random|Date\b|fetch\(|XMLHttpRequest|ledger|farm_games|localStorage/.
 const idx = readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 if (!idx.includes('href="friendly.html"')) fail('index.html does not link friendly.html');
 const page = readFileSync(path.join(ROOT, 'friendly.html'), 'utf8');
+if (!page.includes('id="share"')) fail('friendly.html has no share button');
 if (!page.includes('友誼賽') || !page.includes('不是正式比賽')) fail('friendly.html does not say it is not official');
 const ui = readFileSync(path.join(ROOT, 'ui/friendly.js'), 'utf8');
 if (/fetch\(|XMLHttpRequest|localStorage|sendBeacon|method\s*:\s*['"]POST/i.test(ui)) fail('ui/friendly.js writes or calls the network');
@@ -64,9 +69,9 @@ const link = friendlyShare(a, ENGINE_PIN.commit);
 if (link !== `play.html?x=2-0-4-1-4000000000&e=${ENGINE_PIN.commit}`) fail(`share link ${link}`);
 if (friendlyShare(a, null) !== friendlyUrl(a)) fail('a link without a pin is not the part 1 link');
 const q = new URLSearchParams(link.split('?')[1]);
-if (q.get('x') !== friendlyParam(a) || friendlyPin(q.get('e')).commit !== ENGINE_PIN.commit) fail('share link does not carry arrangement + pin');
-for (const e of ['zz', 'ABCDEF1', 'abc12', 'a'.repeat(41), '../x', '1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916;x']) { if (friendlyPin(e).ok) fail(`bad pin "${e}" accepted`); let t = false; try { friendlyShare(a, e); } catch { t = true; } if (!t) fail(`share link built with bad pin "${e}"`); }
-if (!friendlyPin(null).ok || friendlyPin('').commit !== null) fail('no pin is not allowed');
+if (q.get('x') !== friendlyParam(a) || friendlyCommitPin(q.get('e')).commit !== ENGINE_PIN.commit) fail('share link does not carry arrangement + pin');
+for (const e of ['zz', 'ABCDEF1', 'abc12', 'a'.repeat(41), '../x', '1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916;x']) { if (friendlyCommitPin(e).ok) fail(`bad pin "${e}" accepted`); let t = false; try { friendlyShare(a, e); } catch { t = true; } if (!t) fail(`share link built with bad pin "${e}"`); }
+if (!friendlyCommitPin(null).ok || friendlyCommitPin('').commit !== null) fail('no pin is not allowed');
 {
   const asked = [], load = async c => { asked.push(c); return engine; };
   const x = friendlyParam(a), plain = friendlyOpening(x, engine);

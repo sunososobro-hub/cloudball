@@ -5,6 +5,7 @@ import { replayLink } from './games.js';
 import { AGENT_PAGE } from './me.js';
 import { seasonAt, health } from '../../league/season_site.js';
 import { farmGameOn, farmUrl } from '../../league/farm.js';
+import { trialUrl } from '../../league/trial_games.js';
 import { TEAMS } from '../../league/teams.js';
 
 const finished = g => g && Array.isArray(g.score) && g.score.length === 2;
@@ -59,10 +60,10 @@ export function trialPanel(d) {
   const nm = id => esc(teamName(d, id));
   const pair = g => `<li><span class="pr">${nm(g.away)} <span class="at">對</span> ${nm(g.home)}</span>${g.starters.length === 2 ? `<small>先發 ${esc(g.starters[0])}・${esc(g.starters[1])}</small>` : ''}</li>`;
   /* #743 part 2: last night's pairing links to its 二軍 record (play.html?f=<id>, same teams, same night); no record -> plain text.
-   * The 試跑 一軍 games are not recorded (rule 24: nothing official), so they have no replay of their own. */
+   * #743 part 4: every 一軍 試跑 game links to its replay (play.html?t=<night>-<slot>, league/site/trial_games.json; never the ledger, rule 24). */
   const ixOf = id => TEAMS.findIndex(t => t.id === id);
   const farmOf = g => { const r = s.lastSeason === 1 ? farmGameOn(d.farm, ixOf(g.away), s.day - 1) : null; return r && r.teams[0] === ixOf(g.away) && r.teams[1] === ixOf(g.home) ? r : null; };
-  const score = g => { const r = farmOf(g); return `<li><span class="pr">${nm(g.away)} <b class="num">${esc(g.score[0])} : ${esc(g.score[1])}</b> ${nm(g.home)}</span>${r ? `<a class="farm-replay" href="${esc(farmUrl(r.id))}">二軍重播</a>` : ''}</li>`; };
+  const score = (g, k) => { const r = farmOf(g); return `<li><span class="pr">${nm(g.away)} <b class="num">${esc(g.score[0])} : ${esc(g.score[1])}</b> ${nm(g.home)}</span><span class="rl"><a class="farm-replay trial-replay" href="${esc(trialUrl(s.day - 1, k))}">一軍重播</a>${r ? `<a class="farm-replay" href="${esc(farmUrl(r.id))}">二軍重播</a>` : ''}</span></li>`; };
   const dayLine = s.state === 'before' ? `賽季尚未開始・${esc(d.trial.start)} 開打` : s.state === 'over' ? `賽季結束${s.champion ? `・冠軍 ${nm(s.champion)}` : ''}`
     : `第 ${s.season} 季（試跑）・第 ${s.seasonDay + 1} 天，共 ${s.seasonTotal} 天${s.phase === 'final' ? '・冠軍賽' : ''}`;
   const parts = [`<p class="eyebrow">${dayLine}</p>`];

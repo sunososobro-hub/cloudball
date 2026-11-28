@@ -14,6 +14,7 @@
 - #563 part 3: `CAM` = broadcast angle low behind the plate (fov 42); `camShot(w, p)` (pure) eases to a wider, higher shot leaning toward the ball in play (`CAM_HIT`, `CAM_EASE_S`), reset on skip. Practice screens already use the same `openField`. Not seen on a real GPU.
 - #563 part 4: the fan's own player (`?player=<id>`): `me.js` `findMe` reads his `/api/freeagents` row (read-only), `field3d.js` `meSpecOf` / `meBuild` -> `setMe(spec, side)` dresses the batter (bat practice) or pitcher (pitch practice) with his body, height and look (headOfPlayer); the other body back to stock. Runners and the 三局比賽 screen still stock. Not seen on a real GPU.
 - #563 part 5: bunt act: `bunts(out)` / `buntAct(t)` in `field3d.js` play render/'s bunt clip (`render/bunt_clip.js`, same square-around timing as the broadcast) on the 3D batter for a bunt, a foul bunt or a bunted ball in play. Picture only. Not seen on a real GPU.
+- #563 part 6: the fan's look (`?player=<id>`) on the batter-runner after his hit (`field3d.js` keeps `meArgs`/`meSide`) and in the 三局比賽 screen (`gamescreen.js` calls `setMe` per pitch: bat side -> batter / batter-runner, pitch side -> pitcher; `me.js` `loadMe` = one lookup per page). Teammates on base stay stock. Picture only. Not seen on a real GPU.
 ## Next
 - Link the page from the player/agent pages once the owner says where (not linked yet; only `guide.html` links back).
 ## Traps

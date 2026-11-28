@@ -21,16 +21,18 @@ assert.deepEqual(size(a.players), size(start), 'roster size per team stays const
  * (ROUND_SLACK); the model must not lift anybody past max(what he started with, pot) + that slack */
 const ROUND_SLACK = 2;
 for (const [id, p] of Object.entries(a.players)) assert.ok(p.overall <= Math.max(id in start ? start[id].overall : 0, p.abilities.pot) + ROUND_SLACK, `${p.name} is over his potential`);
-const free = Object.values(a.players).filter(p => p.tier === 3), culled = a.rows.reduce((t, r) => t + r.culled, 0);
-assert.ok(culled > 0 && free.length > 0 && free.length <= culled && free.every(p => p.team === null), 'culled players reach the 自由市場 and stay in the data');
+const free = Object.values(a.players).filter(p => p.tier === 3), freeAtStart = Object.values(start).filter(p => p.tier === 3).length, culled = a.rows.reduce((t, r) => t + r.culled, 0);
+assert.ok(culled > 0 && free.length > 0 && free.length <= freeAtStart + culled && free.every(p => p.team === null), 'culled players reach the 自由市場 and stay in the data (the market only grows by the culled, #748 part 2: its day-1 size comes from the full 二軍)');
 assert.equal(a.rows.length, 4);
 
 /* steady state (#565 part 3): a long run keeps the 一軍 (nearly) full and inside the bands read from the sim (seeds 1-4, 30 seasons:
- * avgAge 27.6..29.7, medOvr 65.5..77, over30 0.33..0.57, career 8.9..9.4); the limits below are those bands with a margin */
+ * avgAge 27.6..29.7, medOvr 65.5..77, over30 0.33..0.57, career 8.9..9.4); the limits below are those bands with a margin.
+ * #748 part 2: the committed snapshot now has a full 二軍 of 系統 players (even budget, stronger than the old 3 per kind), so the 一軍 median from it is 76..83
+ * (seeds 1-4 and 565, 30 seasons, band from season 5): the upper limit moved 80 -> 85 on that data. */
 const long = simulate(start, { seasons: 30, seed: 565 }), seats = Math.max(...long.rows.map(r => r.starters));
 assert.ok(long.rows.filter(r => r.season >= 3).every(r => r.starters >= seats - 4), 'the 一軍 stays within 4 of full from season 3 on (sim: 69..72 of 72)');
 assert.ok(long.band.avgAge[0] >= 26 && long.band.avgAge[1] <= 31, `一軍 average age band ${long.band.avgAge}`);
-assert.ok(long.band.medOvr[0] >= 62 && long.band.medOvr[1] <= 80, `一軍 median overall band ${long.band.medOvr}`);
+assert.ok(long.band.medOvr[0] >= 62 && long.band.medOvr[1] <= 85, `一軍 median overall band ${long.band.medOvr}`);
 assert.ok(long.band.over30[0] >= 0.25 && long.band.over30[1] <= 0.65, `share aged 30+ band ${long.band.over30}`);
 assert.ok(long.career.mean >= 6 && long.career.mean <= 10, `mean 一軍 career ${long.career.mean} seasons`);
 assert.ok(long.rows.some(r => r.signed > 0), 'the 自由市場 is the way back into the 一軍');

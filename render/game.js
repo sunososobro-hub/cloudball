@@ -26,7 +26,10 @@ let gameStart=0,game=null,mode='live',replayT=0,speed=1,lastIdx=-1,seedCur=0,dec
 let myTeam=-1;try{const v=localStorage.getItem('zu_team');if(v!==null)myTeam=+v}catch(e){}
 let DB=null,UID=null,unsubDec=null,unsubVotes=null,voteDocs=[];let parkHook=null;/* #203: set once the park exists; reskins it for the home team of the game */
 const DEC_KEY=/^[PSI]\d+$/;
-function regen(){game=simGame(seedCur,decisions);if(parkHook)parkHook()}
+/* #775: the engine plays a triple play with moves=[] (nobody advances, rule 10); the picture still shows the three runners going for their bases, from the out records */
+const tpFix=g=>{for(const e of g.ev)if(e.play&&e.play.tp&&e.moves&&!e.moves.length)e.moves=e.outs.map(o=>[o.from,o.base,o.runner,runnerTimeline(o.from,o.base,{kind:'inplay',slide:o.base>=2})]);return g};
+const tpStand=(cx,cz,B3,catchT,touch3,u)=>{const k=sat01((u-catchT)/(touch3-catchT));return[lerp(cx,B3[0],k),lerp(cz,B3[1],k)]};/* #775: 3B walks from where he fielded it to third, there at touch3 */
+function regen(){game=tpFix(simGame(seedCur,decisions));if(parkHook)parkHook()}
 function loadGame(gs){gameStart=gs;seedCur=seedOf(gs);decisions={};myVotes={};regen();$('seedTag').textContent=`引擎 ${ENGINE_VERSION}・種子 #${seedCur.toString(16)}`;lastIdx=-1;subscribeGame()}
 function subscribeGame(){if(unsubDec)unsubDec();if(unsubVotes)unsubVotes();unsubDec=unsubVotes=null;voteDocs=[];
   if(!DB||mode==='practice'||mode==='opening')return;const key=String(gameStart);
@@ -1948,10 +1951,10 @@ function poseScene(e,u,dt,ei){
     /* #645: any other grounder drops off the bat, hops with gravity (dirt or grass at the land point) and rolls to the land point at T, then into the glove by catchT (render/gb_path.js) */
     const gbHop=!bunt&&GBP&&p.type==='GB',gbP=gbHop?GBP.gbPlan(hit0,land,T,!!(DUST&&DUST.onDirt(p.lx,p.lz))):null;
     const gbAt=t=>bunt&&BCL?BCL.buntRoll(hit0,land,T,t):gbHop?GBP.gbPath(hit0,land,T,t,false,gbP):arc(hit0,land,p.peak,t/T),rollPk=bunt&&BCL?0:.3;
-    const CV=PL.CV,tagPlay=PL.tagPlay,tagA=PL.actions.find(a=>a.a==='tag'&&a.f===CV.key),tg=tagA?{t:tagA.t,out:true}:tagPlay?{t:PL.arrive+TAG_LATE_SWEEP,out:false}:null,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer;
+    const CV=PL.CV,tagPlay=PL.tagPlay,tagA=PL.actions.find(a=>a.a==='tag'&&a.f===CV.key),tg=tagA?{t:tagA.t,out:true}:tagPlay?{t:PL.arrive+TAG_LATE_SWEEP,out:false}:null,solo=PL.solo,dp=PL.dp,PV=PL.PV,PVspot=PL.PVspot,pv=dp?fielders[PV]:null,PIVOT_XFER=PL.pxfer,tp=!!PL.tp,B3=PL.bag3,touch3=PL.touch3;/* #775: 5-4-3, 3B steps on third (touch3), then throws from the bag */
     const catchT=PL.catchT,D=PL.D,cx=PL.stand[0],cz=PL.stand[1];
     const DR0=IFD&&PL.drop?IFD.dropPlan(e):null,armT=DR0?DR0.at:catchT;/* #739: a dropped infield fly: he gets there when it comes down (dropAt), picks it up at catchT */
-    const tgt=[CV.spot[0],PL.wild?.15:1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
+    const tgt=[CV.spot[0],PL.wild?.15:1.4,CV.spot[1]],tgtF=dp?[PVspot[0],1.4,PVspot[1]]:tgt,TD=PL.TD,TH={v:PL.v,xfer:tp?PL.t0-PL.touch3:PL.xfer},TD2=PL.TD2,V2=PL.V2,TT2=PL.TT2;
     const BAG=[BASES[1][0],BASES[1][1]],DB=Math.hypot(BAG[0]-cx,BAG[1]-cz),soloAt=PL.soloAt;
     const crowd=!!CV.key&&CV.key!==p.fielder&&Math.hypot(f.pos[0]-CV.spot[0],f.pos[1]-CV.spot[1])<BAG_CROWD_R;
     const t0=solo?Infinity:PL.t0,TT=PL.TT,rt=PL.rt,a1=dp?PL.a1:t0+TT,t1=dp?PL.t1:a1,arrive=PL.arrive;
@@ -1969,20 +1972,21 @@ function poseScene(e,u,dt,ei){
         else face(c,p.lx-c.g.position.x,p.lz-c.g.position.z)}
       if(dp){const D3=Math.hypot(PVspot[0]-pv.pos[0],PVspot[1]-pv.pos[1]),kp=D3<.3?1:clamp(runDist(u2-FIELD_REACT,PIVOT_SPEED)/D3,0,1),D3b=Math.hypot(PVspot[0]-pv.ret[0],PVspot[1]-pv.ret[1]),bp2=D3b<.3?0:clamp(runDist(u2-(t1+1.5),6.5)/D3b,0,1);
         pv.g.position.set(lerp(lerp(pv.pos[0],PVspot[0],kp),pv.ret[0],bp2),0,lerp(lerp(pv.pos[1],PVspot[1],kp),pv.ret[1],bp2));
-        if(bp2===0&&u2>a1-.6){pv.noAnim=true;if(u2<a1){face(pv,cx-pv.g.position.x,cz-pv.g.position.z);gloveTo(pv,ease(sat01((u2-(a1-.45))/.3)),null)}
+        if(bp2===0&&u2>a1-.6){pv.noAnim=true;if(u2<a1){face(pv,(tp?B3[0]:cx)-pv.g.position.x,(tp?B3[1]:cz)-pv.g.position.z);gloveTo(pv,ease(sat01((u2-(a1-.45))/.3)),null)}
           else{face(pv,tgt[0]-pv.g.position.x,tgt[2]-pv.g.position.z);throwPose(pv,u2-a1,PIVOT_XFER,tgt)}}else if(kp<1)face(pv,PVspot[0]-pv.g.position.x,PVspot[1]-pv.g.position.z)}
-      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:[tx,tz],DR=Math.hypot(f.ret[0]-sx0,f.ret[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.ret[0],back),0,lerp(sz0,f.ret[1],back));/* Back to position: walk back from wherever he last stood; #42: a pitcher who fielded walks back to the rubber (f.ret), not to his stride spot, so the next frame does not jump ~1 m */
+      const [sx0,sz0]=solo&&u2>=rt?[BAG[0],BAG[1]]:tp&&u2>=catchT?tpStand(cx,cz,B3,catchT,touch3,u2):[tx,tz],DR=Math.hypot(f.ret[0]-sx0,f.ret[1]-sz0),back=DR<.5?0:clamp(runDist(u2-rtF,6.5)/DR,0,1);f.g.position.set(lerp(sx0,f.ret[0],back),0,lerp(sz0,f.ret[1],back));/* Back to position: walk back from wherever he last stood; #42: a pitcher who fielded walks back to the rubber (f.ret), not to his stride spot, so the next frame does not jump ~1 m */
       if(solo&&u2>catchT+.15&&back===0){const k2=DB<.3?1:clamp(runDist(u2-catchT-.15,6.5)/DB,0,1);f.g.position.set(lerp(tx,BAG[0],k2),0,lerp(tz,BAG[1],k2));if(k2<1){face(f,BAG[0]-cx,BAG[1]-cz);f.noAnim=false}}
       const fx=f.g.position.x,fz=f.g.position.z;
       if(back>0&&back<1)face(f,f.ret[0]-sx0,f.ret[1]-sz0);
-      else if(!nt&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
+      else if(tp&&u2>=catchT&&u2<touch3-.1)face(f,B3[0]-fx,B3[1]-fz);else if(!nt&&u2>=catchT&&u2<rt)face(f,tgtF[0]-fx,tgtF[2]-fz);/* Ball caught -> turn toward the throw target */
       else if(crowd&&u2<rtF)face(f,CV.spot[0]-fx,CV.spot[1]-fz);/* Waiting off the bag: watch the coverer */
       else{const fc=chaseM&&chaseM.foulChaseFace(e,u2,catchT,f.pos);if(fc)face(f,fc[0],fc[1]);else if(p.fielder==='P'&&back>=1)face(f,-f.ret[0],-f.ret[1]);/* #687: a pitcher back on the rubber stands as the next frame poses him (facing the plate), not away from where the ball landed */else face(f,-p.lx,-p.lz)}/* #620 part 3: corner fielders drift / run on a foul fly instead of backpedalling */
       /* Catch motion: glove reaches toward the ball in the last .35 s; after the catch both hands come to the chest for the transfer; then arm up and throw */
       if(!nt&&back===0&&u2>armT-.35&&(u2<rt||!crowd)){f.noAnim=true;const low=p.type==='GB'||hit;
         if(u2<catchT+.12){const bpos=ballAt(u2+.04);reachGlove(f,bpos||[fx,low?.25:1.6,fz])}
         else if(solo){if(u2>=soloAt-.05){f.noAnim=true;gloveTo(f,1,null)}}/* Glove raised holding the ball while touching the base */
-        else throwPose(f,u2-catchT,TH.xfer,tgtF)}}
+        else if(tp&&u2<touch3){f.noAnim=u2>=touch3-.15;gloveTo(f,1,null)}/* #775: runs to third with the ball in the glove */
+        else throwPose(f,tp?u2-touch3:u2-catchT,TH.xfer,tgtF)}}
     if(u2>0&&u2<T)bp=p.type==='GB'?gbAt(u2):flyPath(e,hit0,land,T)(u2);
     else if(DR0&&u2>=DR0.at&&u2<DR0.pick)bp=IFD.dropAt(DR0,u2);/* #739: off the glove, onto the grass, lying there until the pick-up */
     else if(u2>=T&&!hr&&p.groundRule&&GRDP)bp=GRDP.grdAt(GRDP.grdPlan(land),u2-T);/* #718: one bounce on the warning track and over the wall; the ball is dead, nobody picks it up */
@@ -1991,8 +1995,8 @@ function poseScene(e,u,dt,ei){
       else{const fx=f.g.position.x,fz=f.g.position.z,c=CV.key&&fielders[CV.key];
         if(u2<catchT)bp=hit?[rollEnd[0],rollEnd[1],rollEnd[2]]:gbHop?GBP.gbGlove(land,PL.stand,T,catchT,u2):[p.lx,bunt&&BCL?land[1]:.15,p.lz];
         else if(solo&&u2>=catchT){if(u2<rt+.3){const q=f.handWorld(0);bp=[q.x,q.y,q.z]}}
-        else if(u2>=catchT&&u2<t0){const q=f.handWorld(u2-catchT<TH.xfer*.45?0:1);bp=[q.x,q.y,q.z]}/* In the glove first, in the throwing hand after the transfer */
-        else if(u2>=t0&&u2<a1){const rel=throwRelease(e,f,[cx,cz],TH.xfer,tgtF);bp=arc(rel,tgtF,throwPeak(TT),(u2-t0)/TT)}
+        else if(u2>=catchT&&u2<t0){const q=f.handWorld((tp?u2-touch3:u2-catchT)<TH.xfer*.45?0:1);bp=[q.x,q.y,q.z]}/* In the glove first, in the throwing hand after the transfer */
+        else if(u2>=t0&&u2<a1){const rel=throwRelease(e,f,tp?B3:[cx,cz],TH.xfer,tgtF);bp=arc(rel,tgtF,throwPeak(TT),(u2-t0)/TT)}
         else if(dp&&u2<t1){const q=pv.handWorld(u2-a1<PIVOT_XFER*.45?0:1);bp=[q.x,q.y,q.z]}
         else if(dp&&u2<arrive){const rel=throwRelease({t:e.t+.5},pv,PVspot,PIVOT_XFER,tgt);bp=arc(rel,tgt,throwPeak(TT2),(u2-t1)/TT2)}
         else if(u2<arrive+3.2){if(c){const q=c.handWorld(tg||u2-arrive<.25?0:1);bp=[q.x,q.y,q.z]}else bp=tgt}}}
@@ -2088,7 +2092,7 @@ const VOICE=window.COMMENTARY.createVoice({onTalk:talk=>{talkDuck=talk?window.CO
 let sayOn=false,booth=null,boothFor=null,hello=null;
 function say(who,text,urgent){if(sayOn)VOICE.say(WHO[who]||who,text,{urgent:!!urgent})}
 /* #133: one fetch per script, shared by the booth, the compact clock and the highlights, and started behind the entry card (createBooth copies the lines, so sharing the parsed script is safe) */
-const scriptP=new Map(),loadScript=seed=>{if(window.FARM||window.LEDGER_GAME||window.FRIENDLY)return Promise.reject(new Error('replayed record: no commentary script (silent, feed only, #600 #592 #751)'));if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
+const scriptP=new Map(),loadScript=seed=>{if(window.FARM||window.LEDGER_GAME||window.FRIENDLY||window.TRIAL_GAME)return Promise.reject(new Error('replayed record: no commentary script (silent, feed only, #600 #592 #751 #743)'));if(!scriptP.has(seed))scriptP.set(seed,window.COMMENTARY.loadScript(seed).catch(err=>{scriptP.delete(seed);throw err}));return scriptP.get(seed)};
 if(window.FARM_NOTE)window.READY.then(()=>note(window.FARM_NOTE));
 if(window.OPENING)loadScript(window.OPENING.seed).catch(()=>{});/* fetched while the park compiles, not after the click */
 function makeBooth(script){const g=game;return window.COMMENTARY.createBooth({stream:g.stream,seed:g.seed,bank:window.COMMENTARY_BANK,script,teams:g.teams.map(i=>TEAMS[i]),describe:x=>g.ev[x.f].desc})}
@@ -2200,7 +2204,7 @@ const LIVE_ENABLED=false;
 function startPractice(){stopTalk();mode='practice';gameStart=Date.now();seedCur=(Math.random()*4294967296)>>>0;decisions={};myVotes={};resolving.clear();regen();lastIdx=-1;cues.clear();replayT=0;voteKey='';subscribeGame();
   $('seedTag').textContent=`開發版・種子 #${seedCur.toString(16)}`;$('spd').hidden=false;if(LIVE_ENABLED)$('mode').hidden=false;$('mode').textContent='回到直播'}
 /* The frozen first game (league/preseason/opening.json, loaded by play.html): the recorded stream is played from the top, nothing is simulated. */
-function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=O.game;lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();cpLoad(game);
+function startOpening(){const O=window.OPENING;stopTalk();mode='opening';gameStart=Date.now();seedCur=O.seed;decisions={};myVotes={};resolving.clear();game=tpFix(O.game);lastIdx=-1;cues.clear();replayT=0;speed=1;voteKey='';subscribeGame();plReset();cpLoad(game);
   $('seedTag').textContent=`季前熱身賽・重播・引擎 ${O.engine}・種子 #${seedCur}`;$('spd').hidden=false;$('spd').textContent='1×';$('mode').hidden=true}
 $('practice').onclick=()=>{startPractice();note('新的一場：兩隊都由你調度，暫停時速度會自動回到 1×')};
 $('spd').onclick=e=>{speed=speed===1?4:speed===4?16:1;e.currentTarget.textContent=speed+'×'};
@@ -2332,7 +2336,7 @@ $('hlAgain').onclick=()=>startHighlights();
 $('hlFull').onclick=()=>{hlStop();seekTo(0);plSetPaused(false)};
 function statusText(){const now=Date.now(),T=(now-gameStart)/1000,next=gameStart+CYCLE*1000;
   if(mode==='studio')return{cls:'',txt:'動作片場',sub:studio?`${studio.e.desc||''}・${studio.spd}×`:''};
-  if(mode==='opening')return{cls:'',txt:window.FRIENDLY?'友誼賽（非正式）':window.FARM?'二軍比賽（重播）':window.LEDGER_GAME?'正式比賽（重播）':'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
+  if(mode==='opening')return{cls:'',txt:window.FRIENDLY?'友誼賽（非正式）':window.TRIAL_GAME?'一軍試跑（重播）':window.FARM?'二軍比賽（重播）':window.LEDGER_GAME?'正式比賽（重播）':'季前熱身賽（重播）',sub:window.SITE&&window.SITE.dev?`${speed}× 速度`:''};
   if(mode==='practice')return{cls:'',txt:window.SITE&&window.SITE.dev?'開發模式':'季前熱身賽',sub:window.SITE&&window.SITE.dev?`${speed}× 速度・兩隊都由你調度`:''};
   if(mode==='replay')return{cls:'',txt:`重播中（${fmtT(gameStart)} 場）`,sub:`${speed}× 速度・不影響直播`};
   if(T<game.dur)return{cls:'live',txt:'直播中',sub:`${fmtT(gameStart)} 開打・下一場 ${fmtT(next)}`};
