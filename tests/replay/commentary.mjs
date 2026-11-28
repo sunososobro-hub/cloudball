@@ -96,7 +96,7 @@ const fanShare = lines ? fanLines / lines : 0;
 if (fanShare < FAN_SHARE.min || fanShare > FAN_SHARE.max) bad(`fan share ${(fanShare * 100).toFixed(1)}% is outside ${FAN_SHARE.min * 100}%..${FAN_SHARE.max * 100}% over ${GAMES} games`);
 console.log(`bank: ${fanMoments} fan moments, ${fanTexts} fan-moment lines`);
 console.log(`${GAMES} games: ${(lines / GAMES).toFixed(0)} lines/game, one line every ${(seconds / lines).toFixed(0)} s on average, fan share ${(fanShare * 100).toFixed(1)}%, ${Object.keys(index).length} registered script(s)`);
-for (const file of ['tension.check.mjs', 'banter.check.mjs', 'calls.check.mjs', 'audio.check.mjs', 'clips.check.mjs']) {
+for (const file of ['tension.check.mjs', 'banter.check.mjs', 'calls.check.mjs', 'audio.check.mjs', 'clips.check.mjs', 'repeat.check.mjs']) {
   const child = spawnSync(process.execPath, [path.join(DIR, file)], { encoding: 'utf8', env: { ...process.env, GAMES: String(GAMES) } });
   process.stdout.write(child.stdout || ''); process.stderr.write(child.stderr || '');
   if (child.status !== 0) bad(`commentary/${file} failed (exit ${child.status === null ? 'killed by ' + child.signal : child.status})`);

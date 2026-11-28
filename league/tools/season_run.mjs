@@ -1,12 +1,13 @@
 /* Plays one whole season-0 from a seed and prints it (#599 part 3). Hand-run, engine only, no network, writes nothing.
  *
  *   node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write]]
- *   node league/tools/season_run.mjs --site --start YYYY-MM-DD [--seed N] [--seasons K] [--commit sha] [--write]   (#743/#749: league/site/season.json, 試跑)
+ *   node league/tools/season_run.mjs --site --start YYYY-MM-DD [--seed N] [--seasons K] [--days N] [--commit sha] [--write]   (#743/#749: league/site/season.json, 試跑)
  *   node league/tools/season_run.mjs --reset --start YYYY-MM-DD [--seed N] [--seasons K] [--commit sha] [--write]   (#750: the owner's start)
  * --reset = the official start: season.json is played again from day 0 on `start` (no night before it, clean standings) and
  * farm_games.json loses every trial record (ids restart at f-1). players.json and the fan players (D1) are never touched.
  * --site chains seasons (#749): season k+1 starts the night after season k's final; between seasons the display league
- * (league/site/players.json) goes through advanceYear + seasonEnd. Default K = enough seasons to cover MIN_SITE_DAYS nights.
+ * (league/site/players.json) goes through advanceYear + seasonEnd. Default K = enough seasons to cover MIN_SITE_DAYS nights; --days N covers N nights instead (#743 part 3, the refill: same
+ * seed + start + commit rewrites the same nights and adds more; a new commit replays everything, so refill only before the start or on an unchanged engine).
  *
  * League: the 4 factory teams (league/players.js ROSTERS), no fan file and no 二軍: the league runs with zero fan players
  * (owner 2026-11-27). Season = league/season.js: the 12-game schedule, a starter per team and night by rest days (the lineup
@@ -119,7 +120,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const commit = a.includes('--commit') ? a[a.indexOf('--commit') + 1] : execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
     const seasons = a.includes('--seasons') ? Number(a[a.indexOf('--seasons') + 1]) : 0;
     if (!Number.isInteger(seasons) || seasons < 0) { console.error('--seasons must be a whole number >= 1'); process.exit(2); }
-    const runs = runSeasons(seed, { seasons, players: JSON.parse(readFileSync(PLAYERS_IN, 'utf8')) });
+    const days = a.includes('--days') ? Number(a[a.indexOf('--days') + 1]) : MIN_SITE_DAYS;
+    if (!Number.isInteger(days) || days < 1) { console.error('--days must be a whole number >= 1'); process.exit(2); }
+    const runs = runSeasons(seed, { seasons, minDays: days, players: JSON.parse(readFileSync(PLAYERS_IN, 'utf8')) });
     const text = siteSerialize(siteFile(runs, { start, commit, version: ENGINE_VERSION }));
     if (a.includes('--write')) { writeFileSync(SITE_OUT, text); console.log(`wrote ${SITE_OUT}`); } else process.stdout.write(text);
     process.exit(0);

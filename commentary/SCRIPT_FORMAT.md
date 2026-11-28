@@ -172,6 +172,9 @@ spot, deterministically for a given seed.
   2); his own lines get `rules.fanOwnShare` of his moments; after him routine calls wait
   `rules.fanGapSec` longer. He draws from his own random stream, so his picks never shift the
   other two's picks.
+- **Colour volume (#607).** `rules.colorChance` (or a trigger's own `colorChance`, default 1) is the chance the
+  colour voice answers a call; a gag exchange always keeps its response. Own random stream, so no other pick shifts.
+  `commentary/repeat.check.mjs` measures lines per game and repeats over 15 seeds.
 
 ## Name-free clip bank, `lines.json` version 2 (#603)
 
