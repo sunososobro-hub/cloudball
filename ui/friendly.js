@@ -6,6 +6,7 @@ import { ROSTERS } from '../league/players.js';
 import { STARTERS, friendlyShare, friendlyProblem } from '../league/friendly.js';
 import { myBatter, myPitcher, ownOf, ownOfPitcher } from './friendly_me.js';
 import { ENGINE_PIN } from '../league/engine_pin.js';
+import { gamesLeft, takeGame, PRACTICE_PER_DAY } from './practice_limit.js';
 
 const $ = id => document.getElementById(id);
 const st = { away: 0, home: 1, sp: [0, 0], seed: 0, own: -1 };
@@ -53,7 +54,9 @@ function draw() {
   }
   const a = arr(), why = friendlyProblem(a);
   $('need').textContent = why ? (st.away === st.home ? '客隊和主隊要不同隊。' : /^own/.test(why) ? '我的球員的資料放不進連結，先不放他。' : '種子要是 0 到 4294967295 的整數。') : '';
-  $('go').disabled = !!why;
+  const left = gamesLeft();
+  $('left').textContent = left > 0 ? `今天還能自己開 ${left} 場（每天 ${PRACTICE_PER_DAY} 場，只記在這個瀏覽器；朋友打開你的連結不算）。` : `今天自己開的 ${PRACTICE_PER_DAY} 場用完了，明天再來；打開朋友的連結不受限。`;
+  $('go').disabled = !!why || left <= 0;
   $('share').value = why ? '' : new URL(friendlyShare(a, ENGINE_PIN.commit), location.href).href;
   $('copy').disabled = !!why;
 }
@@ -67,7 +70,8 @@ $('dice').onclick = () => { st.seed = roll(); $('seed').value = String(st.seed);
 $('form').addEventListener('submit', e => {
   e.preventDefault();
   const a = arr();
-  if (!friendlyProblem(a)) location.href = friendlyShare(a, ENGINE_PIN.commit);
+  if (friendlyProblem(a) || !takeGame().ok) { draw(); return; }
+  location.href = friendlyShare(a, ENGINE_PIN.commit);
 });
 $('copy').onclick = async () => {
   const box = $('share');
