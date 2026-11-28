@@ -15,7 +15,7 @@
       "arm": 82,
       "pot": 76
     },
-    "team": "macaques",
+    "team": "pheasants",
     "tier": 1
   },
   "pheasants-b3": {
@@ -224,14 +224,14 @@
     "role": "B",
     "pos": "C",
     "hand": "R",
-    "overall": 54,
+    "overall": 61,
     "abilities": {
-      "con": 64,
-      "pow": 64,
-      "eye": 64,
-      "spd": 64,
-      "arm": 64,
-      "pot": 54
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -244,14 +244,14 @@
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 56,
+    "overall": 61,
     "abilities": {
-      "con": 66,
-      "pow": 66,
-      "eye": 66,
-      "spd": 66,
-      "arm": 66,
-      "pot": 56
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -284,14 +284,14 @@
     "role": "B",
     "pos": "3B",
     "hand": "R",
-    "overall": 55,
+    "overall": 61,
     "abilities": {
-      "con": 65,
-      "pow": 65,
-      "eye": 66,
-      "spd": 65,
-      "arm": 65,
-      "pot": 56
+      "con": 70,
+      "pow": 70,
+      "eye": 71,
+      "spd": 70,
+      "arm": 70,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -304,14 +304,14 @@
     "role": "B",
     "pos": "SS",
     "hand": "R",
-    "overall": 52,
+    "overall": 60,
     "abilities": {
-      "con": 62,
-      "pow": 62,
-      "eye": 62,
-      "spd": 62,
-      "arm": 62,
-      "pot": 52
+      "con": 70,
+      "pow": 70,
+      "eye": 70,
+      "spd": 70,
+      "arm": 70,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -384,14 +384,14 @@
     "role": "B",
     "pos": "DH",
     "hand": "R",
-    "overall": 54,
+    "overall": 61,
     "abilities": {
-      "con": 64,
-      "pow": 64,
-      "eye": 64,
-      "spd": 64,
-      "arm": 64,
-      "pot": 54
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -404,12 +404,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 56,
+    "overall": 60,
     "abilities": {
-      "stuff": 63,
-      "ctrl": 66,
-      "arm": 63,
-      "pot": 56
+      "stuff": 66,
+      "ctrl": 69,
+      "arm": 65,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -422,12 +422,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 56,
+    "overall": 61,
     "abilities": {
-      "stuff": 64,
-      "ctrl": 66,
-      "arm": 64,
-      "pot": 56
+      "stuff": 67,
+      "ctrl": 69,
+      "arm": 66,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -458,12 +458,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "stuff": 62,
-      "ctrl": 63,
-      "arm": 62,
-      "pot": 53
+      "stuff": 66,
+      "ctrl": 69,
+      "arm": 65,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -483,7 +483,7 @@
       "arm": 71,
       "pot": 77
     },
-    "team": "pheasants",
+    "team": "muntjacs",
     "tier": 1,
     "system": true
   },
@@ -494,12 +494,12 @@
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 54,
+    "overall": 61,
     "abilities": {
-      "stuff": 64,
-      "ctrl": 64,
-      "arm": 64,
-      "pot": 55
+      "stuff": 68,
+      "ctrl": 69,
+      "arm": 68,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -512,12 +512,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 63,
+    "overall": 65,
     "abilities": {
-      "stuff": 72,
-      "ctrl": 68,
-      "arm": 64,
-      "pot": 63
+      "stuff": 73,
+      "ctrl": 70,
+      "arm": 65,
+      "pot": 65
     },
     "team": null,
     "tier": 3,
@@ -530,12 +530,12 @@
     "role": "P",
     "pos": "CL",
     "hand": "R",
-    "overall": 54,
+    "overall": 60,
     "abilities": {
-      "stuff": 64,
-      "ctrl": 63,
+      "stuff": 70,
+      "ctrl": 65,
       "arm": 62,
-      "pot": 54
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -548,12 +548,12 @@
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 57,
+    "overall": 62,
     "abilities": {
-      "stuff": 65,
-      "ctrl": 66,
-      "arm": 65,
-      "pot": 57
+      "stuff": 70,
+      "ctrl": 69,
+      "arm": 69,
+      "pot": 62
     },
     "team": null,
     "tier": 3,
@@ -787,7 +787,7 @@
       "eye": 78,
       "spd": 78,
       "arm": 78,
-      "pot": 76
+      "pot": 75
     },
     "team": "muntjacs",
     "tier": 1,
@@ -800,14 +800,14 @@
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 61,
+    "overall": 63,
     "abilities": {
-      "con": 71,
-      "pow": 71,
-      "eye": 71,
-      "spd": 71,
-      "arm": 71,
-      "pot": 61
+      "con": 72,
+      "pow": 72,
+      "eye": 72,
+      "spd": 72,
+      "arm": 72,
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -840,14 +840,14 @@
     "role": "B",
     "pos": "3B",
     "hand": "R",
-    "overall": 57,
+    "overall": 61,
     "abilities": {
-      "con": 67,
-      "pow": 67,
-      "eye": 67,
-      "spd": 67,
-      "arm": 67,
-      "pot": 57
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -867,10 +867,10 @@
       "eye": 74,
       "spd": 74,
       "arm": 74,
-      "pot": 67
+      "pot": 68
     },
-    "team": "muntjacs",
-    "tier": 1,
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "fa-kz2fgt": {
@@ -880,16 +880,16 @@
     "role": "B",
     "pos": "LF",
     "hand": "R",
-    "overall": 65,
+    "overall": 67,
     "abilities": {
-      "con": 73,
-      "pow": 73,
-      "eye": 73,
-      "spd": 73,
-      "arm": 73,
-      "pot": 66
+      "con": 74,
+      "pow": 74,
+      "eye": 74,
+      "spd": 74,
+      "arm": 74,
+      "pot": 68
     },
-    "team": "pheasants",
+    "team": "muntjacs",
     "tier": 1,
     "system": true
   },
@@ -900,14 +900,14 @@
     "role": "B",
     "pos": "CF",
     "hand": "R",
-    "overall": 60,
+    "overall": 63,
     "abilities": {
-      "con": 70,
-      "pow": 70,
-      "eye": 70,
-      "spd": 70,
-      "arm": 70,
-      "pot": 60
+      "con": 72,
+      "pow": 72,
+      "eye": 72,
+      "spd": 72,
+      "arm": 72,
+      "pot": 63
     },
     "team": null,
     "tier": 3,
@@ -920,17 +920,17 @@
     "role": "B",
     "pos": "RF",
     "hand": "R",
-    "overall": 59,
+    "overall": 62,
     "abilities": {
-      "con": 68,
-      "pow": 68,
-      "eye": 69,
-      "spd": 68,
-      "arm": 68,
-      "pot": 59
+      "con": 72,
+      "pow": 72,
+      "eye": 72,
+      "spd": 71,
+      "arm": 71,
+      "pot": 63
     },
-    "team": null,
-    "tier": 3,
+    "team": "macaques",
+    "tier": 1,
     "system": true
   },
   "fa-iizumo": {
@@ -940,16 +940,16 @@
     "role": "B",
     "pos": "DH",
     "hand": "R",
-    "overall": 59,
+    "overall": 63,
     "abilities": {
-      "con": 69,
-      "pow": 69,
-      "eye": 69,
-      "spd": 69,
-      "arm": 69,
-      "pot": 59
+      "con": 72,
+      "pow": 72,
+      "eye": 72,
+      "spd": 72,
+      "arm": 72,
+      "pot": 63
     },
-    "team": "owls",
+    "team": "macaques",
     "tier": 1,
     "system": true
   },
@@ -978,12 +978,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 56,
+    "overall": 61,
     "abilities": {
-      "stuff": 64,
-      "ctrl": 66,
-      "arm": 64,
-      "pot": 56
+      "stuff": 67,
+      "ctrl": 69,
+      "arm": 66,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -996,12 +996,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 60,
+    "overall": 63,
     "abilities": {
-      "stuff": 66,
-      "ctrl": 69,
-      "arm": 65,
-      "pot": 61
+      "stuff": 68,
+      "ctrl": 71,
+      "arm": 67,
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -1014,12 +1014,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 57,
+    "overall": 62,
     "abilities": {
-      "stuff": 65,
-      "ctrl": 66,
-      "arm": 64,
-      "pot": 57
+      "stuff": 67,
+      "ctrl": 70,
+      "arm": 66,
+      "pot": 62
     },
     "team": null,
     "tier": 3,
@@ -1039,7 +1039,7 @@
       "arm": 72,
       "pot": 82
     },
-    "team": "owls",
+    "team": "pheasants",
     "tier": 1,
     "system": true
   },
@@ -1050,12 +1050,12 @@
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 61,
+    "overall": 64,
     "abilities": {
-      "stuff": 69,
-      "ctrl": 69,
-      "arm": 69,
-      "pot": 61
+      "stuff": 71,
+      "ctrl": 70,
+      "arm": 70,
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -1086,12 +1086,12 @@
     "role": "P",
     "pos": "CL",
     "hand": "R",
-    "overall": 63,
+    "overall": 65,
     "abilities": {
-      "stuff": 73,
+      "stuff": 74,
       "ctrl": 67,
       "arm": 63,
-      "pot": 64
+      "pot": 65
     },
     "team": null,
     "tier": 3,
@@ -1340,14 +1340,14 @@
     "role": "B",
     "pos": "C",
     "hand": "R",
-    "overall": 61,
+    "overall": 63,
     "abilities": {
-      "con": 71,
-      "pow": 71,
-      "eye": 71,
-      "spd": 71,
-      "arm": 71,
-      "pot": 61
+      "con": 72,
+      "pow": 72,
+      "eye": 72,
+      "spd": 72,
+      "arm": 72,
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -1387,7 +1387,7 @@
       "eye": 80,
       "spd": 80,
       "arm": 80,
-      "pot": 81
+      "pot": 80
     },
     "team": "owls",
     "tier": 1,
@@ -1409,8 +1409,8 @@
       "arm": 76,
       "pot": 72
     },
-    "team": "muntjacs",
-    "tier": 1,
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "fa-1c0uiin": {
@@ -1420,14 +1420,14 @@
     "role": "B",
     "pos": "SS",
     "hand": "R",
-    "overall": 52,
+    "overall": 60,
     "abilities": {
-      "con": 62,
-      "pow": 62,
-      "eye": 63,
-      "spd": 62,
-      "arm": 62,
-      "pot": 53
+      "con": 69,
+      "pow": 69,
+      "eye": 70,
+      "spd": 69,
+      "arm": 69,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -1440,17 +1440,17 @@
     "role": "B",
     "pos": "LF",
     "hand": "R",
-    "overall": 61,
+    "overall": 65,
     "abilities": {
-      "con": 71,
-      "pow": 71,
-      "eye": 71,
-      "spd": 71,
-      "arm": 71,
-      "pot": 62
+      "con": 73,
+      "pow": 73,
+      "eye": 73,
+      "spd": 73,
+      "arm": 73,
+      "pot": 65
     },
-    "team": "muntjacs",
-    "tier": 1,
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "fa-v9710d": {
@@ -1467,7 +1467,7 @@
       "eye": 75,
       "spd": 75,
       "arm": 75,
-      "pot": 69
+      "pot": 70
     },
     "team": "macaques",
     "tier": 1,
@@ -1480,14 +1480,14 @@
     "role": "B",
     "pos": "RF",
     "hand": "R",
-    "overall": 59,
+    "overall": 61,
     "abilities": {
-      "con": 68,
-      "pow": 68,
-      "eye": 69,
-      "spd": 68,
-      "arm": 68,
-      "pot": 59
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 62
     },
     "team": null,
     "tier": 3,
@@ -1500,17 +1500,17 @@
     "role": "B",
     "pos": "DH",
     "hand": "R",
-    "overall": 59,
+    "overall": 63,
     "abilities": {
-      "con": 69,
-      "pow": 69,
-      "eye": 69,
-      "spd": 69,
-      "arm": 69,
-      "pot": 59
+      "con": 72,
+      "pow": 72,
+      "eye": 72,
+      "spd": 72,
+      "arm": 72,
+      "pot": 63
     },
-    "team": "pheasants",
-    "tier": 1,
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "fa-19krxoi": {
@@ -1520,12 +1520,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 61,
+    "overall": 63,
     "abilities": {
-      "stuff": 67,
-      "ctrl": 69,
-      "arm": 66,
-      "pot": 61
+      "stuff": 68,
+      "ctrl": 71,
+      "arm": 67,
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -1538,12 +1538,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 57,
+    "overall": 62,
     "abilities": {
-      "stuff": 65,
-      "ctrl": 66,
-      "arm": 64,
-      "pot": 57
+      "stuff": 67,
+      "ctrl": 70,
+      "arm": 66,
+      "pot": 62
     },
     "team": null,
     "tier": 3,
@@ -1556,12 +1556,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 52,
+    "overall": 60,
     "abilities": {
-      "stuff": 62,
-      "ctrl": 62,
-      "arm": 62,
-      "pot": 52
+      "stuff": 66,
+      "ctrl": 69,
+      "arm": 65,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -1574,12 +1574,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 60,
+    "overall": 63,
     "abilities": {
-      "stuff": 66,
-      "ctrl": 69,
-      "arm": 65,
-      "pot": 61
+      "stuff": 68,
+      "ctrl": 71,
+      "arm": 67,
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -1592,12 +1592,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 61,
+    "overall": 63,
     "abilities": {
-      "stuff": 67,
-      "ctrl": 69,
-      "arm": 66,
-      "pot": 61
+      "stuff": 68,
+      "ctrl": 71,
+      "arm": 67,
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -1610,12 +1610,12 @@
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 55,
+    "overall": 61,
     "abilities": {
-      "stuff": 65,
-      "ctrl": 64,
-      "arm": 64,
-      "pot": 55
+      "stuff": 69,
+      "ctrl": 69,
+      "arm": 69,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -1628,12 +1628,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 58,
+    "overall": 61,
     "abilities": {
-      "stuff": 68,
-      "ctrl": 66,
-      "arm": 62,
-      "pot": 58
+      "stuff": 71,
+      "ctrl": 68,
+      "arm": 63,
+      "pot": 62
     },
     "team": null,
     "tier": 3,
@@ -1646,12 +1646,12 @@
     "role": "P",
     "pos": "CL",
     "hand": "R",
-    "overall": 61,
+    "overall": 63,
     "abilities": {
-      "stuff": 71,
-      "ctrl": 66,
+      "stuff": 73,
+      "ctrl": 67,
       "arm": 63,
-      "pot": 61
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -1860,14 +1860,14 @@
     "role": "B",
     "pos": "C",
     "hand": "R",
-    "overall": 65,
+    "overall": 67,
     "abilities": {
-      "con": 73,
-      "pow": 73,
-      "eye": 73,
-      "spd": 73,
-      "arm": 73,
-      "pot": 65
+      "con": 74,
+      "pow": 74,
+      "eye": 74,
+      "spd": 74,
+      "arm": 74,
+      "pot": 67
     },
     "team": null,
     "tier": 3,
@@ -1900,14 +1900,14 @@
     "role": "B",
     "pos": "2B",
     "hand": "R",
-    "overall": 61,
+    "overall": 63,
     "abilities": {
-      "con": 71,
-      "pow": 71,
-      "eye": 71,
-      "spd": 71,
-      "arm": 71,
-      "pot": 62
+      "con": 72,
+      "pow": 72,
+      "eye": 72,
+      "spd": 72,
+      "arm": 72,
+      "pot": 64
     },
     "team": null,
     "tier": 3,
@@ -1920,17 +1920,17 @@
     "role": "B",
     "pos": "3B",
     "hand": "R",
-    "overall": 75,
+    "overall": 74,
     "abilities": {
       "con": 78,
       "pow": 78,
       "eye": 78,
-      "spd": 78,
-      "arm": 78,
-      "pot": 76
+      "spd": 77,
+      "arm": 77,
+      "pot": 75
     },
-    "team": null,
-    "tier": 3,
+    "team": "macaques",
+    "tier": 1,
     "system": true
   },
   "fa-1c1twwu": {
@@ -1940,14 +1940,14 @@
     "role": "B",
     "pos": "SS",
     "hand": "R",
-    "overall": 54,
+    "overall": 60,
     "abilities": {
-      "con": 64,
-      "pow": 64,
-      "eye": 64,
-      "spd": 64,
-      "arm": 64,
-      "pot": 54
+      "con": 70,
+      "pow": 70,
+      "eye": 70,
+      "spd": 70,
+      "arm": 70,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -1960,14 +1960,14 @@
     "role": "B",
     "pos": "LF",
     "hand": "R",
-    "overall": 60,
+    "overall": 63,
     "abilities": {
-      "con": 70,
-      "pow": 70,
-      "eye": 70,
-      "spd": 70,
-      "arm": 70,
-      "pot": 60
+      "con": 72,
+      "pow": 72,
+      "eye": 72,
+      "spd": 72,
+      "arm": 72,
+      "pot": 63
     },
     "team": null,
     "tier": 3,
@@ -1987,7 +1987,7 @@
       "eye": 75,
       "spd": 75,
       "arm": 75,
-      "pot": 69
+      "pot": 70
     },
     "team": null,
     "tier": 3,
@@ -2000,14 +2000,14 @@
     "role": "B",
     "pos": "RF",
     "hand": "R",
-    "overall": 83,
+    "overall": 82,
     "abilities": {
-      "con": 82,
-      "pow": 82,
-      "eye": 82,
+      "con": 81,
+      "pow": 81,
+      "eye": 81,
       "spd": 81,
       "arm": 81,
-      "pot": 84
+      "pot": 83
     },
     "team": "owls",
     "tier": 1,
@@ -2020,17 +2020,17 @@
     "role": "B",
     "pos": "DH",
     "hand": "R",
-    "overall": 54,
+    "overall": 60,
     "abilities": {
-      "con": 64,
-      "pow": 64,
-      "eye": 64,
-      "spd": 64,
-      "arm": 64,
-      "pot": 54
+      "con": 70,
+      "pow": 70,
+      "eye": 70,
+      "spd": 70,
+      "arm": 70,
+      "pot": 60
     },
-    "team": "macaques",
-    "tier": 1,
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "fa-1qdetkz": {
@@ -2058,12 +2058,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 62,
+    "overall": 65,
     "abilities": {
-      "stuff": 67,
-      "ctrl": 70,
-      "arm": 66,
-      "pot": 62
+      "stuff": 68,
+      "ctrl": 72,
+      "arm": 67,
+      "pot": 65
     },
     "team": null,
     "tier": 3,
@@ -2076,12 +2076,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "stuff": 62,
-      "ctrl": 63,
-      "arm": 62,
-      "pot": 53
+      "stuff": 66,
+      "ctrl": 69,
+      "arm": 65,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -2094,12 +2094,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 52,
+    "overall": 60,
     "abilities": {
-      "stuff": 62,
-      "ctrl": 63,
-      "arm": 61,
-      "pot": 53
+      "stuff": 65,
+      "ctrl": 69,
+      "arm": 64,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -2130,12 +2130,12 @@
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 66,
+    "overall": 67,
     "abilities": {
       "stuff": 72,
-      "ctrl": 71,
-      "arm": 71,
-      "pot": 66
+      "ctrl": 72,
+      "arm": 72,
+      "pot": 67
     },
     "team": null,
     "tier": 3,
@@ -2148,12 +2148,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 55,
+    "overall": 61,
     "abilities": {
-      "stuff": 65,
-      "ctrl": 63,
-      "arm": 62,
-      "pot": 55
+      "stuff": 70,
+      "ctrl": 68,
+      "arm": 64,
+      "pot": 61
     },
     "team": null,
     "tier": 3,
@@ -2166,12 +2166,12 @@
     "role": "P",
     "pos": "CL",
     "hand": "R",
-    "overall": 63,
+    "overall": 64,
     "abilities": {
-      "stuff": 73,
+      "stuff": 74,
       "ctrl": 67,
       "arm": 62,
-      "pot": 63
+      "pot": 65
     },
     "team": null,
     "tier": 3,
@@ -2184,12 +2184,12 @@
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 80,
+    "overall": 79,
     "abilities": {
-      "stuff": 80,
+      "stuff": 78,
       "ctrl": 78,
       "arm": 78,
-      "pot": 80
+      "pot": 79
     },
     "team": null,
     "tier": 3,
@@ -2209,10 +2209,9 @@
       "arm": 73,
       "pot": 77
     },
-    "team": "macaques",
-    "tier": 2,
-    "system": true,
-    "waited": 1260
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
   },
   "fa-ykvrnt": {
     "name": "陳冠瑋",
@@ -2221,12 +2220,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 56,
+    "overall": 60,
     "abilities": {
-      "stuff": 66,
-      "ctrl": 66,
-      "arm": 51,
-      "pot": 56
+      "stuff": 70,
+      "ctrl": 68,
+      "arm": 52,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -2239,12 +2238,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 55,
+    "overall": 61,
     "abilities": {
-      "stuff": 63,
-      "ctrl": 65,
-      "arm": 63,
-      "pot": 55
+      "stuff": 68,
+      "ctrl": 69,
+      "arm": 65,
+      "pot": 61
     },
     "team": "muntjacs",
     "tier": 2,
@@ -2258,12 +2257,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 55,
+    "overall": 60,
     "abilities": {
-      "stuff": 60,
-      "ctrl": 66,
-      "arm": 57,
-      "pot": 55
+      "stuff": 66,
+      "ctrl": 69,
+      "arm": 58,
+      "pot": 60
     },
     "team": "owls",
     "tier": 2,
@@ -2277,12 +2276,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 58,
+    "overall": 62,
     "abilities": {
-      "stuff": 66,
-      "ctrl": 67,
-      "arm": 59,
-      "pot": 58
+      "stuff": 69,
+      "ctrl": 70,
+      "arm": 60,
+      "pot": 62
     },
     "team": "owls",
     "tier": 2,
@@ -2296,12 +2295,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 64,
+    "overall": 65,
     "abilities": {
-      "stuff": 73,
-      "ctrl": 69,
+      "stuff": 74,
+      "ctrl": 70,
       "arm": 59,
-      "pot": 64
+      "pot": 66
     },
     "team": "owls",
     "tier": 2,
@@ -2315,12 +2314,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 67,
+    "overall": 68,
     "abilities": {
-      "stuff": 74,
+      "stuff": 75,
       "ctrl": 71,
       "arm": 69,
-      "pot": 67
+      "pot": 68
     },
     "team": "pheasants",
     "tier": 2,
@@ -2334,14 +2333,14 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 78,
+    "overall": 77,
     "abilities": {
-      "stuff": 82,
+      "stuff": 81,
       "ctrl": 75,
       "arm": 66,
-      "pot": 78
+      "pot": 77
     },
-    "team": "owls",
+    "team": "muntjacs",
     "tier": 1,
     "system": true
   },
@@ -2352,12 +2351,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 55,
+    "overall": 60,
     "abilities": {
-      "stuff": 60,
-      "ctrl": 66,
-      "arm": 57,
-      "pot": 55
+      "stuff": 66,
+      "ctrl": 69,
+      "arm": 58,
+      "pot": 60
     },
     "team": null,
     "tier": 3,
@@ -2406,14 +2405,14 @@
     "role": "B",
     "pos": "2B",
     "hand": "R",
-    "overall": 60,
+    "overall": 63,
     "abilities": {
-      "con": 72,
-      "pow": 70,
-      "eye": 63,
-      "spd": 66,
-      "arm": 64,
-      "pot": 60
+      "con": 75,
+      "pow": 73,
+      "eye": 66,
+      "spd": 69,
+      "arm": 67,
+      "pot": 63
     },
     "team": null,
     "tier": 3,
@@ -2439,21 +2438,41 @@
     "tier": 1,
     "system": true
   },
+  "fa-kgiok3": {
+    "name": "王冠霖",
+    "num": 20,
+    "age": 28,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 73,
+    "abilities": {
+      "con": 75,
+      "pow": 81,
+      "eye": 73,
+      "spd": 71,
+      "arm": 70,
+      "pot": 73
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
   "fa-3pulg0": {
     "name": "林浩宇",
     "num": 23,
     "age": 24,
     "role": "B",
-    "pos": "DH",
+    "pos": "RF",
     "hand": "R",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "con": 64,
-      "pow": 58,
-      "eye": 60,
-      "spd": 65,
-      "arm": 63,
-      "pot": 53
+      "con": 71,
+      "pow": 65,
+      "eye": 67,
+      "spd": 72,
+      "arm": 70,
+      "pot": 60
     },
     "team": "muntjacs",
     "tier": 2,
@@ -2464,19 +2483,19 @@
     "num": 41,
     "age": 24,
     "role": "B",
-    "pos": "RF",
+    "pos": "SS",
     "hand": "L",
-    "overall": 79,
+    "overall": 77,
     "abilities": {
-      "con": 81,
-      "pow": 78,
-      "eye": 79,
-      "spd": 84,
-      "arm": 78,
-      "pot": 79
+      "con": 80,
+      "pow": 77,
+      "eye": 78,
+      "spd": 83,
+      "arm": 77,
+      "pot": 78
     },
-    "team": "muntjacs",
-    "tier": 2,
+    "team": "macaques",
+    "tier": 1,
     "system": true
   },
   "fa-3mwe9f": {
@@ -2486,12 +2505,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "L",
-    "overall": 65,
+    "overall": 67,
     "abilities": {
-      "stuff": 75,
-      "ctrl": 66,
+      "stuff": 76,
+      "ctrl": 67,
       "arm": 60,
-      "pot": 65
+      "pot": 67
     },
     "team": "owls",
     "tier": 2,
@@ -2505,14 +2524,14 @@
     "role": "P",
     "pos": "RP",
     "hand": "L",
-    "overall": 81,
+    "overall": 80,
     "abilities": {
-      "stuff": 80,
-      "ctrl": 80,
+      "stuff": 81,
+      "ctrl": 79,
       "arm": 62,
-      "pot": 81
+      "pot": 80
     },
-    "team": "muntjacs",
+    "team": "macaques",
     "tier": 1,
     "system": true
   },
@@ -2523,14 +2542,14 @@
     "role": "B",
     "pos": "3B",
     "hand": "R",
-    "overall": 54,
+    "overall": 60,
     "abilities": {
-      "con": 61,
-      "pow": 62,
-      "eye": 66,
-      "spd": 64,
-      "arm": 57,
-      "pot": 54
+      "con": 67,
+      "pow": 68,
+      "eye": 72,
+      "spd": 70,
+      "arm": 63,
+      "pot": 60
     },
     "team": "macaques",
     "tier": 2,
@@ -2550,9 +2569,9 @@
       "eye": 80,
       "spd": 82,
       "arm": 72,
-      "pot": 83
+      "pot": 82
     },
-    "team": "macaques",
+    "team": "pheasants",
     "tier": 1,
     "system": true
   },
@@ -2570,7 +2589,7 @@
       "arm": 76,
       "pot": 78
     },
-    "team": "muntjacs",
+    "team": "macaques",
     "tier": 1,
     "system": true
   },
@@ -2591,7 +2610,7 @@
       "pot": 73
     },
     "team": "macaques",
-    "tier": 1,
+    "tier": 2,
     "system": true
   },
   "fa-1t36vh2": {
@@ -2610,8 +2629,8 @@
       "arm": 74,
       "pot": 76
     },
-    "team": null,
-    "tier": 3,
+    "team": "macaques",
+    "tier": 1,
     "system": true
   },
   "fa-11ygl8n": {
@@ -2628,7 +2647,7 @@
       "eye": 77,
       "spd": 79,
       "arm": 77,
-      "pot": 83
+      "pot": 82
     },
     "team": "pheasants",
     "tier": 1,
@@ -2641,14 +2660,14 @@
     "role": "B",
     "pos": "CF",
     "hand": "R",
-    "overall": 57,
+    "overall": 62,
     "abilities": {
-      "con": 60,
-      "pow": 71,
-      "eye": 61,
-      "spd": 56,
-      "arm": 62,
-      "pot": 57
+      "con": 65,
+      "pow": 76,
+      "eye": 66,
+      "spd": 61,
+      "arm": 67,
+      "pot": 62
     },
     "team": "muntjacs",
     "tier": 2,
@@ -2659,7 +2678,7 @@
     "num": 4,
     "age": 25,
     "role": "B",
-    "pos": "RF",
+    "pos": "DH",
     "hand": "R",
     "overall": 83,
     "abilities": {
@@ -2677,28 +2696,29 @@
   "fa-er90k1": {
     "name": "吳柏豪",
     "num": 42,
-    "age": 25,
-    "role": "P",
-    "pos": "SP",
+    "age": 26,
+    "role": "B",
+    "pos": "LF",
     "hand": "R",
     "overall": 72,
     "abilities": {
-      "stuff": 70,
-      "ctrl": 77,
-      "arm": 63,
+      "con": 71,
+      "pow": 80,
+      "eye": 77,
+      "spd": 80,
+      "arm": 62,
       "pot": 73
     },
-    "team": "muntjacs",
-    "tier": 2,
-    "system": true,
-    "waited": 900
+    "team": "macaques",
+    "tier": 1,
+    "system": true
   },
   "fa-15vzasg": {
     "name": "謝宇翔",
     "num": 27,
     "age": 25,
     "role": "B",
-    "pos": "SS",
+    "pos": "RF",
     "hand": "R",
     "overall": 75,
     "abilities": {
@@ -2709,8 +2729,8 @@
       "arm": 69,
       "pot": 76
     },
-    "team": "owls",
-    "tier": 1,
+    "team": "muntjacs",
+    "tier": 2,
     "system": true
   },
   "fa-1t27h2v": {
@@ -2720,15 +2740,35 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "stuff": 62,
-      "ctrl": 64,
-      "arm": 60,
-      "pot": 54
+      "stuff": 65,
+      "ctrl": 69,
+      "arm": 62,
+      "pot": 60
     },
     "team": "muntjacs",
     "tier": 2,
+    "system": true
+  },
+  "fa-l5tpc6": {
+    "name": "陳柏諺",
+    "num": 54,
+    "age": 23,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 68,
+    "abilities": {
+      "con": 78,
+      "pow": 70,
+      "eye": 72,
+      "spd": 74,
+      "arm": 71,
+      "pot": 69
+    },
+    "team": "owls",
+    "tier": 1,
     "system": true
   },
   "fa-vlup8w": {
@@ -2745,27 +2785,47 @@
       "arm": 77,
       "pot": 75
     },
-    "team": "macaques",
-    "tier": 1,
-    "system": true
+    "team": "owls",
+    "tier": 2,
+    "system": true,
+    "waited": 900
   },
   "fa-4h4f0h": {
     "name": "詹柏翰",
     "num": 67,
     "age": 27,
     "role": "P",
-    "pos": "RP",
+    "pos": "SP",
     "hand": "R",
-    "overall": 85,
+    "overall": 84,
     "abilities": {
-      "stuff": 89,
-      "ctrl": 69,
-      "arm": 71,
-      "pot": 85
+      "stuff": 84,
+      "ctrl": 80,
+      "arm": 79,
+      "pot": 84
     },
-    "team": "macaques",
+    "team": "owls",
     "tier": 1,
     "system": true
+  },
+  "fa-1cdi6r6": {
+    "name": "蔡承翰",
+    "num": 25,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "L",
+    "overall": 61,
+    "abilities": {
+      "stuff": 69,
+      "ctrl": 69,
+      "arm": 67,
+      "pot": 61
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true,
+    "waited": 900
   },
   "fa-vkvaup": {
     "name": "洪信宏",
@@ -2774,16 +2834,17 @@
     "role": "P",
     "pos": "SP",
     "hand": "L",
-    "overall": 64,
+    "overall": 66,
     "abilities": {
       "stuff": 69,
-      "ctrl": 67,
-      "arm": 72,
-      "pot": 64
+      "ctrl": 69,
+      "arm": 73,
+      "pot": 66
     },
     "team": "pheasants",
     "tier": 2,
-    "system": true
+    "system": true,
+    "waited": 900
   },
   "fa-1mpll34": {
     "name": "李子豪",
@@ -2792,16 +2853,17 @@
     "role": "P",
     "pos": "RP",
     "hand": "L",
-    "overall": 54,
+    "overall": 60,
     "abilities": {
-      "stuff": 64,
-      "ctrl": 64,
-      "arm": 60,
-      "pot": 54
+      "stuff": 70,
+      "ctrl": 67,
+      "arm": 61,
+      "pot": 60
     },
     "team": "pheasants",
     "tier": 2,
-    "system": true
+    "system": true,
+    "waited": 900
   },
   "fa-1cciscz": {
     "name": "施家銘",
@@ -2810,12 +2872,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 57,
+    "overall": 62,
     "abilities": {
-      "stuff": 67,
-      "ctrl": 65,
-      "arm": 57,
-      "pot": 57
+      "stuff": 70,
+      "ctrl": 70,
+      "arm": 60,
+      "pot": 62
     },
     "team": "pheasants",
     "tier": 2,
@@ -2828,14 +2890,14 @@
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 81,
+    "overall": 79,
     "abilities": {
-      "con": 77,
-      "pow": 77,
-      "eye": 83,
-      "spd": 75,
-      "arm": 83,
-      "pot": 81
+      "con": 76,
+      "pow": 76,
+      "eye": 82,
+      "spd": 74,
+      "arm": 82,
+      "pot": 80
     },
     "team": "muntjacs",
     "tier": 1,
@@ -2848,14 +2910,14 @@
     "role": "B",
     "pos": "2B",
     "hand": "R",
-    "overall": 58,
+    "overall": 62,
     "abilities": {
-      "con": 65,
-      "pow": 62,
-      "eye": 61,
-      "spd": 61,
-      "arm": 71,
-      "pot": 58
+      "con": 69,
+      "pow": 66,
+      "eye": 65,
+      "spd": 65,
+      "arm": 75,
+      "pot": 62
     },
     "team": "pheasants",
     "tier": 2,
@@ -2868,14 +2930,14 @@
     "role": "B",
     "pos": "LF",
     "hand": "L",
-    "overall": 56,
+    "overall": 61,
     "abilities": {
-      "con": 70,
-      "pow": 62,
-      "eye": 65,
-      "spd": 58,
-      "arm": 55,
-      "pot": 56
+      "con": 75,
+      "pow": 67,
+      "eye": 70,
+      "spd": 63,
+      "arm": 60,
+      "pot": 61
     },
     "team": "macaques",
     "tier": 2,
@@ -2888,14 +2950,14 @@
     "role": "B",
     "pos": "3B",
     "hand": "L",
-    "overall": 80,
+    "overall": 78,
     "abilities": {
-      "con": 80,
-      "pow": 81,
-      "eye": 82,
-      "spd": 79,
-      "arm": 78,
-      "pot": 80
+      "con": 79,
+      "pow": 80,
+      "eye": 81,
+      "spd": 78,
+      "arm": 77,
+      "pot": 79
     },
     "team": "macaques",
     "tier": 2,
@@ -2908,14 +2970,14 @@
     "role": "B",
     "pos": "CF",
     "hand": "R",
-    "overall": 55,
+    "overall": 61,
     "abilities": {
-      "con": 63,
-      "pow": 67,
-      "eye": 60,
-      "spd": 56,
-      "arm": 59,
-      "pot": 55
+      "con": 70,
+      "pow": 74,
+      "eye": 67,
+      "spd": 63,
+      "arm": 66,
+      "pot": 61
     },
     "team": "macaques",
     "tier": 2,
@@ -2926,16 +2988,16 @@
     "num": 85,
     "age": 26,
     "role": "B",
-    "pos": "LF",
+    "pos": "DH",
     "hand": "R",
-    "overall": 60,
+    "overall": 62,
     "abilities": {
-      "con": 65,
-      "pow": 71,
-      "eye": 72,
-      "spd": 64,
-      "arm": 68,
-      "pot": 60
+      "con": 67,
+      "pow": 73,
+      "eye": 74,
+      "spd": 66,
+      "arm": 70,
+      "pot": 63
     },
     "team": "macaques",
     "tier": 2,
@@ -2944,36 +3006,36 @@
   "fa-boin1r": {
     "name": "高子翔",
     "num": 39,
-    "age": 25,
-    "role": "P",
-    "pos": "SP",
-    "hand": "R",
-    "overall": 78,
+    "age": 26,
+    "role": "B",
+    "pos": "LF",
+    "hand": "L",
+    "overall": 77,
     "abilities": {
-      "stuff": 72,
-      "ctrl": 80,
-      "arm": 68,
-      "pot": 78
+      "con": 77,
+      "pow": 79,
+      "eye": 70,
+      "spd": 68,
+      "arm": 81,
+      "pot": 77
     },
-    "team": "muntjacs",
+    "team": "pheasants",
     "tier": 1,
     "system": true
   },
   "fa-1d7b4ei": {
     "name": "黃承翰",
     "num": 94,
-    "age": 24,
-    "role": "B",
-    "pos": "SS",
+    "age": 26,
+    "role": "P",
+    "pos": "SP",
     "hand": "L",
-    "overall": 59,
+    "overall": 62,
     "abilities": {
-      "con": 63,
-      "pow": 73,
-      "eye": 59,
-      "spd": 66,
-      "arm": 64,
-      "pot": 59
+      "stuff": 63,
+      "ctrl": 71,
+      "arm": 66,
+      "pot": 62
     },
     "team": "muntjacs",
     "tier": 2,
@@ -2982,16 +3044,18 @@
   "fa-m2ku63": {
     "name": "林柏諺",
     "num": 43,
-    "age": 22,
-    "role": "P",
-    "pos": "SP",
+    "age": 25,
+    "role": "B",
+    "pos": "SS",
     "hand": "L",
-    "overall": 52,
+    "overall": 60,
     "abilities": {
-      "stuff": 57,
-      "ctrl": 64,
-      "arm": 62,
-      "pot": 52
+      "con": 62,
+      "pow": 67,
+      "eye": 66,
+      "spd": 67,
+      "arm": 73,
+      "pot": 60
     },
     "team": "muntjacs",
     "tier": 2,
@@ -3004,29 +3068,30 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 76,
+    "overall": 74,
     "abilities": {
       "stuff": 69,
-      "ctrl": 79,
+      "ctrl": 78,
       "arm": 72,
-      "pot": 76
+      "pot": 75
     },
-    "team": "pheasants",
-    "tier": 1,
-    "system": true
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true,
+    "waited": 720
   },
   "fa-5axcnt": {
     "name": "江家榮",
     "num": 1,
     "age": 24,
     "role": "P",
-    "pos": "RP",
+    "pos": "SP",
     "hand": "R",
-    "overall": 72,
+    "overall": 73,
     "abilities": {
-      "stuff": 80,
-      "ctrl": 68,
-      "arm": 63,
+      "stuff": 77,
+      "ctrl": 75,
+      "arm": 68,
       "pot": 73
     },
     "team": "muntjacs",
@@ -3034,36 +3099,73 @@
     "system": true,
     "waited": 720
   },
+  "fa-bpi1fy": {
+    "name": "蔡俊傑",
+    "num": 78,
+    "age": 25,
+    "role": "P",
+    "pos": "RP",
+    "hand": "L",
+    "overall": 74,
+    "abilities": {
+      "stuff": 80,
+      "ctrl": 72,
+      "arm": 66,
+      "pot": 74
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1jlvt6n": {
+    "name": "林冠勳",
+    "num": 15,
+    "age": 23,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 76,
+    "abilities": {
+      "stuff": 70,
+      "ctrl": 79,
+      "arm": 69,
+      "pot": 76
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
   "fa-1d8aisp": {
     "name": "謝家銘",
     "num": 50,
     "age": 26,
     "role": "P",
-    "pos": "SP",
+    "pos": "RP",
     "hand": "L",
-    "overall": 54,
+    "overall": 60,
     "abilities": {
-      "stuff": 63,
-      "ctrl": 64,
-      "arm": 56,
-      "pot": 54
+      "stuff": 69,
+      "ctrl": 68,
+      "arm": 58,
+      "pot": 60
     },
     "team": "owls",
     "tier": 2,
-    "system": true
+    "system": true,
+    "waited": 720
   },
   "fa-5bwr20": {
     "name": "張承翰",
     "num": 40,
     "age": 26,
     "role": "P",
-    "pos": "RP",
+    "pos": "SP",
     "hand": "R",
     "overall": 89,
     "abilities": {
-      "stuff": 89,
-      "ctrl": 80,
-      "arm": 69,
+      "stuff": 77,
+      "ctrl": 86,
+      "arm": 75,
       "pot": 89
     },
     "team": "muntjacs",
@@ -3073,18 +3175,20 @@
   "fa-1tzy0az": {
     "name": "林皓宇",
     "num": 30,
-    "age": 24,
-    "role": "P",
-    "pos": "SP",
+    "age": 26,
+    "role": "B",
+    "pos": "1B",
     "hand": "R",
     "overall": 74,
     "abilities": {
-      "stuff": 75,
-      "ctrl": 76,
-      "arm": 75,
+      "con": 79,
+      "pow": 79,
+      "eye": 72,
+      "spd": 78,
+      "arm": 77,
       "pot": 75
     },
-    "team": "pheasants",
+    "team": "macaques",
     "tier": 1,
     "system": true
   },
@@ -3093,7 +3197,7 @@
     "num": 16,
     "age": 25,
     "role": "B",
-    "pos": "1B",
+    "pos": "2B",
     "hand": "R",
     "overall": 69,
     "abilities": {
@@ -3103,26 +3207,6 @@
       "spd": 78,
       "arm": 72,
       "pot": 70
-    },
-    "team": "owls",
-    "tier": 2,
-    "system": true
-  },
-  "fa-bqhfu5": {
-    "name": "何柏翰",
-    "num": 42,
-    "age": 24,
-    "role": "B",
-    "pos": "2B",
-    "hand": "R",
-    "overall": 63,
-    "abilities": {
-      "con": 75,
-      "pow": 73,
-      "eye": 69,
-      "spd": 73,
-      "arm": 60,
-      "pot": 64
     },
     "team": "owls",
     "tier": 2,
@@ -3144,8 +3228,8 @@
       "arm": 83,
       "pot": 81
     },
-    "team": "macaques",
-    "tier": 1,
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "fa-m4jmyh": {
@@ -3162,10 +3246,10 @@
       "eye": 75,
       "spd": 73,
       "arm": 72,
-      "pot": 66
+      "pot": 67
     },
-    "team": "macaques",
-    "tier": 1,
+    "team": "pheasants",
+    "tier": 2,
     "system": true
   },
   "fa-1u0xep6": {
@@ -3195,14 +3279,14 @@
     "role": "B",
     "pos": "DH",
     "hand": "L",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "con": 61,
-      "pow": 64,
-      "eye": 61,
-      "spd": 62,
-      "arm": 57,
-      "pot": 53
+      "con": 69,
+      "pow": 72,
+      "eye": 69,
+      "spd": 70,
+      "arm": 65,
+      "pot": 60
     },
     "team": "macaques",
     "tier": 2,
@@ -3215,12 +3299,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 60,
+    "overall": 63,
     "abilities": {
-      "stuff": 62,
-      "ctrl": 70,
-      "arm": 59,
-      "pot": 60
+      "stuff": 64,
+      "ctrl": 72,
+      "arm": 60,
+      "pot": 63
     },
     "team": "macaques",
     "tier": 2,
@@ -3233,14 +3317,14 @@
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 59,
+    "overall": 62,
     "abilities": {
-      "con": 61,
-      "pow": 72,
-      "eye": 69,
-      "spd": 63,
-      "arm": 65,
-      "pot": 59
+      "con": 64,
+      "pow": 75,
+      "eye": 72,
+      "spd": 66,
+      "arm": 68,
+      "pot": 63
     },
     "team": "macaques",
     "tier": 2,
@@ -3253,14 +3337,14 @@
     "role": "B",
     "pos": "DH",
     "hand": "R",
-    "overall": 54,
+    "overall": 60,
     "abilities": {
-      "con": 67,
-      "pow": 59,
-      "eye": 61,
-      "spd": 61,
-      "arm": 62,
-      "pot": 54
+      "con": 73,
+      "pow": 65,
+      "eye": 67,
+      "spd": 67,
+      "arm": 68,
+      "pot": 60
     },
     "team": "macaques",
     "tier": 2,
@@ -3271,16 +3355,16 @@
     "num": 26,
     "age": 21,
     "role": "B",
-    "pos": "RF",
+    "pos": "LF",
     "hand": "R",
-    "overall": 61,
+    "overall": 63,
     "abilities": {
-      "con": 64,
-      "pow": 68,
-      "eye": 73,
-      "spd": 70,
-      "arm": 70,
-      "pot": 61
+      "con": 66,
+      "pow": 70,
+      "eye": 75,
+      "spd": 72,
+      "arm": 72,
+      "pot": 64
     },
     "team": "muntjacs",
     "tier": 2,
@@ -3289,35 +3373,17 @@
   "fa-1n7fnpg": {
     "name": "王宇恆",
     "num": 22,
-    "age": 23,
-    "role": "P",
-    "pos": "SP",
-    "hand": "R",
-    "overall": 53,
-    "abilities": {
-      "stuff": 59,
-      "ctrl": 64,
-      "arm": 62,
-      "pot": 53
-    },
-    "team": "muntjacs",
-    "tier": 2,
-    "system": true
-  },
-  "fa-1cucuzb": {
-    "name": "楊宗霖",
-    "num": 22,
     "age": 22,
     "role": "B",
-    "pos": "SS",
+    "pos": "RF",
     "hand": "R",
     "overall": 60,
     "abilities": {
-      "con": 59,
-      "pow": 74,
-      "eye": 64,
-      "spd": 65,
-      "arm": 68,
+      "con": 66,
+      "pow": 68,
+      "eye": 72,
+      "spd": 63,
+      "arm": 71,
       "pot": 60
     },
     "team": "muntjacs",
@@ -3345,16 +3411,18 @@
   "fa-4wzouf": {
     "name": "胡宇恆",
     "num": 27,
-    "age": 24,
-    "role": "P",
-    "pos": "SP",
+    "age": 23,
+    "role": "B",
+    "pos": "SS",
     "hand": "R",
-    "overall": 52,
+    "overall": 60,
     "abilities": {
-      "stuff": 63,
-      "ctrl": 60,
-      "arm": 62,
-      "pot": 52
+      "con": 63,
+      "pow": 67,
+      "eye": 73,
+      "spd": 63,
+      "arm": 69,
+      "pot": 60
     },
     "team": "owls",
     "tier": 2,
@@ -3367,12 +3435,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "L",
-    "overall": 57,
+    "overall": 62,
     "abilities": {
-      "stuff": 68,
-      "ctrl": 62,
-      "arm": 62,
-      "pot": 57
+      "stuff": 71,
+      "ctrl": 68,
+      "arm": 65,
+      "pot": 62
     },
     "team": "owls",
     "tier": 2,
@@ -3383,17 +3451,35 @@
     "num": 7,
     "age": 21,
     "role": "P",
-    "pos": "RP",
+    "pos": "SP",
     "hand": "R",
-    "overall": 52,
+    "overall": 60,
     "abilities": {
-      "stuff": 63,
-      "ctrl": 61,
-      "arm": 62,
-      "pot": 52
+      "stuff": 67,
+      "ctrl": 68,
+      "arm": 67,
+      "pot": 60
     },
     "team": "owls",
     "tier": 2,
+    "system": true
+  },
+  "fa-1xjj21e": {
+    "name": "周冠均",
+    "num": 22,
+    "age": 22,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 86,
+    "abilities": {
+      "stuff": 73,
+      "ctrl": 85,
+      "arm": 67,
+      "pot": 86
+    },
+    "team": "pheasants",
+    "tier": 1,
     "system": true
   },
   "fa-w0qkon": {
@@ -3401,35 +3487,32 @@
     "num": 64,
     "age": 22,
     "role": "P",
-    "pos": "SP",
+    "pos": "RP",
     "hand": "L",
     "overall": 72,
     "abilities": {
-      "stuff": 65,
-      "ctrl": 78,
-      "arm": 66,
+      "stuff": 71,
+      "ctrl": 76,
+      "arm": 64,
       "pot": 72
     },
-    "team": "pheasants",
-    "tier": 2,
-    "system": true,
-    "waited": 540
+    "team": "macaques",
+    "tier": 1,
+    "system": true
   },
   "fa-1n5gux2": {
     "name": "蔡冠霖",
     "num": 31,
-    "age": 24,
-    "role": "B",
-    "pos": "1B",
-    "hand": "R",
-    "overall": 60,
+    "age": 22,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 63,
     "abilities": {
-      "con": 62,
-      "pow": 65,
-      "eye": 69,
-      "spd": 76,
-      "arm": 63,
-      "pot": 60
+      "stuff": 65,
+      "ctrl": 69,
+      "arm": 72,
+      "pot": 63
     },
     "team": "pheasants",
     "tier": 2,
@@ -3440,7 +3523,7 @@
     "num": 16,
     "age": 24,
     "role": "B",
-    "pos": "3B",
+    "pos": "1B",
     "hand": "R",
     "overall": 73,
     "abilities": {
@@ -3460,16 +3543,16 @@
     "num": 61,
     "age": 23,
     "role": "B",
-    "pos": "DH",
+    "pos": "3B",
     "hand": "R",
-    "overall": 56,
+    "overall": 61,
     "abilities": {
-      "con": 56,
-      "pow": 71,
-      "eye": 60,
-      "spd": 66,
-      "arm": 57,
-      "pot": 56
+      "con": 61,
+      "pow": 76,
+      "eye": 65,
+      "spd": 71,
+      "arm": 62,
+      "pot": 61
     },
     "team": "pheasants",
     "tier": 2,
@@ -3480,16 +3563,36 @@
     "num": 78,
     "age": 23,
     "role": "B",
-    "pos": "LF",
+    "pos": "DH",
     "hand": "L",
-    "overall": 54,
+    "overall": 60,
     "abilities": {
-      "con": 56,
-      "pow": 59,
-      "eye": 62,
-      "spd": 59,
-      "arm": 69,
-      "pot": 54
+      "con": 61,
+      "pow": 64,
+      "eye": 67,
+      "spd": 64,
+      "arm": 74,
+      "pot": 60
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-pm5vwi": {
+    "name": "莊承翰",
+    "num": 59,
+    "age": 24,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 64,
+    "abilities": {
+      "con": 76,
+      "pow": 67,
+      "eye": 73,
+      "spd": 72,
+      "arm": 67,
+      "pot": 65
     },
     "team": "pheasants",
     "tier": 2,
@@ -3500,16 +3603,16 @@
     "num": 11,
     "age": 22,
     "role": "B",
-    "pos": "C",
+    "pos": "CF",
     "hand": "R",
-    "overall": 59,
+    "overall": 63,
     "abilities": {
-      "con": 73,
-      "pow": 63,
-      "eye": 71,
-      "spd": 62,
-      "arm": 61,
-      "pot": 59
+      "con": 76,
+      "pow": 66,
+      "eye": 74,
+      "spd": 65,
+      "arm": 64,
+      "pot": 63
     },
     "team": "macaques",
     "tier": 2,
@@ -3520,16 +3623,16 @@
     "num": 59,
     "age": 22,
     "role": "B",
-    "pos": "CF",
+    "pos": "SS",
     "hand": "R",
-    "overall": 56,
+    "overall": 61,
     "abilities": {
-      "con": 69,
-      "pow": 65,
-      "eye": 60,
-      "spd": 64,
-      "arm": 57,
-      "pot": 56
+      "con": 74,
+      "pow": 70,
+      "eye": 65,
+      "spd": 69,
+      "arm": 62,
+      "pot": 61
     },
     "team": "macaques",
     "tier": 2,
@@ -3538,18 +3641,16 @@
   "fa-1pvpgi7": {
     "name": "賴柏宇",
     "num": 1,
-    "age": 22,
-    "role": "B",
-    "pos": "SS",
-    "hand": "R",
-    "overall": 53,
+    "age": 24,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 60,
     "abilities": {
-      "con": 66,
-      "pow": 60,
-      "eye": 59,
-      "spd": 58,
-      "arm": 62,
-      "pot": 53
+      "stuff": 70,
+      "ctrl": 64,
+      "arm": 65,
+      "pot": 60
     },
     "team": "macaques",
     "tier": 2,
@@ -3560,34 +3661,35 @@
     "num": 80,
     "age": 21,
     "role": "P",
-    "pos": "SP",
+    "pos": "RP",
     "hand": "R",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 60,
-      "arm": 65,
-      "pot": 53
+      "stuff": 70,
+      "ctrl": 66,
+      "arm": 67,
+      "pot": 60
     },
     "team": "muntjacs",
     "tier": 2,
-    "system": true
+    "system": true,
+    "waited": 360
   },
   "fa-i0b35p": {
     "name": "陳宇軒",
     "num": 70,
     "age": 21,
     "role": "P",
-    "pos": "RP",
+    "pos": "SP",
     "hand": "R",
-    "overall": 84,
+    "overall": 83,
     "abilities": {
-      "stuff": 81,
-      "ctrl": 81,
-      "arm": 74,
-      "pot": 84
+      "stuff": 68,
+      "ctrl": 84,
+      "arm": 77,
+      "pot": 83
     },
-    "team": "owls",
+    "team": "pheasants",
     "tier": 1,
     "system": true
   },
@@ -3596,32 +3698,52 @@
     "num": 41,
     "age": 23,
     "role": "P",
-    "pos": "SP",
+    "pos": "RP",
     "hand": "L",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "stuff": 64,
-      "ctrl": 58,
-      "arm": 63,
-      "pot": 53
+      "stuff": 71,
+      "ctrl": 62,
+      "arm": 65,
+      "pot": 60
     },
     "team": "muntjacs",
     "tier": 2,
-    "system": true
+    "system": true,
+    "waited": 360
   },
   "fa-yryknz": {
     "name": "楊宗翰",
     "num": 45,
     "age": 24,
     "role": "P",
-    "pos": "RP",
+    "pos": "SP",
     "hand": "R",
     "overall": 74,
     "abilities": {
-      "stuff": 75,
-      "ctrl": 76,
-      "arm": 68,
+      "stuff": 67,
+      "ctrl": 78,
+      "arm": 72,
       "pot": 74
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true,
+    "waited": 360
+  },
+  "fa-blqedk": {
+    "name": "張冠瑋",
+    "num": 16,
+    "age": 20,
+    "role": "P",
+    "pos": "RP",
+    "hand": "L",
+    "overall": 72,
+    "abilities": {
+      "stuff": 73,
+      "ctrl": 76,
+      "arm": 62,
+      "pot": 72
     },
     "team": "muntjacs",
     "tier": 2,
@@ -3635,12 +3757,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 64,
+    "overall": 65,
     "abilities": {
       "stuff": 70,
       "ctrl": 71,
-      "arm": 68,
-      "pot": 64
+      "arm": 69,
+      "pot": 65
     },
     "team": "owls",
     "tier": 2,
@@ -3649,37 +3771,40 @@
   "fa-15pegu": {
     "name": "徐柏廷",
     "num": 50,
-    "age": 24,
-    "role": "P",
-    "pos": "RP",
+    "age": 21,
+    "role": "B",
+    "pos": "2B",
     "hand": "R",
-    "overall": 55,
+    "overall": 60,
     "abilities": {
-      "stuff": 66,
-      "ctrl": 63,
-      "arm": 54,
-      "pot": 55
+      "con": 64,
+      "pow": 73,
+      "eye": 68,
+      "spd": 57,
+      "arm": 68,
+      "pot": 60
     },
     "team": "owls",
     "tier": 2,
-    "system": true,
-    "waited": 360
+    "system": true
   },
   "fa-safop9": {
     "name": "王家豪",
     "num": 7,
-    "age": 22,
-    "role": "P",
-    "pos": "SP",
+    "age": 24,
+    "role": "B",
+    "pos": "3B",
     "hand": "R",
     "overall": 90,
     "abilities": {
-      "stuff": 76,
-      "ctrl": 87,
-      "arm": 71,
+      "con": 89,
+      "pow": 75,
+      "eye": 90,
+      "spd": 80,
+      "arm": 81,
       "pot": 90
     },
-    "team": "pheasants",
+    "team": "muntjacs",
     "tier": 1,
     "system": true
   },
@@ -3688,7 +3813,7 @@
     "num": 45,
     "age": 24,
     "role": "B",
-    "pos": "2B",
+    "pos": "C",
     "hand": "L",
     "overall": 79,
     "abilities": {
@@ -3708,16 +3833,16 @@
     "num": 46,
     "age": 21,
     "role": "B",
-    "pos": "3B",
+    "pos": "CF",
     "hand": "L",
-    "overall": 57,
+    "overall": 61,
     "abilities": {
-      "con": 57,
-      "pow": 60,
-      "eye": 66,
-      "spd": 60,
-      "arm": 72,
-      "pot": 57
+      "con": 61,
+      "pow": 64,
+      "eye": 70,
+      "spd": 64,
+      "arm": 76,
+      "pot": 62
     },
     "team": "pheasants",
     "tier": 2,
@@ -3728,16 +3853,16 @@
     "num": 52,
     "age": 24,
     "role": "B",
-    "pos": "C",
+    "pos": "RF",
     "hand": "L",
-    "overall": 58,
+    "overall": 62,
     "abilities": {
-      "con": 66,
-      "pow": 63,
-      "eye": 70,
-      "spd": 63,
-      "arm": 68,
-      "pot": 58
+      "con": 70,
+      "pow": 67,
+      "eye": 74,
+      "spd": 67,
+      "arm": 72,
+      "pot": 62
     },
     "team": "pheasants",
     "tier": 2,
@@ -3746,74 +3871,35 @@
   "fa-sbf33g": {
     "name": "朱冠廷",
     "num": 90,
-    "age": 24,
-    "role": "B",
-    "pos": "CF",
-    "hand": "R",
-    "overall": 62,
+    "age": 21,
+    "role": "P",
+    "pos": "RP",
+    "hand": "L",
+    "overall": 65,
     "abilities": {
-      "con": 67,
-      "pow": 73,
-      "eye": 71,
-      "spd": 66,
-      "arm": 73,
-      "pot": 63
+      "stuff": 73,
+      "ctrl": 70,
+      "arm": 66,
+      "pot": 65
     },
     "team": "pheasants",
     "tier": 2,
-    "system": true
+    "system": true,
+    "waited": 360
   },
   "fa-16osv1": {
     "name": "謝柏翰",
     "num": 33,
-    "age": 23,
-    "role": "B",
-    "pos": "RF",
-    "hand": "R",
-    "overall": 55,
-    "abilities": {
-      "con": 52,
-      "pow": 70,
-      "eye": 68,
-      "spd": 60,
-      "arm": 55,
-      "pot": 55
-    },
-    "team": "pheasants",
-    "tier": 2,
-    "system": true
-  },
-  "fa-bjrll6": {
-    "name": "張冠宇",
-    "num": 15,
     "age": 22,
-    "role": "P",
-    "pos": "RP",
-    "hand": "R",
-    "overall": 88,
-    "abilities": {
-      "stuff": 90,
-      "ctrl": 76,
-      "arm": 64,
-      "pot": 88
-    },
-    "team": "macaques",
-    "tier": 1,
-    "system": true
-  },
-  "fa-1jg5dbv": {
-    "name": "莊彥廷",
-    "num": 72,
-    "age": 24,
     "role": "P",
     "pos": "SP",
     "hand": "L",
-    "overall": 63,
+    "overall": 60,
     "abilities": {
-      "stuff": 72,
-      "ctrl": 69,
-      "arm": 61,
-      "pot": 63
+      "stuff": 62,
+      "ctrl": 70,
+      "arm": 59,
+      "pot": 60
     },
     "team": "pheasants",
     "tier": 2,
@@ -3824,7 +3910,7 @@
     "num": 21,
     "age": 23,
     "role": "B",
-    "pos": "2B",
+    "pos": "C",
     "hand": "R",
     "overall": 69,
     "abilities": {
@@ -3837,7 +3923,8 @@
     },
     "team": "macaques",
     "tier": 2,
-    "system": true
+    "system": true,
+    "waited": 180
   },
   "fa-1egf0lb": {
     "name": "李俊傑",
@@ -3855,7 +3942,7 @@
       "arm": 87,
       "pot": 95
     },
-    "team": "pheasants",
+    "team": "macaques",
     "tier": 1,
     "system": true
   },
@@ -3866,14 +3953,14 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 81,
+    "overall": 80,
     "abilities": {
-      "stuff": 84,
-      "ctrl": 76,
+      "stuff": 83,
+      "ctrl": 75,
       "arm": 69,
-      "pot": 81
+      "pot": 80
     },
-    "team": "pheasants",
+    "team": "owls",
     "tier": 1,
     "system": true
   },
@@ -3884,12 +3971,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 58,
+    "overall": 62,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 68,
-      "arm": 66,
-      "pot": 58
+      "stuff": 63,
+      "ctrl": 71,
+      "arm": 68,
+      "pot": 62
     },
     "team": "macaques",
     "tier": 2,
@@ -3902,12 +3989,12 @@
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 56,
+    "overall": 61,
     "abilities": {
-      "stuff": 60,
-      "ctrl": 67,
-      "arm": 61,
-      "pot": 56
+      "stuff": 65,
+      "ctrl": 70,
+      "arm": 62,
+      "pot": 61
     },
     "team": "muntjacs",
     "tier": 2,
@@ -3940,14 +4027,14 @@
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 63,
+    "overall": 65,
     "abilities": {
-      "con": 70,
-      "pow": 70,
-      "eye": 71,
-      "spd": 76,
-      "arm": 73,
-      "pot": 64
+      "con": 71,
+      "pow": 71,
+      "eye": 72,
+      "spd": 77,
+      "arm": 74,
+      "pot": 66
     },
     "team": "owls",
     "tier": 2,
@@ -3960,34 +4047,34 @@
     "role": "B",
     "pos": "2B",
     "hand": "R",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "con": 58,
-      "pow": 63,
-      "eye": 66,
-      "spd": 64,
-      "arm": 59,
-      "pot": 53
+      "con": 64,
+      "pow": 69,
+      "eye": 72,
+      "spd": 70,
+      "arm": 65,
+      "pot": 60
     },
     "team": "owls",
     "tier": 2,
     "system": true
   },
   "fa-ndnj5a": {
-    "name": "王冠霖",
+    "name": "林冠傑",
     "num": 22,
     "age": 20,
     "role": "B",
-    "pos": "C",
+    "pos": "3B",
     "hand": "R",
-    "overall": 53,
+    "overall": 60,
     "abilities": {
-      "con": 61,
-      "pow": 64,
-      "eye": 63,
-      "spd": 62,
-      "arm": 60,
-      "pot": 53
+      "con": 68,
+      "pow": 71,
+      "eye": 70,
+      "spd": 69,
+      "arm": 67,
+      "pot": 60
     },
     "team": "owls",
     "tier": 2,
@@ -3998,7 +4085,7 @@
     "num": 56,
     "age": 20,
     "role": "B",
-    "pos": "LF",
+    "pos": "C",
     "hand": "L",
     "overall": 68,
     "abilities": {
@@ -4007,10 +4094,31 @@
       "eye": 74,
       "spd": 74,
       "arm": 70,
-      "pot": 68
+      "pot": 69
     },
-    "team": "macaques",
-    "tier": 1,
+    "team": "owls",
+    "tier": 2,
+    "system": true,
+    "waited": 180
+  },
+  "fa-183t4lk": {
+    "name": "李品豪",
+    "num": 2,
+    "age": 21,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 62,
+    "abilities": {
+      "con": 67,
+      "pow": 70,
+      "eye": 74,
+      "spd": 74,
+      "arm": 65,
+      "pot": 62
+    },
+    "team": "owls",
+    "tier": 2,
     "system": true
   },
   "fa-6l0n8t": {
@@ -4028,9 +4136,8 @@
       "pot": 76
     },
     "team": "pheasants",
-    "tier": 2,
-    "system": true,
-    "waited": 180
+    "tier": 1,
+    "system": true
   },
   "fa-xpqxh8": {
     "name": "賴哲瑋",
@@ -4039,12 +4146,12 @@
     "role": "P",
     "pos": "SP",
     "hand": "L",
-    "overall": 61,
+    "overall": 64,
     "abilities": {
-      "stuff": 59,
-      "ctrl": 72,
-      "arm": 65,
-      "pot": 61
+      "stuff": 60,
+      "ctrl": 74,
+      "arm": 66,
+      "pot": 64
     },
     "team": "pheasants",
     "tier": 2,
@@ -4057,16 +4164,16 @@
     "role": "B",
     "pos": "SS",
     "hand": "R",
-    "overall": 67,
+    "overall": 69,
     "abilities": {
-      "con": 66,
-      "pow": 71,
-      "eye": 65,
-      "spd": 81,
-      "arm": 77,
-      "pot": 68
+      "con": 67,
+      "pow": 72,
+      "eye": 66,
+      "spd": 82,
+      "arm": 78,
+      "pot": 69
     },
-    "team": "macaques",
+    "team": "muntjacs",
     "tier": 1,
     "system": true
   },
@@ -4100,7 +4207,7 @@
       "stuff": 66,
       "ctrl": 63,
       "arm": 54,
-      "pot": 66
+      "pot": 67
     },
     "team": "macaques",
     "tier": 2,
@@ -4120,7 +4227,7 @@
       "eye": 57,
       "spd": 68,
       "arm": 57,
-      "pot": 62
+      "pot": 65
     },
     "team": "macaques",
     "tier": 2,
@@ -4129,94 +4236,54 @@
   "fa-gtbxmu": {
     "name": "洪子豪",
     "num": 94,
-    "age": 20,
-    "role": "B",
-    "pos": "LF",
+    "age": 21,
+    "role": "P",
+    "pos": "RP",
     "hand": "R",
-    "overall": 54,
+    "overall": 53,
     "abilities": {
-      "con": 57,
-      "pow": 63,
-      "eye": 51,
-      "spd": 67,
-      "arm": 67,
+      "stuff": 62,
+      "ctrl": 55,
+      "arm": 66,
       "pot": 73
     },
     "team": "muntjacs",
     "tier": 2,
     "system": true
   },
-  "fa-gubc11": {
-    "name": "簡品豪",
-    "num": 70,
-    "age": 20,
-    "role": "B",
-    "pos": "RF",
-    "hand": "R",
-    "overall": 54,
-    "abilities": {
-      "con": 54,
-      "pow": 61,
-      "eye": 60,
-      "spd": 70,
-      "arm": 60,
-      "pot": 77
-    },
-    "team": "owls",
-    "tier": 2,
-    "system": true
-  },
-  "fa-17z1m9g": {
-    "name": "林信宏",
-    "num": 40,
-    "age": 21,
-    "role": "P",
-    "pos": "RP",
-    "hand": "R",
-    "overall": 51,
-    "abilities": {
-      "stuff": 62,
-      "ctrl": 61,
-      "arm": 60,
-      "pot": 76
-    },
-    "team": "owls",
-    "tier": 2,
-    "system": true
-  },
-  "fa-xlytjb": {
-    "name": "張品豪",
-    "num": 46,
-    "age": 19,
-    "role": "P",
-    "pos": "SP",
-    "hand": "R",
-    "overall": 51,
-    "abilities": {
-      "stuff": 62,
-      "ctrl": 60,
-      "arm": 61,
-      "pot": 53
-    },
-    "team": "owls",
-    "tier": 2,
-    "system": true
-  },
   "fa-gvaqf8": {
     "name": "蕭彥均",
     "num": 79,
-    "age": 19,
+    "age": 21,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "stuff": 58,
+      "ctrl": 59,
+      "arm": 66,
+      "pot": 61
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1oroi5x": {
+    "name": "潘品豪",
+    "num": 12,
+    "age": 18,
     "role": "B",
     "pos": "SS",
     "hand": "L",
-    "overall": 52,
+    "overall": 54,
     "abilities": {
-      "con": 56,
-      "pow": 59,
-      "eye": 61,
-      "spd": 67,
-      "arm": 62,
-      "pot": 56
+      "con": 67,
+      "pow": 63,
+      "eye": 55,
+      "spd": 60,
+      "arm": 60,
+      "pot": 78
     },
     "team": "pheasants",
     "tier": 2,
@@ -4234,7 +4301,7 @@
       "stuff": 61,
       "ctrl": 61,
       "arm": 61,
-      "pot": 66
+      "pot": 67
     },
     "team": "pheasants",
     "tier": 2,
@@ -4245,7 +4312,7 @@
     "num": 38,
     "age": 23,
     "role": "B",
-    "pos": "3B",
+    "pos": "CF",
     "hand": "R",
     "overall": 51,
     "abilities": {
@@ -4265,7 +4332,7 @@
     "num": 12,
     "age": 22,
     "role": "B",
-    "pos": "SS",
+    "pos": "RF",
     "hand": "R",
     "overall": 51,
     "abilities": {
@@ -4274,7 +4341,7 @@
       "eye": 61,
       "spd": 61,
       "arm": 61,
-      "pot": 62
+      "pot": 65
     },
     "team": "owls",
     "tier": 2,
@@ -4284,46 +4351,6 @@
     "name": "何家豪",
     "num": 64,
     "age": 20,
-    "role": "B",
-    "pos": "LF",
-    "hand": "R",
-    "overall": 51,
-    "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 73
-    },
-    "team": "owls",
-    "tier": 2,
-    "system": true
-  },
-  "fa-1alx9ar": {
-    "name": "王冠瑋",
-    "num": 11,
-    "age": 20,
-    "role": "B",
-    "pos": "CF",
-    "hand": "R",
-    "overall": 51,
-    "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 78
-    },
-    "team": "owls",
-    "tier": 2,
-    "system": true
-  },
-  "fa-1akxuwk": {
-    "name": "徐俊廷",
-    "num": 39,
-    "age": 21,
     "role": "B",
     "pos": "DH",
     "hand": "R",
@@ -4340,12 +4367,30 @@
     "tier": 2,
     "system": true
   },
+  "fa-1alx9ar": {
+    "name": "王冠瑋",
+    "num": 11,
+    "age": 20,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 50,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 61,
+      "arm": 61,
+      "pot": 78
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
   "fa-j5img3": {
     "name": "李宗翰",
     "num": 24,
     "age": 20,
     "role": "B",
-    "pos": "RF",
+    "pos": "2B",
     "hand": "R",
     "overall": 51,
     "abilities": {
@@ -4364,13 +4409,15 @@
     "name": "彭俊傑",
     "num": 9,
     "age": 20,
-    "role": "P",
-    "pos": "SP",
+    "role": "B",
+    "pos": "RF",
     "hand": "R",
-    "overall": 50,
+    "overall": 51,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
       "arm": 61,
       "pot": 73
     },
@@ -4390,7 +4437,7 @@
       "stuff": 61,
       "ctrl": 61,
       "arm": 61,
-      "pot": 65
+      "pot": 67
     },
     "team": "macaques",
     "tier": 2,
@@ -4408,7 +4455,7 @@
       "stuff": 61,
       "ctrl": 61,
       "arm": 61,
-      "pot": 53
+      "pot": 60
     },
     "team": "macaques",
     "tier": 2,
@@ -4432,6 +4479,24 @@
     "tier": 2,
     "system": true
   },
+  "fa-j2kf9i": {
+    "name": "劉柏均",
+    "num": 73,
+    "age": 24,
+    "role": "P",
+    "pos": "CL",
+    "hand": "R",
+    "overall": 50,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 61,
+      "arm": 61,
+      "pot": 96
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
   "fa-93pevm": {
     "name": "黃建廷",
     "num": 16,
@@ -4446,7 +4511,7 @@
       "eye": 61,
       "spd": 61,
       "arm": 61,
-      "pot": 52
+      "pot": 60
     },
     "team": "muntjacs",
     "tier": 2,
@@ -4486,7 +4551,7 @@
       "eye": 61,
       "spd": 61,
       "arm": 61,
-      "pot": 57
+      "pot": 62
     },
     "team": "muntjacs",
     "tier": 2,
@@ -4506,7 +4571,27 @@
       "eye": 61,
       "spd": 61,
       "arm": 61,
-      "pot": 53
+      "pot": 60
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-8zrtau": {
+    "name": "何俊廷",
+    "num": 67,
+    "age": 21,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
+      "arm": 61,
+      "pot": 60
     },
     "team": "muntjacs",
     "tier": 2,
