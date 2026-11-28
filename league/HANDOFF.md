@@ -71,3 +71,4 @@
 
 ## #795 經紀人 agent set
 - Part 1: `agentset.js` (pure): 4 situations x 3 frequencies per kind (bat / pit, owner list), level 0..4 (`LEVEL_NEUTRAL` 2 = today's engine), `normal` row inherited, price = sum of the resolved grid <= `AGENT_POOL` (24 = all neutral), `freezeSet` canonical form for the game lock, `situationOf` buckets. `tests/agentset.check.mjs`. Next: part 2 engine reads it (neutral = no extra draw, byte for byte), then sim, storage, UI.
+- Part 3: `tools/agent_sim.mjs` report (2000 games default): no legal set dominates; every effect is within ~1.5 SE of neutral at 1500 games, so the AGENT_* constants stay. Trap: whole-team sets, one fan is ~1/9 of that; judge tuning on 10,000+ games. Next: part 4 storage + freeze at lock, part 5 UI page.
