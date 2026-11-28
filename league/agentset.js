@@ -4,7 +4,7 @@
  * - Each cell is a frequency LEVEL 0..LEVEL_MAX; LEVEL_NEUTRAL means "the engine's own decision, as today".
  *   The engine (part 2) maps a level to a multiplier on its own probability with named constants; at LEVEL_NEUTRAL
  *   the multiplier is 1 and no extra RNG draw happens, so a default set reproduces today's games byte for byte.
- * - Rows: 'normal' is the default row; every other row inherits each cell from 'normal' unless the set gives it.
+ * - Rows: 'normal' is the default row; every other row inherits each cell of the 'normal' row unless the set gives it.
  * - Price: one points pool per kind (AGENT_POOL). The cost is the sum of the levels of the RESOLVED grid (all
  *   SITUATIONS x FREQS, after inheritance), so more frequency in one place costs another, and raising the 'normal'
  *   row costs once per row that inherits it. The all-neutral grid spends exactly the pool.
