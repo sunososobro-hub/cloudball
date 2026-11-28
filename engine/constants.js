@@ -386,7 +386,7 @@ export const IBB_MIN_INNING = 4;
 export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
 export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
-export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
+export const IBB_COACH_MIN_INNING = 9;    /* ...and from this inning on; earlier he pitches to the batter. 8 -> 9 (#794 part 3): over 4000 games IBB/game was 0.324 at 8 against the run.mjs reference 0.23 (1000-seed print 0.35, on the tolerance edge); 0.236 at 9 */
 /* pinch hit (#436 part 2, on since part 5 / 0.4.15); simGame opts.pinchHit overrides */
 export const PINCH_HIT_ON = true;
 export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */

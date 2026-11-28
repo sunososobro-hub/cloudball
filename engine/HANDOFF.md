@@ -26,6 +26,7 @@
 - #614 part 14 (0.4.35): line-drive triple play: nobody out, a second runner on, the low `LD_BOTH_BROKE_OF_P` end of the part-13 `rare` number is a hit-and-run: both runners off with the pitch from `LEAD_PRIMARY`; `resolveDoubledOff(ctx, base, base2)` doubles off the nearest, then throws on to base2's cover (`LD_COVER`, `XFER_RUSH`); 0.0008/game; `plan.ldTp`, `play.ldTp`, result `triple_play`, copy `lineTriplePlay`; `tests/ldtp.check.mjs`. Left: obstruction, rundowns elsewhere.
 - #826 (0.4.36): a bunt no longer stacks runners: the runner on third goes only when forced, the one on second only while third is free (balk then bunt with 2nd + 3rd used to put two on third); `tests/bunt_stack.check.mjs` (seed 58126 pinned); 1000-seed outcome print unchanged.
 - #81 (0.4.10): a "stay" pick on the pitching vote brings the pitching coach out (`VIS` frame, `MOUND_VISIT_DUR`, stream `mound_visit`), once per pitcher; no draw, outcomes unchanged, only later times move.
+- #794 part 3 (0.4.36): extra bases taken (1st->3rd and 2nd->home on a single, 1st->home on a double) scale with the runner's spd (`XB_PER_SPD`) and the fielding outfielder's arm (`XB_HOLD_PER_ARM`), same draw; coach IBB from the 9th (`IBB_COACH_MIN_INNING`, IBB/game 0.32 -> 0.24); `tests/xbt.check.mjs`.
 
 ## Next
 1. #23 done: part 1 (0.4.10) `LEAD_PRIMARY` between pitches; part 2 (0.4.14) steal break fitted to the draw between `STEAL_FIRST_MOVE` (`STEAL3_FIRST_MOVE`) and `STEAL_BREAK_LAST` at `STEAL_SPEED`, throw right after `CATCHER_POP`, safe by `STEAL_SAFE_BY`; hold <= 0.17 s.
