@@ -8,6 +8,7 @@
  *   - an answer shows an agent id, or one fan sees another fan's guild.
  *   - (part 2) a join without a free seat, twice, or by a fan who has a guild, is accepted; a leave / remove writes more than the member row;
  *     the 領隊 can leave or remove himself, a member can remove; a leaving 總教練 does not hand the seat back; an agent id shows; a move past the daily cap is accepted.
+ *   - (#809 part 2) the export is not closed without the binding / on production, repeats or skips a guild across pages, shows an agent id, or writes.
  * Usage: node tests/guild.check.mjs */
 import { createRequire } from 'node:module';
 import * as agents from '../functions/lib/agents.js';
@@ -128,6 +129,25 @@ const pc = await call(agents.create, env, { method: 'POST', k: kc, body: PIT });
 const gc = (await post(kc, { name: '十二個字十二個字十二個字', base: TEAMS[1].id })).body?.guild;
 if (!gc || gc.members[0].player?.name !== pc.body?.player?.name || gc.members[0].player?.pos !== 'SP') bad('the founder\'s player must be listed with his role');
 if (gc && [...gc.name].length !== guild.NAME_MAX) bad('a name of exactly the maximum length must be accepted');
+
+/* #809 part 2: GET /api/guilds/export, public data, keyset paging, no write */
+{
+  const exp = async (q = '', e = env, host = HOST) => { const res = await guild.exportPage({ request: new Request(host + '/api/guilds/export' + q), env: e }); return { status: res.status, body: await res.json().catch(() => null) }; };
+  for (const r of [await exp('', {}), await exp('', env, 'https://cloudball-3uy.pages.dev')]) if (r.status !== 503) bad('the export must answer 503 without the binding and on production');
+  is('export, bad after', await exp('?after=nope'), 400, 'invalid');
+  const before = db.sql.prepare('SELECT COUNT(*) AS n FROM guilds').get().n;
+  for (let i = 0; i < guild.EXPORT_PAGE + 3; i++) db.sql.prepare('INSERT INTO guilds (id, name, base, leader, coach, created_at) VALUES (?1, ?2, ?3, ?4, ?4, 1)').run(String(i).padStart(12, '0').replace(/./g, c => 'abcdef0123'[+c % 10]).slice(0, 12).replace(/^./, 'f'), 'N' + i, BASE, 'L' + i);
+  const total = before + guild.EXPORT_PAGE + 3, seen = [];
+  let q = '', pages = 0, next;
+  do { const r = await exp(q); is('export page', r, 200); pages++; seen.push(...r.body.guilds); next = r.body.next; q = '?after=' + next; if (r.body.guilds.length > guild.EXPORT_PAGE) bad('a page holds more than EXPORT_PAGE guilds'); } while (next && pages < 10);
+  if (seen.length !== total || new Set(seen.map(x => x.id)).size !== total) bad(`the pages must list every guild exactly once, got ${seen.length} of ${total}`);
+  if (seen.some((x, i) => i && seen[i - 1].id >= x.id)) bad('guilds must come in id order');
+  if (/[0-9a-f]{64}|agent|ref/.test(JSON.stringify(seen.map(x => ({ ...x, id: 0 }))))) bad('the export must show no agent id or member ref');
+  const mine = seen.find(x => x.id === INV);
+  if (!mine || mine.members.length !== 1 || !mine.members[0].leader || !mine.members[0].coach || mine.settings !== null) bad('a guild must list its members with the leader / coach flags and settings null');
+  const w = db.sql.prepare('SELECT COUNT(*) AS n FROM guild_members').get().n;
+  await exp(); if (db.sql.prepare('SELECT COUNT(*) AS n FROM guild_members').get().n !== w) bad('the export must write nothing');
+}
 
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
 console.log(`OK: guild routes closed without the binding and on production, name and base rules, founder is 領隊 + 總教練, one guild per fan, unique names.`);
