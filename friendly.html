@@ -22,6 +22,10 @@
   <form id="form" hidden>
     <fieldset class="field"><legend>客隊</legend><div class="chips" id="awayTeam"></div><div class="chips" id="awaySP"></div></fieldset>
     <fieldset class="field"><legend>主隊</legend><div class="chips" id="homeTeam"></div><div class="chips" id="homeSP"></div></fieldset>
+    <fieldset class="field" id="ownBox" hidden><legend>我的球員</legend>
+      <p class="status" id="ownWho"></p>
+      <div class="chips" id="ownSlot"></div>
+      <p class="status">只在這場友誼賽的連結裡用他現在的數字，不算他的成績，也不影響他的成長。</p></fieldset>
     <div class="field"><label class="t" for="seed">種子（同一個種子、同樣安排＝同一場比賽）</label>
       <div class="namebox"><input id="seed" type="text" inputmode="numeric" autocomplete="off" maxlength="10"><button type="button" class="btn ghost" id="dice">換一個</button></div></div>
     <div class="field"><label class="t" for="share">分享連結（朋友打開就是同一場，同一版引擎）</label>
