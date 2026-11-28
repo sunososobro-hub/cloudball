@@ -70,7 +70,8 @@
       { "when": { "runs": { "min": 1 } }, "call": "球太外了，保送！", "response": "擠回來的分數最傷了。" }
     ] },
     "intentional_walk": { "priority": 1, "silence": 0.2, "exchanges": [
-      { "call": "故意保送，投手不跟他對決。", "response": "不跟他硬碰，賭下一棒。" }
+      { "call": "故意保送，投手不跟他對決。", "response": "不跟他硬碰，賭下一棒。" },
+      { "call": "敬遠！直接送打者上一壘。" }
     ] },
     "hit_by_pitch": { "priority": 1, "silence": 0.3, "exchanges": [
       { "gag": "story", "sets": ["story"], "call": "觸身球！", "response": "這顆很痛喔。我當年被打到，連叫都不敢叫。" },
@@ -83,21 +84,25 @@
       { "when": { "hasPrev": 1, "batterHits": 1 }, "call": "清脆的安打。", "response": "上個打席沒有結果，這次他把球打出去了。" }
     ] },
     "infield_single": { "priority": 1, "silence": 0.1, "exchanges": [
-      { "call": "內野安打！", "response": "球是到了，可是人比較快，腳程贏的。" }
+      { "call": "內野安打！", "response": "球是到了，可是人比較快，腳程贏的。" },
+      { "call": "內野安打，打者跑得夠快。" }
     ] },
     "bunt_single": { "priority": 1, "silence": 0, "exchanges": [
-      { "call": "短打，安全上壘！", "response": "這個短打點得太刁了，內野根本來不及。" }
+      { "call": "短打，安全上壘！", "response": "這個短打點得太刁了，內野根本來不及。" },
+      { "call": "點得好！短打變成安打。" }
     ] },
     "double": { "priority": 1, "silence": 0.1, "exchanges": [
       { "call": "二壘安打。", "response": "一棒就站上得點圈了。" },
       { "call": "打到空檔，二壘安打！", "response": "這球打得很強勁，外野只能追著跑。" }
     ] },
     "triple": { "priority": 2, "silence": 0, "exchanges": [
-      { "call": "三壘安打！", "response": "三壘安打欸，這比全壘打還難得。" }
+      { "call": "三壘安打！", "response": "三壘安打欸，這比全壘打還難得。" },
+      { "call": "球滾到深遠處，跑者一路衝上三壘！" }
     ] },
     "groundout": { "priority": 0, "silence": 0.6, "exchanges": [
       { "call": "滾地球，處理出局。" },
-      { "call": "滾地球，一壘出局。", "response": "野手處理得很乾淨。" }
+      { "call": "滾地球，一壘出局。", "response": "野手處理得很乾淨。" },
+      { "call": "滾地球，守備傳出去，打者出局。" }
     ] },
     "flyout": { "priority": 0, "silence": 0.55, "exchanges": [
       { "call": "飛球，接殺出局。" },
@@ -106,23 +111,28 @@
       { "call": "高飛球，出局。", "response": "打到球的下緣了，只能變成飛球。" }
     ] },
     "lineout": { "priority": 0, "silence": 0.6, "exchanges": [
-      { "call": "平飛球，被接殺。", "response": "打得很強，只是剛好打到人。" }
+      { "call": "平飛球，被接殺。", "response": "打得很強，只是剛好打到人。" },
+      { "call": "平飛球直接飛進手套，出局。" }
     ] },
     "popout": { "priority": 0, "silence": 0.8, "exchanges": [
-      { "call": "內野小飛球，出局。" }
+      { "call": "內野小飛球，出局。" },
+      { "call": "高高的小飛球，內野手穩穩接住。" }
     ] },
     "double_play": { "priority": 2, "silence": 0, "exchanges": [
       { "call": "雙殺打！", "response": "兩個出局數一次拿，漂亮。" },
       { "call": "兩個出局，守備漂亮地完成雙殺。", "response": "雙殺化解危機，投手可以鬆一口氣。" }
     ] },
     "fielders_choice": { "priority": 1, "silence": 0.1, "exchanges": [
-      { "call": "野手選擇，跑者被封殺。", "response": "抓前面的跑者，這個選擇是對的。" }
+      { "call": "野手選擇，跑者被封殺。", "response": "抓前面的跑者，這個選擇是對的。" },
+      { "call": "野手選擇，先處理前面的跑者，打者上壘。" }
     ] },
     "sac_bunt": { "priority": 1, "silence": 0.3, "exchanges": [
-      { "call": "犧牲短打，跑者推進。", "response": "用一個出局數換一個壘包。很老派，我喜歡。" }
+      { "call": "犧牲短打，跑者推進。", "response": "用一個出局數換一個壘包。很老派，我喜歡。" },
+      { "call": "短打犧牲，打者出局，跑者進一個壘包。" }
     ] },
     "sac_fly": { "priority": 2, "silence": 0, "exchanges": [
-      { "call": "犧牲飛球，跑者回來了！", "response": "球接到才起跑，回傳就是慢了一步。" }
+      { "call": "犧牲飛球，跑者回來了！", "response": "球接到才起跑，回傳就是慢了一步。" },
+      { "call": "高飛犧牲打，跑者從三壘衝回本壘得分。" }
     ] },
     "error": { "priority": 1, "silence": 0.1, "exchanges": [
       { "call": "失誤。", "response": "這個我要噓一下，這是該處理的球。" },
@@ -157,7 +167,7 @@
     "wild_pitch": { "priority": 1, "silence": 0, "exchanges": [
       {"call": "球跑掉了，暴投！壘上的跑者趁機推進。"},
       {"call": "這球投得太偏，捕手攔不住，暴投。", "response": "這種球最怕了，跑者白白多走一個壘包。"},
-      {"call": "暴投，球滾到後面去，跑者跑起來了。"}
+      { "call": "暴投，球滾到後面去，跑者跑起來了。" }
     ] },
     "passed_ball": { "priority": 1, "silence": 0, "exchanges": [
       {"call": "捕手漏接，捕逸！跑者往前推進。"},
@@ -175,19 +185,19 @@
     "catcher_visit": { "priority": 0, "silence": 0.2, "exchanges": [
       {"call": "捕手跑上投手丘，先講幾句話。"},
       {"call": "暫停，捕手上丘跟投手聊一下。", "response": "得點圈有人，讓投手喘口氣是對的。"},
-      {"call": "捕手摘下面罩，走向投手丘。"}
+      { "call": "捕手摘下面罩，走向投手丘。" }
     ] },
     "pickoff_out": { "priority": 1, "silence": 0, "exchanges": [
       {"call": "牽制球傳一壘，跑者出局！", "response": "離壘太遠，這下被抓到了。"},
-      {"call": "投手回頭一傳，把跑者牽制出局。"}
+      { "call": "投手回頭一傳，把跑者牽制出局。" }
     ] },
     "pickoff_rundown": { "priority": 1, "silence": 0, "exchanges": [
       {"call": "跑者被夾在壘間，來回追逐，最後觸殺出局。", "response": "夾殺要傳得乾淨，這次內野沒讓他溜走。"},
-      {"call": "夾殺成功！跑者被堵在兩壘之間。"}
+      { "call": "夾殺成功！跑者被堵在兩壘之間。" }
     ] },
     "catcher_interference": { "priority": 1, "silence": 0, "exchanges": [
       {"call": "打者揮棒碰到捕手的手套，捕手妨礙打擊，打者上一壘。", "response": "這種狀況很少見，捕手手套伸太前面了。"},
-      {"call": "捕手妨礙打擊！裁判指向一壘，打者免費上壘。"}
+      { "call": "捕手妨礙打擊！裁判指向一壘，打者免費上壘。" }
     ] },
     "triple_play": { "priority": 2, "silence": 0, "exchanges": [
       {"call": "三殺！一球解決三個人，整個半局就這樣結束了！", "response": "這種畫面一輩子難得看到幾次，今天看到了。"},
