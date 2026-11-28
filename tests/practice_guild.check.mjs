@@ -12,7 +12,7 @@ import path from 'node:path';
 import * as engine from '../engine/index.js';
 import { ROSTERS } from '../league/players.js';
 import { friendlyParam } from '../league/friendly.js';
-import { MEMBERS_MAX, memberParam, parseMembers, guildProblem, guildRosters, guildShare, guildOpening, guildPlay } from '../league/practice_guild.js';
+import { MEMBERS_MAX, memberParam, parseMembers, guildProblem, guildRosters, guildShare, guildOpening, practiceMembers, practiceLink, guildPlay } from '../league/practice_guild.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bad = [], fail = m => bad.push(m);
@@ -68,6 +68,24 @@ else {
 for (const [what, x, mm] of [['bad x', 'zz', m], ['bad m', friendlyParam(A), '9~b.SS.5.a'], ['same team', '1-1-0-0-5', m]]) {
   const r = guildOpening(x, mm, engine, ROSTERS);
   if (r.status !== 'invalid' || r.opening) fail(`${what}: ${r.status}`);
+}
+
+/* the guild page's button (#800 part 7 screen): view members -> link members -> a game that plays */
+const view = { members: [{ leader: true, me: true, player: { name: '阿傑', kind: 'bat', pos: 'SS', ovr: 99 } }, { ref: 'x', player: null }, { player: { name: '大雄', kind: 'pit', pos: 'MR', ovr: 80 } }, { player: { name: '壞.名', kind: 'bat', pos: 'C', ovr: 50 } }, { player: { name: '老王', kind: 'pit', pos: 'SP', ovr: 70 } }] };
+const pm = practiceMembers(view);
+if (pm.map(x => x.player.name).join() !== '阿傑,大雄,老王') fail(`practiceMembers kept ${pm.map(x => x.player.name).join()}`);
+if (pm[1].player.pos !== 'RP' || pm[2].player.pos !== 'SP') fail('practiceMembers did not map pitcher positions');
+if (practiceMembers({ members: Array(20).fill(view.members[0]) }).length !== MEMBERS_MAX) fail('practiceMembers is not capped');
+const pl = practiceLink({ members: pm, base: 0, opp: 2, sp: 1, seed: 77, commit: 'abcdef1' });
+if (!pl.link) fail(`practiceLink: ${pl.problem}`);
+else {
+  const q = new URL(pl.link, 'https://example.test/').searchParams, back2 = parseMembers(q.get('m'));
+  if (q.get('x') !== friendlyParam({ away: 2, home: 0, sp: [0, 1], seed: 77 }) || !back2 || back2.side !== 1) fail(`practiceLink link ${pl.link}`);
+  const r = guildOpening(q.get('x'), q.get('m'), engine, ROSTERS);
+  if (r.status !== 'ok' || !r.names.includes('阿傑')) fail(`practice link does not play: ${r.status} ${r.reason}`);
+}
+for (const [what, o] of [['same team', { base: 0, opp: 0 }], ['no members', { members: [], base: 0, opp: 1 }], ['bad starter', { base: 0, opp: 1, sp: 5 }]]) {
+  if (!practiceLink({ members: pm, seed: 1, commit: 'abcdef1', ...o }).problem) fail(`practiceLink accepted ${what}`);
 }
 
 /* play.html path (guildPlay): no m = none; a good link = the guild's team swapped, the other team the same object; bad ones are named */

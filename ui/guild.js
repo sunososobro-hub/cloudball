@@ -3,6 +3,10 @@
 import { seasonAt } from '../league/season_site.js';
 import { guildPower } from '../league/guild_power.js';
 import { siteRoster } from '../league/site_roster.js';
+import { TEAMS } from '../league/teams.js';
+import { ENGINE_PIN } from '../league/engine_pin.js';
+import { practiceMembers, practiceLink } from '../league/practice_guild.js';
+import { gamesLeft, takeGame, PRACTICE_PER_DAY } from './practice_limit.js';
 import { memberKey, shardUrl, memberText, GUILD_NONE } from '../league/guild_lines.js';
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊', SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
@@ -79,6 +83,7 @@ function showGuild(g, seats = 10) {
   s.appendChild(ul);
   s.appendChild(el('p', 'left', `其他位置由電腦球員補上（最多 ${seats} 位隊員）。`));
   lineupBox(s, g, iAmCoach);
+  practiceBox(s, g);
   const link = el('input'); link.type = 'text'; link.readOnly = true; link.value = inviteUrl(g); link.setAttribute('aria-label', '邀請連結');
   const copy = el('button', 'btn', '複製邀請連結'); copy.type = 'button';
   copy.onclick = async () => { link.select(); try { await navigator.clipboard.writeText(link.value); say('已複製，貼到 LINE 給隊友。'); } catch (e) { say('長按連結複製。'); } };
@@ -89,6 +94,29 @@ function showGuild(g, seats = 10) {
     s.appendChild(out);
   }
   s.hidden = false; $('maker').hidden = true;
+}
+
+/* 練習賽 (#800 part 7, #810): any member plays his guild's lineup against an NPC team, computed in the browser by play.html from a link that carries the members.
+ * Zero server calls, never counted (rule 24); the daily limit lives in this browser only (ui/practice_limit.js). The guild is the home side, its starter is the saved one. */
+function practiceBox(parent, g) {
+  const base = TEAMS.findIndex(t => t.id === g.base.id), box = el('div', 'practice');
+  parent.append(el('h3', null, '練習賽'), box);
+  let opp = TEAMS.findIndex((t, i) => i !== base);
+  const draw = () => {
+    box.replaceChildren(el('p', 'left', '對手：電腦球隊。用你們現在的打序和先發，在這個瀏覽器裡馬上算出來，不算戰績、不花錢。'));
+    const seg = el('div', 'seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', '練習賽對手');
+    TEAMS.forEach((t, i) => { if (i === base) return; const x = el('button', null, t.short); x.type = 'button'; x.setAttribute('aria-pressed', String(i === opp)); x.onclick = () => { opp = i; draw(); }; seg.appendChild(x); });
+    const left = gamesLeft(), go = el('button', 'btn', '開始練習賽'); go.type = 'button'; go.disabled = base < 0 || left <= 0;
+    go.onclick = () => {
+      const seed = crypto.getRandomValues(new Uint32Array(1))[0] >>> 0;
+      const r = practiceLink({ members: practiceMembers(g), base, opp, sp: (g.lineup && g.lineup.sp) || 0, seed, commit: ENGINE_PIN.commit });
+      if (!r.link) { say('這支球團放不進練習賽連結。', true); return; }
+      if (!takeGame().ok) { draw(); return; }
+      location.href = r.link;
+    };
+    box.append(seg, go, el('p', 'left', left > 0 ? `今天還能開 ${left} 場（每天 ${PRACTICE_PER_DAY} 場，只記在這個瀏覽器）。` : `今天的 ${PRACTICE_PER_DAY} 場用完了，明天再來。`));
+  };
+  draw();
 }
 
 /* 打序: the nine batting slots in batting order + the starting pitcher's rotation slot (#800 part 3); only the 總教練 edits, everyone sees it */
