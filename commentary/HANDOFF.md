@@ -18,6 +18,7 @@
 - #606 part 7: `calls.check.mjs` also fires every `pa_end` result group, strikeout looking / swinging, steal, caught stealing and the half's end over 200 seeds (>= 1 line each, name-free, wording counts). No bank change.
 
 - #606 part 8: name-free calls for obstruction (`pa_end.obstruction`) and the ground-rule double (`pa_end.groundRule`), both in `calls.check.mjs`. Left in #606: dropped third strike, infield fly, check swing, caught foul fly, rundown home (`play.rd3`) and the foul bunt still use the frame line.
+- #607 part 7: 51 fan exchanges on walk / hit_by_pitch / intentional_walk / error / double_play / home_run / run_scores / sac / half_end / pitching_change / hits (52 fan-only-ish, 10 with one colour reply), `bank.tts.json` regenerated (1328 clips). Season max colour 15x, fan 25x; wordings > 3x colour 55, fan 81 (the out groups still carry most fan lines, the pool needs more lines there).
 
 ## Next (board order, #68 queue wins)
 1. #68 line is empty after #82 part 2: report 「沒單可做」 unless the manager adds an issue.
