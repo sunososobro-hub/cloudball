@@ -12,3 +12,8 @@ export async function findMe(id, get = globalThis.fetch) {
   }
   return null;
 }
+
+/* #563 part 6: one lookup per page for both screens (practice and 三局比賽). */
+export const PLAYER = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('player');
+let meP = null;
+export const loadMe = (id = PLAYER, get) => id == null || id === '' ? Promise.resolve(null) : (meP && meP.id === id ? meP.p : (meP = { id, p: findMe(id, get) }).p);
