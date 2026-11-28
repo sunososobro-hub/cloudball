@@ -45,3 +45,4 @@ a.vid:hover{border-color:#3a3d44}
 .trial .gl small{color:var(--muted);font-size:13px}.trial .gl .at{color:var(--muted);font-size:13px}.trial .gl b{color:var(--gold)}
 .trial .gl .farm-replay{display:inline-flex;align-items:center;min-height:44px;font-size:14px}
 .trial .empty{margin:0}
+.trial .health{margin:0;font-size:13px;color:var(--muted)}.trial .health.red{color:#ff8a80;font-weight:600}

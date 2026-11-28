@@ -16,9 +16,16 @@
  *       season (number of today's season; the last one when over), seasonDay (0-based night of today inside it), seasonTotal (its nights),
  *       lastSeason (season of last night, null if none), last (last night's games with score, [] if none),
  *       standings [{ id, w, l, rf, ra }] best first, of today's season only (zero on its first night), champion|null }
- *     Only nights before today count: tonight's scores stay hidden even though the file holds them. */
+ *     Only nights before today count: tonight's scores stay hidden even though the file holds them.
+ *
+ *   healthAt(file, today)                      the front page's one-line health tag (#743 part 3), or null when the file is missing / bad:
+ *     { newest (date 'YYYY-MM-DD' of the newest night that is over, null before the opening night), games (their games, all seasons),
+ *       engine (7-char commit), staleDays (whole days since that night's date, 0 before it), stale (staleDays >= STALE_DAYS) }
+ *     The file is computed ahead (MIN_SITE_DAYS nights), so it goes stale only when its buffer runs out: the newest night is
+ *     last night's while the buffer lasts. A night counts as 36 h old two dates later (it ended at midnight, the page reads at noon). */
 import * as S from './season.js';
 
+export const STALE_DAYS = 2, SHORT_COMMIT = 7;
 const DAY_MS = 86400000, DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function siteFile(runs, { start, commit = '', version = '' } = {}) {
@@ -69,5 +76,21 @@ export function seasonAt(file, today) {
     last: lastN ? lastN.games.map(g => ({ ...strip(g), score: g.score.slice(), phase: lastN.phase })) : [],
     standings: S.rank(table).map(id => ({ id, ...table.teams[id] })),
     champion: idx >= total ? file.champion || null : null,
+  };
+}
+
+const addDays = (start, n) => new Date(Date.parse(start + 'T00:00:00Z') + n * DAY_MS).toISOString().slice(0, 10);
+export function healthAt(file, today) {
+  if (!okFile(file)) return null;
+  const idx = dayIndex(file.start, today);
+  if (idx == null) return null;
+  const over = file.nights.filter(n => n.day < idx);
+  const newestDay = over.reduce((m, n) => Math.max(m, n.day), -1);
+  const staleDays = newestDay < 0 ? 0 : Math.max(0, idx - newestDay - 1);
+  return {
+    newest: newestDay < 0 ? null : addDays(file.start, newestDay),
+    games: over.reduce((c, n) => c + n.games.length, 0),
+    engine: String(file.engine && file.engine.commit || '').slice(0, SHORT_COMMIT),
+    staleDays, stale: newestDay >= 0 && staleDays >= STALE_DAYS,
   };
 }

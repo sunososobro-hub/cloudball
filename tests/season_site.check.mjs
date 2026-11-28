@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const imp = p => import(pathToFileURL(path.join(ROOT, p)));
-const { siteFile, seasonAt, dayIndex } = await imp('league/season_site.js');
+const { siteFile, seasonAt, dayIndex, healthAt, STALE_DAYS } = await imp('league/season_site.js');
 const { runSeason, runSeasons, siteSerialize, PLAYERS_IN, MIN_SITE_DAYS } = await imp('league/tools/season_run.mjs');
 const { readFileSync } = await import('node:fs');
 const { combine } = await imp('ui/site/shared.js');
@@ -101,6 +101,25 @@ if (!linked.includes('href="play.html?f=f-7"')) bad('home: last night game 1 sho
 if (linked.includes('f-8') || linked.includes('f-9')) bad('home: a record of another night or with swapped teams must not link');
 if (linked.split('二軍重播').length !== 2) bad('home: exactly one 二軍重播 link expected');
 if (view({ ...combine({ teams: tTeams, trial: ht }), today: '2026-12-02' }).includes('二軍重播')) bad('home: no farm file -> no replay link');
+
+/* #743 part 3: health tag on a hand-made file (nights day 0 and 1, 2 + 1 games, engine commit 'abcdef0123') */
+const hf = { trial: true, seed: 1, start: '2026-12-01', engine: { commit: 'abcdef0123' }, nights: [{ day: 0, phase: 'season', games: [{ home: 'A', away: 'B', score: [1, 2] }, { home: 'C', away: 'D', score: [3, 0] }] }, { day: 1, phase: 'season', games: [{ home: 'B', away: 'A', score: [0, 1] }] }] };
+eq(healthAt(hf, '2026-11-30'), { newest: null, games: 0, engine: 'abcdef0', staleDays: 0, stale: false }, 'health before the opening');
+eq(healthAt(hf, '2026-12-01'), { newest: null, games: 0, engine: 'abcdef0', staleDays: 0, stale: false }, 'health on opening day');
+eq(healthAt(hf, '2026-12-02'), { newest: '2026-12-01', games: 2, engine: 'abcdef0', staleDays: 0, stale: false }, 'health on night 2');
+eq(healthAt(hf, '2026-12-03'), { newest: '2026-12-02', games: 3, engine: 'abcdef0', staleDays: 0, stale: false }, 'health the day after the last night');
+eq(healthAt(hf, '2026-12-04'), { newest: '2026-12-02', games: 3, engine: 'abcdef0', staleDays: 1, stale: false }, 'health 1 day behind: fresh');
+eq(healthAt(hf, '2026-12-05'), { newest: '2026-12-02', games: 3, engine: 'abcdef0', staleDays: 2, stale: true }, `health ${STALE_DAYS} days behind: stale`);
+if (healthAt(null, '2026-12-02') !== null || healthAt(hf, 'x') !== null) bad('health: bad file or date must give null');
+const hteams = { season: '0', teams: ['A', 'B', 'C', 'D'].map(id => ({ id, name: id + '隊' })) };
+const hv = today => view({ ...combine({ teams: hteams, trial: hf }), today });
+if (!hv('2026-12-03').includes('最新賽果 2026-12-02・引擎 abcdef0・3 場') || hv('2026-12-03').includes('class="health red"')) bad('home: fresh health line missing or red');
+if (!hv('2026-12-05').includes('class="health red"') || !hv('2026-12-05').includes('資料過期')) bad('home: stale file must show the red health tag');
+if (!hv('2026-12-01').includes('尚無賽果')) bad('home: opening day health line says no results yet');
+/* the refill: --days N covers at least N nights and the first nights stay the same (same seed, start, commit) */
+const small = JSON.parse(execFileSync(process.execPath, [...args, '--days', '10'], { encoding: 'utf8' })), big = JSON.parse(out1);
+if (small.nights.length < 10 || small.nights.length >= big.nights.length) bad(`--days 10 gave ${small.nights.length} nights, want >= 10 and fewer than the default ${big.nights.length}`);
+eq(small.nights, big.nights.slice(0, small.nights.length), '--days: the shared nights are identical');
 
 if (problems.length) { console.error('season_site check FAILED:\n  ' + problems.join('\n  ')); process.exit(1); }
 console.log('season_site check ok');
