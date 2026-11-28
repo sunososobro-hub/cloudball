@@ -25,7 +25,8 @@ const KNOWN_SLOTS = new Set(['desc', 'batter', 'pitcher', 'runner', 'team', 'fie
   'lastInningRuns', 'hadLastInning', 'batterPa', 'batterAb', 'batterHits', 'batterKToday', 'batterHrToday', 'batterPrev', 'hasPrev', 'pitcherK', 'pitchCount',
   'manager', 'pitchingCoach', 'homeManager', 'managerName', 'managerLine', 'plateUmp', 'plateUmpLine', 'count', 'pitchType', 'pos', 'bases']);
 const KNOWN_TRIGGERS = new Set(['game_start', 'batter_up', 'two_strikes', 'full_count', 'stolen_base', 'caught_stealing', 'run_scores', 'pitching_change', 'fan_decision', 'half_end', 'walkoff', 'game_end',
-  'strikeout', 'walk', 'intentional_walk', 'hit_by_pitch', 'single', 'infield_single', 'bunt_single', 'double', 'triple', 'home_run', 'groundout', 'flyout', 'lineout', 'popout', 'double_play', 'fielders_choice', 'sac_bunt', 'sac_fly', 'error']);
+  'strikeout', 'walk', 'intentional_walk', 'hit_by_pitch', 'single', 'infield_single', 'bunt_single', 'double', 'triple', 'home_run', 'groundout', 'flyout', 'lineout', 'popout', 'double_play', 'fielders_choice', 'sac_bunt', 'sac_fly', 'error',
+  'wild_pitch', 'passed_ball', 'balk', 'pickoff_safe', 'catcher_visit']);
 const FAN_SLOTS = new Set([...KNOWN_SLOTS, 'guest']);
 const FAN_SHARE = { min: 0.10, max: 0.30 };
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
@@ -95,7 +96,7 @@ const fanShare = lines ? fanLines / lines : 0;
 if (fanShare < FAN_SHARE.min || fanShare > FAN_SHARE.max) bad(`fan share ${(fanShare * 100).toFixed(1)}% is outside ${FAN_SHARE.min * 100}%..${FAN_SHARE.max * 100}% over ${GAMES} games`);
 console.log(`bank: ${fanMoments} fan moments, ${fanTexts} fan-moment lines`);
 console.log(`${GAMES} games: ${(lines / GAMES).toFixed(0)} lines/game, one line every ${(seconds / lines).toFixed(0)} s on average, fan share ${(fanShare * 100).toFixed(1)}%, ${Object.keys(index).length} registered script(s)`);
-for (const file of ['tension.check.mjs', 'banter.check.mjs', 'audio.check.mjs', 'clips.check.mjs']) {
+for (const file of ['tension.check.mjs', 'banter.check.mjs', 'calls.check.mjs', 'audio.check.mjs', 'clips.check.mjs']) {
   const child = spawnSync(process.execPath, [path.join(DIR, file)], { encoding: 'utf8', env: { ...process.env, GAMES: String(GAMES) } });
   process.stdout.write(child.stdout || ''); process.stderr.write(child.stderr || '');
   if (child.status !== 0) bad(`commentary/${file} failed (exit ${child.status === null ? 'killed by ' + child.signal : child.status})`);
