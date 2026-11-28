@@ -8,16 +8,19 @@
  * Display number -> raw rating is `ratingsOf.raw`, as in league/site_roster.js (a whole display number goes there and back unchanged). */
 import { sitePlayer } from './site_roster.js';
 
+/* #751 part 6: the link's look (0..100 weights, cm) replaces sitePlayer's normal build; appearance only, the engine never reads it */
+const withLook = (p, o) => (o.body ? Object.assign(p, { body: { slim: o.body.slim / 100, power: o.body.power / 100, heavy: o.body.heavy / 100 }, ht: o.ht / 100 }) : p);
+
 const POT = 50;   /* growth only; the engine does not read it in a game */
 
 export function ownBatter(o, pos) {
   const row = { name: o.name, num: o.num, age: o.age, role: 'B', pos, hand: o.hand, abilities: { con: o.con, pow: o.pow, eye: o.eye, spd: o.spd, arm: o.arm, pot: POT } };
-  return sitePlayer('own', row);
+  return withLook(sitePlayer('own', row), o);
 }
 
 export function ownPitcher(o) {
   const row = { name: o.name, num: o.num, age: o.age, role: 'P', pos: 'SP', hand: o.hand, abilities: { stuff: o.stuff, ctrl: o.ctrl, arm: o.arm, pot: POT } };
-  return sitePlayer('own', row);
+  return withLook(sitePlayer('own', row), o);
 }
 
 export const ownSide = (o, a) => (o.side === 0 ? a.away : a.home);

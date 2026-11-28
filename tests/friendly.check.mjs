@@ -6,6 +6,8 @@
  *     or a link with a pin and the same link played twice (or with the page's own engine of the same commit) give different games,
  *   - league/friendly.js imports anything or uses Math.random, Date, fetch or the ledger; friendly.html is not reachable from index.html.
    - (part 4) a pitcher as own player: malformed refused, must be that side's starter, replaces only that SP place, starts and pitches in the game, same link = same game.
+   - (part 6) the own player's look (body weights + height) is refused when malformed, round-trips in the link, reaches his engine roster entry,
+     leaves the game byte for byte the same, comes from the factory player of his id when the row has none, and old links still parse.
    - (part 3) the own player in a link is refused when malformed, is frozen in the link (o=), changes the game, replaces only his slot, and never touches the factory rosters or an official file.
  * Usage: node tests/friendly.check.mjs */
 import { readFileSync, readdirSync } from 'node:fs';
@@ -17,7 +19,7 @@ import { ROSTERS } from '../league/players.js';
 import { TEAM_COUNT, STARTERS, ownParam, parseOwn, ownProblem, parseFriendly, friendlyParam, friendlyUrl, friendlyProblem, friendlyOpening, friendlyPin, friendlyCommitPin, friendlyShare, friendlyOpeningAt } from '../league/friendly.js';
 import { ENGINE_PIN } from '../league/engine_pin.js';
 import { ownRosters, ownBatter, ownPitcher } from '../league/friendly_own.js';
-import { myBatter, myPitcher, ownOf, ownOfPitcher } from '../ui/friendly_me.js';
+import { myBatter, myPitcher, ownOf, ownOfPitcher, lookOf } from '../ui/friendly_me.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bad = [], fail = m => bad.push(m);
@@ -173,6 +175,39 @@ if (/Math\.random|Date\b|fetch\(/.test(readFileSync(path.join(ROOT, 'league/engi
   if (digest() !== before) fail('own pitcher games changed an official file (rule 24)');
   if (!/k=own\.role==='P'\?'pit':'bat'/.test(play)) fail('play.html does not patch the own pitcher into the engine rosters');
   if (!/myPitcher/.test(ui) || !/ownOfPitcher/.test(ui)) fail('ui/friendly.js has no own pitcher choice');
+}
+
+/* part 6: his look travels in the link; appearance only */
+{
+  const own = { side: 0, slot: 3, con: 80, pow: 70, eye: 60, spd: 50, arm: 55, hand: 'L', age: 25, num: 7, name: '小明' };
+  const lk = { ...own, body: { slim: 0, power: 78, heavy: 100 }, ht: 191 };
+  const b = { away: 0, home: 1, sp: [0, 0], seed: 5, own: lk }, b0 = { ...b, own };
+  if (friendlyProblem(b)) fail(`own player with a look refused: ${friendlyProblem(b)}`);
+  if (JSON.stringify(parseOwn(ownParam(lk))) !== JSON.stringify(lk)) fail('look does not round-trip');
+  if (!ownParam(lk).endsWith('.小明.0.78.100.191') || ownParam(own).split('.').length !== 11) fail(`look fields ${ownParam(lk)}`);
+  for (const [what, o] of [['weight 101', { ...lk, body: { ...lk.body, slim: 101 } }], ['weight 0.5', { ...lk, body: { ...lk.body, power: 0.5 } }], ['no heavy', { ...lk, body: { slim: 0, power: 0 } }],
+    ['height 149', { ...lk, ht: 149 }], ['height 221', { ...lk, ht: 221 }], ['height only', { ...own, ht: 180 }], ['body only', { ...own, body: lk.body }]])
+    if (!ownProblem(o)) fail(`own look ${what} accepted`);
+  for (const s of ['0.3.80.70.60.50.55.L.25.7.小明.0.78.100', '0.3.80.70.60.50.55.L.25.7.小明.0.78.100.191.1', '0.3.80.70.60.50.55.L.25.7.小明.0.78.100.300']) if (parseOwn(s)) fail(`bad look link parses: ${s}`);
+  const him = ownRosters(lk, b, ROSTERS)[0].bat[3];
+  if (JSON.stringify(him.body) !== JSON.stringify({ slim: 0, power: 0.78, heavy: 1 }) || him.ht !== 1.91) fail(`look not in his roster entry ${JSON.stringify(him)}`);
+  if (JSON.stringify(ownRosters(own, b0, ROSTERS)[0].bat[3].body) !== JSON.stringify({ slim: 0, power: 0, heavy: 0 })) fail('no look is not the normal build');
+  const g1 = friendlyOpening(friendlyParam(b), engine, ownRosters(lk, b, ROSTERS)), g0 = friendlyOpening(friendlyParam(b0), engine, ownRosters(own, b0, ROSTERS));
+  if (g1.status !== 'ok' || JSON.stringify(g1.opening.game.stream) !== JSON.stringify(g0.opening.game.stream)) fail('the look changed the game');
+  const pk = { role: 'P', side: 1, slot: 2, stuff: 60, ctrl: 60, arm: 60, hand: 'R', age: 28, num: 11, name: '阿投', body: { slim: 100, power: 0, heavy: 0 }, ht: 185 };
+  if (JSON.stringify(parseOwn(ownParam(pk))) !== JSON.stringify(pk) || ownParam(pk).split('.').length !== 13) fail('pitcher look does not round-trip');
+  const pr = ownRosters(pk, { away: 0, home: 1, sp: [0, 2], seed: 5, own: pk }, ROSTERS)[1].pit[2];
+  if (pr.ht !== 1.85 || pr.body.slim !== 1) fail(`pitcher look not in his roster entry ${JSON.stringify(pr)}`);
+  const f = ROSTERS[0].bat[2], L = lookOf(f.id, { name: f.name });
+  if (!L || L.ht !== Math.round(f.ht * 100) || L.body.heavy !== Math.round(f.body.heavy * 100)) fail(`lookOf misses the factory player ${JSON.stringify(L)}`);
+  if (lookOf('fa-none', { name: 'x' }) !== null) fail('lookOf invents a look');
+  if (lookOf('fa-x', { body: { slim: 0.5, power: 0, heavy: 0 }, ht: 1.8 }).body.slim !== 50) fail('lookOf ignores the row\'s own look');
+  const row = { name: f.name, num: f.num, age: 30, role: 'B', pos: f.pos, hand: 'R', overall: 75, abilities: { con: 56, pow: 70, eye: 90, spd: 46, arm: 82, pot: 76 }, team: 'pheasants', tier: 1 };
+  const v = await myBatter(() => f.id, async () => ({ [f.id]: row })), o = v && ownOf(v.row, 0, 3);
+  if (!o || ownProblem(o) || !o.body || o.ht !== Math.round(f.ht * 100)) fail(`myBatter / ownOf drop his look ${JSON.stringify(o)}`);
+  const vf = await myBatter(() => 'fa-1', async () => ({ 'fa-1': row }));
+  if (!vf || ownOf(vf.row, 0, 3).body !== undefined) fail('a player with no known look gets one');
+  if (digest() !== before) fail('look games changed an official file (rule 24)');
 }
 
 if (bad.length) { console.error('friendly check FAILED:\n - ' + bad.join('\n - ')); process.exit(1); }
