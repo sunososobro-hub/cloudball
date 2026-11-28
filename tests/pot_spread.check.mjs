@@ -3,9 +3,11 @@
  *   - deciles are out of order, or an overall ends above the potential's top decile + 1,
  *   - more training (later season, active fan) gives a lower median than less,
  *   - the lowest decile of a fully grown even build (6 seasons, hands-off) is under the weakest 一軍 quartile
- *     (owner 2026-11-28: the bottom must not be hopeless), or the top decile does not pass the 一軍 median (stars reachable).
+ *     (owner 2026-11-28: the bottom must not be hopeless), the grown p90 - p10 is wider than POT_BAND + 1 (#794 part 6),
+ *     or the top decile does not pass the 一軍 median (stars reachable).
  * Usage: node tests/pot_spread.check.mjs */
 import { simulate, SEASONS_AT } from '../league/tools/pot_spread.mjs';
+import { POT_BAND } from '../league/freeagents.js';
 
 const N = 80, problems = [], bad = m => problems.push(m);
 const a = simulate(N), b = simulate(N);
@@ -21,6 +23,7 @@ for (const [kind, o] of Object.entries(a.out)) {
   });
   const grown = o.rows.hands[last];
   if (grown.p10 < a.t.bottom) bad(`${kind}: lowest decile grown ${grown.p10} under the 一軍 bottom quartile ${a.t.bottom}`);
+  if (grown.p90 - grown.p10 > POT_BAND + 1) bad(`${kind}: grown p90 - p10 ${grown.p90 - grown.p10} wider than POT_BAND ${POT_BAND} + 1`);
   if (grown.p90 <= a.t.median) bad(`${kind}: top decile grown ${grown.p90} does not pass the 一軍 median ${a.t.median}`);
 }
 if (problems.length) { console.error(problems.map(p => '  ' + p).join('\n')); console.error(`pot_spread.check: ${problems.length} problem(s)`); process.exit(1); }

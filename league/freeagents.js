@@ -107,8 +107,13 @@ export const NUM = [1, 99];
  * else the body POT_BODY[0] + span * u^POT_SKEW (more draws low, a tail toward the top of the body). potDraw() gives the
  * value, potShareAtLeast() its exact share, so tests/training.check.mjs checks the shape against the 一軍 of
  * league/site/players.json (median >= the 一軍 median, about a fifth above the 一軍 p75, a rare tail of stars). */
-export const POT_BODY = [52, 89];
-export const POT_SKEW = 1.75;
+/* #794 part 6 (owner 2026-11-28: no character doomed from day 1, stars rare but reachable): body raised from [52, 89] skew
+ * 1.75 (p10/median/p90 53/64/84) to the narrowest band in a grid search over floor / skew with the top kept at 89 (no hole
+ * under the god roll), median 63..66 and the training.check targets (a fifth above the 一軍 p75, 2-5 % stars):
+ * p10/median/p90 60/66/84. POT_BAND is the p90 - p10 gap the draw may not exceed (training.check, pot_spread.check). */
+export const POT_BODY = [60, 89];
+export const POT_SKEW = 2.5;
+export const POT_BAND = 24;
 export const POT_GOD = [90, 99];
 export const POT_GOD_SHARE = 0.03;
 export const potDraw = (u, v) => Math.round(v < POT_GOD_SHARE ? POT_GOD[0] - 0.5 + (POT_GOD[1] - POT_GOD[0] + 1) * u
