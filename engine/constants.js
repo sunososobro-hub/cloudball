@@ -454,6 +454,11 @@ export const EJECT_PITCHER_P = 0.5;
 export const EJECT_BATTER_ON = false;
 export const EJECT_BATTER_P = 0.3;
 export const EJECT_BATTER_MAX_P = 0.45;
+/* grudges across games (#379 part 8): a game with the grudge record on returns `owed`, { <team index>: unsettled points } (hits its
+ * pitchers have not answered yet); the league passes the last meeting's `owed` as simGame opts.owed and each team starts the next
+ * game against that opponent with GRUDGE_CARRY of it (memory fades, a new umpire, no warning yet). No draw; no opts.owed = 0, so
+ * games without it are unchanged. First guess, no data yet. */
+export const GRUDGE_CARRY = 0.5;
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
 export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */

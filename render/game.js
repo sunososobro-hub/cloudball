@@ -1521,6 +1521,7 @@ function infSigPose(f,b,e,u){const s=infM&&!f.armsHeld?infM.infSignal(e,u,b,SIG_
   f.auto=false;f.armsHeld=true;const R=f.rig,L0=[-BC_REST[0],BC_REST[1],BC_REST[2]],r=BC_REST.map((v,i)=>lerp(v,s.arms[i],s.w)),l=L0.map((v,i)=>lerp(v,s.arms[3+i],s.w));
   aimArm(R.a1,BAT_SHOULDER_X,r[0],r[1],r[2]);aimArm(R.a0,-BAT_SHOULDER_X,l[0],l[1],l[2])}
 /* #841 part 1 (render/umpobs.js): on an obstruction play U1 points at the first baseman from the batter's arrival at first until he has second. Off with ?off=umpobs. */
+let obsLM=null;import(new URL('obslane.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('obslane'))obsLM=M}).catch(err=>console.warn('obstruction lane off',err));/* #841 part 2 (render/obslane.js): the first baseman stands in the batter's lane, the batter slows at the contact and is still on time at second. Off with ?off=obslane. */
 let obsM=null;import(new URL('umpobs.js',document.currentScript&&document.currentScript.src||location.href.replace(/[^/]*$/,'render/')).href).then(M=>{if(!OFF.has('umpobs'))obsM=M}).catch(err=>console.warn('obstruction signal off',err));
 const OBS_T={runTime,BASE_PATH:window.ENGINE.BASE_PATH};
 function obsSigPose(f,b,e,u){const s=obsM&&!f.armsHeld?obsM.obsSignal(e,u,b,OBS_T):null;if(!s)return;
@@ -1929,7 +1930,7 @@ function poseScene(e,u,dt,ei){
     const tl=GRDR?GRDR.grdTl(e,tl0,SIG_T,runDist,from,to):tl0;/* #718 part 4: trot once the ball is over the wall */
     const {st0,spd,slide,ts,slideTime:ST,arriveT}=tl,lead=from>0&&u<st0?(tl.tag?tagLeadAt(u,st0):leadAt(u)):tl.lead,Ltot=(to-from)*27.43;
     if(from===0)batGone=st0;
-    let prog;const gp=GRDR?GRDR.grdProg(tl,u,Ltot):null;if(gp!=null)prog=gp;else if(u<ts)prog=runDist(Math.min(u,tl.tagStop??Infinity)-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
+    let prog;const gp=GRDR?GRDR.grdProg(tl,u,Ltot):null;if(gp!=null)prog=gp;else if(u<ts)prog=runDist(Math.min(from===0&&obsLM?u-obsLM.obsLag(e,u,OBS_T):u,tl.tagStop??Infinity)-st0,spd)+lead;else{const sl=sat01((u-ts)/ST);prog=Ltot-SLIDE_D+SLIDE_D*(1-(1-sl)*(1-sl))}
     let [x,z,done]=pathPos(from,to,prog);
     if(from===0&&u<st0)continue;
     if(from===0)[x,z]=batLeave(e,prog,x,z);
@@ -2025,6 +2026,8 @@ function poseScene(e,u,dt,ei){
   if(!bp&&pbOn&&pbM&&!OFF.has('pbback')&&u>=BALL_BACK_AT+BALL_BACK_DUR&&pbM.pbAt(u,BALL_BACK_AT+BALL_BACK_DUR,pbS).holdsBall){const g=fielders.P.handWorld(0);bp=[g.x,g.y,g.z]}/* #642: the ball stays in his glove through the look, the turn and the walk */
   if(bp){ball.visible=true;ball.position.set(bp[0],bp[1],bp[2]);ballSh.position.set(bp[0],.03,bp[2]);const dB=ball.position.distanceTo(camera.getWorldPosition(_cw)),pxR=BALL_R*(innerHeight/2)/(dB*Math.tan(camera.fov*Math.PI/360)),bs=clamp(BALL_MIN_PX/pxR,1,BALL_MAX);ball.scale.setScalar(bs);ballSh.scale.setScalar(.35*bs)}
   ballSh.visible=ball.visible;
+  if(obsLM&&e.r==='inplay'&&e.play&&e.play.obstruction){const k=obsLM.obsStand(e,u,OBS_T),f1=fielders['1B'];/* #841 part 2: no ball, not fielding: he steps off his spot onto the home-first line just short of the bag and faces the batter coming up it */
+    if(k>0&&f1&&!f1.armsHeld){const [lx,lz]=pathPos(0,1,27.43-obsLM.OBS_LANE_BEFORE);f1.g.position.set(lerp(f1.ret[0],lx,k),0,lerp(f1.ret[1],lz,k));if(k>=1)face(f1,-lx,-lz)}}
   /* sound cues */
   const cue=(name,at,fn)=>{const key=e.t+name;if(u>=at&&u<at+.6&&!cues.has(key)){cues.add(key);fn()}};
   if(contact)cue('crack',ARRIVE,()=>crack(bunt?BUNT_CRACK:e.r==='inplay'?1:.5));
