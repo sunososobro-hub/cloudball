@@ -3,7 +3,9 @@
  * written (a day column + a count column), never in a counter row per action: one write = one row. Past the cap the answer is
  * 429 {"ok":false,"why":"limit"}. Not a route; no engine change (rule 10). Table and column names come from this code, never a request.
  * Row shape for a table that uses it: `saved_day INTEGER NOT NULL DEFAULT 0, saves_today INTEGER NOT NULL DEFAULT 0` (kind 'save')
- * and `moved_day ..., moves_today ...` (kind 'move'; keep it on the fan's own persistent row: a leave deletes the member row). */
+ * and `moved_day ..., moves_today ...` (kind 'move'; keep it on the fan's own persistent row: a leave deletes the member row).
+ * Next (#795, #800 part 2+3): their handlers call these; their UIs save on one explicit 儲存 button, never per slider change.
+ * No HANDOFF.md under functions/: every file there becomes a route (tests/stats.check.mjs). */
 import { fail } from './agents.js';
 
 export const SAVES_PER_DAY = 20;          /* settings + lineup saves together, per fan per UTC day */

@@ -1,4 +1,0 @@
-# functions/ HANDOFF
-- Done (#808): `lib/caps.js` = named daily caps `SAVES_PER_DAY` (settings + lineup) and `GUILD_MOVES_PER_DAY` (join/leave/remove/hand-over); `saveJson` (one JSON row, overwritten, unchanged = 0 writes), `moveStep` / `withinCap` (counted move). Counter columns live in the row written; past the cap answer `limited()` (429 `limit`). Test: `tests/caps.check.mjs`.
-- Next: #795 / #800 part 2+3 must call these (no handler uses them yet) and give their persistent fan row `saved_day, saves_today, moved_day, moves_today` (INTEGER NOT NULL DEFAULT 0). Their UIs save on one explicit 儲存 button, never per slider change.
-- Traps: keep the move counter on the fan's persistent row, not the member row (a leave deletes it and would reset the count). Table/column names are code constants only.
