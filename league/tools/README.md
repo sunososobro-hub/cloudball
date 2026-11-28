@@ -22,6 +22,7 @@ Hand-run tools for league data. Nothing here runs at game time.
   (a full-tier mini-game bonus every day); prints days to reach the 一軍 median and bottom quartile of `../site/players.json`,
   plus what-if rows without the potential stop. `node league/tools/train_sim.mjs`. Deterministic (`SIM_SEED`).
 - `season_sim.mjs` (#437): 20 seeded #165 seasons (12 games + best-of-three final) with a 二軍 of created players (fans first, then `system: true` 系統 players), promotion rule and an audition per created player; prints runs per game, created batting / pitching lines per group against the 一軍 median, and the share who reach the 一軍 with 5 / 20 / 60 real fans. `node league/tools/season_sim.mjs [--fans fans.json] [--seasons N]`. Deterministic (`SEASON_SEED`); the 系統 tag on the data site is part 2.
+- `pot_spread.mjs` (#794): the hidden potential's spread under one build (even points, default split, fixed age): overall p10 / median / p90 after 1 / 3 / 6 seasons, hands-off and active, against the 一軍 bottom quartile and median. `node league/tools/pot_spread.mjs [--players N]`. Deterministic (`SIM_SEED`); `tests/pot_spread.check.mjs`.
 - `blocklist.txt`: full names of real athletes, one per line; `#` lines are section headers.
   No league person may carry one of these names. `tests/names.check.mjs` enforces it.
 
