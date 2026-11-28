@@ -1,6 +1,8 @@
 /* Guild page (guild.html, #800 part 1): found a guild (name + base team), see its page. Same account as agent.html: the random key kept in
  * localStorage, sent as a Bearer header; the server judges every choice again (functions/lib/guild.js). No answer = 「還沒開放」. */
 import { seasonAt } from '../league/season_site.js';
+import { siteRoster } from '../league/site_roster.js';
+import { guildPower } from '../league/guild_power.js';
 import { memberKey, shardUrl, memberText, GUILD_NONE } from '../league/guild_lines.js';
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊', SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
@@ -33,6 +35,17 @@ async function lineFor(g, name) {
   const key = memberKey(g.id, name); return memberText(await getJson(shardUrl(seasonNo, key)), key);
 }
 
+/* #800 part 4: 戰力 = 投球 / 打擊 / 守備 of the roster the guild plays with (display only, from the published players file, no server call) */
+let playersJson;
+async function powerText(g) {
+  if (playersJson === undefined) playersJson = await getJson('league/site/players.json');
+  if (!playersJson) return '戰力：暫時讀不到球員資料。';
+  const base = siteRoster(playersJson, g.base.id, 1);
+  if (!base.bat.length || !base.pit.length) return '戰力：暫時讀不到球員資料。';
+  const p = guildPower({ id: g.id, members: g.members }, base);
+  return `戰力（顯示用，不影響比賽）：投球 ${p.pit}・打擊 ${p.bat}・守備 ${p.def}`;
+}
+
 function showGuild(g, seats = 10) {
   const iAmLeader = g.members.some(m => m.leader && m.me), iAmCoach = g.members.some(m => m.coach && m.me);
   const s = $('mine'); s.replaceChildren(el('h2', null, g.name));
@@ -42,6 +55,7 @@ function showGuild(g, seats = 10) {
   const nameOf = m => (m && m.player ? m.player.name : '你');
   roles.append(el('dt', null, '領隊'), el('dd', null, nameOf(who('leader'))), el('dt', null, '總教練'), el('dd', null, nameOf(who('coach'))));
   s.appendChild(roles);
+  const pw = el('p', 'left power', '戰力：…'); s.appendChild(pw); powerText(g).then(t => { pw.textContent = t; });
   s.appendChild(el('h3', null, '隊員'));
   const ul = el('ul', 'roster');
   for (const m of g.members) {
