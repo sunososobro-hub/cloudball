@@ -3,9 +3,9 @@
  * players.json rows carry 1..100 display numbers only; the engine wants the raw 1.0-centred values. `ratingsOf.raw` is the inverse of the
  * display scale (a whole display number goes there and back unchanged), so a converted player rates exactly like his row, though a raw value
  * that was never a whole display number comes back snapped to the nearest one. Fields the rows do not hold (body, height) use the
- * `normal` build; the engine ignores them (they only draw the player). The bench is not on the site, so it comes back empty.
+ * `normal` build; the engine ignores them (they only draw the player). Batters beyond one per position come back as the bench.
  *
- * siteRoster(players, teamId, tier) -> { bat, pit, bench: [] } in the shape of league/players.js:
+ * siteRoster(players, teamId, tier) -> { bat, pit, bench } in the shape of league/players.js:
  *   bat = the team's batters of that tier, best overall first (lineup order), pit = starters (SP) best first, then the bullpen. */
 import { ratingsOf } from './ratings.js';
 import { CREATE } from './freeagents.js';
@@ -23,7 +23,9 @@ export function sitePlayer(id, row) {
 
 export function siteRoster(players, teamId, tier) {
   const mine = Object.entries(players).filter(([, p]) => p.team === teamId && p.tier === tier).map(([id, p]) => ({ id, ...p })).sort(byOverall);
-  const bat = mine.filter(p => p.role === 'B').map(p => sitePlayer(p.id, p));
-  const pit = mine.filter(p => p.role === 'P'), sp = pit.filter(p => p.pos === 'SP'), rest = pit.filter(p => p.pos !== 'SP');
-  return { bat, pit: [...sp, ...rest].map(p => sitePlayer(p.id, p)), bench: [] };
+  /* the lineup is the best batter of each position (one per position, best overall first); the other batters of the tier are the bench (#748 part 2) */
+  const seen = new Set(), batters = mine.filter(p => p.role === 'B'), lineup = batters.filter(p => !seen.has(p.pos) && seen.add(p.pos)), rest = batters.filter(p => !lineup.includes(p));
+  const bat = lineup.map(p => sitePlayer(p.id, p)), bench = rest.map(p => sitePlayer(p.id, p));
+  const pit = mine.filter(p => p.role === 'P'), sp = pit.filter(p => p.pos === 'SP'), rest2 = pit.filter(p => p.pos !== 'SP');
+  return { bat, pit: [...sp, ...rest2].map(p => sitePlayer(p.id, p)), bench };
 }

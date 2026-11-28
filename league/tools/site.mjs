@@ -62,7 +62,7 @@ export function systemSecond(teams = TEAMS, rosters = ROSTERS) {
   return out;
 }
 
-/* #748 part 1: a FULL 二軍 per team (not wired into the export yet, part 2): one batter per position of CREATE.positions (the nine of a lineup,
+/* #748 part 1: a FULL 二軍 per team (the 二軍 of the export since part 2): one batter per position of CREATE.positions (the nine of a lineup,
  * DH included), ROTATION_SIZE starters, then SECOND_BULLPEN relievers (roles cycled over the non-SP roles). Same recipe and seeds as systemSecond
  * (an even spread of the creation budget, names unique in the league), so two calls give the same bytes. */
 export const SECOND_BULLPEN = 4, FULL_SECOND_SEED = 748;
@@ -80,6 +80,32 @@ export function fullSecond(teams = TEAMS, rosters = ROSTERS) {
       for (let n = 0; ; n++) { made = makePlayer(seed, { ...c, nameDraw: n }); if (!taken.has(made.player.name)) break; }
       taken.add(made.player.name);
       return { ...made.player, system: true };
+    });
+  });
+  return out;
+}
+
+/* #748 part 2: after the turnover seasons of the day-1 snapshot a team's 二軍 is lopsided (call-ups and releases took players, rookies went to
+ * the least-filled position), so it may not field a lineup. topUpSecond adds 系統 players (the fullSecond recipe, a fresh seed per slot, names and
+ * ids unique in the league) until every team has a batter at each of CREATE.positions, ROTATION_SIZE starters and SECOND_BULLPEN relievers;
+ * nobody is removed. Pure: returns new { id: row } players, same input = same bytes. */
+export function topUpSecond(players, teams = TEAMS) {
+  const out = { ...players }, taken = new Set(Object.values(out).map(p => p.name));
+  const relief = CREATE.roles.filter(r => r !== 'SP'), look = { head: 0, skin: 0, hair: 0 };
+  teams.forEach((t, ti) => {
+    const mine = Object.values(out).filter(p => p.team === t.id && p.tier === TIER.SECOND);
+    const need = [];
+    for (const pos of CREATE.positions) if (!mine.some(p => p.role === 'B' && p.pos === pos)) need.push({ kind: 'bat', pos });
+    for (let n = mine.filter(p => p.pos === 'SP').length; n < ROTATION_SIZE; n++) need.push({ kind: 'pit', role: 'SP' });
+    for (let n = mine.filter(p => p.role === 'P' && p.pos !== 'SP').length, i = 0; n < SECOND_BULLPEN; n++, i++) need.push({ kind: 'pit', role: relief[i % relief.length] });
+    need.forEach((slot, i) => {
+      const keys = CREATE.keys[slot.kind], per = CREATE.budget[slot.kind] / keys.length, points = Object.fromEntries(keys.map(k => [k, per]));
+      const c = slot.kind === 'bat' ? { kind: 'bat', pos: slot.pos, bats: 'R', build: 'normal', look, points } : { kind: 'pit', role: slot.role, throws: 'R', build: 'normal', look, points };
+      let made;
+      for (let n = 0; ; n++) { made = makePlayer(mixSeed(FULL_SECOND_SEED, ti, 1000 + i, Math.floor(n / 50)), { ...c, nameDraw: n }); if (!taken.has(made.player.name) && !out[made.player.id]) break; }
+      taken.add(made.player.name);
+      const { ovr, ...abilities } = ratingsOf(made.player), p = made.player;
+      out[p.id] = { name: p.name, num: p.num, age: p.age, role: p.role ? 'P' : 'B', pos: p.role || p.pos, hand: p.role ? p.throws : p.hand, overall: ovr, abilities, team: t.id, tier: TIER.SECOND, system: true };
     });
   });
   return out;
@@ -178,7 +204,8 @@ export function validateSite({ teams, players, games }) {
 /* The three files as text, exactly as written. */
 export function siteFiles(root = path.resolve(LEAGUE, '..'), fans = []) {
   const games = RECORDED_GAMES.map(g => ({ ...g, rec: parseRecording(readFileSync(path.join(root, g.file), 'utf8')) }));
-  const site = day1(buildSite({ games, second: placeFans(systemSecond(), fans) }));
+  const site = day1(buildSite({ games, second: placeFans(fullSecond(), fans) }));
+  site.players = topUpSecond(site.players);
   return Object.fromEntries(Object.entries(site).map(([k, v]) => [`${k}.json`, JSON.stringify(v, null, 2) + '\n']));
 }
 
