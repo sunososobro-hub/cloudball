@@ -12,6 +12,8 @@
  *   guildProblem(g)                   named reason why a guild side is not playable, or null
  *   guildRosters(g, a, base)          `base` (the engine's ROSTERS) with the guild's side swapped for guildRoster(...); other teams are the same objects
  *   guildShare(a, g, commit, base)    the 友誼賽 share link (league/friendly.js) + `m=`
+ *   practiceMembers(view)             the members of a guild page view ({ player } rows) as link members: only his own players, pitchers other than SP are RP, at most MEMBERS_MAX
+ *   practiceLink({ members, base, opp, sp, seed, commit, page })   the link of a guild's practice game: the guild is the HOME side on team index `base`, `opp` is the NPC team, `sp` the guild's starter place 0..4; { link } or { problem }
  *   guildOpening(s, m, engine, base)  friendlyOpening with the guild's rosters: { status, reason, opening, names } (names = members who found a seat) */
 import { friendlyShare, friendlyProblem, parseFriendly, friendlyOpening } from './friendly.js';
 import { guildRoster } from './guild_roster.js';
@@ -53,6 +55,25 @@ export function parseMembers(s) {
   }
   const g = { side: Number(f[0]), members };
   return guildProblem(g) ? null : g;
+}
+
+export function practiceMembers(view) {
+  const out = [];
+  for (const m of (view && view.members) || []) {
+    const p = m && m.player;
+    if (!p || out.length >= MEMBERS_MAX) continue;
+    const pos = p.kind === 'pit' ? (p.pos === 'SP' ? 'SP' : 'RP') : p.pos;
+    const one = { player: { name: p.name, kind: p.kind, pos, ovr: p.ovr } };
+    if (!guildProblem({ side: 1, members: [one] })) out.push(one);
+  }
+  return out;
+}
+
+export function practiceLink({ members, base, opp, sp = 0, seed, commit, page = 'play.html' }) {
+  const a = { away: opp, home: base, sp: [0, sp], seed }, g = { side: 1, members };
+  const why = friendlyProblem(a) || guildProblem(g);
+  if (why) return { problem: why };
+  return { link: guildShare(a, g, commit, page) };
 }
 
 export const guildTeam = (g, a) => (g.side === 0 ? a.away : a.home);
