@@ -120,6 +120,8 @@ function triggerOf(x, m) {
     case 'mound_visit': return x.staff === 'catcher' ? 'catcher_visit' : null;
     case 'out': return x.steal ? 'caught_stealing' : null;
     case 'pa_end': if (x.result === 'lineout' && m.doubledOff === 1) return 'line_double_play';   /* #606 part 5: a line drive caught and one runner doubled off (a triple play is its own result) */
+      if (x.obstruction) return 'obstruction';   /* #606 part 8: single, the batter awarded second (pa_end.obstruction) */
+      if (x.groundRule) return 'ground_rule_double';   /* #606 part 8: pa_end.groundRule, every runner moves two bases */
       if (m.frameRuns > 0 && x.result !== 'home_run') return 'run_scores'; return x.result;
     case 'substitution': return x.role === 'pitcher' ? 'pitching_change' : x.role === 'pinch_hitter' ? 'pinch_hitter' : x.role === 'pinch_runner' ? 'pinch_runner' : x.role === 'defensive' ? 'defensive_sub' : null;   /* #436: a pinch hitter / runner is not a pitching change; #606 part 4: each has its own name-free call */
     case 'runner_placed': return 'runner_placed';
