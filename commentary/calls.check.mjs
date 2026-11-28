@@ -1,4 +1,4 @@
-/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-7): node commentary/calls.check.mjs
+/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-8; part 8 adds obstruction and the ground-rule double): node commentary/calls.check.mjs
  *   - over SEEDS games, each of wild pitch, passed ball, balk, safe pickoff, the catcher's mound visit, pickoff out, rundown, catcher interference
  *     triple play, pinch hitter, pinch runner, defensive substitution, the extra-inning runner and the line-drive double play (triple play about 0.0003 a game: pinned seed 78, teams [2, 3], as tests/tripleplay.check.mjs)
  *     is called at least once (the drafted line sits on an event of that kind)
@@ -26,6 +26,8 @@ const KINDS = {
   pinch_runner: { is: x => x.type === 'substitution' && x.role === 'pinch_runner', min: 2 },
   defensive_sub: { is: x => x.type === 'substitution' && x.role === 'defensive', min: 2 },
   line_double_play: { is: (x, ld) => x.type === 'pa_end' && x.result === 'lineout' && ld.get(x.f) === 1, min: 3 },
+  obstruction: { is: x => x.type === 'pa_end' && x.obstruction === true, min: 2 },
+  ground_rule_double: { is: x => x.type === 'pa_end' && x.groundRule === true, min: 2 },
   runner_placed: { is: x => x.type === 'runner_placed', min: 2 },
   three_balls: { is: x => x.type === 'call' && x.call === 'ball' && x.count[0] === 3 && x.count[1] < 2, min: 3 },
   half_start: { is: x => x.type === 'half_start', min: 3 },
