@@ -20,6 +20,7 @@
 - #379 part 1: `temper.js` (pure): `TEMPERS` 火爆/平穩/溫和, `temperOf(p)` = stored `p.temper` or a fixed default from an FNV hash of the id bucketed by `TEMPER_SHARE` (25/45/30, first guess); create choice takes optional `temper` (`validateCreate`, `makePlayer` stores it, no draw); engine does not read it. `tests/temper.check.mjs`. Left: player page, grudges, rivalries, injuries.
 
 - #810 part 1: `practice.js` (pure): `PRACTICE_PER_DAY` limit kept in the caller's storage only, `practiceOpening` plays one practice game with the loaded engine (0 network calls), `practiceLink` = the 友誼賽 share link (URL only, no server row) + `tests/practice.check.mjs`. Left: the practice screen (#800), guild / snapshot lineups, no beacons.
+- #810 part 2: `ui/practice_limit.js` (`dayKey`, `gamesLeft`, `takeGame`) = the daily limit on the 友誼賽 page: 開始 spends one of `PRACTICE_PER_DAY` (localStorage only, blocked store = no limit), the page shows what is left; a friend opening a link is not counted. Left: the practice screen with guild / snapshot lineups (#800 part 7). Beacons: already none (`ui/stats.js` `PRACTICE_SAMPLE` 0).
 
 - #809 part 2: `GET /api/guilds/export` (`exportPage` in `functions/lib/guild.js`, `EXPORT_PAGE` 50, keyset `?after=<id>`, public fields only, `settings` null until #795) + checks in `tests/guild.check.mjs`. Left: `tools/guild_night.mjs` (needs the guild -> engine roster rule: members replace NPCs of the `base` team), practice reads the lock, owner hook issue.
 
