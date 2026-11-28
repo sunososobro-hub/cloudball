@@ -111,7 +111,10 @@ function triggerOf(x, m) {
     case 'game_start': return 'game_start';
     case 'pitch': return x.count[0] === 0 && x.count[1] === 0 ? 'batter_up' : null;
     case 'call': if (x.count[0] === 3 && x.count[1] === 2 && x.call !== 'foul') return 'full_count'; return x.count[1] === 2 && x.call !== 'foul' && x.call !== 'ball' ? 'two_strikes' : null;
-    case 'runner_advance': return x.how === 'steal' ? 'stolen_base' : null;
+    case 'runner_advance': return x.how === 'steal' ? 'stolen_base' : x.how === 'wild_pitch' ? 'wild_pitch' : x.how === 'passed_ball' ? 'passed_ball' : null;   /* balk: its own event below */
+    case 'balk': return 'balk';
+    case 'pickoff': return x.safe ? 'pickoff_safe' : null;
+    case 'mound_visit': return x.staff === 'catcher' ? 'catcher_visit' : null;
     case 'out': return x.steal ? 'caught_stealing' : null;
     case 'pa_end': if (m.frameRuns > 0 && x.result !== 'home_run') return 'run_scores'; return x.result;
     case 'substitution': return x.role === 'pitcher' ? 'pitching_change' : null;   /* #436: a pinch hitter / runner is not a pitching change; the feed shows its line */

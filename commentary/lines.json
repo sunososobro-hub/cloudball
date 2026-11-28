@@ -153,6 +153,29 @@
       { "gag": "bet", "needs": ["bet"], "when": { "tied": 1 }, "call": "比賽結束，雙方{n:awayScore}比{n:homeScore}握手言和。", "response": "打這麼久沒分勝負，鹹酥雞各付各的。" },
       { "when": { "tied": 0 }, "call": "比賽結束，{leadTeam}以{n:margin}分之差拿下勝利。", "response": "謝謝大家收看，我們下一場見。" },
       { "when": { "tied": 1 }, "call": "比賽結束，雙方{n:awayScore}比{n:homeScore}握手言和。", "response": "打這麼久沒有勝負，大家早點回家休息。" }
+    ] },
+    "wild_pitch": { "priority": 1, "silence": 0, "exchanges": [
+      {"call": "球跑掉了，暴投！壘上的跑者趁機推進。"},
+      {"call": "這球投得太偏，捕手攔不住，暴投。", "response": "這種球最怕了，跑者白白多走一個壘包。"},
+      {"call": "暴投，球滾到後面去，跑者跑起來了。"}
+    ] },
+    "passed_ball": { "priority": 1, "silence": 0, "exchanges": [
+      {"call": "捕手漏接，捕逸！跑者往前推進。"},
+      {"call": "球從手套邊擦過去，捕逸，壘上跑者多走了一個壘包。", "response": "這球不算難接，捕手要自己檢討。"}
+    ] },
+    "balk": { "priority": 2, "silence": 0, "exchanges": [
+      {"call": "主審判投手犯規，跑者每人晉一個壘包。"},
+      {"call": "投手的動作被抓到，投手犯規，壘上跑者全部推進。", "response": "動作做一半停住，裁判是不會放過的。"}
+    ] },
+    "pickoff_safe": { "priority": 0, "silence": 0.7, "exchanges": [
+      {"call": "投手回頭牽制，跑者及時回壘，安全。"},
+      {"call": "牽制球傳一壘，跑者一個滑壘回去了。"},
+      {"call": "投手先看一下一壘，牽制，跑者安全。", "response": "跑者離壘太遠，投手想把他逼回去。"}
+    ] },
+    "catcher_visit": { "priority": 0, "silence": 0.2, "exchanges": [
+      {"call": "捕手跑上投手丘，先講幾句話。"},
+      {"call": "暫停，捕手上丘跟投手聊一下。", "response": "得點圈有人，讓投手喘口氣是對的。"},
+      {"call": "捕手摘下面罩，走向投手丘。"}
     ] }
   },
   "guests": {
