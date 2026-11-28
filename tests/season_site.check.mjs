@@ -58,5 +58,16 @@ if (page.includes('>3 : 0<')) bad('home: tonight\'s score must stay hidden');
 const real = view({ ...combine({ teams, trial: file }), today: '2026-11-28' });
 if (!real.includes('第 1 天') || real.includes('昨晚')) bad('home on opening day: day 1, no last night');
 
+/* #743 part 2: last night's pairing links to its 二軍 record on the same night, only when teams and night match */
+const farmRec = (id, day, teams) => ({ id, tier: 2, day, seed: 1, engine: { commit: 'abc1234', version: 'y' }, teams, decisions: {}, result: { score: [1, 0], line_score: [[1], [0]] } });
+const { TEAMS } = await imp('league/teams.js');
+const T = TEAMS.map(t => t.id), ht = { ...hand, nights: [{ ...hand.nights[0], games: [{ home: T[1], away: T[0], starters: ['a', 'b'], score: [2, 5] }, { home: T[3], away: T[2], starters: ['c', 'd'], score: [4, 1] }] }, { day: 1, phase: 'season', games: [] }] };
+const tTeams = { season: '0', teams: T.map(id => ({ id, name: id })) };
+const linked = view({ ...combine({ teams: tTeams, trial: ht, farm: [farmRec('f-7', 0, [0, 1]), farmRec('f-8', 1, [2, 3]), farmRec('f-9', 0, [3, 2])] }), today: '2026-12-02' });
+if (!linked.includes('href="play.html?f=f-7"')) bad('home: last night game 1 should link to f-7');
+if (linked.includes('f-8') || linked.includes('f-9')) bad('home: a record of another night or with swapped teams must not link');
+if (linked.split('二軍重播').length !== 2) bad('home: exactly one 二軍重播 link expected');
+if (view({ ...combine({ teams: tTeams, trial: ht }), today: '2026-12-02' }).includes('二軍重播')) bad('home: no farm file -> no replay link');
+
 if (problems.length) { console.error('season_site check FAILED:\n  ' + problems.join('\n  ')); process.exit(1); }
 console.log('season_site check ok');
