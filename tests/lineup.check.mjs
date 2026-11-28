@@ -44,7 +44,10 @@ for (let seed = 1; seed <= GAMES; seed++) {
     for (const p of D) if (out[def].has(p.name)) bad(`seed ${seed} frame ${i}: replaced player ${p.name} still in the fielding lineup`);
   });
   const lines = createBooth({ stream: on.stream, seed, bank, teams: on.teams.map(t => TEAMS[t]), describe: x => on.ev[x.f].desc }).lines;
-  for (const x of subs) if (lines.some(l => l.at === x.i)) bad(`seed ${seed} @${x.i}: the booth talks on a ${x.role} as if it were a pitching change`);
+  /* #606 part 4: a pinch hitter / runner / defensive change has its own calls now; what it must never get is a pitching-change line */
+  const esc = t => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{[\w:]+\\\}/g, '.+');
+  const pcRes = bank.triggers.pitching_change.exchanges.flatMap(e => [e.call, e.response, ...(e.alt || [])]).filter(Boolean).map(t => new RegExp('^' + esc(t) + '$'));
+  for (const x of subs) if (x.role !== 'pitcher' && lines.some(l => l.at === x.i && pcRes.some(r => r.test(l.text)))) bad(`seed ${seed} @${x.i}: the booth talks on a ${x.role} as if it were a pitching change`);
   if (seed <= 50) {
     const off = simGame(seed, {}, { pinchHit: false, pinchRun: false, defSub: false }), Lo = lineupsByFrame(off.ev, off.stream, ROSTERS);
     for (const e of off.ev) if (e.bat) for (const k of [0, 1]) {
