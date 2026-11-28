@@ -1,6 +1,7 @@
 /* Plays one whole season-0 from a seed and prints it (#599 part 3). Hand-run, engine only, no network, writes nothing.
  *
  *   node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write]]
+ *   node league/tools/season_run.mjs --site --start YYYY-MM-DD [--seed N] [--commit sha] [--write]   (#743: league/site/season.json, 試跑)
  *
  * League: the 4 factory teams (league/players.js ROSTERS), no fan file and no 二軍: the league runs with zero fan players
  * (owner 2026-11-27). Season = league/season.js: the 12-game schedule, a starter per team and night by rest days (the lineup
@@ -15,6 +16,11 @@ import * as S from '../season.js';
 import { ENGINE_VERSION, boxFromStream } from '../../engine/index.js';
 import { farmRecord } from '../farm.js';
 import { OUT as FARM_OUT, serialize as farmSerialize } from './farm_record.mjs';
+import { siteFile } from '../season_site.js';
+
+export const SITE_OUT = fileURLToPath(new URL('../site/season.json', import.meta.url));
+/* one night per line, so a new season reads as a small diff */
+export const siteSerialize = f => JSON.stringify({ ...f, nights: [] }).replace('"nights":[]', `"nights":[\n${f.nights.map(n => '  ' + JSON.stringify(n)).join(',\n')}\n]`) + '\n';
 
 export const TIE_REPLAYS = 10;
 const GAME_SEED_STEP = 10, SUBSEED_STEP = 1;      /* seed of a game = seed*1000 + day*10 + slot (+ replay number) */
@@ -60,6 +66,13 @@ export function farmGames(seed, { commit, startId = 1 } = {}) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const a = process.argv.slice(2), seed = a.includes('--seed') ? Number(a[a.indexOf('--seed') + 1]) : 1;
   if (!Number.isInteger(seed)) { console.error('usage: node league/tools/season_run.mjs [--seed N] [--json] [--farm [--commit sha] [--write]]'); process.exit(2); }
+  if (a.includes('--site')) {
+    const start = a.includes('--start') ? a[a.indexOf('--start') + 1] : '';
+    const commit = a.includes('--commit') ? a[a.indexOf('--commit') + 1] : execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+    const text = siteSerialize(siteFile(runSeason(seed), { start, commit, version: ENGINE_VERSION }));
+    if (a.includes('--write')) { writeFileSync(SITE_OUT, text); console.log(`wrote ${SITE_OUT}`); } else process.stdout.write(text);
+    process.exit(0);
+  }
   if (a.includes('--farm')) {   /* node season_run.mjs --seed N --farm [--commit sha] [--write]: the commit must be pushed (jsDelivr) */
     const list = existsSync(FARM_OUT) ? JSON.parse(readFileSync(FARM_OUT, 'utf8')) : [];
     const next = list.reduce((m, r) => Math.max(m, Number(String(r.id).slice(2)) || 0), 0) + 1;
