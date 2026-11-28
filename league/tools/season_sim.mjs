@@ -1,6 +1,7 @@
 /* How created players really perform (#437). Hand-run, seeded, engine only, no network, prints only.
  *
  *   node league/tools/season_sim.mjs [--fans fans.json] [--seasons N]
+ *   node league/tools/season_sim.mjs --builds [--games N]   (#794: value of pure builds in runs per game)
  *
  * League: 4 teams x 18 一軍 (the factory players of league/players.js, never changed) plus an engine-only 二軍 per team of
  * SLOTS_BAT created batters and SLOTS_PIT created pitchers, made by league/freeagents.js makePlayer with the real creation
@@ -240,6 +241,54 @@ export function run({ seasons = SEASONS, given = [], log = console.log } = {}) {
   log(`\naudition: ${share.bat[0]}/${share.bat[1]} batters and ${share.pit[0]}/${share.pit[1]} pitchers got a plate appearance or faced a batter`);
   return { promo, medBat };
 }
+/* Build value (#794): pure builds instead of random spreads, measured in runs. A build puts one ability at the cap and
+ * spreads the rest of the budget evenly over the others ("even" = the whole budget evenly). Each build is made once per
+ * team and replaces the weakest 一軍 player of his slot (a batter: the weakest lineup spot; a pitcher: the weakest
+ * rotation slot, so every role is measured as a starter: the engine never reads MR / RP / CL, only league/training.js
+ * does). Every game is also played with the original roster on the same seed (paired), and the value is the change in
+ * the team's runs scored minus runs allowed per game. BUILD_GAMES games per team and build. */
+export const BUILD_GAMES = 400;
+export function buildChoice(kind, main) {
+  const keys = CREATE.keys[kind], budget = CREATE.budget[kind], cap = CREATE.cap[kind];
+  const rest = main === 'even' ? keys : keys.filter(k => k !== main), left = budget - (main === 'even' ? 0 : cap);
+  const points = Object.fromEntries(keys.map(k => [k, k === main ? cap : Math.floor(left / rest.length)]));
+  for (let i = 0, d = left - rest.length * Math.floor(left / rest.length); i < d; i++) points[rest[i]]++;
+  const look = { head: 0, skin: 0, hair: 0 };
+  return kind === 'bat' ? { kind, pos: CREATE.positions[0], bats: 'R', build: 'normal', look, points }
+    : { kind, role: 'SP', throws: 'R', build: 'normal', look, points };
+}
+export function buildValues({ games = BUILD_GAMES, log = console.log } = {}) {
+  const out = {};
+  for (const kind of CREATE.kinds) {
+    for (const main of [...CREATE.keys[kind], 'even']) {
+      const c = buildChoice(kind, main), d = { rs: 0, ra: 0, n: 0 }, line = new Map();
+      for (const t of TEAMS_N) {
+        const taken = new Set([...ROSTERS[t].bat, ...ROSTERS[t].pit].map(p => p.name));
+        let made; for (let n = 0; ; n++) { made = makePlayer(mix(SEASON_SEED, 794, t), { ...c, nameDraw: n }); if (!taken.has(made.player.name)) break; }
+        const roster = ROSTERS.map(x => ({ bat: [...x.bat], pit: [...x.pit] })), o = {};
+        if (kind === 'bat') { const i = roster[t].bat.map((p, j) => [ratingsOf(p).ovr, j]).sort((a, b) => a[0] - b[0])[0][1]; roster[t].bat[i] = { ...made.player, [POSITION]: roster[t].bat[i].pos }; }
+        else { const i = roster[t].pit.map((p, j) => [ratingsOf(p).ovr, j]).filter(([, j]) => roster[t].pit[j].role === 'SP').sort((a, b) => a[0] - b[0])[0][1]; roster[t].pit[i] = made.player; o.slot = i; }
+        for (let n = 0; n < games; n++) {
+          const opp = (t + 1 + n % 3) % 4, home = n % 2 === 0, teams = home ? [t, opp] : [opp, t], k = home ? 0 : 1;
+          const op = o.slot !== undefined ? { starters: [0, 0].map((_, j) => (j === k ? o.slot : 0)) } : {};
+          const seed = mix(SEASON_SEED, 794, t, n), a = play(seed, roster, teams, op), b = play(seed, ROSTERS, teams, op);
+          d.rs += a.box.score[k] - b.box.score[k]; d.ra += a.box.score[1 - k] - b.box.score[1 - k]; d.n++;
+          addTo(line, 'x', (kind === 'bat' ? a.box.players[k][made.player.name] : a.pit[k][made.player.name]) || {});
+        }
+      }
+      const s = line.get('x') || {}, v = (d.rs - d.ra) / d.n;
+      out[`${kind}:${main}`] = { value: v, rs: d.rs / d.n, ra: d.ra / d.n, games: d.n, points: c.points, ...(kind === 'bat' ? batLine(s) : pitLine(s)) };
+    }
+  }
+  log(`build value: ${games} paired games per team and build (runs per game vs the same games with the original roster)`);
+  for (const [k, r] of Object.entries(out)) {
+    const pts = Object.entries(r.points).map(([a, b]) => `${a}${b}`).join(' ');
+    log(`  ${k.padEnd(10)} ${pts.padEnd(28)} value ${(r.value >= 0 ? '+' : '') + r.value.toFixed(3)}  RS ${r.rs.toFixed(3)}  RA ${r.ra.toFixed(3)}  ` +
+      (k.startsWith('bat') ? `${f3(r.avg)}/${f3(r.obp)}/${f3(r.slg)} HR/600 ${f2(r.hr600)}` : `RA9 ${f2(r.ra9)} K9 ${f2(r.k9)} BB9 ${f2(r.bb9)}`));
+  }
+  return out;
+}
+
 /* the points a created player was made with, read back from his display ratings (makePlayer keeps no points on the player) */
 function pointsOf(f) { const r = f.ratings; return f.kind === 'bat' ? { con: r.con, pow: r.pow, eye: r.eye, spd: r.spd, arm: r.arm } : { stuff: r.stuff, ctrl: r.ctrl, arm: r.arm }; }
 
@@ -247,5 +296,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const a = process.argv.slice(2), opt = n => (a.includes(n) ? a[a.indexOf(n) + 1] : undefined);
   const given = opt('--fans') ? JSON.parse(readFileSync(opt('--fans'), 'utf8')) : [];
   for (const [i, c] of given.entries()) { const why = validateCreate(c); if (why.length) throw new Error(`fan choice ${i}: ${why.join('; ')}`); }
-  run({ seasons: Number(opt('--seasons') || SEASONS), given });
+  if (a.includes('--builds')) buildValues({ games: Number(opt('--games') || BUILD_GAMES) });
+  else run({ seasons: Number(opt('--seasons') || SEASONS), given });
 }
