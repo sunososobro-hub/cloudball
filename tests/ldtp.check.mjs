@@ -3,7 +3,7 @@
  * runner's base, whose cover holds it there before that runner is back: three outs (fly_catch, doubled_off, doubled_off).
  * Both runners broke with the pitch from the primary lead; LD_BOTH_BROKE_OF_P of the broken-runner liners (`rare` RNG, same number).
  * Fails when
- *   - a seed in SEEDS (found at engine 0.4.35; 3803 and 5237 replace 2247 and 780 at 0.4.36, #794 part 3) has none, or the rate over GAMES seeds is above MAX_RATE,
+ *   - a seed in SEEDS (found at engine 0.4.35; 3803 and 5237 replace 2247 and 780 at 0.4.36, #794 part 3; 700 and 1236 replace 2466 and 4109 at 0.4.37, #815) has none, or the rate over GAMES seeds is above MAX_RATE,
  *   - a line-drive triple play is not a fair LD to P/1B/2B/3B/SS with nobody out and two runners on,
  *   - its outs are not fly_catch of the batter then two doubled_off at the runners' own bases, each before its runner is back,
  *     the second after the first, the second held by a fielder who received a throw from the first one's fielder,
@@ -15,7 +15,7 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
-const GAMES = 800, SEEDS = [5237, 3803, 2466, 4109], MAX_RATE = 0.01;
+const GAMES = 800, SEEDS = [5237, 3803, 700, 1236], MAX_RATE = 0.01;
 const INF = ['P', '1B', '2B', '3B', 'SS'];
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 

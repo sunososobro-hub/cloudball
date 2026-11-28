@@ -1,5 +1,9 @@
 /* Guild page (guild.html, #800 part 1): found a guild (name + base team), see its page. Same account as agent.html: the random key kept in
  * localStorage, sent as a Bearer header; the server judges every choice again (functions/lib/guild.js). No answer = 「還沒開放」. */
+import { seasonAt } from '../league/season_site.js';
+import { guildPower } from '../league/guild_power.js';
+import { siteRoster } from '../league/site_roster.js';
+import { memberKey, shardUrl, memberText, GUILD_NONE } from '../league/guild_lines.js';
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊', SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
 const WHY = { already: '你已經有一支球團了。', name: '這個團名已經有人用了，換一個。', full: '這支球團的位置滿了。', none: '找不到這支球團。', leader: '領隊不能離團。', coach: '只有總教練能排打序。', member: '找不到這位隊員。', limit: '今天換太多次了，明天再試。', invalid: '團名或球隊有誤，請重新選。', key: '帳號有問題，請回自創球員頁重新開始。', unknown: '找不到你的帳號，請先到自創球員頁。' };
@@ -22,6 +26,28 @@ const joinCode = () => { const c = new URLSearchParams(location.search).get('joi
 const inviteUrl = g => `${location.origin}${location.pathname}?join=${g.id}`;
 const fail = r => say(isClosed(r) ? '還沒開放。' : (WHY[r.body.why] || '沒成功，等一下再試。'), true);
 
+/* #804 part 4: a member's 公會賽 season line, read from the published line shard of the current season (text only, no server call; a failed read = no record yet) */
+let seasonNo;
+const getJson = async url => { try { const r = await fetch(url, { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+async function lineFor(g, name) {
+  if (seasonNo === undefined) { const st = seasonAt(await getJson('league/site/season.json'), new Date().toISOString().slice(0, 10)); seasonNo = st && st.state !== 'before' ? st.season : null; }
+  if (seasonNo == null) return GUILD_NONE;
+  const key = memberKey(g.id, name); return memberText(await getJson(shardUrl(seasonNo, key)), key);
+}
+
+/* #800 part 4: 戰力 (投球 / 打擊 / 守備, 1..100, display only) of the guild on its base team's 一軍 roster, from league/guild_power.js; players.json is the published site file */
+const FIRST_TIER = 1;
+async function powerBox(parent, g) {
+  const box = el('p', 'left power', '戰力：…'); parent.appendChild(box);
+  const players = await getJson('league/site/players.json');
+  if (!players) { box.textContent = '戰力：讀不到球員資料。'; return; }
+  try {
+    const members = g.members.filter(m => m.player).map(m => ({ player: { name: m.player.name, kind: m.player.kind, ovr: m.player.ovr, pos: m.player.pos } }));
+    const p = guildPower({ id: g.id, members }, siteRoster(players, g.base.id, FIRST_TIER));
+    box.textContent = `戰力 ${p.all}（投球 ${p.pit}・打擊 ${p.bat}・守備 ${p.def}）。只是顯示，不影響比賽。`;
+  } catch (e) { box.textContent = '戰力：算不出來。'; }
+}
+
 function showGuild(g, seats = 10) {
   const iAmLeader = g.members.some(m => m.leader && m.me), iAmCoach = g.members.some(m => m.coach && m.me);
   const s = $('mine'); s.replaceChildren(el('h2', null, g.name));
@@ -31,6 +57,7 @@ function showGuild(g, seats = 10) {
   const nameOf = m => (m && m.player ? m.player.name : '你');
   roles.append(el('dt', null, '領隊'), el('dd', null, nameOf(who('leader'))), el('dt', null, '總教練'), el('dd', null, nameOf(who('coach'))));
   s.appendChild(roles);
+  powerBox(s, g);
   s.appendChild(el('h3', null, '隊員'));
   const ul = el('ul', 'roster');
   for (const m of g.members) {
@@ -46,6 +73,7 @@ function showGuild(g, seats = 10) {
       c.onclick = async () => { c.disabled = true; const r = await api('POST', { ref: m.ref }, '/coach'); if (r.body && r.body.ok) { say('總教練已交棒。'); showGuild(r.body.guild); } else { c.disabled = false; fail(r); } };
       li.appendChild(c);
     }
+    if (p) { const sl = el('p', 'left season-line', '…'); li.appendChild(sl); lineFor(g, p.name).then(t => { sl.textContent = t; }); }
     ul.appendChild(li);
   }
   s.appendChild(ul);

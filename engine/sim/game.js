@@ -47,6 +47,8 @@ export function simGame(seed, decisions, opts) {
   const benchOn = retaliateOn && (opts.benchClear ?? K.BENCH_CLEAR_ON);   /* #379 part 5: needs retaliation; off = part 4 games byte for byte */
   const ejectOn = benchOn && (opts.eject ?? K.EJECT_ON);   /* #379 part 6: needs bench-clearing; off = part 5 games byte for byte */
   const ejected = [false, false];                      /* the team's pitcher was ejected: the next reliever comes in before the next pitch */
+  const ejectBatOn = benchOn && (opts.ejectBatter ?? K.EJECT_BATTER_ON);   /* #379 part 7: needs bench-clearing; off = part 6 games byte for byte */
+  const ejectedBat = [null, null];                     /* name of the team's ejected batter-runner: a bench man runs for him before the next pitch */
   /* #795 part 2: 經紀人 agent sets, { <player name>: set } (league/agentset.js, frozen at game lock). A missing set or a neutral
    * cell multiplies nothing and draws nothing extra, so games without opts.agents are factory games byte for byte. */
   const agents = opts.agents || null;
@@ -196,6 +198,23 @@ export function simGame(seed, decisions, opts) {
           const s0 = snap(); st.pi[def]++; st.pc[def] = 0; st.ra[def] = 0; st.hold[def] = 0;
           emit('substitution', t, { team: def, role: 'pitcher', out: cur.name, in: nx.name, ejected: true });
           pushFrame({ t, d: K.CHANGE_DUR, k: 'CHG', desc: COPY.ejectChange(TT[def], cur, nx), s0, s1: snap(), def, ejected: true });
+          continue;
+        }
+      }
+      /* #379 part 7: an ejected batter-runner leaves before the next pitch; the fastest bench man takes his base, lineup slot
+       * and position (no vote). Empty bench or he is off the bases already: he stays. */
+      if (ejectedBat[off]) {
+        const name = ejectedBat[off]; ejectedBat[off] = null;
+        const base = st.b.indexOf(name), slot = RR[off].bat.findIndex(b => b.name === name);
+        if (base >= 0 && slot >= 0 && RR[off].bench.length) {
+          const cur = RR[off].bat[slot], spd = b => b.spd || 1;
+          const pr = RR[off].bench.reduce((a, b) => spd(b) > spd(a) ? b : a);
+          const s0 = snap(), inPlayer = { ...pr, pos: cur.pos };
+          RR[off].bench = RR[off].bench.filter(b => b !== pr); RR[off].bat[slot] = inPlayer;
+          const nb = st.b.slice(); nb[base] = pr.name; st.b = nb;
+          row[off][slot] = stats[off].length; stats[off].push(newLine()); batters[off].push(pr.name);
+          emit('substitution', t, { team: off, role: 'pinch_runner', out: cur.name, in: pr.name, lineup: slot, pos: cur.pos, base: base + 1, ejected: true });
+          pushFrame({ t, d: K.PR_DUR, k: 'SUB', desc: COPY.ejectRunner(TT[off], pr, cur), s0, s1: snap(), team: off, lineup: slot, base: base + 1, ejected: true });
           continue;
         }
       }
@@ -471,6 +490,9 @@ export function simGame(seed, decisions, opts) {
             else if (type === 'LD') { d = res === 'out' ? (R() < K.LD_SHALLOW_P ? span(R, K.LD_SHALLOW_DIST) : span(R, K.LD_DEEP_DIST)) : span(R, K.LD_HIT_DIST); hang = d / K.LD_SPEED; peak = span(R, K.LD_PEAK); }
             else if (type === 'PU') { d = span(R, K.PU_DIST); hang = span(R, K.PU_HANG); peak = span(R, K.PU_PEAK); }
             else { d = span(R, res === 'HR' ? K.FB_HR_DIST : res === 'out' ? K.FB_OUT_DIST : K.FB_HIT_DIST); hang = span(R, K.FB_HANG); peak = span(R, K.FB_PEAK); }
+            /* #815: a share of the grounders the defence fields are slow rollers (choppers, swinging bunts): drawn from `rare`
+             * so R keeps its sequence; the timing in resolveGround decides whether the batter beats the throw (infield hit) */
+            if (type === 'GB' && res === 'out' && rare() < K.GB_SLOW_P) { d = span(rare, K.GB_SLOW_DIST); hang = d / span(rare, K.GB_SLOW_SPEED); }
             if (res === '3B') { d = Math.max(d, K.TRIPLE_MIN_DIST); hang = Math.max(hang, d / K.HIT_HORIZ_SPEED_MAX); }
           }
           const land = spotXZ(spray, d);
@@ -762,6 +784,11 @@ export function simGame(seed, decisions, opts) {
           if (ejectOn && feud() < K.EJECT_PITCHER_P) {
             ejected[def] = true;
             emit('ejection', t, { team: def, player: pit0.name, role: 'pitcher', reason: 'retaliation' });
+          }
+          /* #379 part 7: then the batter who charged the mound (feud RNG, after the pitcher draw; nothing draws from feud later) */
+          if (ejectBatOn && feud() < Math.min(K.EJECT_BATTER_MAX_P, K.EJECT_BATTER_P * K.GRUDGE_TEMPER_SCALE[temperOf(bat)])) {
+            ejectedBat[off] = bat.name;
+            emit('ejection', t, { team: off, player: bat.name, role: 'batter', reason: 'charged_mound' });
           }
         }
         if (st.outs >= K.OUTS_PER_HALF && !paDone) break;
