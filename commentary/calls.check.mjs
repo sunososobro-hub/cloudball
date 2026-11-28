@@ -1,4 +1,4 @@
-/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-5): node commentary/calls.check.mjs
+/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-7): node commentary/calls.check.mjs
  *   - over SEEDS games, each of wild pitch, passed ball, balk, safe pickoff, the catcher's mound visit, pickoff out, rundown, catcher interference
  *     triple play, pinch hitter, pinch runner, defensive substitution, the extra-inning runner and the line-drive double play (triple play about 0.0003 a game: pinned seed 1131, teams [3, 0], as tests/tripleplay.check.mjs)
  *     is called at least once (the drafted line sits on an event of that kind)
@@ -29,11 +29,19 @@ const KINDS = {
   runner_placed: { is: x => x.type === 'runner_placed', min: 2 },
   three_balls: { is: x => x.type === 'call' && x.call === 'ball' && x.count[0] === 3 && x.count[1] < 2, min: 3 },
   half_start: { is: x => x.type === 'half_start', min: 3 },
+  /* part 7: the acceptance list of #606 that no kind above covered: a call on every plate-appearance result group, the steal, the caught stealing, a strikeout looking and swinging, runs and the half's end */
+  steal: { is: x => x.type === 'runner_advance' && x.how === 'steal', min: 2, bank: 'stolen_base' },
+  caught_stealing: { is: x => x.type === 'out' && !!x.steal, min: 2 },
+  strikeout_looking: { is: (x, ld, sk) => x.type === 'pa_end' && x.result === 'strikeout' && sk.get(x.f) === 'strikeout_looking', min: 3, bank: 'strikeout' },
+  strikeout_swinging: { is: (x, ld, sk) => x.type === 'pa_end' && x.result === 'strikeout' && sk.get(x.f) === 'strikeout_swinging', min: 3, bank: 'strikeout' },
+  half_end: { is: x => x.type === 'half_end', min: 3 },
+  ...Object.fromEntries(['groundout', 'flyout', 'single', 'walk', 'lineout', 'popout', 'infield_single', 'bunt_single', 'double', 'triple', 'home_run', 'hit_by_pitch', 'intentional_walk',
+    'double_play', 'fielders_choice', 'sac_bunt', 'sac_fly', 'error'].map(r => [`pa_${r}`, { is: x => x.type === 'pa_end' && x.result === r, min: 2, bank: r }])),
 };
 const problems = [], bad = m => { if (problems.length < 20) problems.push(m); };
 const called = Object.fromEntries(Object.keys(KINDS).map(k => [k, 0]));
 for (const [k, { min }] of Object.entries(KINDS)) {
-  const n = ((bank.triggers[k] || {}).exchanges || []).length;
+  const n = ((bank.triggers[KINDS[k].bank || k] || {}).exchanges || []).length;
   if (n < min) bad(`bank: ${k} has ${n} wording(s), needs ${min}`);
 }
 /* part 3: the plate-appearance result groups keep wordings only (a result with a run fires run_scores; rare ones need no firing): 3 where it fires > 1 a game, else 2 */
@@ -47,11 +55,12 @@ const GAMES = [...Array.from({ length: SEEDS }, (_, i) => ({ seed: i + 1 })), { 
 for (const { seed, teams: pin } of GAMES) {
   const g = simGame(seed, {}, pin ? { teams: pin } : undefined), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
   const booth = createBooth({ stream: g.stream, seed, bank, teams, describe });
+  const sk = new Map(); for (const y of g.stream) if (y.type === 'out' && /^strikeout_/.test(y.reason)) sk.set(y.f, y.reason);
   const ld = new Map(); for (const y of g.stream) if (y.type === 'out' && y.reason === 'doubled_off') ld.set(y.f, (ld.get(y.f) || 0) + 1);   /* doubled-off outs per frame: a line drive doubled off once = line_double_play */
   const names = new Set([...(g.stream[0].lineups || []).flat(), ...(g.stream[0].starters || [])].filter(Boolean));
   for (const l of booth.lines) {
     const x = g.stream[l.at];
-    for (const [k, { is }] of Object.entries(KINDS)) if (is(x, ld)) {
+    for (const [k, { is }] of Object.entries(KINDS)) if (is(x, ld, sk)) {
       called[k]++;
       if (/\{\w+\}/.test(l.text)) bad(`seed ${seed}: ${k} line has an unfilled slot: "${l.text}"`);
       for (const n of names) if (l.text.includes(n)) bad(`seed ${seed}: ${k} line names ${n}: "${l.text}"`);
