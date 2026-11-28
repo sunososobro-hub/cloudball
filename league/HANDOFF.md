@@ -60,3 +60,6 @@
 - Done: `league/guild_night.js` pure core (freeze, fixtures, sharded lines, standings) + `tests/guild_night.check.mjs`.
 - Next: `GET /api/guilds/export` (keyset paging), `tools/guild_night.mjs` (wires simGame + boxFromStream), practice reads the newest lock.
 - Traps: `play` is injected (no engine import in league/); the nightly hook is the owner's (W11).
+
+## #795 經紀人 agent set
+- Part 1: `agentset.js` (pure): 4 situations x 3 frequencies per kind (bat / pit, owner list), level 0..4 (`LEVEL_NEUTRAL` 2 = today's engine), `normal` row inherited, price = sum of the resolved grid <= `AGENT_POOL` (24 = all neutral), `freezeSet` canonical form for the game lock, `situationOf` buckets. `tests/agentset.check.mjs`. Next: part 2 engine reads it (neutral = no extra draw, byte for byte), then sim, storage, UI.
