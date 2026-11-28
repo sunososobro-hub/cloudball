@@ -42,4 +42,4 @@ async function created() { const rows = []; for (let pg = 0; pg < FA_PAGES; pg++
 const KEYS = Object.keys(DATA_FILES); /* teams, players, games, farm (#600 part 3: 二軍 replays), trial (#743: 試跑 season) */
 /* today's date in Taipei (the league's night), for the 試跑 season panel */
 const taipeiDay = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-Promise.all([...KEYS.map(k => get(DATA_FILES[k])), created(), get(TRAIN_FILE)]).then(r => { data = mergeCreated(combine(Object.fromEntries(KEYS.map((k, i) => [k, r[i]]))), r[KEYS.length]); data.today = taipeiDay(); trainTable = r[KEYS.length + 1]; draw(); });
+Promise.all([...KEYS.map(k => get(DATA_FILES[k])), created(), get(TRAIN_FILE)]).then(r => { data = mergeCreated(combine(Object.fromEntries(KEYS.map((k, i) => [k, r[i]]))), r[KEYS.length]); data.today = taipeiDay(); data.hour = new Date(Date.now() + 8 * 3600000).getUTCHours(); trainTable = r[KEYS.length + 1]; draw(); });

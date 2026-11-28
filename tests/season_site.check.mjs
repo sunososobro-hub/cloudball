@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const imp = p => import(pathToFileURL(path.join(ROOT, p)));
-const { siteFile, seasonAt, dayIndex } = await imp('league/season_site.js');
+const { siteFile, seasonAt, dayIndex, health } = await imp('league/season_site.js');
 const { runSeason, runSeasons, siteSerialize, PLAYERS_IN, MIN_SITE_DAYS } = await imp('league/tools/season_run.mjs');
 const { readFileSync } = await import('node:fs');
 const { combine } = await imp('ui/site/shared.js');
@@ -78,6 +78,17 @@ const over2 = seasonAt(hand2, '2026-12-05');
 eq([over2.state, over2.season, over2.champion], ['over', 2, 'C'], 'two seasons over');
 eq([seasonAt(hand2, '2026-11-30').season, seasonAt(hand2, '2026-11-30').state], [1, 'before'], 'before the start: season 1');
 
+/* #743 part 3: health line by hand (hand = nights 0,1 from 2026-12-01, 4 games each night 2, engine commit 'x') */
+eq(health(hand, '2026-12-01'), { date: null, games: 0, commit: 'x', version: 'y', ageHours: null, stale: false }, 'health on opening day: nothing computed yet');
+eq(health(hand, '2026-12-02'), { date: '2026-12-01', games: 2, commit: 'x', version: 'y', ageHours: 0, stale: false }, 'health on day 2 midnight');
+eq(health(hand, '2026-12-03', 23).ageHours, 47 - 24, 'night 1 ends at the start of 12-03: age = hours since');
+eq([health(hand, '2026-12-03', 23).date, health(hand, '2026-12-03', 23).games, health(hand, '2026-12-03', 23).stale], ['2026-12-02', 4, false], 'newest night 12-02, 4 games, fresh');
+eq([health(hand, '2026-12-04', 11).ageHours, health(hand, '2026-12-04', 11).stale], [35, false], '35 h old is fresh');
+eq([health(hand, '2026-12-04', 13).ageHours, health(hand, '2026-12-04', 13).stale], [37, true], '37 h old is stale (> 36 h)');
+eq([health(hand, '2026-12-09').stale, health(hand, '2026-12-09').date], [true, '2026-12-02'], 'a file that ran out stays red, newest night is its last');
+eq(health(null, '2026-12-02'), null, 'health: missing file');
+eq(health({ ...hand, engine: { commit: 'abcdef0123456789', version: '1' } }, '2026-12-02').commit, 'abcdef0', 'short commit = 7 chars');
+
 /* the 首頁 */
 const teams = { season: '0', teams: ['A', 'B', 'C', 'D'].map(id => ({ id, name: id + '隊' })) };
 const none = view({ ...combine({ teams }), today: '2026-12-02' });
@@ -90,6 +101,12 @@ const p2 = view({ ...combine({ teams, trial: hand2 }), today: '2026-12-03' });
 for (const want of ['第 2 季（試跑）', '第 1 天，共 2 天', '昨晚']) if (!p2.includes(want)) bad(`home on season 2 night 1: missing ${want}`);
 const real = view({ ...combine({ teams, trial: file }), today: '2026-11-28' });
 if (!real.includes('第 1 天') || real.includes('昨晚')) bad('home on opening day: day 1, no last night');
+
+const hp = view({ ...combine({ teams, trial: hand }), today: '2026-12-02', hour: 5 });
+if (!hp.includes('最近一晚 2026-12-01 算完・引擎 x・共 2 場') || hp.includes('class="health stale"')) bad('home: health line missing or red on a fresh file');
+const hs = view({ ...combine({ teams, trial: hand }), today: '2026-12-09' });
+if (!hs.includes('class="health stale"')) bad('home: stale health line must be red');
+if (view({ ...combine({ teams }), today: '2026-12-02' }).includes('health')) bad('home: no file -> no health line');
 
 /* #743 part 2: last night's pairing links to its 二軍 record on the same night, only when teams and night match */
 const farmRec = (id, day, teams) => ({ id, tier: 2, day, seed: 1, engine: { commit: 'abc1234', version: 'y' }, teams, decisions: {}, result: { score: [1, 0], line_score: [[1], [0]] } });
