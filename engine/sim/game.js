@@ -50,11 +50,17 @@ export function simGame(seed, decisions, opts) {
   /* #795 part 2: 經紀人 agent sets, { <player name>: set } (league/agentset.js, frozen at game lock). A missing set or a neutral
    * cell multiplies nothing and draws nothing extra, so games without opts.agents are factory games byte for byte. */
   const agents = opts.agents || null;
-  const agentMult = (name, team, freq, table) => {
+  const agentLevel = (name, team, freq) => {
     const set = agents && name && agents[name];
-    if (!set) return 1;
-    const lv = levelOf(set, situationOf(set.kind, { inning: st.inn, outs: st.outs, bases: st.b, margin: st.sc[team] - st.sc[1 - team] }), freq);
-    return lv === LEVEL_NEUTRAL ? 1 : table[lv];
+    if (!set) return LEVEL_NEUTRAL;
+    return levelOf(set, situationOf(set.kind, { inning: st.inn, outs: st.outs, bases: st.b, margin: st.sc[team] - st.sc[1 - team] }), freq);
+  };
+  const agentMult = (name, team, freq, table) => { const lv = agentLevel(name, team, freq); return lv === LEVEL_NEUTRAL ? 1 : table[lv]; };
+  /* part 2b: the pitch mix with the fastball share scaled by m (the other pitches keep their ratios); a mix without 直球 first is kept */
+  const fbMix = (mix, m) => {
+    if (m === 1 || mix[0][0] !== K.PITCH_TYPES[0][0] || mix.length < 2) return mix;
+    const f0 = mix[0][1], f1 = Math.min(K.AGENT_FASTBALL_SHARE_MAX, f0 * m), k = (1 - f1) / (1 - f0);
+    return mix.map((p, i) => [p[0], i === 0 ? f1 : i === mix.length - 1 ? 1 : f1 + (p[1] - f0) * k, p[2]]);
   };
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
@@ -300,7 +306,8 @@ export function simGame(seed, decisions, opts) {
       /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
       const sbB = stealBase();
       if (sbB && !st.sbAsked && R() < (sbB === 3 ? K.STEAL3_CONSIDER_P : K.STEAL_CONSIDER_P)) {
-        st.sbAsked = true; if (R() < stealTryP(off, st.b[sbB - 2]) * agentMult(st.b[sbB - 2], off, 'steal', K.AGENT_STEAL_TRY_MULT)) st.steal = sbB;
+        const hold = sbB === 2 ? agentMult(RR[def].pit[st.pi[def]].name, def, 'pickoff', K.AGENT_PICKOFF_HOLD_MULT) : 1;   /* part 2b: a pitcher who throws over holds the runner on first */
+        st.sbAsked = true; if (R() < stealTryP(off, st.b[sbB - 2]) * agentMult(st.b[sbB - 2], off, 'steal', K.AGENT_STEAL_TRY_MULT) * hold) st.steal = sbB;
         continue;
       }
       st.sbAsked = false;
@@ -344,10 +351,13 @@ export function simGame(seed, decisions, opts) {
       while (!paDone) {
         const s0 = snap(), c0 = [balls, strikes]; st.pc[def]++;
         const going = st.steal && st.steal === stealBase() ? st.steal : 0; st.steal = false;
-        const inZ = !brush && (bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX));
+        /* #795 part 2b: the pitcher's own agent set (fastball share, edges, pickoff); every factor is exactly 1 at LEVEL_NEUTRAL */
+        const lvFb = agentLevel(pit.name, def, 'fastball'), lvEdge = agentLevel(pit.name, def, 'edges'), lvPo = agentLevel(pit.name, def, 'pickoff');
+        const zoneM = K.AGENT_FASTBALL_ZONE_MULT[lvFb] * K.AGENT_EDGE_ZONE_MULT[lvEdge], poM = K.AGENT_PICKOFF_MULT[lvPo];
+        const inZ = !brush && (bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl * zoneM, K.ZONE_P_MIN, K.ZONE_P_MAX));
         const zx = inZ ? (R() - K.HALF) * 2 * K.ZONE_HALF_WIDTH : (R() < K.HALF ? -1 : 1) * (K.MISS_X_MIN + R() * K.MISS_X_SPAN);
         const zy = inZ ? K.ZONE_Y_MIN + R() * K.ZONE_Y_SPAN : (R() < K.HALF ? K.MISS_LOW_Y - R() * K.MISS_LOW_SPAN : K.MISS_HIGH_Y + R() * K.MISS_HIGH_SPAN);
-        const pq = look(), PT = mixOf(pit0).find(p => pq < p[1]);
+        const pq = look(), PT = fbMix(mixOf(pit0), K.AGENT_FASTBALL_SHARE_MULT[lvFb]).find(p => pq < p[1]);
         const kmh = Math.round(K.KMH_BASE + (pit.stuff - K.KMH_STUFF_REF) * K.KMH_PER_STUFF + PT[2] + (look() - K.HALF) * K.KMH_JITTER);
         const e = { t, k: 'P', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0, inZ, zx, zy, line, pline, pt: PT[0], kmh, s0, swing: false };
         let foulFly = false;
@@ -358,13 +368,13 @@ export function simGame(seed, decisions, opts) {
 
         /* ---- what happens to the pitch ---- */
         if (brush) { brush = false; e.r = 'hbp'; e.retal = true; }
-        else if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
+        else if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P * K.AGENT_PICKOFF_BALK_MULT[lvPo]) {
           /* balk (#38): the pitcher stops in his motion, the umpire calls it, no pitch counts, every runner moves up one base */
           e.r = 'bk'; st.pc[def]--; e.pc = st.pc[def];
-        } else if (!going && st.b[0] && !st.b[1] && R() < K.PO_P) {
+        } else if (!going && st.b[0] && !st.b[1] && R() < K.PO_P * poM) {
           /* pickoff (#38): the pitcher throws over to first before the pitch and the runner is tagged diving back; no pitch counts */
           e.r = 'po'; st.pc[def]--; e.pc = st.pc[def];
-        } else if (!going && st.b[0] && !st.b[1] && pofN < K.POF_MAX_PA && R() < K.POF_P) {
+        } else if (!going && st.b[0] && !st.b[1] && pofN < K.POF_MAX_PA && R() < K.POF_P * poM) {
           /* throw-over that does not get him (#38): the runner is back in time, the ball goes back to the pitcher; no pitch counts */
           e.r = 'pof'; pofN++; st.pc[def]--; e.pc = st.pc[def];
         } else if (bunt) {
@@ -378,7 +388,8 @@ export function simGame(seed, decisions, opts) {
           const early = balls + strikes < K.AGENT_EARLY_PITCHES ? agentMult(bat.name, off, 'swing_early', K.AGENT_SWING_EARLY_MULT) : 1;
           if (R() < Math.min(K.SWING_MAX, early === 1 ? sw : sw * early)) {
             e.swing = true;
-            const contact = Math.min(K.CONTACT_MAX, (inZ ? K.CONTACT_IN_ZONE : K.CONTACT_CHASE) * bat.con / pit.stuff);
+            const contactM = K.AGENT_FASTBALL_CONTACT_MULT[lvFb] * (inZ ? K.AGENT_EDGE_CONTACT_MULT[lvEdge] : 1);   /* part 2b: corner strikes are hard to square up */
+            const contact = Math.min(K.CONTACT_MAX, (inZ ? K.CONTACT_IN_ZONE : K.CONTACT_CHASE) * bat.con / pit.stuff * contactM);
             /* #614 part 9: the bat clips the catcher's mitt: catcher's interference, the batter is awarded first (E2) */
             if (!going && rare() < K.CI_OF_SWING) e.r = 'ci';
             else if (R() > contact) { strikes++; e.r = 'sstr'; }

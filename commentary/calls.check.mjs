@@ -27,6 +27,8 @@ const KINDS = {
   defensive_sub: { is: x => x.type === 'substitution' && x.role === 'defensive', min: 2 },
   line_double_play: { is: (x, ld) => x.type === 'pa_end' && x.result === 'lineout' && ld.get(x.f) === 1, min: 3 },
   runner_placed: { is: x => x.type === 'runner_placed', min: 2 },
+  three_balls: { is: x => x.type === 'call' && x.call === 'ball' && x.count[0] === 3 && x.count[1] < 2, min: 3 },
+  half_start: { is: x => x.type === 'half_start', min: 3 },
 };
 const problems = [], bad = m => { if (problems.length < 20) problems.push(m); };
 const called = Object.fromEntries(Object.keys(KINDS).map(k => [k, 0]));
