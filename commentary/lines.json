@@ -1,7 +1,7 @@
 {
   "version": 2,
   "note": "Fallback line bank. Used when a game has no script of its own. Each exchange is a call (play-by-play voice) and an optional response (colour voice). Version 2 (#603): name-free; every spoken part is a clip, voiced slots come from closed sets, names and the play text stay on screen. Slots in {braces} are filled from the game so far. `guests` and `fan` are the third seat: the home team's fan, his moments keyed by trigger and by whether the home team just gained (up) or lost (down). See SCRIPT_FORMAT.md, and the point-of-view rules in README.md.",
-  "rules": { "minGapSec": 7, "noRepeatWindow": 14, "fanChance": 0.85, "fanGapSec": 5, "fanNoRepeatWindow": 10, "fanOwnShare": 0.3, "fanMaxUses": 2 },
+  "rules": { "minGapSec": 7, "noRepeatWindow": 14, "colorChance": 0.45, "fanChance": 0.8, "fanGapSec": 5, "fanNoRepeatWindow": 10, "fanOwnShare": 0.3, "fanMaxUses": 2 },
   "triggers": {
     "game_start": { "priority": 2, "silence": 0, "delay": 1, "fanChance": 1, "exchanges": [
       { "call": "各位球迷晚安，今晚是{team}對上{fieldTeam}的熱身賽。", "response": "大家晚安，我是周國棟。這兩隊，我今天很期待。" },
