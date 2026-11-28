@@ -9,7 +9,7 @@ import { simGame, TEAMS } from '../engine/index.js';
 import { draftFromBank, validateBank } from './player.js';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url)), SEEDS = 15, FIRST = Number(process.env.FIRST_SEED || 1);
-const LIMITS = { colorPerGame: [40, 55], fanShare: [0.15, 0.25], perGameRepeat: Infinity, seasonRepeat: Infinity };
+const LIMITS = { colorPerGame: [40, 55], fanShare: [0.15, 0.25], perGameRepeat: 2, seasonRepeat: Infinity };
 const bank = JSON.parse(readFileSync(path.join(DIR, 'lines.json'), 'utf8')), problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
 for (const e of validateBank(bank)) bad(`bank: ${e}`);
 

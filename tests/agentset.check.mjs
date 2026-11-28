@@ -5,7 +5,7 @@
  *   - a bad set (unknown kind / situation / frequency, a level out of range or not an integer, extra field) is accepted,
  *   - freezeSet is not canonical (two sets with the same grid freeze to different JSON) or changes the grid,
  *   - situationOf picks the wrong row,
- *   - an engine file imports league/agentset.js (part 2 wires it; until then today's games stay byte for byte).
+ *   - (part 2 wired it into engine/sim/game.js; tests/agent_engine.check.mjs checks default games stay byte for byte).
  * static.mjs runs this file. Usage: node tests/agentset.check.mjs */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -89,9 +89,9 @@ const S = [
 for (const [k, st, want] of S) { const got = situationOf(k, st); if (got !== want) bad(`situationOf(${k}, ${J(st)}) = ${got}, want ${want}`); }
 for (const k of KINDS) if (!SITUATIONS[k].includes(situationOf(k, {}))) bad(`${k}: empty state has no row`);
 
-/* no engine import yet (part 2 wires it) */
+/* part 2: only engine/sim/game.js reads agent sets (one entry point for the decision inputs) */
 const walk = d => readdirSync(d).flatMap(f => { const p = path.join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
-for (const f of walk(path.join(ROOT, 'engine')).filter(f => f.endsWith('.js'))) if (/agentset\.js/.test(readFileSync(f, 'utf8'))) bad(`${path.relative(ROOT, f)} imports league/agentset.js before part 2`);
+for (const f of walk(path.join(ROOT, 'engine')).filter(f => f.endsWith('.js'))) if (path.relative(ROOT, f).split(path.sep).join('/') !== 'engine/sim/game.js' && /agentset\.js/.test(readFileSync(f, 'utf8'))) bad(`${path.relative(ROOT, f)} imports league/agentset.js (only engine/sim/game.js may)`);
 
 if (problems.length) { console.error('agentset.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log(`agentset.check ok: ${KINDS.map(k => `${k} ${SITUATIONS[k].length}x${FREQS[k].length} pool ${AGENT_POOL[k]}`).join(', ')}; inheritance, price, freeze, situations`);

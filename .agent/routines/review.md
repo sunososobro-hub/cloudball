@@ -44,7 +44,7 @@ Merging is automatic (rules W9): the dev ruleset merges a PR once the check runs
   last 3 h. For each linked issue still open: `Closes` -> remove `status:review`, comment `merged into dev, PR #N`,
   close. `Refs` -> `status:todo`, comment what is left; if it got closed anyway (a `fix/closes #N` in a title or
   commit), reopen and comment `reopened: part PR #N only`. Copy any 「沒驗到」 / owner-look list from the PR top into
-  that comment. An issue already closed with a `merged into dev` comment, or a `Refs` one already in `status:todo` with
+  that comment. PRs with head `fix/817-s*` are stamp PRs (F): skip them, never reopen or requeue #817 for them. An issue already closed with a `merged into dev` comment, or a `Refs` one already in `status:todo` with
   a later comment: done, skip.
 
 ## E. dev red (rules W15)
@@ -76,6 +76,11 @@ Merging is automatic (rules W9): the dev ruleset merges a PR once the check runs
   - waits on an owner choice of direction or taste -> `needs-owner` + one-line question with a recommendation;
   - otherwise -> one `area:*` (the folder it mostly touches), a `P0`-`P3`, `model:opus` when it is engine logic,
     concurrency or motion / rig work, and `status:todo`. Add a one-line `Acceptance:` comment when the issue has none.
+
+## F. Deploy stamp (#817; last step of every run, after D's owner-queue read)
+- `STAMP_MIN_HOURS = 2`. Cloudflare builds dev only when `.deploy-stamp` changes. If the last commit touching it on dev is older than STAMP_MIN_HOURS
+  (`gh api "repos/$R/commits?sha=dev&path=.deploy-stamp&per_page=1" --jq '.[0].commit.committer.date'`) and dev has newer commits: claim `fix/817-s<UTC yyyymmddHHMM>` (unique per run, e.g. `fix/817-s202611280907`; `claim_branch.sh`),
+  write `<UTC time> <dev sha>` as the only line of `.deploy-stamp`, open a stamp-only PR (`Refs #817`, `cb-usage` line), auto-merge on (not a protected path). Delete the stamp branch after it merges.
 
 ## D. Report
 - One line on GitHub only where you acted (PR or issue comments above). Chat: `搞定` or `卡住：<reason>`.

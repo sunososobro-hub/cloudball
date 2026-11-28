@@ -18,6 +18,7 @@ import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
 import { temperOf } from '../../league/temper.js';
+import { levelOf, situationOf, LEVEL_NEUTRAL } from '../../league/agentset.js';
 
 const GLOVE_KEYS = FIELDER_KEYS.filter(k => k !== 'P' && k !== 'C');            /* the seven who chase batted balls */
 const INFIELD_KEYS = GLOVE_KEYS.filter(k => !OUTFIELD_KEYS.includes(k));
@@ -44,9 +45,27 @@ export function simGame(seed, decisions, opts) {
   let warned = false;                                  /* after a retaliation the umpire has warned both benches: no more in this game */
   const feud = mulberry32((seed ^ K.FEUD_SALT) >>> 0);  /* #379 part 4: retaliation draws apart, so R keeps its sequence until one happens */
   const benchOn = retaliateOn && (opts.benchClear ?? K.BENCH_CLEAR_ON);   /* #379 part 5: needs retaliation; off = part 4 games byte for byte */
+  const ejectOn = benchOn && (opts.eject ?? K.EJECT_ON);   /* #379 part 6: needs bench-clearing; off = part 5 games byte for byte */
+  const ejected = [false, false];                      /* the team's pitcher was ejected: the next reliever comes in before the next pitch */
+  /* #795 part 2: 經紀人 agent sets, { <player name>: set } (league/agentset.js, frozen at game lock). A missing set or a neutral
+   * cell multiplies nothing and draws nothing extra, so games without opts.agents are factory games byte for byte. */
+  const agents = opts.agents || null;
+  const agentLevel = (name, team, freq) => {
+    const set = agents && name && agents[name];
+    if (!set) return LEVEL_NEUTRAL;
+    return levelOf(set, situationOf(set.kind, { inning: st.inn, outs: st.outs, bases: st.b, margin: st.sc[team] - st.sc[1 - team] }), freq);
+  };
+  const agentMult = (name, team, freq, table) => { const lv = agentLevel(name, team, freq); return lv === LEVEL_NEUTRAL ? 1 : table[lv]; };
+  /* part 2b: the pitch mix with the fastball share scaled by m (the other pitches keep their ratios); a mix without 直球 first is kept */
+  const fbMix = (mix, m) => {
+    if (m === 1 || mix[0][0] !== K.PITCH_TYPES[0][0] || mix.length < 2) return mix;
+    const f0 = mix[0][1], f1 = Math.min(K.AGENT_FASTBALL_SHARE_MAX, f0 * m), k = (1 - f1) / (1 - f0);
+    return mix.map((p, i) => [p[0], i === 0 ? f1 : i === mix.length - 1 ? 1 : f1 + (p[1] - f0) * k, p[2]]);
+  };
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
+  const obsR = mulberry32((seed ^ K.OBSTRUCTION_SALT) >>> 0);   /* #614 part 15: obstruction draws, apart so R, rare and look keep their sequences */
   const visitR = mulberry32((seed ^ K.VISIT_SALT) >>> 0);   /* #614 part 11: catcher visits (timing only), drawn apart so R and look keep their sequences */  /* #614 part 9: outcomes of rare plays (catcher's interference), drawn apart so the main sequence R is not shifted */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
@@ -139,10 +158,10 @@ export function simGame(seed, decisions, opts) {
     let sc = e.s0.sc[off];
     if (!(inningOver && e.outs.length)) for (const m of e.moves) {
       if (gone.has(m[2])) continue;
-      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'ci' ? 'catcher_interference' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
+      add('runner_advance', e.t + m[3].arriveT, { runner: m[2], from: m[0], to: m[1], team: off, how: e.r === 'inplay' && m[0] === 0 && e.play && e.play.obstruction ? 'obstruction' : e.sbGo ? 'steal' : e.k3 ? 'dropped_third_strike' : e.bk ? 'balk' : e.pb ? 'passed_ball' : e.wp ? 'wild_pitch' : e.r === 'ci' ? 'catcher_interference' : e.r === 'inplay' ? (e.play && (e.play.errAdvance || e.play.wildThrow) ? 'error' : 'batted') : 'walk' });
       if (m[1] === HOME) add('run_scored', e.t + m[3].arriveT, { runner: m[2], team: off, runs: ++sc });
     }
-    if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0, groundRule: e.play && e.play.groundRule ? true : undefined, retaliation: e.retal ? true : undefined });
+    if (e.pa) add('pa_end', e.t + Math.max(e.showAt, ...out.map(o => o.time - e.t)), { ...who, pitcher: x.pitcher, result: x.result, rbi: x.rbi || 0, groundRule: e.play && e.play.groundRule ? true : undefined, obstruction: e.play && e.play.obstruction ? true : undefined, retaliation: e.retal ? true : undefined });
     out.sort((a, b) => a.time - b.time);
     for (const o of out) emit(o.type, o.time, o.data);
   };
@@ -169,6 +188,17 @@ export function simGame(seed, decisions, opts) {
       /* ---- pitching change ---- */
       /* The question comes up a little before the coach himself would act. His own pick: a reliever who is asked
        * about comes out; a starter stays until his pitch budget (shorter with every run allowed, and late) is spent. */
+      /* #379 part 6: an ejected pitcher leaves before the next pitch; no vote, no tired() draw. No reliever left: he stays in. */
+      if (ejected[def]) {
+        ejected[def] = false;
+        if (st.pi[def] < RR[def].pit.length - 1) {
+          const cur = RR[def].pit[st.pi[def]], nx = RR[def].pit[st.pi[def] + 1];
+          const s0 = snap(); st.pi[def]++; st.pc[def] = 0; st.ra[def] = 0; st.hold[def] = 0;
+          emit('substitution', t, { team: def, role: 'pitcher', out: cur.name, in: nx.name, ejected: true });
+          pushFrame({ t, d: K.CHANGE_DUR, k: 'CHG', desc: COPY.ejectChange(TT[def], cur, nx), s0, s1: snap(), def, ejected: true });
+          continue;
+        }
+      }
       const spBudget = K.SP_LIMIT_PITCHES - st.ra[def] * K.SP_LIMIT_PER_RUN - (st.inn >= K.SP_LATE_INNING ? K.SP_LATE_CUT : 0);
       const tired = () => st.pi[def] === 0 ? (st.pc[def] > spBudget - span(R, K.SP_ASK_BEFORE) || st.ra[def] >= span(R, K.SP_PULL_RUNS)) : (st.pc[def] > span(R, K.RP_PULL_PITCHES) || st.ra[def] >= K.RP_PULL_RUNS);
       if (st.pi[def] < RR[def].pit.length - 1 && st.hold[def] <= 0 && tired()) {
@@ -275,7 +305,8 @@ export function simGame(seed, decisions, opts) {
       /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
       const sbB = stealBase();
       if (sbB && !st.sbAsked && R() < (sbB === 3 ? K.STEAL3_CONSIDER_P : K.STEAL_CONSIDER_P)) {
-        st.sbAsked = true; if (R() < stealTryP(off, st.b[sbB - 2])) st.steal = sbB;
+        const hold = sbB === 2 ? agentMult(RR[def].pit[st.pi[def]].name, def, 'pickoff', K.AGENT_PICKOFF_HOLD_MULT) : 1;   /* part 2b: a pitcher who throws over holds the runner on first */
+        st.sbAsked = true; if (R() < stealTryP(off, st.b[sbB - 2]) * agentMult(st.b[sbB - 2], off, 'steal', K.AGENT_STEAL_TRY_MULT) * hold) st.steal = sbB;
         continue;
       }
       st.sbAsked = false;
@@ -302,7 +333,7 @@ export function simGame(seed, decisions, opts) {
       }
       /* ---- offence: sacrifice bunt? (coach decides, late and close, weaker hitter) ---- */
       let bunt = false;
-      if (st.outs === 0 && (st.b[0] || st.b[1]) && !st.b[2] && bat.pow < K.BUNT_POW_MAX && R() < K.BUNT_ASK_P) {
+      if (st.outs === 0 && (st.b[0] || st.b[1]) && !st.b[2] && bat.pow < K.BUNT_POW_MAX && R() < K.BUNT_ASK_P * agentMult(bat.name, off, 'bunt', K.AGENT_BUNT_MULT)) {
         const margin = st.sc[off] - st.sc[def];
         bunt = st.inn >= K.BUNT_MIN_INNING && margin <= 0 && margin >= -K.BUNT_MAX_DEFICIT;
       }
@@ -319,10 +350,13 @@ export function simGame(seed, decisions, opts) {
       while (!paDone) {
         const s0 = snap(), c0 = [balls, strikes]; st.pc[def]++;
         const going = st.steal && st.steal === stealBase() ? st.steal : 0; st.steal = false;
-        const inZ = !brush && (bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl, K.ZONE_P_MIN, K.ZONE_P_MAX));
+        /* #795 part 2b: the pitcher's own agent set (fastball share, edges, pickoff); every factor is exactly 1 at LEVEL_NEUTRAL */
+        const lvFb = agentLevel(pit.name, def, 'fastball'), lvEdge = agentLevel(pit.name, def, 'edges'), lvPo = agentLevel(pit.name, def, 'pickoff');
+        const zoneM = K.AGENT_FASTBALL_ZONE_MULT[lvFb] * K.AGENT_EDGE_ZONE_MULT[lvEdge], poM = K.AGENT_PICKOFF_MULT[lvPo];
+        const inZ = !brush && (bunt || R() < clamp(K.ZONE_BY_COUNT[balls][strikes] * pit.ctrl * zoneM, K.ZONE_P_MIN, K.ZONE_P_MAX));
         const zx = inZ ? (R() - K.HALF) * 2 * K.ZONE_HALF_WIDTH : (R() < K.HALF ? -1 : 1) * (K.MISS_X_MIN + R() * K.MISS_X_SPAN);
         const zy = inZ ? K.ZONE_Y_MIN + R() * K.ZONE_Y_SPAN : (R() < K.HALF ? K.MISS_LOW_Y - R() * K.MISS_LOW_SPAN : K.MISS_HIGH_Y + R() * K.MISS_HIGH_SPAN);
-        const pq = look(), PT = mixOf(pit0).find(p => pq < p[1]);
+        const pq = look(), PT = fbMix(mixOf(pit0), K.AGENT_FASTBALL_SHARE_MULT[lvFb]).find(p => pq < p[1]);
         const kmh = Math.round(K.KMH_BASE + (pit.stuff - K.KMH_STUFF_REF) * K.KMH_PER_STUFF + PT[2] + (look() - K.HALF) * K.KMH_JITTER);
         const e = { t, k: 'P', bat: [off, bi], pit: [def, pitIdx(def)], pc: st.pc[def], c0, inZ, zx, zy, line, pline, pt: PT[0], kmh, s0, swing: false };
         let foulFly = false;
@@ -333,13 +367,13 @@ export function simGame(seed, decisions, opts) {
 
         /* ---- what happens to the pitch ---- */
         if (brush) { brush = false; e.r = 'hbp'; e.retal = true; }
-        else if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P) {
+        else if (!going && (st.b[0] || st.b[1] || st.b[2]) && R() < K.BK_P * K.AGENT_PICKOFF_BALK_MULT[lvPo]) {
           /* balk (#38): the pitcher stops in his motion, the umpire calls it, no pitch counts, every runner moves up one base */
           e.r = 'bk'; st.pc[def]--; e.pc = st.pc[def];
-        } else if (!going && st.b[0] && !st.b[1] && R() < K.PO_P) {
+        } else if (!going && st.b[0] && !st.b[1] && R() < K.PO_P * poM) {
           /* pickoff (#38): the pitcher throws over to first before the pitch and the runner is tagged diving back; no pitch counts */
           e.r = 'po'; st.pc[def]--; e.pc = st.pc[def];
-        } else if (!going && st.b[0] && !st.b[1] && pofN < K.POF_MAX_PA && R() < K.POF_P) {
+        } else if (!going && st.b[0] && !st.b[1] && pofN < K.POF_MAX_PA && R() < K.POF_P * poM) {
           /* throw-over that does not get him (#38): the runner is back in time, the ball goes back to the pitcher; no pitch counts */
           e.r = 'pof'; pofN++; st.pc[def]--; e.pc = st.pc[def];
         } else if (bunt) {
@@ -350,9 +384,11 @@ export function simGame(seed, decisions, opts) {
         }
         else {
           const sw = inZ ? K.SWING_ZONE_BY_COUNT[balls][strikes] : K.SWING_CHASE_BY_COUNT[balls][strikes] / bat.eye;
-          if (R() < Math.min(K.SWING_MAX, sw)) {
+          const early = balls + strikes < K.AGENT_EARLY_PITCHES ? agentMult(bat.name, off, 'swing_early', K.AGENT_SWING_EARLY_MULT) : 1;
+          if (R() < Math.min(K.SWING_MAX, early === 1 ? sw : sw * early)) {
             e.swing = true;
-            const contact = Math.min(K.CONTACT_MAX, (inZ ? K.CONTACT_IN_ZONE : K.CONTACT_CHASE) * bat.con / pit.stuff);
+            const contactM = K.AGENT_FASTBALL_CONTACT_MULT[lvFb] * (inZ ? K.AGENT_EDGE_CONTACT_MULT[lvEdge] : 1);   /* part 2b: corner strikes are hard to square up */
+            const contact = Math.min(K.CONTACT_MAX, (inZ ? K.CONTACT_IN_ZONE : K.CONTACT_CHASE) * bat.con / pit.stuff * contactM);
             /* #614 part 9: the bat clips the catcher's mitt: catcher's interference, the batter is awarded first (E2) */
             if (!going && rare() < K.CI_OF_SWING) e.r = 'ci';
             else if (R() > contact) { strikes++; e.r = 'sstr'; }
@@ -504,24 +540,30 @@ export function simGame(seed, decisions, opts) {
             const throwHome = !bobble && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && moves.some(m => m[0] === 2 && m[1] === HOME) && !nb[1] && R() < K.THROW_HOME_ON_SINGLE_P;
             /* out on the bases (#38): the batter tries to stretch an outfield single into a double; the throw decides */
             const stretch = !bobble && !throwHome && !sendHome && res === '1B' && OUTFIELD_KEYS.includes(fielder) && !nb[1] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.STRETCH_1B_P;
-            const bTo = throwHome || stretch || bobble || wildThrow ? 2 : adv;
+            /* #614 part 15: obstruction (OBR 6.01(h)(2)): on an outfield single with second open, the batter rounding first runs into the
+             * first baseman, who has no ball and is not fielding; the umpire awards him second, the base he would have reached.
+             * Scored a single plus an error on 1B (OBR 9.12(c)); the other runners keep the bases the single gave them */
+            const obstruct = !bobble && !throwHome && !sendHome && !stretch && res === '1B' && OUTFIELD_KEYS.includes(fielder) && !nb[1] && obsR() < K.OBSTRUCTION_OF_OF_1B_P;
+            const bTo = throwHome || stretch || bobble || wildThrow || obstruct ? 2 : adv;
             moves.push([0, bTo, name]); nb[bTo - 1] = name; st.b = nb;
             if (bobble) { ctx.fumble = K.OF_BOBBLE_TIME; play.errAdvance = true; }
             if (wildThrow) play.wildThrow = true;
             if (groundRule) play.groundRule = true;
-            const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble, wildThrow }); plan = h.plan;
+            if (obstruct) play.obstruction = true;
+            const h = resolveHit(ctx, { throwHome, sendHome, stretch, bobble, wildThrow, obstruct }); plan = h.plan;
             if (sendHome) { if (h.safe) runs++; else { outs = h.outs; play.outHome = true; } }
             if (throwHome) { play.onThrow = true; }
             let hitRes = res;   /* the scorer's hit: a stretch that is safe is a double, one thrown out stays a single */
             if (stretch) { if (h.safe) hitRes = '2B'; else { outs = h.outs; play.outStretch = true; nb[1] = null; } }
             if (res === 'E') { st.E[def]++; result = 'error'; desc = COPY.error(name, type === 'GB'); }
-            else { if (bobble) st.E[def]++; bs.h++; st.H[off]++; ps.h++; if (hitRes === '2B') bs.d++; if (hitRes === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[hitRes]; desc = groundRule ? COPY.groundRuleDouble(name) : COPY.hit(name, hitRes); }
+            else { if (bobble || obstruct) st.E[def]++; bs.h++; st.H[off]++; ps.h++; if (hitRes === '2B') bs.d++; if (hitRes === '3B') bs.t++; result = { '1B': 'single', '2B': 'double', '3B': 'triple' }[hitRes]; desc = groundRule ? COPY.groundRuleDouble(name) : COPY.hit(name, hitRes); }
             if (runs) desc += COPY.drivesIn(runs);
             if (play.onThrow) desc += COPY.onThrow(name);
             if (play.outHome) desc += COPY.outAtHome(B[1]);
             if (play.outStretch) desc += COPY.outStretching();
             if (bobble) desc += COPY.errAdvance(fielder);
             if (wildThrow) desc += COPY.wildThrow(fielder);
+            if (obstruct) desc += COPY.obstruction();
             e.big = runs ? K.BIG.NOTABLE : K.BIG.NONE;
           } else if (type === 'GB') {
             const tryDoublePlay = !bunt && !!B[0] && st.outs < K.OUTS_PER_HALF - 1 && R() < K.DP_TRY_P;
@@ -624,7 +666,7 @@ export function simGame(seed, decisions, opts) {
         } else {
           desc = COPY.call(e.bunt ? 'foulBunt' : e.r);
           if (going && e.r !== 'foul') {
-            const runner = st.b[going - 2], s = resolveSteal(ctxOf(null), !(R() < stealOkP(off, runner, going)), going);
+            const runner = st.b[going - 2], s = resolveSteal(ctxOf(null), !(R() < stealOkP(off, runner, going) * agentMult(runner, off, 'steal', K.AGENT_STEAL_OK_MULT)), going);
             plan = s.plan; outs = s.outs; moves = [[going - 1, going, runner, s.tl]]; sbGo = true; e.sbGo = true; e.big = s.ok ? K.BIG.NOTABLE : K.BIG.NONE;
             st.b = going === 3 ? [null, null, s.ok ? runner : null] : s.ok ? [null, runner, st.b[2]] : [null, null, st.b[2]];
             desc += s.ok ? COPY.stealOk(runner, going) : COPY.stealOut(runner, going);
@@ -718,6 +760,11 @@ export function simGame(seed, decisions, opts) {
         if (e.retal && benchOn && !over && feud() < Math.min(K.BENCH_CLEAR_MAX_P, K.BENCH_CLEAR_P * K.GRUDGE_TEMPER_SCALE[temperOf(bat)])) {
           emit('bench_clearing', t, { team: off, batter: bat.name, pitcher: pit0.name });
           pushFrame({ t, d: K.BENCH_CLEAR_DUR, k: 'BENCH', desc: COPY.benchClear(bat.name, pit0.name), s0: snap(), s1: snap(), off, def, big: K.BIG.HUGE });
+          /* #379 part 6: the umpire may eject the pitcher who threw at him (feud RNG, after the bench-clearing draw) */
+          if (ejectOn && feud() < K.EJECT_PITCHER_P) {
+            ejected[def] = true;
+            emit('ejection', t, { team: def, player: pit0.name, role: 'pitcher', reason: 'retaliation' });
+          }
         }
         if (st.outs >= K.OUTS_PER_HALF && !paDone) break;
         /* #614 part 3: two strikes after a foul bunt: the coach mostly takes the bunt off and lets him swing away */

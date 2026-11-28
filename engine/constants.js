@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.37';
+export const ENGINE_VERSION = '0.4.38';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -44,6 +44,7 @@ export const HBP_CHECK_DUR = 20;           /* s: the trainer and the manager che
 export const MOUND_VISIT_DUR = 16;
 /* #614 part 11: the catcher's mound visit (frame `CVIS`, stream `mound_visit` staff `catcher`). Timing only: drawn from its own seeded RNG
  * (`VISIT_SALT`), so R and the looks RNG keep their sequences; no outcome reads it. */
+export const OBSTRUCTION_SALT = 0x0b57c7ed; /* #614 part 15: seed offset of the RNG for obstruction draws (one per outfield single with second open) */
 export const VISIT_SALT = 0x0b15175a;      /* seed offset of the RNG that decides catcher visits */
 export const MOUND_VISIT_LIMIT = 4;        /* mound visits per team per nine innings, coach and catcher together (OBR 5.10(m), 4 since 2024) */
 export const MOUND_VISIT_EXTRA = 1;        /* one more for each extra inning a team starts with none left (OBR 5.10(m)) */
@@ -263,6 +264,11 @@ export const STRETCH_1B_P = 0.03;
  * a game between both teams; only some of those are bobbles on a single). */
 export const OF_BOBBLE_1B_P = 0.012;
 export const OF_BOBBLE_TIME = 1.6;
+/* #614 part 15: obstruction on an outfield single with second open: the batter rounding first is impeded by the first
+ * baseman (no ball, not fielding) with this chance and is awarded second (OBR 6.01(h)(2)), single + E3 (OBR 9.12(c)).
+ * Estimate, not fitted: MLB calls obstruction a few dozen times a season (Retrosheet `OBS`, roughly 20-40 in ~2,430 games),
+ * ~0.01 a game, and only part of those are on the batter at first; this aims at ~0.01 a game. */
+export const OBSTRUCTION_OF_OF_1B_P = 0.0015;
 /* Advancing on an error (#38): a reached-on-error ground ball to an infielder other than the first baseman is a wild
  * throw past first with this chance: the ball ends WILD_THROW_PAST metres (x, z) beyond the bag in foul territory, the
  * batter takes second and every runner two bases. First guess, not tuned (MLB infield errors split roughly evenly
@@ -430,6 +436,11 @@ export const BENCH_CLEAR_ON = false;
 export const BENCH_CLEAR_P = 0.2;
 export const BENCH_CLEAR_MAX_P = 0.35;
 export const BENCH_CLEAR_DUR = 240;     /* s: benches and bullpens empty, umpires separate the players, both benches are warned */
+/* ejection (#379 part 6, off; needs BENCH_CLEAR_ON); simGame opts.eject overrides. After a bench-clearing the umpire ejects the pitcher
+ * who threw at the batter with EJECT_PITCHER_P (feud RNG); his team must bring in the next reliever before the next pitch (no vote).
+ * With no reliever left he stays in (the staff is used up). Batter ejections are a later part. First guess, no data yet. */
+export const EJECT_ON = false;
+export const EJECT_PITCHER_P = 0.5;
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
 export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */
@@ -545,3 +556,24 @@ export const HOLD_OFF = 0.8;
 export const DP_SHIFT = 0.3;
 export const HOLD2_SHIFT = 0.4;
 export const HOT3_SHIFT = 0.5;
+/* ---- 經紀人 agent set (#795 part 2): a created player's own pre-set frequencies (the league agent set), read by the engine as
+ * decision inputs. Each table is indexed by the cell's level LEVEL_MIN..LEVEL_MAX (0..4); the middle entry (LEVEL_NEUTRAL)
+ * is exactly 1, so a neutral or missing set plays today's game byte for byte. First estimates: part 3 (season sim) tunes them. */
+export const AGENT_SWING_EARLY_MULT = [0.8, 0.9, 1, 1.1, 1.2];   /* swing chance (zone and chase) before AGENT_EARLY_PITCHES pitches of the PA */
+export const AGENT_EARLY_PITCHES = 2;                            /* "early" = the first two pitches of the at-bat (counts 0-0, 1-0, 0-1) */
+export const AGENT_STEAL_TRY_MULT = [0, 0.5, 1, 1.5, 2];         /* the runner's chance to go once a steal is considered */
+export const AGENT_STEAL_OK_MULT = [1.04, 1.02, 1, 0.97, 0.94];  /* success chance: a choosy runner picks his pitch, a steal-happy one runs into bad jumps */
+export const AGENT_BUNT_MULT = [0, 0.5, 1, 1.3, 1.6];            /* chance the batter offers a sacrifice when the bunt is on the table (capped at 1) */
+/* ---- #795 part 2b: the pitcher's frequencies, same indexing (middle entry exactly 1). First estimates: part 3 tunes them.
+ * fastball share: more fastballs = more strikes (fewer walks) AND batters time them (more contact, fewer strikeouts). */
+export const AGENT_FASTBALL_SHARE_MULT = [0.6, 0.8, 1, 1.2, 1.4];       /* share of 直球 in his mix (factory 0.5 -> 0.3..0.7) */
+export const AGENT_FASTBALL_SHARE_MAX = 0.85;                          /* never a fastball-only pitcher */
+export const AGENT_FASTBALL_ZONE_MULT = [0.95, 0.975, 1, 1.025, 1.05];  /* chance the pitch is in the zone */
+export const AGENT_FASTBALL_CONTACT_MULT = [0.95, 0.975, 1, 1.025, 1.05];   /* batter's contact chance on a swing */
+/* edges: pitch to the corners = fewer pitches in the zone (more walks) AND zone strikes harder to hit (more strikeouts) */
+export const AGENT_EDGE_ZONE_MULT = [1.06, 1.03, 1, 0.97, 0.94];
+export const AGENT_EDGE_CONTACT_MULT = [1.05, 1.025, 1, 0.97, 0.94];   /* contact on a swing at a pitch in the zone */
+/* pickoff: throw over more = more pickoffs and fewer steal tries of the runner on first AND more balks */
+export const AGENT_PICKOFF_MULT = [0, 0.5, 1, 1.5, 2];                  /* PO_P and POF_P (throw-overs) */
+export const AGENT_PICKOFF_HOLD_MULT = [1.3, 1.15, 1, 0.85, 0.7];       /* the runner on first's chance to go once a steal of second is considered */
+export const AGENT_PICKOFF_BALK_MULT = [0.5, 0.75, 1, 1.5, 2];          /* BK_P with runners on */
