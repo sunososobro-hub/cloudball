@@ -8,6 +8,7 @@ import { ENGINE_PIN } from '../league/engine_pin.js';
 import { practiceMembers, practiceLink } from '../league/practice_guild.js';
 import { gamesLeft, takeGame, PRACTICE_PER_DAY } from './practice_limit.js';
 import { memberKey, shardUrl, memberText, GUILD_NONE } from '../league/guild_lines.js';
+import { guildRecord, recordText, STANDINGS_URL } from '../league/guild_record.js';
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊', SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
 const WHY = { already: '你已經有一支球團了。', name: '這個團名已經有人用了，換一個。', full: '這支球團的位置滿了。', none: '找不到這支球團。', leader: '領隊不能離團。', coach: '只有總教練能排打序。', member: '找不到這位隊員。', limit: '今天換太多次了，明天再試。', invalid: '團名或球隊有誤，請重新選。', key: '帳號有問題，請回自創球員頁重新開始。', unknown: '找不到你的帳號，請先到自創球員頁。' };
@@ -52,6 +53,12 @@ async function powerBox(parent, g) {
   } catch (e) { box.textContent = '戰力：算不出來。'; }
 }
 
+/* #800 part 8: the guild's 公會賽 record (W-L, runs, place) from the published standings file of the nightly run; no server call, never official (rule 24) */
+async function recordBox(parent, g) {
+  const box = el('p', 'left record', '公會賽戰績：…'); parent.appendChild(box);
+  box.textContent = recordText(guildRecord(await getJson(STANDINGS_URL), g.id));
+}
+
 function showGuild(g, seats = 10) {
   const iAmLeader = g.members.some(m => m.leader && m.me), iAmCoach = g.members.some(m => m.coach && m.me);
   const s = $('mine'); s.replaceChildren(el('h2', null, g.name));
@@ -62,6 +69,7 @@ function showGuild(g, seats = 10) {
   roles.append(el('dt', null, '領隊'), el('dd', null, nameOf(who('leader'))), el('dt', null, '總教練'), el('dd', null, nameOf(who('coach'))));
   s.appendChild(roles);
   powerBox(s, g);
+  recordBox(s, g);
   s.appendChild(el('h3', null, '隊員'));
   const ul = el('ul', 'roster');
   for (const m of g.members) {
