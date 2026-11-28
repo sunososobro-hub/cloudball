@@ -65,3 +65,13 @@ export const batLog = (stats, id, season, idx, n = LOG_N) => logOf(stats && stat
 export const pitLog = (stats, id, season, idx, n = LOG_N) => logOf(stats && stats.trial === true && stats.pitchers && Array.isArray(stats.pitchers[id]) ? stats.pitchers[id] : [], okPRow, PI.season, PI.day, season, idx, n);
 export const batGameText = r => `${r[I.ab]} 打數 ${r[I.h]} 安打${r[I.hr] ? `　全壘打 ${r[I.hr]}` : ''}${r[I.bb] ? `　保送 ${r[I.bb]}` : ''}`;
 export const pitGameText = r => `${inningsText(r[PI.outs])} 局　面對 ${r[PI.bf]} 人　失 ${r[PI.r]} 分　K ${r[PI.k]}　BB ${r[PI.bb]}`;
+
+/* #804 part 6: career by season (the 輪迴). One row per finished season (season < `before`) in which the id has at least one game, oldest first:
+ *   careerRows(stats, id, role, before)   [{ season, line }]   line = tally / pitchTally of that whole season; role 'P' reads `pitchers`, else `players`
+ *   careerText(line, pit)                 the season line text of a row. Age and overall at that time are not in the file (left for a later part). */
+export function careerRows(stats, id, role, before) {
+  const pit = role === 'P', src = stats && stats.trial === true ? (pit ? stats.pitchers : stats.players) : null, rows = src && Array.isArray(src[id]) ? src[id] : [];
+  const seasons = [...new Set(rows.map(r => r && r[0]))].filter(k => Number.isInteger(k) && k < before).sort((a, b) => a - b);
+  return seasons.map(k => ({ season: k, line: (pit ? pitchLine : seasonLine)(stats, id, k, Infinity) })).filter(x => x.line);
+}
+export const careerText = (line, pit) => (pit ? pitchText(line) : lineText(line));
