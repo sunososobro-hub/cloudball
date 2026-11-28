@@ -5,6 +5,7 @@
  *   - a share link does not carry the arrangement and the engine pin, a bad pin is ignored instead of refused, the pinned engine is not the one asked for,
  *     or a link with a pin and the same link played twice (or with the page's own engine of the same commit) give different games,
  *   - league/friendly.js imports anything or uses Math.random, Date, fetch or the ledger; friendly.html is not reachable from index.html.
+   - (part 4) a pitcher as own player: malformed refused, must be that side's starter, replaces only that SP place, starts and pitches in the game, same link = same game.
    - (part 3) the own player in a link is refused when malformed, is frozen in the link (o=), changes the game, replaces only his slot, and never touches the factory rosters or an official file.
  * Usage: node tests/friendly.check.mjs */
 import { readFileSync, readdirSync } from 'node:fs';
@@ -15,8 +16,8 @@ import * as engine from '../engine/index.js';
 import { ROSTERS } from '../league/players.js';
 import { TEAM_COUNT, STARTERS, ownParam, parseOwn, ownProblem, parseFriendly, friendlyParam, friendlyUrl, friendlyProblem, friendlyOpening, friendlyPin, friendlyCommitPin, friendlyShare, friendlyOpeningAt } from '../league/friendly.js';
 import { ENGINE_PIN } from '../league/engine_pin.js';
-import { ownRosters, ownBatter } from '../league/friendly_own.js';
-import { myBatter, ownOf } from '../ui/friendly_me.js';
+import { ownRosters, ownBatter, ownPitcher } from '../league/friendly_own.js';
+import { myBatter, myPitcher, ownOf, ownOfPitcher } from '../ui/friendly_me.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bad = [], fail = m => bad.push(m);
@@ -134,6 +135,44 @@ if (/Math\.random|Date\b|fetch\(/.test(readFileSync(path.join(ROOT, 'league/engi
   if (/setItem|removeItem|sendBeacon|method\s*:|ledger|farm_games/.test(me3)) fail('ui/friendly_me.js writes or touches the ledger');
   if (!/friendlyOpeningAt\(xp,q\.get\('e'\),[^;]*,ros\)/.test(play) || !/parseOwn\(op\)/.test(play)) fail('play.html does not play ?o= with the own player');
   if (!/id="ownBox"/.test(page) || !/myBatter/.test(ui) || !/ownOf/.test(ui)) fail('friendly.html / ui/friendly.js has no own player choice');
+}
+
+/* part 4: own pitcher takes a starter place */
+{
+  const own = { role: 'P', side: 1, slot: 2, stuff: 80, ctrl: 65, arm: 70, hand: 'L', age: 27, num: 11, name: '小華' };
+  const b = { away: 0, home: 1, sp: [0, 2], seed: 9, own }, plain = { away: 0, home: 1, sp: [0, 2], seed: 9 };
+  if (friendlyProblem(b)) fail(`own pitcher arrangement refused: ${friendlyProblem(b)}`);
+  if (JSON.stringify(parseOwn(ownParam(own))) !== JSON.stringify(own)) fail('parseOwn(ownParam(pitcher)) != pitcher');
+  const bads = [['starter 5', { ...own, slot: 5 }], ['rating 0', { ...own, ctrl: 0 }], ['rating 101', { ...own, stuff: 101 }], ['hand S', { ...own, hand: 'S' }], ['role X', { ...own, role: 'X' }], ['dot in name', { ...own, name: 'a.b' }], ['side 2', { ...own, side: 2 }]];
+  for (const [what, o] of bads) { if (!ownProblem(o)) fail(`own pitcher ${what} accepted`); if (!friendlyProblem({ ...b, own: o })) fail(`arrangement with own pitcher ${what} playable`); }
+  if (!friendlyProblem({ ...b, sp: [0, 3] })) fail('own pitcher who is not the side\'s starter is playable');
+  for (const s of ['1.2.80.65.70.L.27.11', '1.2.80.65.70.L.27.11.a.b', '1.2.x.65.70.L.27.11.n']) if (parseOwn(s)) fail(`parseOwn("${s}") gives a player`);
+  const link = friendlyShare(b, ENGINE_PIN.commit);
+  if (!/&o=1\.2\.80\.65\.70\.L\./.test(link) || JSON.stringify(parseOwn(new URLSearchParams(link.split('?')[1]).get('o'))) !== JSON.stringify(own)) fail(`share link does not carry the own pitcher: ${link}`);
+  const frozen = JSON.stringify(ROSTERS), ros = ownRosters(own, b, ROSTERS);
+  if (JSON.stringify(ROSTERS) !== frozen) fail('ownRosters (pitcher) changed the factory rosters');
+  if (ros[0] !== ROSTERS[0] || ros[2] !== ROSTERS[2] || ros[1].bat !== ROSTERS[1].bat || ros[1].pit[1] !== ROSTERS[1].pit[1] || ros[1].pit[3] !== ROSTERS[1].pit[3]) fail('ownRosters copied more than the one starter place');
+  const him = ros[1].pit[2];
+  if (him.name !== '小華' || him.throws !== 'L' || him.num !== 11 || him.role !== 'SP') fail(`own pitcher ${JSON.stringify(him)}`);
+  const d = ownPitcher(own);
+  if ([d.stuff, d.ctrl, d.arm].some(v => !(v > 0.3 && v < 2.2))) fail('own pitcher raw ratings out of range');
+  const x = friendlyParam(b), g1 = friendlyOpening(x, engine, ros), g2 = friendlyOpening(x, engine, ownRosters(own, b, ROSTERS)), g0 = friendlyOpening(x, engine);
+  if (g1.status !== 'ok' || JSON.stringify(g1.opening.game.stream) !== JSON.stringify(g2.opening.game.stream)) fail('same own pitcher link, different game');
+  if (JSON.stringify(g1.opening.game.stream) === JSON.stringify(g0.opening.game.stream)) fail('the own pitcher changed nothing');
+  const text = JSON.stringify(g1.opening.game.stream);
+  if (!text.includes('小華')) fail('the own pitcher never appears in the game');
+  if (text.includes(ROSTERS[1].pit[2].name)) fail('the replaced starter still pitches');
+  const p1 = await friendlyOpeningAt(x, ENGINE_PIN.commit, async () => engine, ros);
+  if (p1.status !== 'ok' || JSON.stringify(p1.opening.game.stream) !== JSON.stringify(g1.opening.game.stream)) fail('pinned own pitcher play differs');
+  const rowP = { name: '劉立偉', num: 58, age: 30, role: 'P', pos: 'SP', hand: 'R', overall: 75, abilities: { stuff: 56, ctrl: 70, arm: 90, pot: 76 }, team: 'macaques', tier: 2 };
+  const v = await myPitcher(() => 'pheasants-p1', async () => ({ 'pheasants-p1': rowP }));
+  if (!v || v.team !== 2 || ownProblem(ownOfPitcher(v.row, 0, 0))) fail('myPitcher / ownOfPitcher did not give a playable own pitcher');
+  if (await myPitcher(() => 'p', async () => ({ p: { ...rowP, role: 'B' } }))) fail('myPitcher takes a batter');
+  if (await myPitcher(() => 'p', async () => ({ p: { ...rowP, tier: 3 } }))) fail('myPitcher takes tier 3');
+  if (await myPitcher(() => '', async () => ({}))) fail('myPitcher without an id');
+  if (digest() !== before) fail('own pitcher games changed an official file (rule 24)');
+  if (!/k=own\.role==='P'\?'pit':'bat'/.test(play)) fail('play.html does not patch the own pitcher into the engine rosters');
+  if (!/myPitcher/.test(ui) || !/ownOfPitcher/.test(ui)) fail('ui/friendly.js has no own pitcher choice');
 }
 
 if (bad.length) { console.error('friendly check FAILED:\n - ' + bad.join('\n - ')); process.exit(1); }
