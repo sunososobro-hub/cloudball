@@ -20,7 +20,7 @@ const MAX_BYTES = 1024, SEASON_GAMES = 100;
 const file = readFileSync(path.join(ROOT, 'league/site/farm_games.json'), 'utf8');
 let list = [];
 try { list = JSON.parse(file); } catch (e) { fail(`farm_games.json does not parse: ${e.message}`); }
-if (!Array.isArray(list) || !list.length) fail('farm_games.json is not a non-empty array');
+if (!Array.isArray(list)) fail('farm_games.json is not an array');   /* empty right after the owner's start (#750 --reset) */
 if (file !== serialize(list)) fail('farm_games.json is not the bytes farm_record.mjs writes (hand edit?)');
 
 const asked = [], local = async c => { asked.push(c); return engine; };
@@ -43,6 +43,9 @@ for (const rec of list) {
   if (JSON.stringify(r.box.score) !== JSON.stringify(rec.result.score)) fail(`${rec.id}: final score differs from the record`);
 }
 
+const fx = (() => { const g = engine.simGame(7002, {}, { teams: [0, 1] }), b = engine.boxFromStream(g.stream);   /* fallback when the file is empty */
+  return farmRecord({ id: 'f-1', day: 0, seed: 7002, commit: 'abcdef1', version: engine.ENGINE_VERSION, score: b.score, line: b.line }); })();
+if (!list.length) list = [fx];
 const first = list.find(r => r.engine.version === engine.ENGINE_VERSION) || list[0];
 const t = clone(list); findFarm(t, first.id).result.score[1] += 1;
 if ((await replayFarm(t, first.id, local)).status !== 'mismatch') fail('tampered score is not mismatch');
