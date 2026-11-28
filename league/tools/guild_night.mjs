@@ -15,6 +15,7 @@ import { simGame, boxFromStream, TEAMS } from '../../engine/index.js';
 import { guildNight, GUILD_DIR, LINE_SHARDS } from '../guild_night.js';
 import { guildRoster } from '../guild_roster.js';
 import { siteRoster } from '../site_roster.js';
+import { pitchingFromStream } from './player_stats.mjs';
 
 export const SITE_DIR = fileURLToPath(new URL('../site/', import.meta.url));
 const TEAM_ONE = 1;   /* tier 1 = 一軍 */
@@ -50,9 +51,10 @@ export function makePlay(players) {
   };
   const play = (seed, { home, away }) => {
     const rosters = [away, home], sp = rosters.map((r, k) => ((seed >>> (3 + 4 * k)) >>> 0) % Math.max(1, r.pit.filter(p => p.role === 'SP').length));
-    const box = boxFromStream(simGame(seed, {}, { teams: [0, 1], rosters, starters: sp }).stream);
-    /* only the members' batting lines count; the NPCs' do not (nobody follows them, and the shards stay small) */
-    return { score: box.score.slice(), players: box.players.map((side, k) => Object.fromEntries(Object.entries(side).filter(([nm]) => names.get(rosters[k]).includes(nm)))) };
+    const stream = simGame(seed, {}, { teams: [0, 1], rosters, starters: sp }).stream, box = boxFromStream(stream), pit = pitchingFromStream(stream);
+    /* only the members' lines count (batting, and pitching of a pitcher member: #804 part 5); the NPCs' do not (nobody follows them, and the shards stay small) */
+    const mine = (side, k) => Object.fromEntries(Object.entries(side).filter(([nm]) => names.get(rosters[k]).includes(nm)));
+    return { score: box.score.slice(), players: box.players.map(mine), pitchers: pit.map(mine) };
   };
   return { play, rosterOf };
 }
