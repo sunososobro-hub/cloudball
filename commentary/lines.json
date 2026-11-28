@@ -29,14 +29,14 @@
     "two_strikes": { "priority": 0, "silence": 0.6, "exchanges": [
       { "call": "兩好球。" },
       { "call": "追到兩好球了，投手掌握優勢。" },
-      { "call": "兩好球了。", "response": "換我蹲，下一球我會往外角引誘。" }
+      { "call": "兩好球了。", "response": "換我蹲，下一球我會往外角引誘。", "alt": ["如果是我，下一球就先丟個壞球看他追不追。", "這種球數，我會要投手別急著丟進好球帶。", "兩好球之後，我最想看的就是他會不會忍不住揮棒。"] }
     ] },
     "full_count": { "priority": 1, "silence": 0.3, "exchanges": [
       { "call": "滿球數！" },
-      { "call": "兩好三壞，滿球數。", "response": "這種時候，蹲後面的人手心都是汗。" }
+      { "call": "兩好三壞，滿球數。", "response": "這種時候，蹲後面的人手心都是汗。", "alt": ["滿球數的時候，投手和打者誰先眨眼誰就輸。", "這一球下去，場邊的人都屏住呼吸了。", "滿球數最有意思，投手不能丟壞球，打者什麼球都得揮。"] }
     ] },
     "stolen_base": { "priority": 1, "silence": 0.05, "exchanges": [
-      { "call": "跑了！盜壘成功！", "response": "起跑太漂亮了，捕手傳再好也沒用。" },
+      { "call": "跑了！盜壘成功！", "response": "起跑太漂亮了，捕手傳再好也沒用。", "alt": ["跑者抓準了投手的節奏，起跑一點都不猶豫。", "這種盜壘看的就是投捕的小動作，被他看穿了。", "跑得快加上膽子大，這個壘包是他的。"] },
       { "gag": "story", "sets": ["story"], "call": "跑了！安全上壘！", "response": "這球如果是我當年，一定抓得到。好啦，可能啦。" }
     ] },
     "caught_stealing": { "priority": 1, "silence": 0, "exchanges": [
@@ -46,14 +46,14 @@
     ] },
     "run_scores": { "priority": 2, "silence": 0, "exchanges": [
       { "call": "{team}得分了！", "response": "這{n:runs}分很關鍵。現在比數{n:awayScore}比{n:homeScore}。" },
-      { "call": "回來了！", "response": "壘上有人，就是要這樣打。" },
+      { "call": "回來了！", "response": "壘上有人，就是要這樣打。", "alt": ["有人在壘上，一支安打就能換來一分。", "該把握的機會，他沒有放過。", "這分來得不容易，球隊士氣會跟著上去。"] },
       { "when": { "tied": 1 }, "call": "追平了！", "response": "{n:awayScore}比{n:homeScore}，一切重來。" },
       { "when": { "runs": { "min": 2 } }, "call": "一口氣{n:runs}分！", "response": "一棒{n:runs}分，投手臉都綠了。" }
     ] },
     "home_run": { "priority": 2, "silence": 0, "exchanges": [
       { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "打出去了——全壘打！", "response": "明凱，這次你沒喊錯，真的出去了。" },
-      { "call": "球飛出去了，過了牆！", "response": "這球不用看，一出棒就知道了。" },
-      { "call": "很遠喔——出牆了！", "response": "吃得太正了，沒有懸念。" },
+      { "call": "球飛出去了，過了牆！", "response": "這球不用看，一出棒就知道了。", "alt": ["聲音就不一樣，棒子一碰到球我就知道了。", "這一棒的力道，球場根本裝不下。", "出棒角度剛剛好，球就一路往外飛。"] },
+      { "call": "很遠喔——出牆了！", "response": "吃得太正了，沒有懸念。", "alt": ["整顆球吃得很實在，連外野手都沒有追。", "甜蜜點打到底，這種球就是這樣飛的。", "這一棒乾淨俐落，一點猶豫都沒有。"] },
       { "when": { "batterHrToday": { "min": 2 } }, "call": "又是他！全壘打！", "response": "今天第{n:batterHrToday}支了，投手今晚應該睡不著。" }
     ] },
     "strikeout": { "priority": 1, "silence": 0.2, "exchanges": [
@@ -66,7 +66,7 @@
     ] },
     "walk": { "priority": 1, "silence": 0.4, "exchanges": [
       { "call": "四壞球，保送。" },
-      { "call": "四壞球，保送上一壘。", "response": "很有耐心，壞球都沒有去追。" },
+      { "call": "四壞球，保送上一壘。", "response": "很有耐心，壞球都沒有去追。", "alt": ["選球選得很好，投手只好把球送給他。", "好球壞球分得清楚，這種打者最讓投手頭痛。", "他一直在等好球，等到最後投手先投降了。"] },
       { "when": { "runs": { "min": 1 } }, "call": "球太外了，保送！", "response": "擠回來的分數最傷了。" }
     ] },
     "intentional_walk": { "priority": 1, "silence": 0.2, "exchanges": [
@@ -74,12 +74,12 @@
       { "call": "敬遠！直接送打者上一壘。" }
     ] },
     "hit_by_pitch": { "priority": 1, "silence": 0.3, "exchanges": [
-      { "gag": "story", "sets": ["story"], "call": "觸身球！", "response": "這顆很痛喔。我當年被打到，連叫都不敢叫。" },
+      { "gag": "story", "sets": ["story"], "call": "觸身球！", "response": "這顆很痛喔。我當年被打到，連叫都不敢叫。", "alt": ["被球打到真的很痛，不過打者還是會自己走上一壘。", "這種球最讓人火大，投手大概也很無奈。", "打者吃痛，但還是上壘，這就是他的任務。"] },
       { "call": "觸身球，打者上一壘。" }
     ] },
     "single": { "priority": 1, "silence": 0.3, "exchanges": [
       { "call": "安打！" },
-      { "call": "打出去了，是安打。", "response": "打得很扎實，找到空檔了。" },
+      { "call": "打出去了，是安打。", "response": "打得很扎實，找到空檔了。", "alt": ["球打在甜蜜點上，野手只能看著它飛過去。", "這球不大力，但剛好落在沒人的地方。", "抓對了時機，這支安打來得很自然。"] },
       { "when": { "batterHits": { "min": 3 } }, "call": "安打，今天第{n:batterHits}支！", "response": "猛打賞！今天他說了算。" },
       { "when": { "hasPrev": 1, "batterHits": 1 }, "call": "清脆的安打。", "response": "上個打席沒有結果，這次他把球打出去了。" }
     ] },
@@ -92,8 +92,8 @@
       { "call": "點得好！短打變成安打。" }
     ] },
     "double": { "priority": 1, "silence": 0.1, "exchanges": [
-      { "call": "二壘安打。", "response": "一棒就站上得點圈了。" },
-      { "call": "打到空檔，二壘安打！", "response": "這球打得很強勁，外野只能追著跑。" }
+      { "call": "二壘安打。", "response": "一棒就站上得點圈了。", "alt": ["這支二壘安打，一下子把壓力丟回給投手。", "跑得快的話，這種球可以多拚一個壘包。", "二壘有人，後面的打者有得發揮了。"] },
+      { "call": "打到空檔，二壘安打！", "response": "這球打得很強勁，外野只能追著跑。", "alt": ["球速太快，外野手轉身都來不及。", "打在空檔的二壘安打，最難防守了。", "這球落地後還一直滾，外野手只能追。"] }
     ] },
     "triple": { "priority": 2, "silence": 0, "exchanges": [
       { "call": "三壘安打！", "response": "三壘安打欸，這比全壘打還難得。" },
@@ -101,17 +101,17 @@
     ] },
     "groundout": { "priority": 0, "silence": 0.6, "exchanges": [
       { "call": "滾地球，處理出局。" },
-      { "call": "滾地球，一壘出局。", "response": "野手處理得很乾淨。" },
+      { "call": "滾地球，一壘出局。", "response": "野手處理得很乾淨。", "alt": ["腳步跟傳球都很俐落，一點多餘的動作都沒有。", "滾地球處理得這麼穩，投手會很感謝他。", "這種基本功，看起來簡單，其實最難。"] },
       { "call": "滾地球，守備傳出去，打者出局。" }
     ] },
     "flyout": { "priority": 0, "silence": 0.55, "exchanges": [
       { "call": "飛球，接殺出局。" },
       { "gag": "earlyCall", "sets": ["earlyCall"], "once": true, "call": "這球很高、很遠……被接殺了。", "response": "明凱，你剛剛是不是又想喊全壘打？" },
       { "gag": "earlyCall", "needs": ["earlyCall"], "once": true, "call": "這球——喔，守備接到了。", "response": "又喊太早了，今晚第二筆，我幫你記下來。" },
-      { "call": "高飛球，出局。", "response": "打到球的下緣了，只能變成飛球。" }
+      { "call": "高飛球，出局。", "response": "打到球的下緣了，只能變成飛球。", "alt": ["球棒下緣吃到球，力量都往上跑了。", "這種飛球看起來很高，其實沒有威脅。", "角度抓高了一點點，結果就差很多。"] }
     ] },
     "lineout": { "priority": 0, "silence": 0.6, "exchanges": [
-      { "call": "平飛球，被接殺。", "response": "打得很強，只是剛好打到人。" },
+      { "call": "平飛球，被接殺。", "response": "打得很強，只是剛好打到人。", "alt": ["這球速度很快，可惜剛好飛進手套。", "這種球打得再好，運氣不站在他這邊也沒用。", "平飛球最讓人心疼，打得好卻變成出局。"] },
       { "call": "平飛球直接飛進手套，出局。" }
     ] },
     "popout": { "priority": 0, "silence": 0.8, "exchanges": [
@@ -119,8 +119,8 @@
       { "call": "高高的小飛球，內野手穩穩接住。" }
     ] },
     "double_play": { "priority": 2, "silence": 0, "exchanges": [
-      { "call": "雙殺打！", "response": "兩個出局數一次拿，漂亮。" },
-      { "call": "兩個出局，守備漂亮地完成雙殺。", "response": "雙殺化解危機，投手可以鬆一口氣。" }
+      { "call": "雙殺打！", "response": "兩個出局數一次拿，漂亮。", "alt": ["一球換兩個出局，投手賺到了。", "雙殺打是投手最好的朋友。", "野手配合得剛剛好，一氣呵成。"] },
+      { "call": "兩個出局，守備漂亮地完成雙殺。", "response": "雙殺化解危機，投手可以鬆一口氣。", "alt": ["危機就這樣沒了，投手回休息區可以喘口氣。", "這個雙殺價值很高，勝過一個三振。", "守備一次解決兩個，這場比賽的氣勢就變了。"] }
     ] },
     "fielders_choice": { "priority": 1, "silence": 0.1, "exchanges": [
       { "call": "野手選擇，跑者被封殺。", "response": "抓前面的跑者，這個選擇是對的。" },
@@ -135,7 +135,7 @@
       { "call": "高飛犧牲打，跑者從三壘衝回本壘得分。" }
     ] },
     "error": { "priority": 1, "silence": 0.1, "exchanges": [
-      { "call": "失誤。", "response": "這個我要噓一下，這是該處理的球。" },
+      { "call": "失誤。", "response": "這個我要噓一下，這是該處理的球。", "alt": ["這種球，平常是閉著眼睛都能接的。", "失誤就是失誤，這個我沒辦法替他說話。", "基本功沒做好，投手要多投一個打者了。"] },
       { "call": "守備出了差錯。", "response": "這球送人家上壘，投手心裡一定很不是滋味。" }
     ] },
     "pitching_change": { "priority": 2, "silence": 0, "exchanges": [
