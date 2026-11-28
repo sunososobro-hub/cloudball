@@ -192,6 +192,27 @@ if (gc && [...gc.name].length !== guild.NAME_MAX) bad('a name of exactly the max
   if (/[0-9a-f]{64}|agent|ref/.test(JSON.stringify(seen.map(x => ({ ...x, id: 0 }))))) bad('the export must show no agent id or member ref');
   const mine = seen.find(x => x.id === INV);
   if (!mine || mine.members.length !== 1 || !mine.members[0].leader || !mine.members[0].coach || mine.settings !== null) bad('a guild must list its members with the leader / coach flags and settings null');
+  /* #795 part 4b: a member's stored, non-neutral 經紀人 set rides along as player.tactics (canonical); a neutral set, a set saved for an
+   * earlier player, or none -> no tactics key (the export of a fan without a set is unchanged) */
+  {
+    const G = seen[seen.length - 1].id, put = (aid, pid, name, kind, set) => {
+      db.sql.prepare("INSERT INTO players (agent_id, pid, name, kind, ovr, player, ratings, created_at) VALUES (?1, ?2, ?3, ?4, 60, '{}', '{}', 1)").run(aid, pid, name, kind);
+      db.sql.prepare('INSERT INTO guild_members (agent_id, guild_id, joined_at) VALUES (?1, ?2, ?3)').run(aid, G, name.length);
+      if (set !== undefined) db.sql.prepare('INSERT INTO guild_saves (agent_id, agentset) VALUES (?1, ?2)').run(aid, set);
+    };
+    const hot = { v: 1, kind: 'bat', rows: { normal: { steal: 4, bunt: 0 } } };
+    put('t1', 'p-t1', 'T一', 'bat', JSON.stringify({ pid: 'p-t1', set: hot }));
+    put('t2', 'p-t2', 'T二二', 'bat', JSON.stringify({ pid: 'p-t2', set: { v: 1, kind: 'bat', rows: {} } }));
+    put('t3', 'p-t3', 'T三三三', 'bat', JSON.stringify({ pid: 'p-old', set: hot }));
+    put('t4', 'p-t4', 'T四四四四', 'pit');
+    const r = await exp('?after=' + seen[seen.length - 2].id), gm = r.body?.guilds?.find(x => x.id === G), by = n => gm && gm.members.find(x => x.player && x.player.name === n);
+    if (!gm || gm.members.length < 4) bad('the export must list the tactics test members');
+    else {
+      if (JSON.stringify(by('T一').player.tactics) !== JSON.stringify(hot)) bad(`a stored set must export as player.tactics, got ${JSON.stringify(by('T一').player.tactics)}`);
+      for (const n of ['T二二', 'T三三三', 'T四四四四']) if ('tactics' in by(n).player) bad(`${n}: a neutral, other-player or missing set must export no tactics`);
+      if (/[0-9a-f]{64}|agent|ref/.test(JSON.stringify({ ...gm, id: 0 }))) bad('the export with tactics must still show no agent id or member ref');
+    }
+  }
   const w = db.sql.prepare('SELECT COUNT(*) AS n FROM guild_members').get().n;
   await exp(); if (db.sql.prepare('SELECT COUNT(*) AS n FROM guild_members').get().n !== w) bad('the export must write nothing');
 }

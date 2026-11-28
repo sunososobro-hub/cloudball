@@ -5,6 +5,8 @@
 import { guarded, json, fail, readBody, methodNotAllowed, sha256 } from './agents.js';
 import { moveStep, limited } from './caps.js';
 import { TEAMS } from '../../league/teams.js';
+import { storedSet } from './agentset_store.js';
+import { isNeutral } from '../../league/agentset.js';
 
 export const NAME_MAX = 12;                       /* characters (code points) of a guild name */
 export const GUILD_SEATS = 10;                  /* members per guild (the rest of the lineup is NPC fill): limited roster seats, owner 2026-11-28 */
@@ -183,12 +185,15 @@ export const exportPage = guarded(async ({ request, db }) => {
   const after = new URL(request.url).searchParams.get('after') || '';
   if (after && !/^[0-9a-f]{12}$/.test(after)) return fail(400, 'invalid', { reasons: ['after is a guild id'] });
   const gs = (await db.prepare('SELECT id, name, base, leader, coach FROM guilds WHERE id > ?1 ORDER BY id LIMIT ?2').bind(after, EXPORT_PAGE).all()).results;
-  const mem = gs.length ? (await db.prepare(`SELECT m.guild_id, m.agent_id, p.name, p.kind, p.ovr, p.player FROM guild_members m LEFT JOIN players p ON p.agent_id = m.agent_id
-    WHERE m.guild_id IN (${gs.map((_, i) => '?' + (i + 1)).join(',')}) ORDER BY m.guild_id, m.joined_at, m.agent_id`).bind(...gs.map(g => g.id)).all()).results : [];
+  const mem = gs.length ? (await db.prepare(`SELECT m.guild_id, m.agent_id, p.pid, p.name, p.kind, p.ovr, p.player, s.agentset FROM guild_members m LEFT JOIN players p ON p.agent_id = m.agent_id
+    LEFT JOIN guild_saves s ON s.agent_id = m.agent_id WHERE m.guild_id IN (${gs.map((_, i) => '?' + (i + 1)).join(',')}) ORDER BY m.guild_id, m.joined_at, m.agent_id`).bind(...gs.map(g => g.id)).all()).results : [];
   const guilds = gs.map(g => ({ id: g.id, name: g.name, base: g.base, settings: null,
     members: mem.filter(r => r.guild_id === g.id).map(r => {
       let pos = null; try { const p = JSON.parse(r.player || 'null'); pos = p && (p.pos || p.role) || null; } catch (e) { /* no player */ }
-      return { leader: r.agent_id === g.leader, coach: r.agent_id === g.coach, player: r.name ? { name: r.name, kind: r.kind, ovr: r.ovr, pos } : null };
+      /* #795 part 4b: his stored 經紀人 set (canonical, functions/lib/agentset_store.js) rides along as `tactics`, only when it is not all-neutral,
+       * so the nightly lock freezes it into his games (league/guild_night.js freeze) and a fan without a set exports exactly as before */
+      const set = r.name ? storedSet(r.agentset, r.pid, r.kind) : null, tactics = set && !isNeutral(set) ? { tactics: set } : {};
+      return { leader: r.agent_id === g.leader, coach: r.agent_id === g.coach, player: r.name ? { name: r.name, kind: r.kind, ovr: r.ovr, pos, ...tactics } : null };
     }) }));
   return json(200, { ok: true, guilds, next: gs.length === EXPORT_PAGE ? gs[gs.length - 1].id : null });
 });
