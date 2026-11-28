@@ -12,6 +12,7 @@
  *   guildProblem(g)                   named reason why a guild side is not playable, or null
  *   guildRosters(g, a, base)          `base` (the engine's ROSTERS) with the guild's side swapped for guildRoster(...); other teams are the same objects
  *   guildShare(a, g, commit, base)    the 友誼賽 share link (league/friendly.js) + `m=`
+ *   guildPlay(x, m, base)             for play.html: { status: 'none' (no m) | 'invalid' | 'ok', reason, rosters, team } (rosters = guildRosters; team = the side's team index to patch into the viewer's ENGINE.ROSTERS)
  *   guildOpening(s, m, engine, base)  friendlyOpening with the guild's rosters: { status, reason, opening, names } (names = members who found a seat) */
 import { friendlyShare, friendlyProblem, parseFriendly, friendlyOpening } from './friendly.js';
 import { guildRoster } from './guild_roster.js';
@@ -80,4 +81,15 @@ export function guildOpening(s, m, engine, base) {
   try { rosters = guildRosters(g, a, base); } catch (e) { return { status: 'invalid', reason: (e && e.message) || String(e), opening: null, names: [] }; }
   const r = friendlyOpening(s, engine, rosters);
   return { status: r.status, reason: r.reason, opening: r.opening, names: rosters.names };
+}
+
+export function guildPlay(x, m, base) {
+  if (m === null || m === undefined || m === '') return { status: 'none', reason: null, rosters: undefined, team: -1 };
+  const a = parseFriendly(x), g = parseMembers(m);
+  const bad = r => ({ status: 'invalid', reason: r, rosters: undefined, team: -1 });
+  if (!a) return bad('x is not <away>-<home>-<awaySP>-<homeSP>-<seed>');
+  if (a.own) return bad('a guild game carries no single own player');
+  const why = friendlyProblem(a) || (g ? null : 'm is not <side>~<member>...');
+  if (why) return bad(why);
+  try { return { status: 'ok', reason: null, rosters: guildRosters(g, a, base), team: guildTeam(g, a) }; } catch (e) { return bad((e && e.message) || String(e)); }
 }
