@@ -70,6 +70,8 @@ const SCHEMA = [
      coach TEXT NOT NULL, created_at INTEGER NOT NULL)`,
   'CREATE TABLE IF NOT EXISTS guild_members (agent_id TEXT PRIMARY KEY, guild_id TEXT NOT NULL, joined_at INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS guild_members_guild ON guild_members (guild_id)',
+  /* #800 part 2: the fan's own move counter (caps.js kind 'move'); it outlives the member row, which a leave deletes. One row per fan, made on his first move */
+  'CREATE TABLE IF NOT EXISTS guild_fans (agent_id TEXT PRIMARY KEY, moved_day INTEGER NOT NULL DEFAULT 0, moves_today INTEGER NOT NULL DEFAULT 0)',
 ];
 /* #437: a 系統 filler is a players row whose agent_id is 'sys:<pid>' (no agent holds it) and whose player JSON has system:true.
  * Even spread of the budget, positions / roles in turn, so nobody is a star; made once, marked in `meta`. */
