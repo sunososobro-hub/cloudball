@@ -8,6 +8,7 @@ import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
 import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S, PITCH_S } from './field.js';
 import { specOfRow } from '../preview-spec.js';
+import { drawFieldTex, FIELD_W, FIELD_H, FIELD_Z0 } from '../../render/field_tex.js';
 import { BUNT_CLIP_URL, BUNT_CLIP_T0, buntClipTime, buntClipW } from '../../render/bunt_clip.js';
 
 export const CAM = { fov: 42, pos: [0, 9, -24], look: [0, 3, 30] };      // #563 part 3: broadcast angle, low behind home plate, pitcher and plate framed
@@ -75,18 +76,33 @@ function figure(THREE, K, color) {
   return g;
 }
 
-/** Builds the static park into `scene`: grass, dirt, infield, mound, plate, bases, foul lines, fence. */
-export function buildPark(THREE, scene, K = kit(THREE)) {
+/** #563 part 7: the broadcast ground. The field map render/game.js paints (render/field_tex.js: stripes, dirt, base paths, chalk, wear)
+ *  on one plane in the broadcast frame (home at 0,0, centre field at -z), turned half a turn about y into this frame (centre field at +z,
+ *  first base at world -x). `doc` = a document with canvas 2D; none (Node tests) or a failing canvas -> null and the flat colours stay. */
+export function fieldGround(THREE, doc = globalThis.document) {
+  if (!doc || typeof doc.createElement !== 'function') return null;
+  let T; try { T = drawFieldTex(doc); } catch (e) { return null; }
+  if (!T || !T.c || typeof T.c.getContext !== 'function') return null;
+  const map = new THREE.CanvasTexture(T.c); map.colorSpace = THREE.SRGBColorSpace;
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(FIELD_W, FIELD_H), new THREE.MeshStandardMaterial({ map, roughness: .95, metalness: 0 }));
+  plane.rotation.x = -Math.PI / 2; plane.position.z = FIELD_Z0 + FIELD_H / 2;
+  const g = new THREE.Group(); g.name = 'field-ground'; g.rotation.y = Math.PI; g.add(plane); g.userData.fieldTex = T; return g;
+}
+
+/** Builds the static park into `scene`: the broadcast ground (fieldGround) or, without canvas 2D, flat grass / dirt / infield; then mound, plate, bases, foul lines, fence. */
+export function buildPark(THREE, scene, K = kit(THREE), doc = globalThis.document) {
   const flat = (geo, c, x, y, z) => { const m = K.mesh(geo, K.mat(c), x, y, z); m.rotation.x = -Math.PI / 2; scene.add(m); return m; };
-  flat(new THREE.CircleGeometry(160, 48), COL.grass, 0, 0, 40);
-  flat(new THREE.CircleGeometry(29, 40, Math.PI / 4, Math.PI / 2), COL.dirt, 0, .02, 0);
-  flat(new THREE.PlaneGeometry(23.5, 23.5), COL.grass2, 0, .03, 19.4).rotation.z = Math.PI / 4;
-  flat(new THREE.CircleGeometry(4, 24), COL.dirt, 0, .035, 0);
+  const ground = fieldGround(THREE, doc);
+  flat(new THREE.CircleGeometry(160, 48), COL.grass, 0, ground ? -.02 : 0, 40);   // beyond the painted map (fence and out)
+  if (ground) scene.add(ground);
+  else { flat(new THREE.CircleGeometry(29, 40, Math.PI / 4, Math.PI / 2), COL.dirt, 0, .02, 0);
+    flat(new THREE.PlaneGeometry(23.5, 23.5), COL.grass2, 0, .03, 19.4).rotation.z = Math.PI / 4;
+    flat(new THREE.CircleGeometry(4, 24), COL.dirt, 0, .035, 0); }
   scene.add(K.mesh(new THREE.CylinderGeometry(2.6, 3, .25, 20), K.mat(COL.dirt), -POS_N[0][0], .12, POS_N[0][1]));
   scene.add(K.mesh(new THREE.BoxGeometry(.6, .05, .15), K.mat(COL.white), -POS_N[0][0], .26, POS_N[0][1]));
   for (const b of BASES.slice(1, 4)) scene.add(K.mesh(new THREE.BoxGeometry(.6, .1, .6), K.mat(COL.white), -b[0], .07, b[1]));
   scene.add(K.mesh(new THREE.CylinderGeometry(.33, .33, .04, 5), K.mat(COL.white), 0, .05, .15));
-  for (const s of [-1, 1]) { const l = K.mesh(new THREE.BoxGeometry(.12, .02, 120), K.mat(COL.white), -s * Math.sin(FENCE_ARC) * 60, .04, Math.cos(FENCE_ARC) * 60); l.rotation.y = -s * FENCE_ARC; scene.add(l); }
+  if (!ground) for (const s of [-1, 1]) { const l = K.mesh(new THREE.BoxGeometry(.12, .02, 120), K.mat(COL.white), -s * Math.sin(FENCE_ARC) * 60, .04, Math.cos(FENCE_ARC) * 60); l.rotation.y = -s * FENCE_ARC; scene.add(l); }
   let prev = null;
   for (let i = 0; i <= FENCE_SEGS; i++) {
     const a = -FENCE_ARC + (2 * FENCE_ARC) * i / FENCE_SEGS, r = fenceR(a), p = [r * Math.sin(a), r * Math.cos(a)];
