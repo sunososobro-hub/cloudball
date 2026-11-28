@@ -1,4 +1,4 @@
-/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-2): node commentary/calls.check.mjs
+/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-3): node commentary/calls.check.mjs
  *   - over SEEDS games, each of wild pitch, passed ball, balk, safe pickoff, the catcher's mound visit, pickoff out, rundown, catcher interference
  *     and triple play (about 0.0003 a game: pinned seed 1131, teams [3, 0], as tests/tripleplay.check.mjs)
  *     is called at least once (the drafted line sits on an event of that kind)
@@ -26,6 +26,13 @@ const KINDS = {
 const problems = [], bad = m => { if (problems.length < 20) problems.push(m); };
 const called = Object.fromEntries(Object.keys(KINDS).map(k => [k, 0]));
 for (const [k, { min }] of Object.entries(KINDS)) {
+  const n = ((bank.triggers[k] || {}).exchanges || []).length;
+  if (n < min) bad(`bank: ${k} has ${n} wording(s), needs ${min}`);
+}
+/* part 3: the plate-appearance result groups keep wordings only (a result with a run fires run_scores; rare ones need no firing): 3 where it fires > 1 a game, else 2 */
+const WORDINGS = { groundout: 3, flyout: 3, single: 3, strikeout: 3, walk: 3, lineout: 2, popout: 2, infield_single: 2, bunt_single: 2, double: 2, triple: 2, home_run: 2, hit_by_pitch: 2,
+  intentional_walk: 2, double_play: 2, fielders_choice: 2, sac_bunt: 2, sac_fly: 2, error: 2 };
+for (const [k, min] of Object.entries(WORDINGS)) {
   const n = ((bank.triggers[k] || {}).exchanges || []).length;
   if (n < min) bad(`bank: ${k} has ${n} wording(s), needs ${min}`);
 }
