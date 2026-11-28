@@ -4,15 +4,15 @@
  "horizon": 540,
  "target": 62,
  "hands": {
-  "share": 0.56,
+  "share": 0.681,
   "p25": 42,
-  "median": 64,
-  "p75": 85
+  "median": 66,
+  "p75": 86
  },
  "active": {
-  "share": 0.56,
+  "share": 0.681,
   "p25": 21,
-  "median": 32,
+  "median": 33,
   "p75": 43
  }
 }
