@@ -139,7 +139,7 @@ export const remove = guarded(async ({ request, db, agent }) => {
   return json(200, { ok: true, guild: await viewOf(db, g, agent.id) });
 }, { needKey: true });
 
-/* POST /api/guild/lineup { order, sp }: the 總教練 saves the batting order and the starting pitcher (replaces the last save; no move counted) */
+/* POST /api/guild/lineup { order, sp }: the 總教練 saves the batting order and the starting pitcher (replaces the last save; counted as a daily save, SAVES_PER_DAY, #808; the same lineup again writes nothing) */
 export const lineup = guarded(async ({ request, db, agent }) => {
   const body = await readBody(request);
   if (!body) return fail(400, 'invalid', { reasons: ['no lineup given'] });
@@ -148,8 +148,12 @@ export const lineup = guarded(async ({ request, db, agent }) => {
   const g = await myGuild(db, agent);
   if (!g) return fail(404, 'none');
   if (g.coach !== agent.id) return fail(403, 'coach');
+  const batting = JSON.stringify(body.order), old = await db.prepare('SELECT batting, sp FROM guild_lineups WHERE guild_id = ?1').bind(g.id).first();
+  if (old && old.batting === batting && old.sp === body.sp) return json(200, { ok: true, guild: await viewOf(db, g, agent.id) });   /* unchanged: writes nothing (#808) */
+  await db.prepare('INSERT OR IGNORE INTO guild_saves (agent_id) VALUES (?1)').bind(agent.id).run();
+  if (!((await moveStep(db, 'guild_saves', 'agent_id', agent.id, 'save').run()).meta.changes > 0)) return limited();
   await db.prepare(`INSERT INTO guild_lineups (guild_id, batting, sp, saved_at) VALUES (?1, ?2, ?3, ?4)
-    ON CONFLICT(guild_id) DO UPDATE SET batting = excluded.batting, sp = excluded.sp, saved_at = excluded.saved_at`).bind(g.id, JSON.stringify(body.order), body.sp, Date.now()).run();
+    ON CONFLICT(guild_id) DO UPDATE SET batting = excluded.batting, sp = excluded.sp, saved_at = excluded.saved_at`).bind(g.id, batting, body.sp, Date.now()).run();
   return json(200, { ok: true, guild: await viewOf(db, g, agent.id) });
 }, { needKey: true });
 
