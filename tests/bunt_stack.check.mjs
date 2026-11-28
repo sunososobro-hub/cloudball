@@ -1,11 +1,12 @@
 /* #826: a bunt never puts two runners on one base.
- * Seed 58126 (pairing 1 of run.mjs's 12) has a balk that leaves runners on second and third in the 10th, then a bunt: the runner on
- * second used to go to third beside the runner already there. Fails when (a) any plate appearance starts with two runners on a
+ * Seed 58126 (pairing 1 of run.mjs's 12) had a balk that left runners on second and third in the 10th, then a bunt: the runner on
+ * second used to go to third beside the runner already there. Engine 0.4.39 (#794 part 5) moved that game; seed 65523 (its own
+ * run.mjs pairing, found by sweeping 50001..70000 x 12 pairings) now holds a sac bunt with second and third taken. Fails when (a) any plate appearance starts with two runners on a
  * base in SWEEP seeds from 58100, or (b) the pinned seed no longer holds a sac bunt with second and third taken (re-pin it then). */
 import { simGame, TEAMS } from '../engine/index.js';
 
 const PAIRINGS = TEAMS.flatMap((_, a) => TEAMS.map((_, h) => [a, h])).filter(([a, h]) => a !== h);
-const FIRST = 50001, PINNED = 58126, SWEEP = 400;
+const FIRST = 50001, PINNED = 65523, SWEEP = 400;
 let bad = 0, pinned = false;
 
 function replay(seed, pairing) {
