@@ -54,7 +54,7 @@ function createMemory(teams, seed = 0) {
   const batter = n => m.batters[n] || (m.batters[n] = { pa: 0, ab: 0, h: 0, k: 0, hr: 0, prev: null });
   const pitcher = n => m.pitchers[n] || (m.pitchers[n] = { k: 0, pitches: 0 });
   m.apply = x => {
-    if (x.f !== m.frame) { m.frame = x.f; m.frameRuns = 0; }
+    if (x.f !== m.frame) { m.frame = x.f; m.frameRuns = 0; m.doubledOff = 0; }
     if (x.type === 'half_start') { m.inning = x.inning; m.half = x.half; m.outs = 0; m.halfRuns[x.team][x.inning - 1] = 0; m.runners = [null, null, null, null]; }
     else if (x.type === 'runner_placed') m.runners[x.base] = x.runner;
     else if (x.type === 'substitution') { if (x.role === 'pinch_runner' && m.runners[x.base] === x.out) m.runners[x.base] = x.in; }
@@ -63,7 +63,7 @@ function createMemory(teams, seed = 0) {
     else if (x.type === 'pitch') { pitcher(x.pitcher).pitches++; m.strikes = x.count[1]; m.balls = x.count[0]; m.last = { batter: x.batter, pitcher: x.pitcher, team: x.team }; m.pitchType = x.pitchType; }
     else if (x.type === 'contact') m.pos = x.fielder;
     else if (x.type === 'call') { m.balls = x.count[0]; m.strikes = x.count[1]; }
-    else if (x.type === 'out') { m.outs = x.outs; if (x.from >= 1 && x.from <= 3 && m.runners[x.from] === x.runner) m.runners[x.from] = null; }
+    else if (x.type === 'out') { m.outs = x.outs; if (x.reason === 'doubled_off') m.doubledOff++; if (x.from >= 1 && x.from <= 3 && m.runners[x.from] === x.runner) m.runners[x.from] = null; }
     else if (x.type === 'run_scored') { m.score[x.team]++; m.frameRuns++; m.halfRuns[x.team][m.inning - 1] = (m.halfRuns[x.team][m.inning - 1] || 0) + 1; }
     else if (x.type === 'pa_end') {
       const b = batter(x.batter); b.pa++; b.prev = b.now || null; b.now = x.result;
@@ -116,7 +116,8 @@ function triggerOf(x, m) {
     case 'pickoff': return x.safe ? 'pickoff_safe' : x.rundown ? 'pickoff_rundown' : 'pickoff_out';
     case 'mound_visit': return x.staff === 'catcher' ? 'catcher_visit' : null;
     case 'out': return x.steal ? 'caught_stealing' : null;
-    case 'pa_end': if (m.frameRuns > 0 && x.result !== 'home_run') return 'run_scores'; return x.result;
+    case 'pa_end': if (x.result === 'lineout' && m.doubledOff === 1) return 'line_double_play';   /* #606 part 5: a line drive caught and one runner doubled off (a triple play is its own result) */
+      if (m.frameRuns > 0 && x.result !== 'home_run') return 'run_scores'; return x.result;
     case 'substitution': return x.role === 'pitcher' ? 'pitching_change' : x.role === 'pinch_hitter' ? 'pinch_hitter' : x.role === 'pinch_runner' ? 'pinch_runner' : x.role === 'defensive' ? 'defensive_sub' : null;   /* #436: a pinch hitter / runner is not a pitching change; #606 part 4: each has its own name-free call */
     case 'runner_placed': return 'runner_placed';
     case 'decision': return x.pending ? null : 'fan_decision';
