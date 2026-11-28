@@ -60,7 +60,7 @@ for (let seed = 1; seed <= 60; seed++) {
     else if (seen.has(`${e.def}:${sv[0].pitcher}`)) bad.push(`seed ${seed}: second visit to ${sv[0].pitcher}`);
     else seen.add(`${e.def}:${sv[0].pitcher}`);
   });
-  if (g.stream.filter(x => x.type === 'mound_visit').length !== g.ev.filter(e => e.k === 'VIS').length) bad.push(`seed ${seed}: mound_visit events and VIS frames differ`);
+  if (g.stream.filter(x => x.type === 'mound_visit' && x.staff === 'pitching').length !== g.ev.filter(e => e.k === 'VIS').length) bad.push(`seed ${seed}: mound_visit events and VIS frames differ`);
 }
 if (!chg) bad.push('no CHG frame in 60 games: the check saw nothing');
 if (!vis) bad.push('no VIS frame in 60 games: the check saw nothing');

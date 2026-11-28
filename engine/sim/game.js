@@ -38,11 +38,12 @@ export function simGame(seed, decisions, opts) {
   const defSub = opts.defSub ?? K.DEF_SUB_ON;         /* #436 part 7: off = factory games byte for byte */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
-  const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);  /* #614 part 9: outcomes of rare plays (catcher's interference), drawn apart so the main sequence R is not shifted */
+  const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
+  const visitR = mulberry32((seed ^ K.VISIT_SALT) >>> 0);   /* #614 part 11: catcher visits (timing only), drawn apart so R and look keep their sequences */  /* #614 part 9: outcomes of rare plays (catcher's interference), drawn apart so the main sequence R is not shifted */
   const ev = [], stream = [];
   let t = K.PRE_DUR, decisionNo = 0, over = false, lead = -1, wp = null, lp = null;
   const st = { inn: 1, half: 0, outs: 0, b: [null, null, null], sc: [0, 0], ls: [[], []], H: [0, 0], E: [0, 0],
-    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], steal: false, sbAsked: false, ibbAsked: false, phAsked: false, prAsked: false, dsAsked: false };
+    lu: [0, 0], pi: [0, 0], pc: [0, 0], ra: [0, 0], hold: [0, 0], vis: [-1, -1], mv: [0, 0], mvCap: [K.MOUND_VISIT_LIMIT, K.MOUND_VISIT_LIMIT], steal: false, sbAsked: false, ibbAsked: false, phAsked: false, prAsked: false, dsAsked: false };
   const newLine = () => ({ ab: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, bb: 0, k: 0 });
   /* stats: one row per player who batted; the first LINEUP_SIZE rows are the starting lineup in order, a pinch hitter
    * gets a new row (batters[k][row] = his name) and row[k][slot] points at the row of whoever holds that slot now */
@@ -148,6 +149,8 @@ export function simGame(seed, decisions, opts) {
     st.ls[off][st.inn - 1] = st.ls[off][st.inn - 1] || 0;
     emit('half_start', t, { inning: st.inn, half: off, team: off });
     st.dsAsked = false;
+    /* #614 part 11: a team that starts an extra inning with no mound visit left gets one more (OBR 5.10(m)) */
+    if (st.inn > K.REGULATION_INNINGS && st.mv[def] >= st.mvCap[def]) st.mvCap[def] += K.MOUND_VISIT_EXTRA;
     if (st.inn > K.REGULATION_INNINGS && !st.b[K.TIEBREAK_RUNNER_BASE - 1]) {
       const name = RR[off].bat[(st.lu[off] + K.LINEUP_SIZE - 1) % K.LINEUP_SIZE].name;
       st.b[K.TIEBREAK_RUNNER_BASE - 1] = name;
@@ -168,8 +171,8 @@ export function simGame(seed, decisions, opts) {
           st.hold[def] = K.STAY_HOLD_BATTERS;
           /* #81: the pitching coach goes out to talk to him, once per pitcher (a second visit to the same pitcher would take him out).
            * Timing only: no draw, so every outcome stays as it was; only later times move. */
-          if (st.vis[def] !== st.pi[def]) {
-            st.vis[def] = st.pi[def];
+          if (st.vis[def] !== st.pi[def] && st.mv[def] < st.mvCap[def]) {
+            st.vis[def] = st.pi[def]; st.mv[def]++;
             emit('mound_visit', t, { team: def, pitcher: cur.name, staff: 'pitching' });
             pushFrame({ t, d: K.MOUND_VISIT_DUR, k: 'VIS', desc: COPY.visit(TT[def], cur), s0: snap(), s1: snap(), def });
           }
@@ -280,6 +283,15 @@ export function simGame(seed, decisions, opts) {
         }
       }
       st.ibbAsked = false;
+      /* ---- defence: the catcher goes out to talk to his pitcher (#614 part 11)? A runner in scoring position, right after a pitch,
+       * while the team has a mound visit left (coach and catcher share MOUND_VISIT_LIMIT). Timing only: its own RNG, no continue
+       * (the loop's own draws stay in order), so every outcome stays as it was; only later times move. ---- */
+      if ((st.b[1] || st.b[2]) && st.mv[def] < st.mvCap[def] && ev.length && ev[ev.length - 1].k === 'P' && visitR() < K.CATCHER_VISIT_P) {
+        const c = RR[def].bat.find(b => b.pos === 'C'), cn = c ? c.name : COPY.fielder('C');
+        st.mv[def]++;
+        emit('mound_visit', t, { team: def, pitcher: pit0.name, staff: 'catcher', catcher: cn, left: st.mvCap[def] - st.mv[def] });
+        pushFrame({ t, d: K.CATCHER_VISIT_DUR, k: 'CVIS', desc: COPY.catcherVisit(TT[def], cn, pit0), s0: snap(), s1: snap(), def });
+      }
       /* ---- offence: sacrifice bunt? (coach decides, late and close, weaker hitter) ---- */
       let bunt = false;
       if (st.outs === 0 && (st.b[0] || st.b[1]) && !st.b[2] && bat.pow < K.BUNT_POW_MAX && R() < K.BUNT_ASK_P) {
