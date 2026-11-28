@@ -72,8 +72,9 @@ const SCHEMA = [
   'CREATE INDEX IF NOT EXISTS guild_members_guild ON guild_members (guild_id)',
   /* #800 part 2: the fan's own move counter (caps.js kind 'move'); it outlives the member row, which a leave deletes. One row per fan, made on his first move */
   'CREATE TABLE IF NOT EXISTS guild_fans (agent_id TEXT PRIMARY KEY, moved_day INTEGER NOT NULL DEFAULT 0, moves_today INTEGER NOT NULL DEFAULT 0)',
-  /* #808: the fan's own save counter (caps.js kind 'save'), one row per fan, made on his first counted save */
-  'CREATE TABLE IF NOT EXISTS guild_saves (agent_id TEXT PRIMARY KEY, saved_day INTEGER NOT NULL DEFAULT 0, saves_today INTEGER NOT NULL DEFAULT 0)',
+  /* #808: the fan's own save counter (caps.js kind 'save'), one row per fan, made on his first counted save.
+   #795 part 4: `agentset` = his player's 經紀人 set in that same row ({"pid","set"} JSON, functions/lib/agentset_store.js), so a save is one row write */
+  'CREATE TABLE IF NOT EXISTS guild_saves (agent_id TEXT PRIMARY KEY, saved_day INTEGER NOT NULL DEFAULT 0, saves_today INTEGER NOT NULL DEFAULT 0, agentset TEXT)',
   /* #800 part 3: the 總教練's saved lineup, one row per guild (guild.js): order = JSON of the nine batting-slot numbers in batting order, sp = rotation slot */
   'CREATE TABLE IF NOT EXISTS guild_lineups (guild_id TEXT PRIMARY KEY, batting TEXT NOT NULL, sp INTEGER NOT NULL, saved_at INTEGER NOT NULL)',
 ];
@@ -108,7 +109,12 @@ const migrateAbils = async db => {
   }
   await db.batch(SORT_INDEXES.map(x => db.prepare(x)));
 };
-const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).then(() => migrateAbils(db)).then(() => seedSystem(db)).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
+/* #795 part 4 migration: a guild_saves table made before has no agentset column */
+const migrateSaves = async db => {
+  const have = new Set(((await db.prepare("SELECT name FROM pragma_table_info('guild_saves')").all()).results || []).map(r => r.name));
+  if (!have.has('agentset')) await db.prepare('ALTER TABLE guild_saves ADD COLUMN agentset TEXT').run();
+};
+const ensure = db => { if (!ready.has(db)) ready.set(db, db.batch(SCHEMA.map(s => db.prepare(s))).then(() => migrateAbils(db)).then(() => migrateSaves(db)).then(() => seedSystem(db)).catch(e => { ready.delete(db); throw e; })); return ready.get(db); };
 
 /* every handler: closed unless the binding exists on a dev host; one small catch so nothing ever breaks the page */
 export const guarded = (handler, { needKey = false } = {}) => async ctx => {
