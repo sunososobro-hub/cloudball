@@ -67,6 +67,7 @@
 ## Guild nights (#809)
 - Done: `league/guild_night.js` pure core (freeze, fixtures, sharded lines, standings) + `tests/guild_night.check.mjs`.
 - Next: `GET /api/guilds/export` (keyset paging), `tools/guild_night.mjs` (wires simGame + boxFromStream), practice reads the newest lock.
+- Part 5: `practice_lock.js` (pure): `lockPaths` / `newestLock` (newest `lock-<date>.json` within `LOCK_LOOKBACK` nights, caller supplies `load`), `practiceOpponent`, `practiceGame` (guild rosters for `practiceOpening`; my guild away = slot 0) + `tests/practice_lock.check.mjs`. The practice screen (#800 part 7) calls it; nothing reads D1.
 - Traps: `play` is injected (no engine import in league/); the nightly hook is the owner's (W11).
 
 ## #795 經紀人 agent set
