@@ -13,10 +13,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
 const D = await import(pathToFileURL(path.join(ROOT, 'render/iffdrop.js')));
 const SEEDS = 1200, REACH = 1, EPS = 1e-6, DT = 1 / 120;
+/* #794 part 5 (engine 0.4.38) left no dropped infield fly in seeds 1..SEEDS: pinned seeds with one each (same as iff.check). */
+const DROP_SEEDS = [2633, 2800];
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 
 let drops = 0, others = 0, maxAcc = 0;
-for (let s = 1; s <= SEEDS; s++) {
+for (const s of [...Array.from({ length: SEEDS }, (_, i) => i + 1), ...DROP_SEEDS]) {
   const g = K.simGame(s, {}, { teams: [s % 4, (s + 1) % 4] });
   g.ev.forEach((e, i) => {
     if (e.k !== 'P' || e.r !== 'inplay' || !e.plan) return;
@@ -48,7 +50,7 @@ for (let s = 1; s <= SEEDS; s++) {
     if ((e.moves || []).some(m => m[0] !== 0)) bad(`${at}: a runner moves on a dropped infield fly`);
   });
 }
-if (!drops) bad(`no dropped infield fly in ${SEEDS} seeds`);
+if (!drops) bad(`no dropped infield fly in ${SEEDS} seeds + pinned seeds ${DROP_SEEDS}`);
 if (maxAcc > .5) bad(`ball off the glove falls at g +- ${maxAcc.toFixed(3)} m/s^2`);
 console.log(`iffdrop: ${drops} dropped infield flies in ${SEEDS} seeds, ${others} other in-play plans without a path; accel err ${maxAcc.toFixed(4)}`);
 if (errs.length) { console.error(errs.join('\n')); process.exit(1); }
