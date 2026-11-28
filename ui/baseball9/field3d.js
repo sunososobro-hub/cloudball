@@ -6,10 +6,21 @@
  * falls back to the canvas 2D field. `openField` does that fallback. Units as ball.js; world x is mirrored so first base is on the right. */
 import { BASES } from './play.js';
 import { fenceR, POS_N } from './ball.js';
-import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S } from './field.js';
-import { actOf, pitcherAt, batterAt, LEAD_S, PITCH_CLIP, SWING_CLIP } from './acts.js';
+import { buildBeats, ballAt, runnerAt, createField, SPEEDS, BEAT_S, PITCH_S } from './field.js';
+import { specOfRow } from '../preview-spec.js';
+import { BUNT_CLIP_URL, BUNT_CLIP_T0, buntClipTime, buntClipW } from '../../render/bunt_clip.js';
 
-export const CAM = { fov: 50, pos: [0, 30, -36], look: [0, 0, 50] };   // behind home plate, high enough to see the fence
+export const CAM = { fov: 42, pos: [0, 9, -24], look: [0, 3, 30] };      // #563 part 3: broadcast angle, low behind home plate, pitcher and plate framed
+/** #563 part 3: the camera follows a ball in play like the broadcast: it widens and rises toward CAM_HIT and leans toward the ball (CAM_LEAN of its way, never
+ *  past CAM_REACH deep). Pure: `camShot(w, p)`, w 0..1 = how far into the ball-in-play shot (CAM_EASE_S after the pitch), p = ball {x, z} in world x or null.
+ *  Only the picture moves; no rule or result changes (rule 10). */
+export const CAM_HIT = { fov: 56, pos: [0, 17, -32], look: [0, 0, 40] }, CAM_EASE_S = .7, CAM_LEAN = .55, CAM_REACH = 120;
+const lerp = (a, b, u) => a + (b - a) * u;
+export function camShot(w, p) {
+  const u = Math.max(0, Math.min(1, w)), e = u * u * (3 - 2 * u), aim = p ? [p.x * CAM_LEAN, 0, Math.max(CAM.look[2], Math.min(CAM_REACH, p.z)) * CAM_LEAN + 12] : CAM_HIT.look;
+  const mix = (a, b) => a.map((v, i) => lerp(v, b[i], e));
+  return { fov: lerp(CAM.fov, CAM_HIT.fov, e), pos: mix(CAM.pos, CAM_HIT.pos), look: mix(CAM.look, aim) };
+}
 export const TRAIL_N = 24;                                            // ball trail points
 export const FENCE_ARC = Math.PI / 4;                                 // fence drawn from -45 to +45 degrees
 export const FENCE_SEGS = 24;
@@ -19,6 +30,33 @@ export const BATTER_X = -1.3;                                         // the bat
 export const FIELDER_PANTS = COL.white;
 /** #563 part 1: yaw that turns a render/ body (front = +z) from (x0, z0) toward (x1, z1). */
 export const faceYaw = (x0, z0, x1, z1) => Math.atan2(x1 - x0, z1 - z0);
+
+/** #563 part 2: the pitcher's windup and the batter's swing, from the recorded mocap clips render/ plays (assets/mocap, render/game.js PM_* / SW_*).
+ *  Pure: they only turn the scripted time into a clip time and a weight; the result and the ball stay the beats' (rule 10), no random numbers.
+ *  Scripted time t is 0 at ball release; the windup plays in the WINDUP_S before it. */
+export const WINDUP_S = 1;
+export const PITCH_CLIP_URL = 'assets/mocap/pitch_124_01.json', SWING_CLIP_URL = 'assets/mocap/swing_124_07.json';
+export const PM = { rel: 111 / 30, end: 4.6, start: 1.2, inS: .25, out: [.5, .9] };       // pitch clip: release frame 111 at 30 fps, hips travel measured from 1.2 s
+export const SW = { contact: 85 / 30, start: 1.6, end: 3.6, inS: .4, lead: .8, out: [.6, 1.1], outHit: [.2, .35] };   // swing clip: contact frame 85
+const sat = x => Math.max(0, Math.min(1, x)), ease = x => x * x * (3 - 2 * x);
+/** Pitcher: {ct, w} (clip time, weight 0..1) at scripted time t; w = 0 outside the windup. */
+export function pitchAct(t) {
+  const w = Math.min(ease(sat((t + WINDUP_S) / PM.inS)), 1 - ease(sat((t - PM.out[0]) / (PM.out[1] - PM.out[0]))));
+  return { ct: Math.max(PM.start, Math.min(PM.end, PM.rel + t)), w };
+}
+/** Batter: the result kinds that swing (whiff, foul, contact, popup, a ball in play); a take, a ball and a bunt do not use this clip. */
+export const swings = out => { const k = out && out.res && out.res.kind; return k === 'whiff' || k === 'foul' || k === 'contact' || k === 'popup' || (!!(out && out.play) && !out.play.bunt && k !== 'bunt' && k !== 'foulBunt'); };
+/** #563 part 5: the batter squares to bunt (a bunt, a foul bunt, a bunted ball in play); the same clip and timing as the broadcast (render/bunt_clip.js, game.js BUNT_SQUARE_*). */
+export const BUNT_LEAD = 1.05, BUNT_DUR = .45;
+export const bunts = out => { const k = out && out.res && out.res.kind; return k === 'bunt' || k === 'foulBunt' || !!(out && out.play && out.play.bunt); };
+/** Batter bunt: {ct, w} at scripted time t (the ball reaches the plate at PITCH_S = ARRIVE). Pure; picture only (rule 10). */
+export const buntAct = t => ({ ct: buntClipTime(t, PITCH_S, BUNT_LEAD, BUNT_DUR), w: buntClipW(true, t, PITCH_S, BUNT_LEAD, BUNT_DUR) });
+/** Batter: {ct, w} at scripted time t (ball reaches the plate at PITCH_S); `hit` = a ball in play (the swing lets go sooner). */
+export function swingAct(t, hit) {
+  const a = PITCH_S - SW.lead - SW.inS, o = hit ? SW.outHit : SW.out;
+  const w = Math.min(ease(sat((t - a) / SW.inS)), 1 - ease(sat((t - PITCH_S - o[0]) / (o[1] - o[0]))));
+  return { ct: Math.max(SW.start, Math.min(SW.end, SW.contact + (t - PITCH_S))), w };
+}
 
 /** Cached tiny materials + mesh helper bound to one THREE. */
 function kit(THREE) {
@@ -59,7 +97,15 @@ export function buildPark(THREE, scene, K = kit(THREE)) {
   }
 }
 
-/** The 3D field. -> Promise<{play(out), skip(), setSpeed(n), dispose()} | null>.
+/** #563 part 4: the fan's own player on the field (認真玩 from 我的球員, baseball9.html?player=<id>). Pure.
+ *  `meSpecOf(rows, id)` = his row of /api/freeagents as a ui/preview-spec.js spec (body, height, look); no row -> null.
+ *  `meBuild(spec, headOfPlayer)` -> the setBuild args [build, height, head index] render/ uses for him; a spec with only `id` gets his id look. No id -> null. */
+export const meSpecOf = (rows, id) => { if (id == null || id === '' || !Array.isArray(rows)) return null;
+  const r = rows.find(x => x && x.player && typeof x.player === 'object' && String(x.id ?? x.player.id) === String(id)); return r ? { ...specOfRow(r), id: String(id) } : null; };
+export const meBuild = (spec, headOfPlayer) => !spec || spec.id == null || spec.id === '' || typeof headOfPlayer !== 'function' ? null
+  : [spec.body && Object.keys(spec.body).length ? spec.body : 'normal', spec.ht > 0 ? spec.ht : undefined, headOfPlayer({ id: spec.id, look: { head: spec.head | 0, skin: 0, hair: spec.hair | 0 } })];
+
+/** The 3D field. -> Promise<{play(out), skip(), setSpeed(n), setMe(spec, side), dispose()} | null>.
  *  `opts.PL` = the render/players.js module (#563 part 1): bodies come from its `makePlayer` (the broadcast bodies); without it (tests, load failure) the low-poly figure stays. */
 export async function createField3D(canvas, THREE, opts = {}) {
   if (!canvas || !THREE || typeof THREE.WebGPURenderer !== 'function') return null;
@@ -70,23 +116,14 @@ export async function createField3D(canvas, THREE, opts = {}) {
   scene.add(new THREE.HemisphereLight(0xd6e6ff, 0x2c4a2c, .9)); const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(-30, 70, -25); scene.add(sun);
   buildPark(THREE, scene, K);
   const wx = x => -x, PL = opts.PL && typeof opts.PL.makePlayer === 'function' ? opts.PL : null;   // core x -> world x (first base on the right)
+  const figs = new WeakMap();   // body group -> its render/ figure (has setMocap)
   const body = (color, o = {}) => { if (!PL) return figure(THREE, K, color);
-    try { const jm = K.mat(color); return PL.makePlayer({ jersey: jm, pants: K.mat(FIELDER_PANTS), sock: jm, glove: !!o.glove, head: o.head || 'cap', role: o.role, throws: 'R' }).g; } catch (e) { return figure(THREE, K, color); } };
+    try { const jm = K.mat(color); const f = PL.makePlayer({ jersey: jm, pants: K.mat(FIELDER_PANTS), sock: jm, glove: !!o.glove, head: o.head || 'cap', role: o.role, throws: 'R' }); figs.set(f.g, f); return f.g; } catch (e) { return figure(THREE, K, color); } };
   const place = (g, x, z, tx, tz) => { g.position.set(x, 0, z); if (PL && g.rotation) g.rotation.y = faceYaw(x, z, tx, tz); scene.add(g); return g; };
-  let pitcher = null; POS_N.forEach((p, i) => { if (i === 1) return; const m = place(body(COL.foe, { glove: true }), wx(p[0]), p[1], 0, 0); if (i === 0) pitcher = m; });   // index 1 = catcher, stands behind the plate below; fielders face the plate
+  let pitcher = null;
+  POS_N.forEach((p, i) => { if (i === 1) return; const g = place(body(COL.foe, { glove: true }), wx(p[0]), p[1], 0, 0); if (i === 0) pitcher = g; });   // index 1 = catcher, stands behind the plate below; fielders face the plate
   const catcher = place(body(COL.foe, { glove: true, head: 'helmet' }), 0, -1.6, 0, POS_N[0][1]);
   const batter = place(body(COL.bat, { head: 'helmet', role: 'batter' }), wx(BATTER_X), .2, 0, .2);
-  /* #563 part 2: the recorded pitch and swing acts (render/ mocap clips) drive the pitcher and the batter; a bat follows the batter's hands. Clips load once, lazily; no clip -> the still pose. */
-  const clips = { pitch: null, swing: null }; let clipsP = null; const bat = PL && PL.makeBat ? (() => { try { return PL.makeBat(0xc9a06a); } catch (e) { return null; } })() : null; if (bat) scene.add(bat);
-  const loadClips = () => clipsP || (clipsP = PL && PL.loadClip ? Promise.all([PL.loadClip(PITCH_CLIP.url).then(c => { clips.pitch = c; }), PL.loadClip(SWING_CLIP.url).then(c => { clips.swing = c; })]).catch(() => {}) : Promise.resolve());
-  const hands = [null, null], up = bat && new THREE.Vector3(0, 1, 0);
-  const actPose = (t, act) => {
-    if (!PL || !pitcher || !pitcher.setMocap) return;
-    const p = pitcherAt(t); pitcher.setMocap(clips.pitch, p.t, clips.pitch ? p.w : 0, false, PITCH_CLIP.start, 0);
-    const b = batterAt(act, t); batter.setMocap && batter.setMocap(clips.swing, b.t, clips.swing && batter.visible ? b.w : 0, false, SWING_CLIP.start, 0);
-    if (bat && batter.handWorld && b.w > 0 && batter.visible) { try { hands[0] = batter.handWorld(1, hands[0] || new THREE.Vector3()); hands[1] = batter.handWorld(0, hands[1] || new THREE.Vector3());
-      bat.position.copy(hands[0]); const d = hands[1].clone().sub(hands[0]); if (d.length() > .03) bat.quaternion.setFromUnitVectors(up, d.normalize()); bat.visible = true; } catch (e) { bat.visible = false; } } else if (bat) bat.visible = false;
-  };
   const ball = K.mesh(new THREE.SphereGeometry(.4, 10, 8), K.mat(0xffffff, { emissive: 0x444444 })), shadow = K.mesh(new THREE.CircleGeometry(.5, 12), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 }));
   shadow.rotation.x = -Math.PI / 2; ball.visible = shadow.visible = false; scene.add(ball, shadow);
   const tpos = new Float32Array(TRAIL_N * 3), tgeo = new THREE.BufferGeometry(); tgeo.setAttribute('position', new THREE.BufferAttribute(tpos, 3));
@@ -95,13 +132,24 @@ export async function createField3D(canvas, THREE, opts = {}) {
   if (typeof document !== 'undefined' && canvas.parentNode && canvas.replaceWith) {            // the beat text is a DOM overlay (a canvas can't have both)
     wrap = document.createElement('div'); wrap.className = 'fwrap'; canvas.replaceWith(wrap); wrap.append(canvas);
     beatEl = document.createElement('div'); beatEl.className = 'fbeat'; beatEl.setAttribute('role', 'status'); wrap.append(beatEl); }
-  let S = null, act = 'take', runners = [], t0 = 0, speed = SPEEDS[0], raf = 0, trailN = 0, lastBeat = '';
+  let S = null, runners = [], t0 = 0, speed = SPEEDS[0], raf = 0, trailN = 0, lastBeat = '';
   const showBeat = txt => { if (beatEl && txt !== lastBeat) { beatEl.textContent = txt; lastBeat = txt; } };
   const clearRunners = () => { for (const r of runners) scene.remove(r.fig); runners = []; };
   const draw = () => renderer.render(scene, cam);
+  // #563 part 2: mocap acts (pitcher windup, batter swing); clips load once, without them the bodies just stand as in part 1
+  const clips = {}, loadAct = (k, url) => { if (!clips[k] && PL && PL.loadClip) { clips[k] = 0; PL.loadClip(url).then(c => { clips[k] = c; }).catch(() => { /* no clip: no act */ }); } };
+  const fp = pitcher && figs.get(pitcher), fb = figs.get(batter), setAct = (f, c, ct, w, t0, mir) => { if (f && f.setMocap && c) f.setMocap(c, ct, w, mir, t0, 0); };
+  const clearActs = () => { for (const f of [fp, fb]) if (f && f.setMocap) f.setMocap(null, 0, 0); };
+  const init = new Map([fp, fb].filter(f => f && f.setBuild).map(f => [f, (f.buildArgs || ['normal', undefined, 0]).slice()]));   // #563 part 4: the stock look, back when the fan switches side
+  let meArgs = null, meSide = null;   // #563 part 6: the fan's look as setBuild args, and which side he is on; the batter-runner he becomes wears it too
+  const acts = t => {
+    if (!S) return;
+    if (fp && clips.pitch) { const a = pitchAct(t); setAct(fp, clips.pitch, a.ct, a.w, PM.start, !!fp.mirrored); }
+    if (fb && clips.swing && S.swing) { const a = swingAct(t, S.hit); setAct(fb, clips.swing, a.ct, a.w, SW.start, false); }
+    if (fb && clips.bunt && S.bunt) { const a = buntAct(t); setAct(fb, clips.bunt, a.ct, a.w, BUNT_CLIP_T0, false); }
+  };
   function frame(now) {
-    const t = ((now - t0) / 1000) * speed - LEAD_S, p = ballAt(S, t);   // script time starts at -LEAD_S: the pitcher's wind-up first
-    actPose(t, act);
+    const t = ((now - t0) / 1000) * speed - WINDUP_S, p = ballAt(S, t);
     if (p) { ball.visible = shadow.visible = true; ball.position.set(wx(p.x), Math.max(p.y, .4), p.z); shadow.position.set(wx(p.x), .05, p.z); shadow.scale.setScalar(Math.max(.4, 1.4 - p.y / 40));
       if (trailN < TRAIL_N) trailN++; else tpos.copyWithin(0, 3); const o = (trailN - 1) * 3; tpos[o] = wx(p.x); tpos[o + 1] = Math.max(p.y, .4); tpos[o + 2] = p.z;
       tgeo.setDrawRange(0, trailN); tgeo.attributes.position.needsUpdate = true; } else ball.visible = shadow.visible = false;
@@ -109,14 +157,21 @@ export async function createField3D(canvas, THREE, opts = {}) {
       if (PL && r.fig.rotation && Math.hypot(nx - r.px, q.z - r.pz) > .02) { r.fig.rotation.y = faceYaw(r.px, r.pz, nx, q.z); r.px = nx; r.pz = q.z; }   // runners face where they run
       r.fig.position.set(nx, 0, q.z); r.fig.visible = !(r.R.out && end); }
     batter.visible = !(runners.some(r => r.R.bat) && t > S.pitch.t1);
+    acts(t);
+    { const w = S.hit ? (t - S.pitch.t1) / CAM_EASE_S : 0, c = camShot(w, p && w > 0 ? { x: wx(p.x), z: p.z } : null); cam.fov = c.fov; cam.position.set(...c.pos); cam.lookAt(...c.look); cam.updateProjectionMatrix(); }
     const b = S.beats.find(x => t >= x.t && t < x.t + BEAT_S); showBeat(b ? b.txt : '');
-    draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; }
+    draw(); if (t < S.dur) raf = requestAnimationFrame(frame); else { raf = 0; S = null; clearActs(); }
   }
   const api = {
-    play(out) { api.skip(); S = buildBeats(out); act = actOf(out); trailN = 0; loadClips();
-      for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z }); }
+    play(out) { api.skip(); S = buildBeats(out); S.swing = swings(out); S.bunt = bunts(out); S.hit = !!(out && out.play); trailN = 0; loadAct('pitch', PITCH_CLIP_URL); loadAct('swing', SWING_CLIP_URL); loadAct('bunt', BUNT_CLIP_URL);
+      for (const R of S.runners) { const fig = body(R.bat ? COL.bat : COL.run, { head: 'helmet', role: 'batter' }); fig.position.set(wx(R.pts[0].x), 0, R.pts[0].z); scene.add(fig); runners.push({ R, fig, px: wx(R.pts[0].x), pz: R.pts[0].z });
+        const rf = R.bat && meSide === 'bat' && meArgs && figs.get(fig); if (rf && rf.setBuild) { try { rf.setBuild(...meArgs); } catch (e) { /* stock runner */ } } }
       t0 = performance.now(); raf = requestAnimationFrame(frame); },
-    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); if (PL && pitcher && pitcher.setMocap) { pitcher.setMocap(null, 0, 0, false, 0, 0); batter.setMocap && batter.setMocap(null, 0, 0, false, 0, 0); } if (bat) bat.visible = false; ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); draw(); },
+    skip() { if (raf) cancelAnimationFrame(raf); raf = 0; S = null; trailN = 0; clearRunners(); clearActs(); ball.visible = shadow.visible = false; batter.visible = true; showBeat(''); cam.fov = CAM.fov; cam.position.set(...CAM.pos); cam.lookAt(...CAM.look); cam.updateProjectionMatrix(); draw(); },
+    /** #563 part 4: `side` 'bat' -> the fan's player is the batter, 'pitch' -> the pitcher; the other body goes back to its stock look. Picture only (rule 10). */
+    setMe(spec, side) { const a = PL ? meBuild(spec, PL.headOfPlayer) : null, me = side === 'pitch' ? fp : side === 'bat' ? fb : null; meArgs = a; meSide = side;
+      for (const [f, args] of init) { try { f.setBuild(...(f === me && a ? a : args)); } catch (e) { /* keep the body as it is */ } }
+      if (!raf) draw(); },
     setSpeed(n) { if (SPEEDS.includes(n)) { const now = performance.now(); if (S) t0 = now - (now - t0) * speed / n; speed = n; } },
     dispose() { api.skip(); if (renderer.dispose) renderer.dispose(); },
   };

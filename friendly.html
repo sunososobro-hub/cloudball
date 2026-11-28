@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>友誼賽・雲端職棒</title>
+<script src="ui/site.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui/guide.css">
+<link rel="stylesheet" href="ui/agent.css">
+<link rel="stylesheet" href="ui/friendly.css">
+</head>
+<body class="wide">
+<header class="top">
+  <a class="back" href="index.html">← 首頁</a>
+  <h1>友誼賽</h1>
+  <p class="lead">自己安排一場比賽：選兩隊、先發投手、種子，在你的瀏覽器裡用引擎打一場，看 3D 轉播。友誼賽不是正式比賽，不會寫進戰績、聯盟紀錄或任何球員的成績與成長。</p>
+</header>
+<main id="friendlyMain">
+  <p id="status" class="status" role="status">載入中…</p>
+  <form id="form" hidden>
+    <fieldset class="field"><legend>客隊</legend><div class="chips" id="awayTeam"></div><div class="chips" id="awaySP"></div></fieldset>
+    <fieldset class="field"><legend>主隊</legend><div class="chips" id="homeTeam"></div><div class="chips" id="homeSP"></div></fieldset>
+    <fieldset class="field" id="ownBox" hidden><legend>我的球員</legend>
+      <p class="status" id="ownWho"></p>
+      <div class="chips" id="ownSlot"></div>
+      <p class="status">只在這場友誼賽的連結裡用他現在的數字，不算他的成績，也不影響他的成長。</p></fieldset>
+    <div class="field"><label class="t" for="seed">種子（同一個種子、同樣安排＝同一場比賽）</label>
+      <div class="namebox"><input id="seed" type="text" inputmode="numeric" autocomplete="off" maxlength="10"><button type="button" class="btn ghost" id="dice">換一個</button></div></div>
+    <div class="field"><label class="t" for="share">分享連結（朋友打開就是同一場，同一版引擎）</label>
+      <div class="namebox"><input id="share" type="text" readonly><button type="button" class="btn ghost" id="copy">複製</button></div>
+      <p id="copied" class="status" role="status"></p></div>
+    <p id="left" class="status" role="status"></p>
+    <p id="need" class="status err" role="alert"></p>
+    <button type="submit" class="btn" id="go">開始</button>
+  </form>
+</main>
+<footer><p><a href="play.html">進球場看比賽</a>・<a href="index.html">首頁</a></p></footer>
+<script type="module" src="ui/friendly.js"></script>
+</body>
+</html>

@@ -41,6 +41,10 @@ const TAG_LANE_CLEAR = 0.3;   /* a fielder waiting to tag stands at least this f
 const GOOD_START_RUNS = 1, GOOD_START_PITCHES = 80;
 /* Innings per start of the reference league (MLB 2025 starters, about 5.2) and how far the default sample may be from it. */
 const IP_PER_START = 5.2, IP_PER_START_TOL = 0.15;
+/* Infield singles (#815, engine 0.4.34): no bunt hits. Estimate, to check against a FanGraphs IFH count: MLB IFH% is about
+ * 6-7% of grounders, ~21 grounders a game (both teams) -> about 1.2 a game. A 1000-game sample of ~1.1 a game has a standard
+ * error of 0.035; 0.3 = three of them plus 0.2 for the estimate. Before #815 the engine made 0.03 a game. */
+const IFH_PER_GAME = 1.2, IFH_PER_GAME_TOL = 0.3;
 
 /* Reference league: MLB 2025 regular season (2,430 games; league totals from Baseball Savant, runs and
  * intentional walks from the league pitching line). GIDP and steals: MLB 2026 through early August.
@@ -149,7 +153,12 @@ function checkGame(seed, g) {
     const pre = bases.slice(), preOuts = outsInHalf;
     const contact = F.find(x => x.type === 'contact'), pitch = F.find(x => x.type === 'pitch');
     const actions = F.filter(x => x.type === 'fielder_action');
-    const batterRuns = !!contact || F.some(x => x.type === 'pa_end' && /walk|hit_by_pitch/.test(x.result));
+    /* #614 part 4: a dropped third strike (call `dropped: true`, only on a third strike) lets the batter run, like a batted ball */
+    const dropped = F.find(x => x.type === 'call' && x.dropped);
+    if (dropped && !(dropped.call === 'swinging_strike' || dropped.call === 'called_strike')) bad(`dropped third strike on a ${dropped.call}`);
+    if (dropped && strikes !== 2) bad(`dropped third strike on ${strikes} strikes`);
+    if (dropped && pre[0] && preOuts !== 2) bad('dropped third strike with first occupied and fewer than two outs: the batter is out');
+    const batterRuns = !!contact || !!dropped || F.some(x => x.type === 'pa_end' && /walk|hit_by_pitch/.test(x.result));
 
     /* who holds the ball, replayed from the fielder actions */
     const holderAt = (fielder, time) => {
@@ -191,7 +200,7 @@ function checkGame(seed, g) {
       } else if (x.type === 'call') {
         if (x.call === 'ball') balls++;
         else if (x.call === 'called_strike' || x.call === 'swinging_strike') strikes++;
-        else if (x.call === 'foul' && strikes < 2) strikes++;
+        else if (x.call === 'foul' && (strikes < 2 || x.bunt)) strikes++;   /* a foul bunt is a strike at any count (rule 5.09(a)(4), #614 part 3) */
       } else if (x.type === 'out') {
         outsInHalf++; half.outs++;
         if (x.outs !== outsInHalf) bad(`out number ${x.outs}, expected ${outsInHalf}`);
@@ -213,7 +222,7 @@ function checkGame(seed, g) {
         const call = F.find(c => c.type === 'call');
         if (!call) return 'no pitch was called';
         if (strikes !== 3) return `only ${strikes} strikes`;
-        if (x.reason === 'strikeout_looking' ? call.call !== 'called_strike' : call.call !== 'swinging_strike') return `last pitch was ${call.call}`;
+        if (x.reason === 'strikeout_looking' ? call.call !== 'called_strike' : call.call !== 'swinging_strike' && !(call.call === 'foul' && call.bunt)) return `last pitch was ${call.call}`;   /* or a two-strike foul bunt (#614 part 3) */
         if (x.t + EPS < call.t) return 'recorded before the pitch was called';
         return null;
       }
@@ -229,10 +238,40 @@ function checkGame(seed, g) {
         if (x.runner !== contact.batter) return 'wrong player out';
         return null;
       }
+      if (x.reason === 'infield_fly') {
+        /* #614 part 10: a declared infield fly that is not caught (OBR 5.09(a)(5)): the batter is out by rule */
+        if (!contact) return 'no batted ball';
+        if (!(contact.ball === 'PU' || contact.ball === 'FB')) return `a ${contact.ball} is not an infield fly`;
+        if (contact.foul || contact.bunt) return 'an infield fly is fair and not a bunt';
+        if (!contact.infieldFly) return 'no infield fly was declared';
+        if (!['P', 'C', '1B', '2B', '3B', 'SS'].includes(x.fielder)) return `${x.fielder} is not an infielder`;
+        if (!(preOuts < 2 && pre[0] && pre[1])) return 'no infield-fly situation (runners on first and second, fewer than two outs)';
+        if (x.runner !== contact.batter) return 'wrong player out';
+        if (x.t + EPS < contact.t + contact.hang) return 'out recorded before the ball came down';
+        if (actions.some(a => a.action === 'catch')) return 'the ball was caught: that is a fly_catch';
+        return null;
+      }
+      if (x.reason === 'doubled_off') {
+        /* #614 part 13: a runner who does not get back to his base after a caught liner (OBR 5.09(c)(1)) */
+        if (!contact || contact.ball !== 'LD' || contact.foul || contact.bunt) return 'no fair liner';
+        const c = actions.find(a => a.action === 'catch');
+        if (!c) return 'the liner was not caught';
+        if (!F.some(y => y.type === 'out' && y.reason === 'fly_catch' && y.runner === contact.batter)) return 'the batter is not out on the catch';
+        if (!(preOuts < 2)) return 'two outs already: the catch ends the inning';
+        if (x.from !== x.base || pre[x.from - 1] !== x.runner) return `${x.runner} was not on base ${x.base}`;
+        const hold = holderAt(x.fielder, x.t);
+        if (hold) return hold;
+        const touch = actions.find(a => a.action === 'touch' && a.fielder === x.fielder && a.base === x.base);
+        if (!touch) return `${x.fielder} never touched base ${x.base}`;
+        if (touch.t > x.t + EPS || x.t + EPS < c.t) return 'out recorded before the catch and the touch';
+        if (!(x.t + EPS < x.runnerAt)) return 'runner was back first';
+        if (!canBeThere(x.fielder, x.base, x.t, playStart)) return `${x.fielder} cannot reach base ${x.base} that fast`;
+        return null;
+      }
       if (x.reason === 'force' || x.reason === 'tag') {
         if (!x.fielder) return 'no fielder';
         const origin = x.from === 0 ? null : pre[x.from - 1];
-        if (x.from === 0 ? (!contact || contact.batter !== x.runner) : origin !== x.runner) return `${x.runner} was not on base ${x.from}`;
+        if (x.from === 0 ? ((contact || dropped || {}).batter !== x.runner) : origin !== x.runner) return `${x.runner} was not on base ${x.from}`;
         const hold = holderAt(x.fielder, x.t);
         if (hold) return hold;
         if (!(x.t < x.runnerAt + EPS)) return 'runner was already there';
@@ -404,7 +443,10 @@ const show = (x, digits, percent) => percent ? pct(x) : digits === 3 ? f3(x) : x
 if (GAMES >= RATE_SAMPLE_MIN) {
   for (const [key, label, ref, tol, digits, percent] of REFERENCE) if (!(Math.abs(A[key] - ref) <= tol)) fail('league', `${label} is ${show(A[key], digits, percent)}, reference ${show(ref, digits, percent)} (tolerance ${show(tol, digits, percent)})`);
   if (!(Math.abs(ipPerStart - IP_PER_START) <= IP_PER_START_TOL)) fail('league', `IP/start is ${ipPerStart.toFixed(2)}, reference ${IP_PER_START} (tolerance ${IP_PER_START_TOL})`);
-  console.log(`rates within tolerance of the reference league on ${REFERENCE.length + 1} measures`);
+  const ifhPerGame = (results.infield_single || 0) / GAMES;
+  if (!(Math.abs(ifhPerGame - IFH_PER_GAME) <= IFH_PER_GAME_TOL)) fail('league', `IFH/game is ${ifhPerGame.toFixed(2)}, reference ${IFH_PER_GAME} (tolerance ${IFH_PER_GAME_TOL})`);
+  console.log(`IFH/game ${ifhPerGame.toFixed(2)}`);
+  console.log(`rates within tolerance of the reference league on ${REFERENCE.length + 2} measures`);
 } else console.log(`rates not checked against the reference league: fewer than ${RATE_SAMPLE_MIN} games`);
 console.log(`outs ${totalOuts}: ` + Object.entries(outReasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', '));
 console.log('plate appearances: ' + Object.entries(results).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', '));

@@ -2,7 +2,7 @@
   "pheasants-b1": {
     "name": "劉立偉",
     "num": 58,
-    "age": 22,
+    "age": 30,
     "role": "B",
     "pos": "2B",
     "hand": "R",
@@ -15,108 +15,70 @@
       "arm": 82,
       "pot": 76
     },
-    "team": "pheasants",
-    "tier": 1
-  },
-  "pheasants-b2": {
-    "name": "張柏豪",
-    "num": 53,
-    "age": 30,
-    "role": "B",
-    "pos": "RF",
-    "hand": "R",
-    "overall": 76,
-    "abilities": {
-      "con": 64,
-      "pow": 90,
-      "eye": 50,
-      "spd": 42,
-      "arm": 75,
-      "pot": 93
-    },
-    "team": "pheasants",
+    "team": "macaques",
     "tier": 1
   },
   "pheasants-b3": {
     "name": "陳冠霖",
     "num": 97,
-    "age": 29,
+    "age": 37,
     "role": "B",
     "pos": "LF",
     "hand": "L",
-    "overall": 58,
+    "overall": 42,
     "abilities": {
-      "con": 56,
-      "pow": 76,
-      "eye": 55,
-      "spd": 46,
-      "arm": 62,
+      "con": 41,
+      "pow": 60,
+      "eye": 46,
+      "spd": 40,
+      "arm": 41,
       "pot": 50
     },
-    "team": "pheasants",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "pheasants-b4": {
     "name": "林宇軒",
     "num": 72,
-    "age": 29,
+    "age": 37,
     "role": "B",
     "pos": "3B",
     "hand": "R",
-    "overall": 72,
+    "overall": 52,
     "abilities": {
-      "con": 59,
-      "pow": 90,
-      "eye": 58,
-      "spd": 49,
-      "arm": 47,
+      "con": 44,
+      "pow": 73,
+      "eye": 49,
+      "spd": 40,
+      "arm": 40,
       "pot": 58
     },
-    "team": "pheasants",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "pheasants-b5": {
     "name": "蕭家瑋",
     "num": 59,
-    "age": 28,
+    "age": 36,
     "role": "B",
     "pos": "DH",
     "hand": "L",
-    "overall": 44,
+    "overall": 49,
     "abilities": {
-      "con": 59,
-      "pow": 56,
-      "eye": 45,
-      "spd": 42,
-      "arm": 38,
+      "con": 63,
+      "pow": 60,
+      "eye": 54,
+      "spd": 40,
+      "arm": 40,
       "pot": 59
     },
-    "team": "pheasants",
-    "tier": 1
-  },
-  "pheasants-b6": {
-    "name": "黃振宇",
-    "num": 62,
-    "age": 30,
-    "role": "B",
-    "pos": "CF",
-    "hand": "R",
-    "overall": 56,
-    "abilities": {
-      "con": 58,
-      "pow": 66,
-      "eye": 58,
-      "spd": 54,
-      "arm": 70,
-      "pot": 68
-    },
-    "team": "pheasants",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "pheasants-b7": {
     "name": "林家銘",
     "num": 79,
-    "age": 23,
+    "age": 31,
     "role": "B",
     "pos": "SS",
     "hand": "R",
@@ -135,138 +97,87 @@
   "pheasants-b8": {
     "name": "陳柏翰",
     "num": 95,
-    "age": 28,
+    "age": 36,
     "role": "B",
     "pos": "C",
     "hand": "L",
-    "overall": 74,
+    "overall": 53,
     "abilities": {
-      "con": 62,
-      "pow": 61,
-      "eye": 55,
-      "spd": 51,
-      "arm": 90,
+      "con": 51,
+      "pow": 50,
+      "eye": 49,
+      "spd": 40,
+      "arm": 75,
       "pot": 45
     },
-    "team": "pheasants",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "pheasants-b9": {
     "name": "王俊廷",
     "num": 75,
-    "age": 24,
+    "age": 32,
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 40,
+    "overall": 52,
     "abilities": {
-      "con": 41,
-      "pow": 40,
-      "eye": 38,
-      "spd": 58,
-      "arm": 62,
+      "con": 51,
+      "pow": 50,
+      "eye": 48,
+      "spd": 67,
+      "arm": 71,
       "pot": 52
     },
-    "team": "pheasants",
-    "tier": 1
-  },
-  "pheasants-p1": {
-    "name": "許柏廷",
-    "num": 33,
-    "age": 33,
-    "role": "P",
-    "pos": "SP",
-    "hand": "L",
-    "overall": 46,
-    "abilities": {
-      "stuff": 52,
-      "ctrl": 57,
-      "arm": 60,
-      "pot": 37
-    },
-    "team": "pheasants",
-    "tier": 1
-  },
-  "pheasants-p2": {
-    "name": "王冠傑",
-    "num": 90,
-    "age": 34,
-    "role": "P",
-    "pos": "SP",
-    "hand": "L",
-    "overall": 62,
-    "abilities": {
-      "stuff": 76,
-      "ctrl": 50,
-      "arm": 68,
-      "pot": 46
-    },
-    "team": "pheasants",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "pheasants-p3": {
     "name": "彭宇翔",
     "num": 91,
-    "age": 26,
+    "age": 34,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 71,
+    "overall": 61,
     "abilities": {
-      "stuff": 56,
-      "ctrl": 46,
-      "arm": 89,
+      "stuff": 50,
+      "ctrl": 44,
+      "arm": 83,
       "pot": 55
     },
-    "team": "pheasants",
-    "tier": 1
-  },
-  "pheasants-p4": {
-    "name": "郭彥均",
-    "num": 2,
-    "age": 31,
-    "role": "P",
-    "pos": "SP",
-    "hand": "L",
-    "overall": 98,
-    "abilities": {
-      "stuff": 97,
-      "ctrl": 92,
-      "arm": 63,
-      "pot": 44
-    },
-    "team": "pheasants",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "pheasants-p5": {
     "name": "許子豪",
     "num": 40,
-    "age": 29,
+    "age": 37,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 45,
+    "overall": 52,
     "abilities": {
-      "stuff": 52,
-      "ctrl": 51,
-      "arm": 61,
+      "stuff": 48,
+      "ctrl": 67,
+      "arm": 54,
       "pot": 68
     },
-    "team": "pheasants",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "pheasants-p6": {
     "name": "王俊宇",
     "num": 17,
-    "age": 21,
+    "age": 29,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 34,
+    "overall": 55,
     "abilities": {
-      "stuff": 46,
-      "ctrl": 42,
-      "arm": 50,
+      "stuff": 67,
+      "ctrl": 57,
+      "arm": 56,
       "pot": 55
     },
     "team": "pheasants",
@@ -275,11 +186,11 @@
   "pheasants-p7": {
     "name": "黃柏宇",
     "num": 65,
-    "age": 21,
+    "age": 29,
     "role": "P",
     "pos": "RP",
     "hand": "L",
-    "overall": 74,
+    "overall": 73,
     "abilities": {
       "stuff": 88,
       "ctrl": 42,
@@ -289,31 +200,14 @@
     "team": "pheasants",
     "tier": 1
   },
-  "pheasants-p8": {
-    "name": "洪冠穎",
-    "num": 48,
+  "pheasants-p9": {
+    "name": "黃家豪",
+    "num": 9,
     "age": 30,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 86,
-    "abilities": {
-      "stuff": 39,
-      "ctrl": 90,
-      "arm": 91,
-      "pot": 60
-    },
-    "team": "pheasants",
-    "tier": 1
-  },
-  "pheasants-p9": {
-    "name": "黃家豪",
-    "num": 9,
-    "age": 22,
-    "role": "P",
-    "pos": "RP",
-    "hand": "R",
-    "overall": 62,
+    "overall": 63,
     "abilities": {
       "stuff": 48,
       "ctrl": 77,
@@ -323,134 +217,362 @@
     "team": "pheasants",
     "tier": 1
   },
-  "fa-1crj1u": {
-    "name": "施建廷",
-    "num": 31,
-    "age": 22,
+  "fa-ejicah": {
+    "name": "吳冠傑",
+    "num": 61,
+    "age": 28,
     "role": "B",
     "pos": "C",
     "hand": "R",
-    "overall": 51,
+    "overall": 54,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 58
+      "con": 64,
+      "pow": 64,
+      "eye": 64,
+      "spd": 64,
+      "arm": 64,
+      "pot": 54
     },
-    "team": "pheasants",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-1995asj": {
-    "name": "謝家瑋",
-    "num": 67,
-    "age": 22,
+  "fa-15o8miw": {
+    "name": "吳冠宇",
+    "num": 31,
+    "age": 30,
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 51,
+    "overall": 56,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 81
+      "con": 66,
+      "pow": 66,
+      "eye": 66,
+      "spd": 66,
+      "arm": 66,
+      "pot": 56
     },
-    "team": "pheasants",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-1jm83io": {
-    "name": "莊偉倫",
-    "num": 17,
-    "age": 23,
+  "fa-vb5tsr": {
+    "name": "廖宇翔",
+    "num": 61,
+    "age": 29,
     "role": "B",
     "pos": "2B",
     "hand": "R",
-    "overall": 51,
+    "overall": 93,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 69
+      "con": 90,
+      "pow": 90,
+      "eye": 90,
+      "spd": 90,
+      "arm": 90,
+      "pot": 94
     },
-    "team": "pheasants",
-    "tier": 2,
+    "team": "muntjacs",
+    "tier": 1,
     "system": true
   },
-  "fa-1bs4nn": {
-    "name": "林宗翰",
-    "num": 5,
-    "age": 22,
+  "fa-1mfw416": {
+    "name": "李家銘",
+    "num": 57,
+    "age": 32,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 55,
+    "abilities": {
+      "con": 65,
+      "pow": 65,
+      "eye": 66,
+      "spd": 65,
+      "arm": 65,
+      "pot": 56
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1c2tbb1": {
+    "name": "陳彥均",
+    "num": 26,
+    "age": 29,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 52,
+    "abilities": {
+      "con": 62,
+      "pow": 62,
+      "eye": 62,
+      "spd": 62,
+      "arm": 62,
+      "pot": 52
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-46fjkc": {
+    "name": "林哲瑋",
+    "num": 12,
+    "age": 32,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 71,
+    "abilities": {
+      "con": 76,
+      "pow": 76,
+      "eye": 76,
+      "spd": 76,
+      "arm": 76,
+      "pot": 72
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1sugstb": {
+    "name": "詹家榮",
+    "num": 77,
+    "age": 31,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 78,
+    "abilities": {
+      "con": 79,
+      "pow": 79,
+      "eye": 79,
+      "spd": 79,
+      "arm": 79,
+      "pot": 78
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-ky312m": {
+    "name": "劉建廷",
+    "num": 10,
+    "age": 30,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 80,
+    "abilities": {
+      "con": 80,
+      "pow": 80,
+      "eye": 80,
+      "spd": 80,
+      "arm": 80,
+      "pot": 81
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-ii0g8h": {
+    "name": "張育誠",
+    "num": 23,
+    "age": 30,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 54,
+    "abilities": {
+      "con": 64,
+      "pow": 64,
+      "eye": 64,
+      "spd": 64,
+      "arm": 64,
+      "pot": 54
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-19mqqgw": {
+    "name": "吳柏諺",
+    "num": 47,
+    "age": 32,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 50,
+    "overall": 56,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 71
+      "stuff": 63,
+      "ctrl": 66,
+      "arm": 63,
+      "pot": 56
     },
-    "team": "pheasants",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-sgiew2": {
-    "name": "陳彥廷",
-    "num": 88,
-    "age": 21,
+  "fa-z9nxqr": {
+    "name": "張冠均",
+    "num": 95,
+    "age": 30,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 56,
+    "abilities": {
+      "stuff": 64,
+      "ctrl": 66,
+      "arm": 64,
+      "pot": 56
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1qee7z6": {
+    "name": "陳冠廷",
+    "num": 58,
+    "age": 31,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 90,
+    "abilities": {
+      "stuff": 78,
+      "ctrl": 86,
+      "arm": 75,
+      "pot": 90
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1g1bf91": {
+    "name": "黃哲瑋",
+    "num": 48,
+    "age": 30,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "stuff": 62,
+      "ctrl": 63,
+      "arm": 62,
+      "pot": 53
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-84xnic": {
+    "name": "周子翔",
+    "num": 15,
+    "age": 28,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 77,
+    "abilities": {
+      "stuff": 73,
+      "ctrl": 79,
+      "arm": 71,
+      "pot": 77
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1wsywrb": {
+    "name": "蕭宇恆",
+    "num": 4,
+    "age": 32,
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 50,
+    "overall": 54,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 88
+      "stuff": 64,
+      "ctrl": 64,
+      "arm": 64,
+      "pot": 55
     },
-    "team": "pheasants",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-1jl8p4h": {
-    "name": "黃偉倫",
-    "num": 24,
-    "age": 24,
+  "fa-owl50m": {
+    "name": "張宇恆",
+    "num": 72,
+    "age": 29,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 50,
+    "overall": 63,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 52
+      "stuff": 72,
+      "ctrl": 68,
+      "arm": 64,
+      "pot": 63
     },
-    "team": "pheasants",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-6mi4eh": {
+    "name": "許浩宇",
+    "num": 99,
+    "age": 29,
+    "role": "P",
+    "pos": "CL",
+    "hand": "R",
+    "overall": 54,
+    "abilities": {
+      "stuff": 64,
+      "ctrl": 63,
+      "arm": 62,
+      "pot": 54
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-xr8emw": {
+    "name": "陳浩宇",
+    "num": 63,
+    "age": 32,
+    "role": "P",
+    "pos": "MR",
+    "hand": "R",
+    "overall": 57,
+    "abilities": {
+      "stuff": 65,
+      "ctrl": 66,
+      "arm": 65,
+      "pot": 57
+    },
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "owls-b1": {
     "name": "蔡俊廷",
     "num": 78,
-    "age": 28,
+    "age": 36,
     "role": "B",
     "pos": "C",
     "hand": "R",
-    "overall": 74,
+    "overall": 67,
     "abilities": {
-      "con": 79,
-      "pow": 65,
-      "eye": 55,
-      "spd": 90,
-      "arm": 49,
+      "con": 78,
+      "pow": 64,
+      "eye": 59,
+      "spd": 84,
+      "arm": 45,
       "pot": 98
     },
     "team": "owls",
@@ -459,55 +581,55 @@
   "owls-b2": {
     "name": "張家銘",
     "num": 33,
-    "age": 26,
+    "age": 34,
     "role": "B",
     "pos": "RF",
     "hand": "R",
-    "overall": 62,
+    "overall": 56,
     "abilities": {
-      "con": 59,
-      "pow": 54,
-      "eye": 49,
-      "spd": 88,
-      "arm": 59,
+      "con": 55,
+      "pow": 50,
+      "eye": 47,
+      "spd": 82,
+      "arm": 53,
       "pot": 48
     },
-    "team": "owls",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "owls-b3": {
     "name": "郭彥廷",
     "num": 64,
-    "age": 24,
+    "age": 32,
     "role": "B",
     "pos": "1B",
     "hand": "L",
-    "overall": 71,
+    "overall": 69,
     "abilities": {
-      "con": 56,
-      "pow": 91,
+      "con": 55,
+      "pow": 90,
       "eye": 42,
-      "spd": 64,
+      "spd": 63,
       "arm": 36,
       "pot": 64
     },
-    "team": "owls",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "owls-b4": {
     "name": "邱子翔",
     "num": 7,
-    "age": 26,
+    "age": 34,
     "role": "B",
     "pos": "3B",
     "hand": "R",
-    "overall": 96,
+    "overall": 89,
     "abilities": {
-      "con": 80,
-      "pow": 96,
-      "eye": 93,
-      "spd": 50,
-      "arm": 65,
+      "con": 75,
+      "pow": 91,
+      "eye": 91,
+      "spd": 44,
+      "arm": 60,
       "pot": 93
     },
     "team": "owls",
@@ -516,7 +638,7 @@
   "owls-b5": {
     "name": "許柏翰",
     "num": 4,
-    "age": 22,
+    "age": 30,
     "role": "B",
     "pos": "LF",
     "hand": "R",
@@ -529,97 +651,21 @@
       "arm": 58,
       "pot": 51
     },
-    "team": "owls",
-    "tier": 1
-  },
-  "owls-b6": {
-    "name": "林柏均",
-    "num": 65,
-    "age": 31,
-    "role": "B",
-    "pos": "2B",
-    "hand": "R",
-    "overall": 68,
-    "abilities": {
-      "con": 65,
-      "pow": 55,
-      "eye": 87,
-      "spd": 45,
-      "arm": 70,
-      "pot": 42
-    },
-    "team": "owls",
-    "tier": 1
-  },
-  "owls-b7": {
-    "name": "陳偉倫",
-    "num": 21,
-    "age": 32,
-    "role": "B",
-    "pos": "SS",
-    "hand": "R",
-    "overall": 53,
-    "abilities": {
-      "con": 59,
-      "pow": 60,
-      "eye": 56,
-      "spd": 44,
-      "arm": 68,
-      "pot": 65
-    },
-    "team": "owls",
-    "tier": 1
-  },
-  "owls-b8": {
-    "name": "鄭冠勳",
-    "num": 44,
-    "age": 31,
-    "role": "B",
-    "pos": "CF",
-    "hand": "R",
-    "overall": 67,
-    "abilities": {
-      "con": 64,
-      "pow": 62,
-      "eye": 47,
-      "spd": 89,
-      "arm": 53,
-      "pot": 56
-    },
-    "team": "owls",
-    "tier": 1
-  },
-  "owls-b9": {
-    "name": "潘振宇",
-    "num": 71,
-    "age": 30,
-    "role": "B",
-    "pos": "DH",
-    "hand": "R",
-    "overall": 42,
-    "abilities": {
-      "con": 40,
-      "pow": 42,
-      "eye": 62,
-      "spd": 46,
-      "arm": 61,
-      "pot": 62
-    },
-    "team": "owls",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "owls-p1": {
     "name": "楊柏宇",
     "num": 56,
-    "age": 25,
+    "age": 33,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 92,
+    "overall": 91,
     "abilities": {
-      "stuff": 85,
-      "ctrl": 90,
-      "arm": 44,
+      "stuff": 82,
+      "ctrl": 89,
+      "arm": 41,
       "pot": 52
     },
     "team": "owls",
@@ -628,7 +674,7 @@
   "owls-p2": {
     "name": "林建勳",
     "num": 90,
-    "age": 22,
+    "age": 30,
     "role": "P",
     "pos": "SP",
     "hand": "R",
@@ -639,13 +685,13 @@
       "arm": 45,
       "pot": 33
     },
-    "team": "owls",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "owls-p3": {
     "name": "王書豪",
     "num": 63,
-    "age": 23,
+    "age": 31,
     "role": "P",
     "pos": "SP",
     "hand": "R",
@@ -659,52 +705,35 @@
     "team": "owls",
     "tier": 1
   },
-  "owls-p4": {
-    "name": "黃承佑",
-    "num": 14,
-    "age": 32,
+  "owls-p5": {
+    "name": "黃宗翰",
+    "num": 76,
+    "age": 29,
     "role": "P",
     "pos": "SP",
     "hand": "R",
     "overall": 48,
-    "abilities": {
-      "stuff": 50,
-      "ctrl": 55,
-      "arm": 64,
-      "pot": 76
-    },
-    "team": "owls",
-    "tier": 1
-  },
-  "owls-p5": {
-    "name": "黃宗翰",
-    "num": 76,
-    "age": 21,
-    "role": "P",
-    "pos": "SP",
-    "hand": "R",
-    "overall": 47,
     "abilities": {
       "stuff": 63,
       "ctrl": 42,
       "arm": 56,
       "pot": 36
     },
-    "team": "owls",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "owls-p6": {
     "name": "謝柏諺",
     "num": 80,
-    "age": 21,
+    "age": 29,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 55,
+    "overall": 58,
     "abilities": {
-      "stuff": 67,
-      "ctrl": 60,
-      "arm": 44,
+      "stuff": 70,
+      "ctrl": 62,
+      "arm": 45,
       "pot": 58
     },
     "team": "owls",
@@ -713,233 +742,425 @@
   "owls-p7": {
     "name": "葉俊傑",
     "num": 10,
-    "age": 24,
+    "age": 32,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 41,
+    "overall": 52,
     "abilities": {
-      "stuff": 42,
-      "ctrl": 43,
-      "arm": 62,
+      "stuff": 58,
+      "ctrl": 54,
+      "arm": 66,
       "pot": 53
     },
-    "team": "owls",
-    "tier": 1
-  },
-  "owls-p8": {
-    "name": "沈冠均",
-    "num": 85,
-    "age": 34,
-    "role": "P",
-    "pos": "RP",
-    "hand": "R",
-    "overall": 43,
-    "abilities": {
-      "stuff": 46,
-      "ctrl": 59,
-      "arm": 47,
-      "pot": 77
-    },
-    "team": "owls",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "owls-p9": {
     "name": "楊冠瑋",
     "num": 73,
-    "age": 28,
+    "age": 36,
     "role": "P",
     "pos": "RP",
     "hand": "L",
-    "overall": 58,
+    "overall": 48,
     "abilities": {
       "stuff": 40,
-      "ctrl": 44,
-      "arm": 84,
+      "ctrl": 42,
+      "arm": 71,
       "pot": 60
     },
-    "team": "owls",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
-  "fa-1lymjb7": {
-    "name": "蔡冠廷",
-    "num": 73,
-    "age": 21,
+  "fa-ekhqoo": {
+    "name": "張彥廷",
+    "num": 11,
+    "age": 28,
     "role": "B",
     "pos": "C",
     "hand": "R",
-    "overall": 51,
+    "overall": 75,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 72
+      "con": 78,
+      "pow": 78,
+      "eye": 78,
+      "spd": 78,
+      "arm": 78,
+      "pot": 76
     },
-    "team": "owls",
-    "tier": 2,
+    "team": "muntjacs",
+    "tier": 1,
     "system": true
   },
-  "fa-e28rki": {
-    "name": "賴冠廷",
-    "num": 83,
-    "age": 24,
+  "fa-1mgvifd": {
+    "name": "林柏宇",
+    "num": 40,
+    "age": 28,
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 51,
+    "overall": 61,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 54
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 61
     },
-    "team": "owls",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-156z1sx": {
-    "name": "邱冠霖",
-    "num": 93,
-    "age": 20,
+  "fa-vc586y": {
+    "name": "黃子翔",
+    "num": 38,
+    "age": 29,
     "role": "B",
     "pos": "2B",
     "hand": "R",
-    "overall": 51,
+    "overall": 71,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 65
+      "con": 76,
+      "pow": 76,
+      "eye": 76,
+      "spd": 76,
+      "arm": 76,
+      "pot": 72
     },
-    "team": "owls",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-1lzlxpe": {
-    "name": "楊家豪",
+  "fa-47exyj": {
+    "name": "施俊宇",
+    "num": 91,
+    "age": 29,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 57,
+    "abilities": {
+      "con": 67,
+      "pow": 67,
+      "eye": 67,
+      "spd": 67,
+      "arm": 67,
+      "pot": 57
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1c3spp8": {
+    "name": "黃柏諺",
     "num": 93,
-    "age": 24,
+    "age": 28,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 67,
+    "abilities": {
+      "con": 74,
+      "pow": 74,
+      "eye": 74,
+      "spd": 74,
+      "arm": 74,
+      "pot": 67
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-kz2fgt": {
+    "name": "蔡育誠",
+    "num": 8,
+    "age": 30,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 65,
+    "abilities": {
+      "con": 73,
+      "pow": 73,
+      "eye": 73,
+      "spd": 73,
+      "arm": 73,
+      "pot": 66
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1svg77i": {
+    "name": "謝柏均",
+    "num": 6,
+    "age": 29,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "con": 70,
+      "pow": 70,
+      "eye": 70,
+      "spd": 70,
+      "arm": 70,
+      "pot": 60
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-11qpwz3": {
+    "name": "鄭承翰",
+    "num": 21,
+    "age": 32,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 59,
+    "abilities": {
+      "con": 68,
+      "pow": 68,
+      "eye": 69,
+      "spd": 68,
+      "arm": 68,
+      "pot": 59
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-iizumo": {
+    "name": "陳育誠",
+    "num": 84,
+    "age": 30,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 59,
+    "abilities": {
+      "con": 69,
+      "pow": 69,
+      "eye": 69,
+      "spd": 69,
+      "arm": 69,
+      "pot": 59
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1qfdmdd": {
+    "name": "王建廷",
+    "num": 34,
+    "age": 30,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 50,
+    "overall": 70,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 72
+      "stuff": 70,
+      "ctrl": 75,
+      "arm": 69,
+      "pot": 70
     },
-    "team": "owls",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-uuvngz": {
-    "name": "黃冠瑋",
-    "num": 12,
-    "age": 20,
+  "fa-zanc4y": {
+    "name": "吳宇軒",
+    "num": 36,
+    "age": 31,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 56,
+    "abilities": {
+      "stuff": 64,
+      "ctrl": 66,
+      "arm": 64,
+      "pot": 56
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-85x1wj": {
+    "name": "陳宇翔",
+    "num": 73,
+    "age": 32,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "stuff": 66,
+      "ctrl": 69,
+      "arm": 65,
+      "pot": 61
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1g2atn8": {
+    "name": "鍾家銘",
+    "num": 4,
+    "age": 28,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 57,
+    "abilities": {
+      "stuff": 65,
+      "ctrl": 66,
+      "arm": 64,
+      "pot": 57
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-oxkjet": {
+    "name": "謝俊廷",
+    "num": 16,
+    "age": 31,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 81,
+    "abilities": {
+      "stuff": 75,
+      "ctrl": 81,
+      "arm": 72,
+      "pot": 82
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1wtyb5i": {
+    "name": "王威廷",
+    "num": 53,
+    "age": 30,
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 50,
+    "overall": 61,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 52
+      "stuff": 69,
+      "ctrl": 69,
+      "arm": 69,
+      "pot": 61
     },
-    "team": "owls",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-157yg74": {
-    "name": "朱家宏",
-    "num": 10,
-    "age": 24,
+  "fa-15p80x3": {
+    "name": "蔡彥均",
+    "num": 16,
+    "age": 32,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 50,
+    "overall": 80,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 66
+      "stuff": 83,
+      "ctrl": 77,
+      "arm": 67,
+      "pot": 81
     },
     "team": "owls",
-    "tier": 2,
+    "tier": 1,
+    "system": true
+  },
+  "fa-mhhyko": {
+    "name": "林俊廷",
+    "num": 23,
+    "age": 31,
+    "role": "P",
+    "pos": "CL",
+    "hand": "R",
+    "overall": 63,
+    "abilities": {
+      "stuff": 73,
+      "ctrl": 67,
+      "arm": 63,
+      "pot": 64
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1udvqbd": {
+    "name": "蕭家豪",
+    "num": 36,
+    "age": 30,
+    "role": "P",
+    "pos": "MR",
+    "hand": "R",
+    "overall": 97,
+    "abilities": {
+      "stuff": 94,
+      "ctrl": 93,
+      "arm": 93,
+      "pot": 97
+    },
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "macaques-b1": {
     "name": "謝宗翰",
     "num": 56,
-    "age": 29,
+    "age": 37,
     "role": "B",
     "pos": "DH",
     "hand": "R",
-    "overall": 53,
+    "overall": 54,
     "abilities": {
-      "con": 69,
+      "con": 68,
       "pow": 55,
-      "eye": 65,
-      "spd": 43,
-      "arm": 51,
+      "eye": 71,
+      "spd": 40,
+      "arm": 45,
       "pot": 70
     },
-    "team": "macaques",
-    "tier": 1
-  },
-  "macaques-b2": {
-    "name": "吳偉倫",
-    "num": 4,
-    "age": 33,
-    "role": "B",
-    "pos": "CF",
-    "hand": "R",
-    "overall": 97,
-    "abilities": {
-      "con": 96,
-      "pow": 60,
-      "eye": 93,
-      "spd": 97,
-      "arm": 65,
-      "pot": 50
-    },
-    "team": "macaques",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "macaques-b3": {
     "name": "劉彥廷",
     "num": 7,
-    "age": 29,
+    "age": 37,
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 67,
+    "overall": 52,
     "abilities": {
-      "con": 60,
-      "pow": 72,
-      "eye": 84,
-      "spd": 51,
-      "arm": 45,
+      "con": 45,
+      "pow": 57,
+      "eye": 75,
+      "spd": 40,
+      "arm": 40,
       "pot": 65
     },
-    "team": "macaques",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "macaques-b4": {
     "name": "鄭威廷",
     "num": 51,
-    "age": 22,
+    "age": 30,
     "role": "B",
     "pos": "3B",
     "hand": "L",
-    "overall": 68,
+    "overall": 69,
     "abilities": {
       "con": 90,
       "pow": 54,
@@ -948,32 +1169,13 @@
       "arm": 48,
       "pot": 51
     },
-    "team": "macaques",
-    "tier": 1
-  },
-  "macaques-b5": {
-    "name": "張俊宇",
-    "num": 62,
-    "age": 33,
-    "role": "B",
-    "pos": "LF",
-    "hand": "R",
-    "overall": 80,
-    "abilities": {
-      "con": 91,
-      "pow": 57,
-      "eye": 90,
-      "spd": 42,
-      "arm": 70,
-      "pot": 40
-    },
-    "team": "macaques",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "macaques-b6": {
     "name": "莊建勳",
     "num": 57,
-    "age": 23,
+    "age": 31,
     "role": "B",
     "pos": "2B",
     "hand": "L",
@@ -986,78 +1188,78 @@
       "arm": 68,
       "pot": 55
     },
-    "team": "macaques",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "macaques-b7": {
     "name": "林冠廷",
     "num": 15,
-    "age": 28,
+    "age": 36,
     "role": "B",
     "pos": "SS",
     "hand": "R",
-    "overall": 50,
+    "overall": 47,
     "abilities": {
       "con": 58,
       "pow": 60,
-      "eye": 51,
-      "spd": 63,
-      "arm": 49,
+      "eye": 56,
+      "spd": 56,
+      "arm": 46,
       "pot": 59
     },
-    "team": "macaques",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "macaques-b8": {
     "name": "許冠宇",
     "num": 46,
-    "age": 28,
+    "age": 36,
     "role": "B",
     "pos": "C",
     "hand": "R",
-    "overall": 55,
+    "overall": 40,
     "abilities": {
-      "con": 58,
-      "pow": 58,
-      "eye": 49,
-      "spd": 67,
-      "arm": 71,
+      "con": 47,
+      "pow": 47,
+      "eye": 43,
+      "spd": 51,
+      "arm": 56,
       "pot": 42
     },
-    "team": "macaques",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "macaques-b9": {
     "name": "林家豪",
     "num": 49,
-    "age": 28,
+    "age": 36,
     "role": "B",
     "pos": "RF",
     "hand": "L",
-    "overall": 42,
+    "overall": 59,
     "abilities": {
-      "con": 42,
-      "pow": 39,
-      "eye": 44,
-      "spd": 45,
-      "arm": 65,
+      "con": 58,
+      "pow": 55,
+      "eye": 65,
+      "spd": 55,
+      "arm": 78,
       "pot": 82
     },
-    "team": "macaques",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "macaques-p1": {
     "name": "吳子豪",
     "num": 2,
-    "age": 26,
+    "age": 34,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 78,
+    "overall": 72,
     "abilities": {
-      "stuff": 50,
-      "ctrl": 88,
-      "arm": 43,
+      "stuff": 44,
+      "ctrl": 86,
+      "arm": 40,
       "pot": 54
     },
     "team": "macaques",
@@ -1066,15 +1268,15 @@
   "macaques-p2": {
     "name": "鄭浩宇",
     "num": 93,
-    "age": 29,
+    "age": 37,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 90,
+    "overall": 68,
     "abilities": {
-      "stuff": 72,
-      "ctrl": 90,
-      "arm": 51,
+      "stuff": 51,
+      "ctrl": 81,
+      "arm": 40,
       "pot": 48
     },
     "team": "macaques",
@@ -1083,50 +1285,16 @@
   "macaques-p3": {
     "name": "張書豪",
     "num": 44,
-    "age": 25,
+    "age": 33,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 78,
+    "overall": 73,
     "abilities": {
-      "stuff": 67,
-      "ctrl": 53,
-      "arm": 89,
+      "stuff": 64,
+      "ctrl": 52,
+      "arm": 86,
       "pot": 52
-    },
-    "team": "macaques",
-    "tier": 1
-  },
-  "macaques-p4": {
-    "name": "徐建廷",
-    "num": 75,
-    "age": 30,
-    "role": "P",
-    "pos": "SP",
-    "hand": "R",
-    "overall": 89,
-    "abilities": {
-      "stuff": 69,
-      "ctrl": 90,
-      "arm": 40,
-      "pot": 60
-    },
-    "team": "macaques",
-    "tier": 1
-  },
-  "macaques-p5": {
-    "name": "楊冠傑",
-    "num": 69,
-    "age": 31,
-    "role": "P",
-    "pos": "SP",
-    "hand": "R",
-    "overall": 49,
-    "abilities": {
-      "stuff": 50,
-      "ctrl": 65,
-      "arm": 47,
-      "pot": 69
     },
     "team": "macaques",
     "tier": 1
@@ -1134,7 +1302,7 @@
   "macaques-p6": {
     "name": "曾俊傑",
     "num": 45,
-    "age": 23,
+    "age": 31,
     "role": "P",
     "pos": "RP",
     "hand": "L",
@@ -1145,227 +1313,402 @@
       "arm": 66,
       "pot": 43
     },
-    "team": "macaques",
-    "tier": 1
-  },
-  "macaques-p7": {
-    "name": "黃育誠",
-    "num": 79,
-    "age": 34,
-    "role": "P",
-    "pos": "RP",
-    "hand": "R",
-    "overall": 88,
-    "abilities": {
-      "stuff": 62,
-      "ctrl": 90,
-      "arm": 72,
-      "pot": 93
-    },
-    "team": "macaques",
-    "tier": 1
-  },
-  "macaques-p8": {
-    "name": "蘇品豪",
-    "num": 63,
-    "age": 30,
-    "role": "P",
-    "pos": "RP",
-    "hand": "R",
-    "overall": 79,
-    "abilities": {
-      "stuff": 65,
-      "ctrl": 42,
-      "arm": 91,
-      "pot": 64
-    },
-    "team": "macaques",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "macaques-p9": {
     "name": "何宇翔",
     "num": 71,
-    "age": 24,
+    "age": 32,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 53,
+    "overall": 89,
     "abilities": {
-      "stuff": 65,
-      "ctrl": 60,
-      "arm": 54,
+      "stuff": 90,
+      "ctrl": 78,
+      "arm": 61,
       "pot": 89
     },
     "team": "macaques",
     "tier": 1
   },
-  "fa-17nb368": {
-    "name": "陳宗翰",
-    "num": 7,
-    "age": 24,
+  "fa-ehjji3": {
+    "name": "周冠宇",
+    "num": 89,
+    "age": 28,
     "role": "B",
     "pos": "C",
     "hand": "R",
-    "overall": 51,
+    "overall": 61,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 52
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 61
     },
-    "team": "macaques",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-giksxt": {
-    "name": "謝冠廷",
-    "num": 94,
-    "age": 23,
+  "fa-15m9tqi": {
+    "name": "林彥均",
+    "num": 57,
+    "age": 29,
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 51,
+    "overall": 88,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 64
+      "con": 84,
+      "pow": 84,
+      "eye": 84,
+      "spd": 84,
+      "arm": 84,
+      "pot": 88
     },
-    "team": "macaques",
-    "tier": 2,
+    "team": "pheasants",
+    "tier": 1,
     "system": true
   },
-  "fa-1oeykoi": {
-    "name": "陳子翔",
-    "num": 43,
-    "age": 24,
+  "fa-1wr03yx": {
+    "name": "黃品豪",
+    "num": 66,
+    "age": 29,
     "role": "B",
     "pos": "2B",
     "hand": "R",
-    "overall": 51,
+    "overall": 80,
     "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 71
+      "con": 80,
+      "pow": 80,
+      "eye": 80,
+      "spd": 80,
+      "arm": 80,
+      "pot": 81
     },
-    "team": "macaques",
-    "tier": 2,
+    "team": "owls",
+    "tier": 1,
     "system": true
   },
-  "fa-17mbos1": {
-    "name": "賴俊廷",
-    "num": 18,
-    "age": 24,
+  "fa-oumc88": {
+    "name": "許冠勳",
+    "num": 90,
+    "age": 28,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 71,
+    "abilities": {
+      "con": 76,
+      "pow": 76,
+      "eye": 76,
+      "spd": 76,
+      "arm": 76,
+      "pot": 72
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1c0uiin": {
+    "name": "陳彥廷",
+    "num": 75,
+    "age": 32,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 52,
+    "abilities": {
+      "con": 62,
+      "pow": 62,
+      "eye": 63,
+      "spd": 62,
+      "arm": 62,
+      "pot": 53
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-44gqry": {
+    "name": "林宇恆",
+    "num": 61,
+    "age": 31,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 61,
+    "abilities": {
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 62
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-v9710d": {
+    "name": "張冠廷",
+    "num": 24,
+    "age": 29,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 69,
+    "abilities": {
+      "con": 75,
+      "pow": 75,
+      "eye": 75,
+      "spd": 75,
+      "arm": 75,
+      "pot": 69
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1mdxb8s": {
+    "name": "何家榮",
+    "num": 77,
+    "age": 32,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 59,
+    "abilities": {
+      "con": 68,
+      "pow": 68,
+      "eye": 69,
+      "spd": 68,
+      "arm": 68,
+      "pot": 59
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-ig1ng3": {
+    "name": "邱家豪",
+    "num": 83,
+    "age": 31,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 59,
+    "abilities": {
+      "con": 69,
+      "pow": 69,
+      "eye": 69,
+      "spd": 69,
+      "arm": 69,
+      "pot": 59
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-19krxoi": {
+    "name": "簡承佑",
+    "num": 94,
+    "age": 29,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 50,
+    "overall": 61,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 86
+      "stuff": 67,
+      "ctrl": 69,
+      "arm": 66,
+      "pot": 61
     },
-    "team": "macaques",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-1yr1z0g": {
-    "name": "陳育誠",
-    "num": 38,
-    "age": 24,
+  "fa-1oe5xt": {
+    "name": "施冠傑",
+    "num": 81,
+    "age": 30,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 57,
+    "abilities": {
+      "stuff": 65,
+      "ctrl": 66,
+      "arm": 64,
+      "pot": 57
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-st4g68": {
+    "name": "沈承翰",
+    "num": 28,
+    "age": 31,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 52,
+    "abilities": {
+      "stuff": 62,
+      "ctrl": 62,
+      "arm": 62,
+      "pot": 52
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1fzcmgn": {
+    "name": "朱建廷",
+    "num": 63,
+    "age": 32,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "stuff": 66,
+      "ctrl": 69,
+      "arm": 65,
+      "pot": 61
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-82yupy": {
+    "name": "許俊廷",
+    "num": 85,
+    "age": 29,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 61,
+    "abilities": {
+      "stuff": 67,
+      "ctrl": 69,
+      "arm": 66,
+      "pot": 61
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-z7p4yd": {
+    "name": "謝冠勳",
+    "num": 69,
+    "age": 31,
     "role": "P",
     "pos": "MR",
     "hand": "R",
-    "overall": 50,
+    "overall": 55,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 66
+      "stuff": 65,
+      "ctrl": 64,
+      "arm": 64,
+      "pot": 55
     },
-    "team": "macaques",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
     "system": true
   },
-  "fa-1odz6ab": {
-    "name": "張子豪",
-    "num": 46,
-    "age": 20,
+  "fa-1qcff6s": {
+    "name": "潘宗霖",
+    "num": 39,
+    "age": 32,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 50,
+    "overall": 58,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 72
+      "stuff": 68,
+      "ctrl": 66,
+      "arm": 62,
+      "pot": 58
     },
-    "team": "macaques",
-    "tier": 2,
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-6kjbm3": {
+    "name": "許育誠",
+    "num": 26,
+    "age": 29,
+    "role": "P",
+    "pos": "CL",
+    "hand": "R",
+    "overall": 61,
+    "abilities": {
+      "stuff": 71,
+      "ctrl": 66,
+      "arm": 63,
+      "pot": 61
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-xp9lui": {
+    "name": "許冠瑋",
+    "num": 24,
+    "age": 28,
+    "role": "P",
+    "pos": "MR",
+    "hand": "R",
+    "overall": 89,
+    "abilities": {
+      "stuff": 83,
+      "ctrl": 83,
+      "arm": 83,
+      "pot": 89
+    },
+    "team": null,
+    "tier": 3,
     "system": true
   },
   "muntjacs-b1": {
     "name": "李冠勳",
     "num": 87,
-    "age": 29,
+    "age": 37,
     "role": "B",
     "pos": "1B",
     "hand": "R",
-    "overall": 61,
+    "overall": 48,
     "abilities": {
-      "con": 60,
-      "pow": 55,
-      "eye": 42,
-      "spd": 88,
-      "arm": 51,
+      "con": 52,
+      "pow": 47,
+      "eye": 40,
+      "spd": 71,
+      "arm": 40,
       "pot": 73
     },
-    "team": "muntjacs",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "muntjacs-b2": {
     "name": "楊育誠",
     "num": 15,
-    "age": 25,
+    "age": 33,
     "role": "B",
     "pos": "DH",
     "hand": "L",
-    "overall": 95,
+    "overall": 89,
     "abilities": {
-      "con": 92,
-      "pow": 60,
-      "eye": 60,
-      "spd": 96,
-      "arm": 90,
+      "con": 89,
+      "pow": 58,
+      "eye": 59,
+      "spd": 93,
+      "arm": 87,
       "pot": 88
-    },
-    "team": "muntjacs",
-    "tier": 1
-  },
-  "muntjacs-b3": {
-    "name": "張柏諺",
-    "num": 88,
-    "age": 30,
-    "role": "B",
-    "pos": "LF",
-    "hand": "R",
-    "overall": 85,
-    "abilities": {
-      "con": 79,
-      "pow": 74,
-      "eye": 91,
-      "spd": 46,
-      "arm": 71,
-      "pot": 54
     },
     "team": "muntjacs",
     "tier": 1
@@ -1373,37 +1716,18 @@
   "muntjacs-b4": {
     "name": "劉冠廷",
     "num": 94,
-    "age": 24,
+    "age": 32,
     "role": "B",
     "pos": "RF",
     "hand": "R",
-    "overall": 86,
+    "overall": 82,
     "abilities": {
-      "con": 64,
-      "pow": 90,
+      "con": 63,
+      "pow": 89,
       "eye": 37,
-      "spd": 41,
-      "arm": 92,
+      "spd": 40,
+      "arm": 91,
       "pot": 47
-    },
-    "team": "muntjacs",
-    "tier": 1
-  },
-  "muntjacs-b5": {
-    "name": "王冠宇",
-    "num": 18,
-    "age": 30,
-    "role": "B",
-    "pos": "3B",
-    "hand": "R",
-    "overall": 60,
-    "abilities": {
-      "con": 81,
-      "pow": 59,
-      "eye": 62,
-      "spd": 46,
-      "arm": 32,
-      "pot": 49
     },
     "team": "muntjacs",
     "tier": 1
@@ -1411,91 +1735,34 @@
   "muntjacs-b6": {
     "name": "林家榮",
     "num": 48,
-    "age": 28,
+    "age": 36,
     "role": "B",
     "pos": "2B",
     "hand": "L",
-    "overall": 53,
-    "abilities": {
-      "con": 55,
-      "pow": 71,
-      "eye": 50,
-      "spd": 49,
-      "arm": 46,
-      "pot": 42
-    },
-    "team": "muntjacs",
-    "tier": 1
-  },
-  "muntjacs-b7": {
-    "name": "蔡柏豪",
-    "num": 59,
-    "age": 34,
-    "role": "B",
-    "pos": "CF",
-    "hand": "L",
-    "overall": 81,
-    "abilities": {
-      "con": 56,
-      "pow": 61,
-      "eye": 71,
-      "spd": 58,
-      "arm": 92,
-      "pot": 58
-    },
-    "team": "muntjacs",
-    "tier": 1
-  },
-  "muntjacs-b8": {
-    "name": "蘇承佑",
-    "num": 27,
-    "age": 31,
-    "role": "B",
-    "pos": "C",
-    "hand": "R",
-    "overall": 51,
-    "abilities": {
-      "con": 62,
-      "pow": 64,
-      "eye": 51,
-      "spd": 42,
-      "arm": 61,
-      "pot": 58
-    },
-    "team": "muntjacs",
-    "tier": 1
-  },
-  "muntjacs-b9": {
-    "name": "張家瑋",
-    "num": 51,
-    "age": 32,
-    "role": "B",
-    "pos": "SS",
-    "hand": "R",
     "overall": 41,
     "abilities": {
-      "con": 42,
-      "pow": 42,
-      "eye": 56,
-      "spd": 46,
-      "arm": 61,
+      "con": 44,
+      "pow": 59,
+      "eye": 44,
+      "spd": 40,
+      "arm": 40,
       "pot": 42
     },
-    "team": "muntjacs",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "muntjacs-p1": {
     "name": "李冠均",
     "num": 45,
-    "age": 26,
+    "age": 34,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 41,
+    "overall": 66,
     "abilities": {
-      "stuff": 45,
-      "ctrl": 57,
-      "arm": 41,
+      "stuff": 54,
+      "ctrl": 78,
+      "arm": 48,
       "pot": 68
     },
     "team": "muntjacs",
@@ -1504,7 +1771,7 @@
   "muntjacs-p2": {
     "name": "洪承翰",
     "num": 98,
-    "age": 22,
+    "age": 30,
     "role": "P",
     "pos": "SP",
     "hand": "L",
@@ -1521,15 +1788,15 @@
   "muntjacs-p3": {
     "name": "林冠霖",
     "num": 28,
-    "age": 26,
+    "age": 34,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 90,
+    "overall": 80,
     "abilities": {
-      "stuff": 83,
-      "ctrl": 72,
-      "arm": 88,
+      "stuff": 77,
+      "ctrl": 70,
+      "arm": 82,
       "pot": 69
     },
     "team": "muntjacs",
@@ -1538,108 +1805,2636 @@
   "muntjacs-p4": {
     "name": "郭哲瑋",
     "num": 81,
-    "age": 26,
+    "age": 34,
     "role": "P",
     "pos": "SP",
     "hand": "R",
-    "overall": 57,
+    "overall": 52,
     "abilities": {
-      "stuff": 65,
-      "ctrl": 66,
-      "arm": 58,
+      "stuff": 59,
+      "ctrl": 64,
+      "arm": 52,
       "pot": 53
     },
-    "team": "muntjacs",
-    "tier": 1
-  },
-  "muntjacs-p5": {
-    "name": "葉家宏",
-    "num": 95,
-    "age": 33,
-    "role": "P",
-    "pos": "SP",
-    "hand": "R",
-    "overall": 71,
-    "abilities": {
-      "stuff": 41,
-      "ctrl": 48,
-      "arm": 91,
-      "pot": 91
-    },
-    "team": "muntjacs",
-    "tier": 1
-  },
-  "muntjacs-p6": {
-    "name": "郭宇軒",
-    "num": 7,
-    "age": 32,
-    "role": "P",
-    "pos": "RP",
-    "hand": "L",
-    "overall": 55,
-    "abilities": {
-      "stuff": 73,
-      "ctrl": 37,
-      "arm": 42,
-      "pot": 57
-    },
-    "team": "muntjacs",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "muntjacs-p7": {
     "name": "林建廷",
     "num": 85,
-    "age": 25,
+    "age": 33,
     "role": "P",
     "pos": "RP",
     "hand": "L",
-    "overall": 43,
+    "overall": 45,
     "abilities": {
-      "stuff": 53,
-      "ctrl": 56,
-      "arm": 42,
+      "stuff": 56,
+      "ctrl": 58,
+      "arm": 40,
       "pot": 46
     },
-    "team": "muntjacs",
-    "tier": 1
+    "team": null,
+    "tier": 3
   },
   "muntjacs-p8": {
     "name": "何冠瑋",
     "num": 70,
-    "age": 22,
+    "age": 30,
     "role": "P",
     "pos": "RP",
     "hand": "R",
-    "overall": 45,
+    "overall": 97,
     "abilities": {
-      "stuff": 48,
-      "ctrl": 50,
-      "arm": 63,
+      "stuff": 96,
+      "ctrl": 84,
+      "arm": 78,
       "pot": 97
     },
     "team": "muntjacs",
     "tier": 1
   },
-  "muntjacs-p9": {
-    "name": "李柏均",
-    "num": 86,
+  "fa-eiixwa": {
+    "name": "張家榮",
+    "num": 57,
+    "age": 29,
+    "role": "B",
+    "pos": "C",
+    "hand": "R",
+    "overall": 65,
+    "abilities": {
+      "con": 73,
+      "pow": 73,
+      "eye": 73,
+      "spd": 73,
+      "arm": 73,
+      "pot": 65
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1mewpmz": {
+    "name": "高承翰",
+    "num": 40,
+    "age": 28,
+    "role": "B",
+    "pos": "1B",
+    "hand": "R",
+    "overall": 71,
+    "abilities": {
+      "con": 76,
+      "pow": 76,
+      "eye": 76,
+      "spd": 76,
+      "arm": 76,
+      "pot": 71
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1wrzid4": {
+    "name": "蔡家銘",
+    "num": 80,
+    "age": 32,
+    "role": "B",
+    "pos": "2B",
+    "hand": "R",
+    "overall": 61,
+    "abilities": {
+      "con": 71,
+      "pow": 71,
+      "eye": 71,
+      "spd": 71,
+      "arm": 71,
+      "pot": 62
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-15n984p": {
+    "name": "莊冠宇",
+    "num": 98,
+    "age": 32,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 75,
+    "abilities": {
+      "con": 78,
+      "pow": 78,
+      "eye": 78,
+      "spd": 78,
+      "arm": 78,
+      "pot": 76
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1c1twwu": {
+    "name": "蕭冠廷",
+    "num": 83,
+    "age": 30,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 54,
+    "abilities": {
+      "con": 64,
+      "pow": 64,
+      "eye": 64,
+      "spd": 64,
+      "arm": 64,
+      "pot": 54
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-kx3mof": {
+    "name": "王冠廷",
+    "num": 94,
+    "age": 28,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "con": 70,
+      "pow": 70,
+      "eye": 70,
+      "spd": 70,
+      "arm": 70,
+      "pot": 60
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-va6fek": {
+    "name": "李柏翰",
+    "num": 63,
+    "age": 31,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 69,
+    "abilities": {
+      "con": 75,
+      "pow": 75,
+      "eye": 75,
+      "spd": 75,
+      "arm": 75,
+      "pot": 69
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-45g565": {
+    "name": "施宗翰",
+    "num": 80,
+    "age": 32,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 83,
+    "abilities": {
+      "con": 82,
+      "pow": 82,
+      "eye": 82,
+      "spd": 81,
+      "arm": 81,
+      "pot": 84
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-ih11ua": {
+    "name": "何子豪",
+    "num": 88,
+    "age": 30,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 54,
+    "abilities": {
+      "con": 64,
+      "pow": 64,
+      "eye": 64,
+      "spd": 64,
+      "arm": 64,
+      "pot": 54
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1qdetkz": {
+    "name": "江俊傑",
+    "num": 5,
+    "age": 29,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 86,
+    "abilities": {
+      "stuff": 77,
+      "ctrl": 84,
+      "arm": 74,
+      "pot": 87
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1pdkc0": {
+    "name": "羅彥均",
+    "num": 10,
     "age": 31,
     "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 62,
+    "abilities": {
+      "stuff": 67,
+      "ctrl": 70,
+      "arm": 66,
+      "pot": 62
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-19lrc2p": {
+    "name": "曾冠霖",
+    "num": 47,
+    "age": 29,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "stuff": 62,
+      "ctrl": 63,
+      "arm": 62,
+      "pot": 53
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1g0c0uu": {
+    "name": "謝冠廷",
+    "num": 67,
+    "age": 32,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 52,
+    "abilities": {
+      "stuff": 62,
+      "ctrl": 63,
+      "arm": 61,
+      "pot": 53
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-ovlqmf": {
+    "name": "江冠霖",
+    "num": 18,
+    "age": 31,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 84,
+    "abilities": {
+      "stuff": 76,
+      "ctrl": 83,
+      "arm": 73,
+      "pot": 85
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-z8ojck": {
+    "name": "沈家榮",
+    "num": 50,
+    "age": 29,
+    "role": "P",
+    "pos": "MR",
+    "hand": "R",
+    "overall": 66,
+    "abilities": {
+      "stuff": 72,
+      "ctrl": 71,
+      "arm": 71,
+      "pot": 66
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-83y945": {
+    "name": "林柏廷",
+    "num": 33,
+    "age": 29,
+    "role": "P",
     "pos": "RP",
-    "hand": "L",
-    "overall": 59,
+    "hand": "R",
+    "overall": 55,
+    "abilities": {
+      "stuff": 65,
+      "ctrl": 63,
+      "arm": 62,
+      "pot": 55
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-mfj5sa": {
+    "name": "黃柏翰",
+    "num": 64,
+    "age": 32,
+    "role": "P",
+    "pos": "CL",
+    "hand": "R",
+    "overall": 63,
     "abilities": {
       "stuff": 73,
-      "ctrl": 56,
-      "arm": 46,
+      "ctrl": 67,
+      "arm": 62,
+      "pot": 63
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1ubwxiz": {
+    "name": "楊家銘",
+    "num": 92,
+    "age": 31,
+    "role": "P",
+    "pos": "MR",
+    "hand": "R",
+    "overall": 80,
+    "abilities": {
+      "stuff": 80,
+      "ctrl": 78,
+      "arm": 78,
+      "pot": 80
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1ppm1w8": {
+    "name": "蕭威廷",
+    "num": 69,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 76,
+    "abilities": {
+      "stuff": 80,
+      "ctrl": 75,
+      "arm": 73,
+      "pot": 77
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true,
+    "waited": 1260
+  },
+  "fa-ykvrnt": {
+    "name": "陳冠瑋",
+    "num": 25,
+    "age": 28,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 56,
+    "abilities": {
+      "stuff": 66,
+      "ctrl": 66,
+      "arm": 51,
+      "pot": 56
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-1pomni1": {
+    "name": "江宇翔",
+    "num": 53,
+    "age": 25,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 55,
+    "abilities": {
+      "stuff": 63,
+      "ctrl": 65,
+      "arm": 63,
       "pot": 55
     },
     "team": "muntjacs",
-    "tier": 1
+    "tier": 2,
+    "system": true,
+    "waited": 1260
   },
-  "fa-t821gh": {
+  "fa-1pnn93u": {
+    "name": "郭柏豪",
+    "num": 9,
+    "age": 25,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 55,
+    "abilities": {
+      "stuff": 60,
+      "ctrl": 66,
+      "arm": 57,
+      "pot": 55
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true,
+    "waited": 1260
+  },
+  "fa-yiwyvf": {
+    "name": "陳家銘",
+    "num": 6,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 58,
+    "abilities": {
+      "stuff": 66,
+      "ctrl": 67,
+      "arm": 59,
+      "pot": 58
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true,
+    "waited": 1260
+  },
+  "fa-18vzrlk": {
+    "name": "謝子豪",
+    "num": 23,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 64,
+    "abilities": {
+      "stuff": 73,
+      "ctrl": 69,
+      "arm": 59,
+      "pot": 64
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true,
+    "waited": 1260
+  },
+  "fa-1pmnupn": {
+    "name": "李宗霖",
+    "num": 39,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 67,
+    "abilities": {
+      "stuff": 74,
+      "ctrl": 71,
+      "arm": 69,
+      "pot": 67
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true,
+    "waited": 1260
+  },
+  "fa-hqa2yy": {
+    "name": "鄭家銘",
+    "num": 84,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 78,
+    "abilities": {
+      "stuff": 82,
+      "ctrl": 75,
+      "arm": 66,
+      "pot": 78
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-18v0d7d": {
+    "name": "吳建廷",
+    "num": 53,
+    "age": 28,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 55,
+    "abilities": {
+      "stuff": 60,
+      "ctrl": 66,
+      "arm": 57,
+      "pot": 55
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-ymlgo": {
+    "name": "何品豪",
+    "num": 42,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 82,
+    "abilities": {
+      "stuff": 83,
+      "ctrl": 80,
+      "arm": 59,
+      "pot": 82
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-o4urr3": {
+    "name": "吳家瑋",
+    "num": 40,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 98,
+    "abilities": {
+      "stuff": 97,
+      "ctrl": 85,
+      "arm": 70,
+      "pot": 98
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-3ov71t": {
+    "name": "郭冠霖",
+    "num": 98,
+    "age": 28,
+    "role": "B",
+    "pos": "2B",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "con": 72,
+      "pow": 70,
+      "eye": 63,
+      "spd": 66,
+      "arm": 64,
+      "pot": 60
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-utlha8": {
+    "name": "曾家榮",
+    "num": 2,
+    "age": 27,
+    "role": "B",
+    "pos": "CF",
+    "hand": "L",
+    "overall": 79,
+    "abilities": {
+      "con": 77,
+      "pow": 77,
+      "eye": 83,
+      "spd": 75,
+      "arm": 78,
+      "pot": 79
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-3pulg0": {
+    "name": "林浩宇",
+    "num": 23,
+    "age": 24,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "con": 64,
+      "pow": 58,
+      "eye": 60,
+      "spd": 65,
+      "arm": 63,
+      "pot": 53
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1bm8d6p": {
+    "name": "曾建廷",
+    "num": 41,
+    "age": 24,
+    "role": "B",
+    "pos": "RF",
+    "hand": "L",
+    "overall": 79,
+    "abilities": {
+      "con": 81,
+      "pow": 78,
+      "eye": 79,
+      "spd": 84,
+      "arm": 78,
+      "pot": 79
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-3mwe9f": {
+    "name": "蕭柏豪",
+    "num": 12,
+    "age": 24,
+    "role": "P",
+    "pos": "RP",
+    "hand": "L",
+    "overall": 65,
+    "abilities": {
+      "stuff": 75,
+      "ctrl": 66,
+      "arm": 60,
+      "pot": 65
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true,
+    "waited": 1080
+  },
+  "fa-3nvsnm": {
+    "name": "邱信宏",
+    "num": 18,
+    "age": 27,
+    "role": "P",
+    "pos": "RP",
+    "hand": "L",
+    "overall": 81,
+    "abilities": {
+      "stuff": 80,
+      "ctrl": 80,
+      "arm": 62,
+      "pot": 81
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-vjvwgi": {
+    "name": "黃彥廷",
+    "num": 41,
+    "age": 23,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 54,
+    "abilities": {
+      "con": 61,
+      "pow": 62,
+      "eye": 66,
+      "spd": 64,
+      "arm": 57,
+      "pot": 54
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-4f5m83": {
+    "name": "黃冠廷",
+    "num": 23,
+    "age": 23,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 82,
+    "abilities": {
+      "con": 85,
+      "pow": 81,
+      "eye": 80,
+      "spd": 82,
+      "arm": 72,
+      "pot": 83
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-es8ey8": {
+    "name": "張宇軒",
+    "num": 8,
+    "age": 27,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 77,
+    "abilities": {
+      "stuff": 79,
+      "ctrl": 77,
+      "arm": 76,
+      "pot": 78
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1mom6ox": {
+    "name": "蔡冠廷",
+    "num": 66,
+    "age": 24,
+    "role": "B",
+    "pos": "1B",
+    "hand": "R",
+    "overall": 73,
+    "abilities": {
+      "con": 78,
+      "pow": 73,
+      "eye": 79,
+      "spd": 77,
+      "arm": 73,
+      "pot": 73
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1t36vh2": {
+    "name": "吳皓宇",
+    "num": 65,
+    "age": 23,
+    "role": "B",
+    "pos": "2B",
+    "hand": "R",
+    "overall": 76,
+    "abilities": {
+      "con": 78,
+      "pow": 72,
+      "eye": 81,
+      "spd": 80,
+      "arm": 74,
+      "pot": 76
+    },
+    "team": null,
+    "tier": 3,
+    "system": true
+  },
+  "fa-11ygl8n": {
+    "name": "李彥廷",
+    "num": 32,
+    "age": 26,
+    "role": "B",
+    "pos": "3B",
+    "hand": "L",
+    "overall": 82,
+    "abilities": {
+      "con": 85,
+      "pow": 82,
+      "eye": 77,
+      "spd": 79,
+      "arm": 77,
+      "pot": 83
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-viwi2b": {
+    "name": "吳柏廷",
+    "num": 36,
+    "age": 23,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 57,
+    "abilities": {
+      "con": 60,
+      "pow": 71,
+      "eye": 61,
+      "spd": 56,
+      "arm": 62,
+      "pot": 57
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1mnmsaq": {
+    "name": "吳冠廷",
+    "num": 4,
+    "age": 25,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 83,
+    "abilities": {
+      "con": 81,
+      "pow": 77,
+      "eye": 81,
+      "spd": 78,
+      "arm": 83,
+      "pot": 84
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-er90k1": {
+    "name": "吳柏豪",
+    "num": 42,
+    "age": 25,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 72,
+    "abilities": {
+      "stuff": 70,
+      "ctrl": 77,
+      "arm": 63,
+      "pot": 73
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true,
+    "waited": 900
+  },
+  "fa-15vzasg": {
+    "name": "謝宇翔",
+    "num": 27,
+    "age": 25,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 75,
+    "abilities": {
+      "con": 76,
+      "pow": 80,
+      "eye": 80,
+      "spd": 75,
+      "arm": 69,
+      "pot": 76
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1t27h2v": {
+    "name": "黃宇軒",
+    "num": 32,
+    "age": 23,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "stuff": 62,
+      "ctrl": 64,
+      "arm": 60,
+      "pot": 54
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-vlup8w": {
+    "name": "邱彥廷",
+    "num": 22,
+    "age": 24,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 75,
+    "abilities": {
+      "stuff": 73,
+      "ctrl": 76,
+      "arm": 77,
+      "pot": 75
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-4h4f0h": {
+    "name": "詹柏翰",
+    "num": 67,
+    "age": 27,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 85,
+    "abilities": {
+      "stuff": 89,
+      "ctrl": 69,
+      "arm": 71,
+      "pot": 85
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-vkvaup": {
+    "name": "洪信宏",
+    "num": 16,
+    "age": 26,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 64,
+    "abilities": {
+      "stuff": 69,
+      "ctrl": 67,
+      "arm": 72,
+      "pot": 64
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1mpll34": {
+    "name": "李子豪",
+    "num": 87,
+    "age": 25,
+    "role": "P",
+    "pos": "RP",
+    "hand": "L",
+    "overall": 54,
+    "abilities": {
+      "stuff": 64,
+      "ctrl": 64,
+      "arm": 60,
+      "pot": 54
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1cciscz": {
+    "name": "施家銘",
+    "num": 83,
+    "age": 24,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 57,
+    "abilities": {
+      "stuff": 67,
+      "ctrl": 65,
+      "arm": 57,
+      "pot": 57
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-4g50ma": {
+    "name": "邱冠勳",
+    "num": 83,
+    "age": 24,
+    "role": "B",
+    "pos": "1B",
+    "hand": "R",
+    "overall": 81,
+    "abilities": {
+      "con": 77,
+      "pow": 77,
+      "eye": 83,
+      "spd": 75,
+      "arm": 83,
+      "pot": 81
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1t469v9": {
+    "name": "鍾冠宇",
+    "num": 58,
+    "age": 24,
+    "role": "B",
+    "pos": "2B",
+    "hand": "R",
+    "overall": 58,
+    "abilities": {
+      "con": 65,
+      "pow": 62,
+      "eye": 61,
+      "spd": 61,
+      "arm": 71,
+      "pot": 58
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1d6bq0b": {
+    "name": "劉皓宇",
+    "num": 2,
+    "age": 22,
+    "role": "B",
+    "pos": "LF",
+    "hand": "L",
+    "overall": 56,
+    "abilities": {
+      "con": 70,
+      "pow": 62,
+      "eye": 65,
+      "spd": 58,
+      "arm": 55,
+      "pot": 56
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-59xy9m": {
+    "name": "郭冠廷",
+    "num": 20,
+    "age": 22,
+    "role": "B",
+    "pos": "3B",
+    "hand": "L",
+    "overall": 80,
+    "abilities": {
+      "con": 80,
+      "pow": 81,
+      "eye": 82,
+      "spd": 79,
+      "arm": 78,
+      "pot": 80
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-weo8i1": {
+    "name": "許哲瑋",
+    "num": 80,
+    "age": 22,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 55,
+    "abilities": {
+      "con": 63,
+      "pow": 67,
+      "eye": 60,
+      "spd": 56,
+      "arm": 59,
+      "pot": 55
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1njeiqg": {
+    "name": "林立偉",
+    "num": 85,
+    "age": 26,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "con": 65,
+      "pow": 71,
+      "eye": 72,
+      "spd": 64,
+      "arm": 68,
+      "pot": 60
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-boin1r": {
+    "name": "高子翔",
+    "num": 39,
+    "age": 25,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 78,
+    "abilities": {
+      "stuff": 72,
+      "ctrl": 80,
+      "arm": 68,
+      "pot": 78
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1d7b4ei": {
+    "name": "黃承翰",
+    "num": 94,
+    "age": 24,
+    "role": "B",
+    "pos": "SS",
+    "hand": "L",
+    "overall": 59,
+    "abilities": {
+      "con": 63,
+      "pow": 73,
+      "eye": 59,
+      "spd": 66,
+      "arm": 64,
+      "pot": 59
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-m2ku63": {
+    "name": "林柏諺",
+    "num": 43,
+    "age": 22,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 52,
+    "abilities": {
+      "stuff": 57,
+      "ctrl": 64,
+      "arm": 62,
+      "pot": 52
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-wfnmw8": {
+    "name": "謝承翰",
+    "num": 78,
+    "age": 23,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 76,
+    "abilities": {
+      "stuff": 69,
+      "ctrl": 79,
+      "arm": 72,
+      "pot": 76
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-5axcnt": {
+    "name": "江家榮",
+    "num": 1,
+    "age": 24,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 72,
+    "abilities": {
+      "stuff": 80,
+      "ctrl": 68,
+      "arm": 63,
+      "pot": 73
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true,
+    "waited": 720
+  },
+  "fa-1d8aisp": {
+    "name": "謝家銘",
+    "num": 50,
+    "age": 26,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 54,
+    "abilities": {
+      "stuff": 63,
+      "ctrl": 64,
+      "arm": 56,
+      "pot": 54
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-5bwr20": {
+    "name": "張承翰",
+    "num": 40,
+    "age": 26,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 89,
+    "abilities": {
+      "stuff": 89,
+      "ctrl": 80,
+      "arm": 69,
+      "pot": 89
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1tzy0az": {
+    "name": "林皓宇",
+    "num": 30,
+    "age": 24,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 74,
+    "abilities": {
+      "stuff": 75,
+      "ctrl": 76,
+      "arm": 75,
+      "pot": 75
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-m3k8ka": {
+    "name": "謝冠均",
+    "num": 16,
+    "age": 25,
+    "role": "B",
+    "pos": "1B",
+    "hand": "R",
+    "overall": 69,
+    "abilities": {
+      "con": 72,
+      "pow": 78,
+      "eye": 70,
+      "spd": 78,
+      "arm": 72,
+      "pot": 70
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-bqhfu5": {
+    "name": "何柏翰",
+    "num": 42,
+    "age": 24,
+    "role": "B",
+    "pos": "2B",
+    "hand": "R",
+    "overall": 63,
+    "abilities": {
+      "con": 75,
+      "pow": 73,
+      "eye": 69,
+      "spd": 73,
+      "arm": 60,
+      "pot": 64
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1d99x6w": {
+    "name": "洪柏翰",
+    "num": 68,
+    "age": 24,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 81,
+    "abilities": {
+      "con": 79,
+      "pow": 76,
+      "eye": 78,
+      "spd": 74,
+      "arm": 83,
+      "pot": 81
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-m4jmyh": {
+    "name": "許宗翰",
+    "num": 81,
+    "age": 22,
+    "role": "B",
+    "pos": "C",
+    "hand": "R",
+    "overall": 66,
+    "abilities": {
+      "con": 72,
+      "pow": 73,
+      "eye": 75,
+      "spd": 73,
+      "arm": 72,
+      "pot": 66
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1u0xep6": {
+    "name": "呂承佑",
+    "num": 40,
+    "age": 22,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 73,
+    "abilities": {
+      "con": 70,
+      "pow": 78,
+      "eye": 80,
+      "spd": 71,
+      "arm": 76,
+      "pot": 73
+    },
+    "team": "muntjacs",
+    "tier": 1,
+    "system": true
+  },
+  "fa-w3orv8": {
+    "name": "洪柏均",
+    "num": 96,
+    "age": 22,
+    "role": "B",
+    "pos": "DH",
+    "hand": "L",
+    "overall": 53,
+    "abilities": {
+      "con": 61,
+      "pow": 64,
+      "eye": 61,
+      "spd": 62,
+      "arm": 57,
+      "pot": 53
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-4yyhmt": {
+    "name": "張宇翔",
+    "num": 71,
+    "age": 25,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "stuff": 62,
+      "ctrl": 70,
+      "arm": 59,
+      "pot": 60
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1cvc9di": {
+    "name": "黃冠勳",
+    "num": 93,
+    "age": 22,
+    "role": "B",
+    "pos": "1B",
+    "hand": "R",
+    "overall": 59,
+    "abilities": {
+      "con": 61,
+      "pow": 72,
+      "eye": 69,
+      "spd": 63,
+      "arm": 65,
+      "pot": 59
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-lqlz53": {
+    "name": "許冠霖",
+    "num": 68,
+    "age": 24,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 54,
+    "abilities": {
+      "con": 67,
+      "pow": 59,
+      "eye": 61,
+      "spd": 61,
+      "arm": 62,
+      "pot": 54
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-w2pdh1": {
+    "name": "莊宗翰",
+    "num": 26,
+    "age": 21,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 61,
+    "abilities": {
+      "con": 64,
+      "pow": 68,
+      "eye": 73,
+      "spd": 70,
+      "arm": 70,
+      "pot": 61
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1n7fnpg": {
+    "name": "王宇恆",
+    "num": 22,
+    "age": 23,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "stuff": 59,
+      "ctrl": 64,
+      "arm": 62,
+      "pot": 53
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1cucuzb": {
+    "name": "楊宗霖",
+    "num": 22,
+    "age": 22,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "con": 59,
+      "pow": 74,
+      "eye": 64,
+      "spd": 65,
+      "arm": 68,
+      "pot": 60
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-w1pz2u": {
+    "name": "蔡宇軒",
+    "num": 83,
+    "age": 24,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 98,
+    "abilities": {
+      "stuff": 77,
+      "ctrl": 96,
+      "arm": 81,
+      "pot": 98
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-4wzouf": {
+    "name": "胡宇恆",
+    "num": 27,
+    "age": 24,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 52,
+    "abilities": {
+      "stuff": 63,
+      "ctrl": 60,
+      "arm": 62,
+      "pot": 52
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-fa2hkk": {
+    "name": "廖宗霖",
+    "num": 93,
+    "age": 22,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 57,
+    "abilities": {
+      "stuff": 68,
+      "ctrl": 62,
+      "arm": 62,
+      "pot": 57
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1n6g9b9": {
+    "name": "林承翰",
+    "num": 7,
+    "age": 21,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 52,
+    "abilities": {
+      "stuff": 63,
+      "ctrl": 61,
+      "arm": 62,
+      "pot": 52
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-w0qkon": {
+    "name": "李柏宇",
+    "num": 64,
+    "age": 22,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 72,
+    "abilities": {
+      "stuff": 65,
+      "ctrl": 78,
+      "arm": 66,
+      "pot": 72
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true,
+    "waited": 540
+  },
+  "fa-1n5gux2": {
     "name": "蔡冠霖",
-    "num": 55,
+    "num": 31,
+    "age": 24,
+    "role": "B",
+    "pos": "1B",
+    "hand": "R",
+    "overall": 60,
+    "abilities": {
+      "con": 62,
+      "pow": 65,
+      "eye": 69,
+      "spd": 76,
+      "arm": 63,
+      "pot": 60
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-f9336d": {
+    "name": "陳柏廷",
+    "num": 16,
+    "age": 24,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 73,
+    "abilities": {
+      "con": 81,
+      "pow": 74,
+      "eye": 77,
+      "spd": 67,
+      "arm": 76,
+      "pot": 73
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-16dtdes": {
+    "name": "莊家豪",
+    "num": 61,
+    "age": 23,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 56,
+    "abilities": {
+      "con": 56,
+      "pow": 71,
+      "eye": 60,
+      "spd": 66,
+      "arm": 57,
+      "pot": 56
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1xijnn7": {
+    "name": "周家宏",
+    "num": 78,
+    "age": 23,
+    "role": "B",
+    "pos": "LF",
+    "hand": "L",
+    "overall": 54,
+    "abilities": {
+      "con": 56,
+      "pow": 59,
+      "eye": 62,
+      "spd": 59,
+      "arm": 69,
+      "pot": 54
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1941yzx": {
+    "name": "蘇宗翰",
+    "num": 11,
+    "age": 22,
+    "role": "B",
+    "pos": "C",
+    "hand": "R",
+    "overall": 59,
+    "abilities": {
+      "con": 73,
+      "pow": 63,
+      "eye": 71,
+      "spd": 62,
+      "arm": 61,
+      "pot": 59
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-17o798": {
+    "name": "呂品豪",
+    "num": 59,
+    "age": 22,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 56,
+    "abilities": {
+      "con": 69,
+      "pow": 65,
+      "eye": 60,
+      "spd": 64,
+      "arm": 57,
+      "pot": 56
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1pvpgi7": {
+    "name": "賴柏宇",
+    "num": 1,
+    "age": 22,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "con": 66,
+      "pow": 60,
+      "eye": 59,
+      "spd": 58,
+      "arm": 62,
+      "pot": 53
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1951de4": {
+    "name": "高冠廷",
+    "num": 80,
+    "age": 21,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 60,
+      "arm": 65,
+      "pot": 53
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-i0b35p": {
+    "name": "陳宇軒",
+    "num": 70,
+    "age": 21,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 84,
+    "abilities": {
+      "stuff": 81,
+      "ctrl": 81,
+      "arm": 74,
+      "pot": 84
+    },
+    "team": "owls",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1pwouwe": {
+    "name": "謝建廷",
+    "num": 41,
+    "age": 23,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 53,
+    "abilities": {
+      "stuff": 64,
+      "ctrl": 58,
+      "arm": 63,
+      "pot": 53
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-yryknz": {
+    "name": "楊宗翰",
+    "num": 45,
+    "age": 24,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 74,
+    "abilities": {
+      "stuff": 75,
+      "ctrl": 76,
+      "arm": 68,
+      "pot": 74
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true,
+    "waited": 360
+  },
+  "fa-192367j": {
+    "name": "吳俊宇",
+    "num": 73,
+    "age": 22,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 64,
+    "abilities": {
+      "stuff": 70,
+      "ctrl": 71,
+      "arm": 68,
+      "pot": 64
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-15pegu": {
+    "name": "徐柏廷",
+    "num": 50,
+    "age": 24,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 55,
+    "abilities": {
+      "stuff": 66,
+      "ctrl": 63,
+      "arm": 54,
+      "pot": 55
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true,
+    "waited": 360
+  },
+  "fa-safop9": {
+    "name": "王家豪",
+    "num": 7,
+    "age": 22,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 90,
+    "abilities": {
+      "stuff": 76,
+      "ctrl": 87,
+      "arm": 71,
+      "pot": 90
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1jf5yxo": {
+    "name": "鄭俊傑",
+    "num": 45,
+    "age": 24,
+    "role": "B",
+    "pos": "2B",
+    "hand": "L",
+    "overall": 79,
+    "abilities": {
+      "con": 78,
+      "pow": 75,
+      "eye": 80,
+      "spd": 81,
+      "arm": 81,
+      "pot": 79
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1932klq": {
+    "name": "劉信宏",
+    "num": 46,
+    "age": 21,
+    "role": "B",
+    "pos": "3B",
+    "hand": "L",
+    "overall": 57,
+    "abilities": {
+      "con": 57,
+      "pow": 60,
+      "eye": 66,
+      "spd": 60,
+      "arm": 72,
+      "pot": 57
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-hycadb": {
+    "name": "蔡柏諺",
+    "num": 52,
+    "age": 24,
+    "role": "B",
+    "pos": "C",
+    "hand": "L",
+    "overall": 58,
+    "abilities": {
+      "con": 66,
+      "pow": 63,
+      "eye": 70,
+      "spd": 63,
+      "arm": 68,
+      "pot": 58
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-sbf33g": {
+    "name": "朱冠廷",
+    "num": 90,
+    "age": 24,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 62,
+    "abilities": {
+      "con": 67,
+      "pow": 73,
+      "eye": 71,
+      "spd": 66,
+      "arm": 73,
+      "pot": 63
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-16osv1": {
+    "name": "謝柏翰",
+    "num": 33,
+    "age": 23,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 55,
+    "abilities": {
+      "con": 52,
+      "pow": 70,
+      "eye": 68,
+      "spd": 60,
+      "arm": 55,
+      "pot": 55
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-bjrll6": {
+    "name": "張冠宇",
+    "num": 15,
+    "age": 22,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 88,
+    "abilities": {
+      "stuff": 90,
+      "ctrl": 76,
+      "arm": 64,
+      "pot": 88
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1jg5dbv": {
+    "name": "莊彥廷",
+    "num": 72,
+    "age": 24,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 63,
+    "abilities": {
+      "stuff": 72,
+      "ctrl": 69,
+      "arm": 61,
+      "pot": 63
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-6k18um": {
+    "name": "張子翔",
+    "num": 21,
+    "age": 23,
+    "role": "B",
+    "pos": "2B",
+    "hand": "R",
+    "overall": 69,
+    "abilities": {
+      "con": 76,
+      "pow": 79,
+      "eye": 66,
+      "spd": 69,
+      "arm": 65,
+      "pot": 69
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1egf0lb": {
+    "name": "李俊傑",
+    "num": 30,
+    "age": 23,
+    "role": "B",
+    "pos": "C",
+    "hand": "L",
+    "overall": 84,
+    "abilities": {
+      "con": 69,
+      "pow": 79,
+      "eye": 80,
+      "spd": 75,
+      "arm": 87,
+      "pot": 95
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-1othtbg": {
+    "name": "王哲瑋",
+    "num": 69,
+    "age": 22,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 81,
+    "abilities": {
+      "stuff": 84,
+      "ctrl": 76,
+      "arm": 69,
+      "pot": 81
+    },
+    "team": "pheasants",
+    "tier": 1,
+    "system": true
+  },
+  "fa-xorj31": {
+    "name": "廖冠勳",
+    "num": 77,
+    "age": 19,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 58,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 68,
+      "arm": 66,
+      "pot": 58
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-6j1ugf": {
+    "name": "楊冠勳",
+    "num": 95,
+    "age": 20,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 56,
+    "abilities": {
+      "stuff": 60,
+      "ctrl": 67,
+      "arm": 61,
+      "pot": 56
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true,
+    "waited": 180
+  },
+  "fa-xns4ou": {
+    "name": "洪彥均",
+    "num": 17,
+    "age": 19,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 69,
+    "abilities": {
+      "stuff": 66,
+      "ctrl": 76,
+      "arm": 62,
+      "pot": 69
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true,
+    "waited": 180
+  },
+  "fa-6m01n0": {
+    "name": "張彥均",
+    "num": 29,
+    "age": 20,
+    "role": "B",
+    "pos": "1B",
+    "hand": "R",
+    "overall": 63,
+    "abilities": {
+      "con": 70,
+      "pow": 70,
+      "eye": 71,
+      "spd": 76,
+      "arm": 73,
+      "pot": 64
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1eidtdp": {
+    "name": "吳立偉",
+    "num": 48,
+    "age": 20,
+    "role": "B",
+    "pos": "2B",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "con": 58,
+      "pow": 63,
+      "eye": 66,
+      "spd": 64,
+      "arm": 59,
+      "pot": 53
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-ndnj5a": {
+    "name": "王冠霖",
+    "num": 22,
+    "age": 20,
+    "role": "B",
+    "pos": "C",
+    "hand": "R",
+    "overall": 53,
+    "abilities": {
+      "con": 61,
+      "pow": 64,
+      "eye": 63,
+      "spd": 62,
+      "arm": 60,
+      "pot": 53
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1va1avz": {
+    "name": "吳冠霖",
+    "num": 56,
+    "age": 20,
+    "role": "B",
+    "pos": "LF",
+    "hand": "L",
+    "overall": 68,
+    "abilities": {
+      "con": 77,
+      "pow": 75,
+      "eye": 74,
+      "spd": 74,
+      "arm": 70,
+      "pot": 68
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-6l0n8t": {
+    "name": "許家銘",
+    "num": 20,
+    "age": 19,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 76,
+    "abilities": {
+      "stuff": 80,
+      "ctrl": 74,
+      "arm": 72,
+      "pot": 76
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true,
+    "waited": 180
+  },
+  "fa-xpqxh8": {
+    "name": "賴哲瑋",
+    "num": 28,
+    "age": 19,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 61,
+    "abilities": {
+      "stuff": 59,
+      "ctrl": 72,
+      "arm": 65,
+      "pot": 61
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-nco4r3": {
+    "name": "江哲瑋",
+    "num": 94,
+    "age": 19,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 67,
+    "abilities": {
+      "con": 66,
+      "pow": 71,
+      "eye": 65,
+      "spd": 81,
+      "arm": 77,
+      "pot": 68
+    },
+    "team": "macaques",
+    "tier": 1,
+    "system": true
+  },
+  "fa-gscj8n": {
+    "name": "蔡冠勳",
+    "num": 75,
+    "age": 19,
+    "role": "P",
+    "pos": "RP",
+    "hand": "L",
+    "overall": 52,
+    "abilities": {
+      "stuff": 58,
+      "ctrl": 61,
+      "arm": 64,
+      "pot": 72
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-17x2th2": {
+    "name": "簡家銘",
+    "num": 54,
+    "age": 21,
+    "role": "P",
+    "pos": "SP",
+    "hand": "L",
+    "overall": 55,
+    "abilities": {
+      "stuff": 66,
+      "ctrl": 63,
+      "arm": 54,
+      "pot": 66
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-p1qd": {
+    "name": "游宇翔",
+    "num": 32,
+    "age": 18,
+    "role": "B",
+    "pos": "C",
+    "hand": "L",
+    "overall": 54,
+    "abilities": {
+      "con": 62,
+      "pow": 61,
+      "eye": 57,
+      "spd": 68,
+      "arm": 57,
+      "pot": 62
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-gtbxmu": {
+    "name": "洪子豪",
+    "num": 94,
+    "age": 20,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 54,
+    "abilities": {
+      "con": 57,
+      "pow": 63,
+      "eye": 51,
+      "spd": 67,
+      "arm": 67,
+      "pot": 73
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-gubc11": {
+    "name": "簡品豪",
+    "num": 70,
+    "age": 20,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 54,
+    "abilities": {
+      "con": 54,
+      "pow": 61,
+      "eye": 60,
+      "spd": 70,
+      "arm": 60,
+      "pot": 77
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-17z1m9g": {
+    "name": "林信宏",
+    "num": 40,
+    "age": 21,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "stuff": 62,
+      "ctrl": 61,
+      "arm": 60,
+      "pot": 76
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-xlytjb": {
+    "name": "張品豪",
+    "num": 46,
+    "age": 19,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "stuff": 62,
+      "ctrl": 60,
+      "arm": 61,
+      "pot": 53
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-gvaqf8": {
+    "name": "蕭彥均",
+    "num": 79,
+    "age": 19,
+    "role": "B",
+    "pos": "SS",
+    "hand": "L",
+    "overall": 52,
+    "abilities": {
+      "con": 56,
+      "pow": 59,
+      "eye": 61,
+      "spd": 67,
+      "arm": 62,
+      "pot": 56
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1kqoo1t": {
+    "name": "劉柏翰",
+    "num": 81,
+    "age": 22,
+    "role": "P",
+    "pos": "MR",
+    "hand": "R",
+    "overall": 50,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 61,
+      "arm": 61,
+      "pot": 66
+    },
+    "team": "pheasants",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1aovghc": {
+    "name": "楊柏諺",
+    "num": 38,
+    "age": 23,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
+      "arm": 61,
+      "pot": 75
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1anw235": {
+    "name": "謝冠瑋",
+    "num": 12,
+    "age": 22,
+    "role": "B",
+    "pos": "SS",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
+      "arm": 61,
+      "pot": 62
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1amwnoy": {
+    "name": "何家豪",
+    "num": 64,
+    "age": 20,
+    "role": "B",
+    "pos": "LF",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
+      "arm": 61,
+      "pot": 73
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1alx9ar": {
+    "name": "王冠瑋",
+    "num": 11,
+    "age": 20,
+    "role": "B",
+    "pos": "CF",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
+      "arm": 61,
+      "pot": 78
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-1akxuwk": {
+    "name": "徐俊廷",
+    "num": 39,
+    "age": 21,
+    "role": "B",
+    "pos": "DH",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
+      "arm": 61,
+      "pot": 72
+    },
+    "team": "owls",
+    "tier": 2,
+    "system": true
+  },
+  "fa-j5img3": {
+    "name": "李宗翰",
+    "num": 24,
+    "age": 20,
+    "role": "B",
+    "pos": "RF",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
+      "arm": 61,
+      "pot": 73
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-j6i0ua": {
+    "name": "彭俊傑",
+    "num": 9,
+    "age": 20,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 50,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 61,
+      "arm": 61,
+      "pot": 73
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-j7hf8h": {
+    "name": "曾冠均",
+    "num": 58,
+    "age": 23,
+    "role": "P",
+    "pos": "SP",
+    "hand": "R",
+    "overall": 50,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 61,
+      "arm": 61,
+      "pot": 65
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-j8gtmo": {
+    "name": "李皓宇",
+    "num": 54,
+    "age": 23,
+    "role": "P",
+    "pos": "MR",
+    "hand": "R",
+    "overall": 50,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 61,
+      "arm": 61,
+      "pot": 53
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-j1l0vb": {
+    "name": "陳柏宇",
+    "num": 39,
+    "age": 23,
+    "role": "P",
+    "pos": "RP",
+    "hand": "R",
+    "overall": 50,
+    "abilities": {
+      "stuff": 61,
+      "ctrl": 61,
+      "arm": 61,
+      "pot": 75
+    },
+    "team": "macaques",
+    "tier": 2,
+    "system": true
+  },
+  "fa-93pevm": {
+    "name": "黃建廷",
+    "num": 16,
     "age": 24,
     "role": "B",
     "pos": "C",
@@ -1651,38 +4446,18 @@
       "eye": 61,
       "spd": 61,
       "arm": 61,
-      "pot": 72
+      "pot": 52
     },
     "team": "muntjacs",
     "tier": 2,
     "system": true
   },
-  "fa-1kcsbow": {
-    "name": "黃家銘",
-    "num": 48,
-    "age": 24,
+  "fa-92q0hf": {
+    "name": "黃俊宇",
+    "num": 67,
+    "age": 21,
     "role": "B",
     "pos": "1B",
-    "hand": "R",
-    "overall": 51,
-    "abilities": {
-      "con": 61,
-      "pow": 61,
-      "eye": 61,
-      "spd": 61,
-      "arm": 61,
-      "pot": 63
-    },
-    "team": "muntjacs",
-    "tier": 2,
-    "system": true
-  },
-  "fa-19zpiyr": {
-    "name": "陳彥均",
-    "num": 54,
-    "age": 22,
-    "role": "B",
-    "pos": "2B",
     "hand": "R",
     "overall": 51,
     "abilities": {
@@ -1697,55 +4472,41 @@
     "tier": 2,
     "system": true
   },
-  "fa-t91fuo": {
-    "name": "林柏諺",
-    "num": 56,
-    "age": 20,
-    "role": "P",
-    "pos": "SP",
+  "fa-95o7o0": {
+    "name": "張柏廷",
+    "num": 54,
+    "age": 22,
+    "role": "B",
+    "pos": "2B",
     "hand": "R",
-    "overall": 50,
+    "overall": 51,
     "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
+      "arm": 61,
+      "pot": 57
+    },
+    "team": "muntjacs",
+    "tier": 2,
+    "system": true
+  },
+  "fa-94ot9t": {
+    "name": "蔡柏宇",
+    "num": 18,
+    "age": 20,
+    "role": "B",
+    "pos": "3B",
+    "hand": "R",
+    "overall": 51,
+    "abilities": {
+      "con": 61,
+      "pow": 61,
+      "eye": 61,
+      "spd": 61,
       "arm": 61,
       "pot": 53
-    },
-    "team": "muntjacs",
-    "tier": 2,
-    "system": true
-  },
-  "fa-24b5m9": {
-    "name": "賴家豪",
-    "num": 92,
-    "age": 23,
-    "role": "P",
-    "pos": "MR",
-    "hand": "R",
-    "overall": 50,
-    "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 74
-    },
-    "team": "muntjacs",
-    "tier": 2,
-    "system": true
-  },
-  "fa-1a0oxcy": {
-    "name": "郭承佑",
-    "num": 24,
-    "age": 22,
-    "role": "P",
-    "pos": "RP",
-    "hand": "R",
-    "overall": 50,
-    "abilities": {
-      "stuff": 61,
-      "ctrl": 61,
-      "arm": 61,
-      "pot": 64
     },
     "team": "muntjacs",
     "tier": 2,

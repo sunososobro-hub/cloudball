@@ -13,7 +13,7 @@
 # Exit 0 = claimed (prints the claim sha); exit 1 = taken by someone else (ref rejected): take the next item;
 # exit 3 = the push itself failed (auth, network, proxy): git's message is on stderr, report the blocked write.
 #
-# Branches: `fix/N` (or `fix/N-rK`) on the dev tip for a new item; `claim/N-<head sha7>` on the PR head for a fix
+# Branches: `fix/N-s<yyyymmddHHMM>` (reviewer deploy stamp, review.md step F, #852); `fix/N` (or `fix/N-rK`) on the dev tip for a new item; `claim/N-<head sha7>` on the PR head for a fix
 # round on an open PR (the claim commit stays on that claim branch only; the fix is pushed to the PR branch).
 set -euo pipefail
 
@@ -26,7 +26,7 @@ base=$2
 issue=$3
 session=${4:-${CLAUDE_SESSION_ID:-local}}
 # Only work and claim branches may be created this way (never dev, main or release branches).
-if ! [[ "$branch" =~ ^(fix|feat)/[0-9]+(-r[0-9]+)?$|^claim/[0-9]+-[0-9a-f]{7}$ ]]; then
+if ! [[ "$branch" =~ ^(fix|feat)/[0-9]+(-r[0-9]+)?$|^fix/[0-9]+-s[0-9]{12}$|^claim/[0-9]+-[0-9a-f]{7}$ ]]; then
   echo "refused branch name: ${branch}" >&2
   exit 2
 fi

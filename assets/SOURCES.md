@@ -34,3 +34,8 @@ MakeHuman checkout, `tools/glb2gltf.py` on each output, then `tools/pack_players
 them by team id, so replacing a logo is replacing its files: run
 `python3 assets/tools/make_logos.py <folder with <id>.png> <id>` and commit the two new files.
 The CC0 dedication in `assets/LICENSE` does not cover them; forks must not use them (rule 18).
+
+`og/`: share-link cards for `/g/<season>-<id>` (#591), one PNG per ordered matchup plus `generic.png`. Code-generated
+(MIT): `node tools/og_cards.mjs` rasterises `cardSvg()` from `functions/g/[id].js` in headless Chromium; team names
+are set in the system Noto Sans CJK font (SIL OFL; rendered text in an image carries no font licence). Rerun after
+a team name or colour changes. Added download: 0 bytes to a game page (only link-preview crawlers fetch them).

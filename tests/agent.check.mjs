@@ -9,7 +9,10 @@
  *     or two players get the same name;
  *   - the public list shows an agent id, or its order or paging is wrong;
  *   - (#437) the 系統 fillers are not seeded once per kind with system:true, a fan does not replace the oldest filler of his kind
- *     (or replaces another kind / a fan), or a store without fillers breaks create.
+ *     (or replaces another kind / a fan), or a store without fillers breaks create;
+ *   - (#628 part 2) the daily sweep releases a fan seen 29 days ago, keeps one seen 30 days ago from being released, ignores 系統 and free players,
+ *     treats a fan never seen as seen on his created day, runs once a day, lets the old agent reclaim, and a keyed call records the day only;
+ *   - (#438) the start place is not stored (default 二軍), an unknown place is accepted, or a move changes anything but the place.
  * Usage: node tests/agent.check.mjs */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +20,8 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import * as lib from '../functions/lib/agents.js';
-import { drawName, CREATE } from '../league/freeagents.js';
+import { INACTIVE_DAYS } from '../league/inactive.js';
+import { drawName, CREATE, DEFAULT_PLACE, placeOf } from '../league/freeagents.js';
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = (process.removeAllListeners('warning'), require('node:sqlite'));
@@ -57,7 +61,7 @@ const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points
 const is = (what, r, status, why) => { if (r.status !== status || (why && r.body?.why !== why)) bad(`${what}: expected ${status}${why ? ' ' + why : ''}, got ${r.status} ${JSON.stringify(r.body)}`); };
 
 /* closed: no binding, and a production host with a binding */
-const ROUTES = [[lib.register, 'POST'], [lib.draw, 'GET'], [lib.mine, 'GET'], [lib.create, 'POST'], [lib.list, 'GET'], [lib.release, 'POST'], [lib.reclaim, 'POST']];
+const ROUTES = [[lib.register, 'POST'], [lib.draw, 'GET'], [lib.mine, 'GET'], [lib.create, 'POST'], [lib.list, 'GET'], [lib.release, 'POST'], [lib.reclaim, 'POST'], [lib.place, 'POST']];
 for (const [h, method] of ROUTES) {
   const none = await call(h, {}, { method, k: key() });
   if (none.status !== 503 || JSON.stringify(none.body) !== '{"ok":false,"why":"closed"}') bad(`no DB binding: expected 503 closed, got ${none.status} ${JSON.stringify(none.body)}`);
@@ -88,7 +92,7 @@ const seenCols = db.sql.prepare('PRAGMA table_info(reg_seen)').all().map(c => c.
 if (seenCols !== 'day,h') bad(`reg_seen must hold only day and h, has ${seenCols}`);
 const seen = db.sql.prepare('SELECT * FROM reg_seen').all();
 if (seen.some(r => r.h.includes('1.1.1.1') || r.h.includes('2.2.2.2'))) bad('an address is stored in the clear');
-for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases', 'meta'].includes(t)) bad(`unexpected table ${t}`);
+for (const t of tables) if (!['agents', 'players', 'reg_salt', 'reg_seen', 'releases', 'meta', 'agent_seen', 'guilds', 'guild_members', 'guild_fans', 'guild_saves', 'guild_lineups'].includes(t)) bad(`unexpected table ${t}`);
 db.sql.prepare("UPDATE reg_seen SET day='2000-01-01'").run(); db.sql.prepare("UPDATE reg_salt SET day='2000-01-01'").run();
 is('a new day', await call(lib.register, env, { method: 'POST', k: k3, ip: '3.3.3.3' }), 201);
 if (db.sql.prepare("SELECT COUNT(*) n FROM reg_seen WHERE day < date('now')").get().n || db.sql.prepare("SELECT COUNT(*) n FROM reg_salt WHERE day < date('now')").get().n) bad('rows of an older day were not deleted');
@@ -121,6 +125,7 @@ if (made.body?.player?.name !== drawName(seed, nd)) bad('the created player does
 if (made.body?.player?.player?.id !== `fa-${seed.toString(36)}`) bad('the player was not made from the seed the server made');
 is('create a second player', await call(lib.create, env, { method: 'POST', k: k1, body: ownBat }), 409, 'already');
 const mineNow = await call(lib.mine, env, { k: k1 }); if (mineNow.body?.player?.name !== made.body?.player?.name) bad('GET /api/player does not give the created player back');
+if (DEFAULT_PLACE !== 'second' || mineNow.body?.player?.player?.place !== 'second') bad(`a create without a place must start in 二軍, got ${mineNow.body?.player?.player?.place}`);
 is('create with the points moved by a client-made seed', await call(lib.create, env, { method: 'POST', k: k2, body: { ...PIT, seed: 5 } }), 400, 'invalid');
 /* the same name for two agents: marked taken in the draw, refused at the create */
 const id2 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k2)))].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -174,7 +179,7 @@ for (let i = 0; i < lib.PAGE_SIZE + 5; i++) {
   for (c.nameDraw = 0; c.nameDraw <= lib.DRAW_CAP; c.nameDraw++) if ((await call(lib.create, lenv, { method: 'POST', k, body: c })).status !== 409) break;
 }
 const p0 = await call(lib.list, lenv, { url: '/api/freeagents?page=0' }); is('list page 0', p0, 200);
-const p1 = await call(lib.list, lenv, { url: '/api/freeagents?page=1' }); is('list page 1', p1, 200);
+const p1 = await call(lib.list, lenv, { url: `/api/freeagents?after=${encodeURIComponent(p0.body?.next)}` }); is('list page 1 (cursor)', p1, 200);
 const n0 = p0.body?.players?.length, n1 = p1.body?.players?.length, total = lister.sql.prepare('SELECT COUNT(*) n FROM players').get().n;
 if (n0 !== lib.PAGE_SIZE || p0.body.more !== (total > lib.PAGE_SIZE)) bad(`page 0 holds ${n0} players, more=${p0.body?.more}; ${total} stored`);
 if (n0 + n1 !== total || p1.body?.more !== false) bad(`pages hold ${n0 + n1} of ${total} players`);
@@ -193,6 +198,33 @@ if (junk.body?.sort !== 'ovr' || junk.body?.players?.map(p => p.ovr).some((o, i,
 const everything = JSON.stringify([p0.body, p1.body, newest.body]);
 for (const t of lister.sql.prepare('SELECT agent_id FROM players').all()) if (everything.includes(t.agent_id)) bad('the public list shows an agent id');
 is('list page past the max', await call(lib.list, lenv, { url: `/api/freeagents?page=${lib.MAX_PAGE + 1}` }), 400, 'page');
+/* #806: keyset paging walks every sort to the end with no row twice and none missing; each list query uses an index (no scan, no sort step)
+ * and reads at most PAGE_SIZE + 1 rows whatever the page; a bad cursor is a 400 */
+{ const seen = [], plans = [], spy = { sql: lister.sql, batch: lister.batch, prepare: t => { const st = lister.prepare(t); if (/FROM players\s+(WHERE[^O]*)?ORDER BY/.test(t) && /LIMIT \?1/.test(t)) return { ...st, bind: (...a) => { plans.push({ t, a }); return st.bind(...a); } }; return st; } };
+  for (const sort of ['ovr', 'new', 'con', 'pow', 'eye', 'spd', 'arm', 'stuff', 'ctrl', 'pot']) {
+    const ids = []; let after = '', n = 0;
+    for (;;) { const r = await call(lib.list, { DB: spy }, { url: `/api/freeagents?sort=${sort}${after}` }); if (r.status !== 200) { bad(`sort=${sort} cursor step ${n}: ${r.status}`); break; }
+      ids.push(...r.body.players.map(p => p.id)); if (!r.body.more) break; after = `&after=${encodeURIComponent(r.body.next)}`; if (++n > 20) { bad(`sort=${sort} never ends`); break; } }
+    if (new Set(ids).size !== ids.length || ids.length !== total) bad(`sort=${sort} walked ${ids.length} rows (${new Set(ids).size} distinct) of ${total}`);
+    seen.push(sort); }
+  if (!plans.length) bad('no list query was seen');
+  for (const { t, a } of plans) {
+    const plan = lister.sql.prepare('EXPLAIN QUERY PLAN ' + t).all(...a).map(r => r.detail).join(' | ');
+    if (!/USING (COVERING )?INDEX players_/.test(plan) || /SCAN players(?! USING)|TEMP B-TREE/.test(plan)) bad(`a list query is not an index walk: ${plan}`);
+    if (lister.sql.prepare(t).all(...a).length > lib.PAGE_SIZE + 1) bad('a list query returned more than PAGE_SIZE + 1 rows'); }
+  for (const x of ['abc', '1~2', 'x~y~z~w', '1~1~1~a;b', '1~1~1~1~1~1']) if ((await call(lib.list, lenv, { url: `/api/freeagents?sort=con&after=${encodeURIComponent(x)}` })).status !== 400) bad(`cursor ${x} must be a 400`);
+  /* the ability columns follow ovr: a growth write-back moves them with the grown ratings, and the ability sort reads them */
+  const row = lister.sql.prepare("SELECT pid, ratings FROM players WHERE kind = 'pit' AND agent_id NOT LIKE 'sys:%' LIMIT 1").get();
+  const r0 = JSON.parse(row.ratings), col = lister.sql.prepare('SELECT a_stuff s, a_ctrl c, a_arm a FROM players WHERE pid = ?').get(row.pid);
+  if (col.s !== Math.round(r0.stuff) || col.c !== Math.round(r0.ctrl) || col.a !== Math.round(r0.arm)) bad('the ability columns differ from the creation ratings at create time');
+  const bt = lister.sql.prepare("SELECT a_stuff s FROM players WHERE kind = 'bat' LIMIT 1").get(); if (bt.s !== -1) bad('a batter must hold -1 for stuff'); }
+
+/* #806 migration: a players table made before the a_* columns gets them, filled from the stored ratings, and the list works on it */
+{ const old = makeDb(); old.sql.exec("CREATE TABLE players (agent_id TEXT PRIMARY KEY, pid TEXT NOT NULL, name TEXT NOT NULL UNIQUE, kind TEXT NOT NULL, ovr INTEGER NOT NULL, player TEXT NOT NULL, ratings TEXT NOT NULL, created_at INTEGER NOT NULL)");
+  old.sql.prepare("INSERT INTO players VALUES ('free:o1', 'o1', 'Old One', 'pit', 60, '{\"id\":\"o1\"}', '{\"ovr\":60,\"stuff\":71,\"ctrl\":55,\"arm\":50}', 1)").run();
+  const r = await call(lib.list, { DB: old }, { url: '/api/freeagents?sort=stuff' });
+  const c = old.sql.prepare("SELECT a_stuff s, a_con c FROM players WHERE pid = 'o1'").get();
+  if (r.status !== 200 || c?.s !== 71 || c?.c !== -1) bad(`an old players table is not migrated: ${r.status} ${JSON.stringify(c)}`); }
 
 /* nothing here may reach the engine's results or the production site by accident */
 const src = readFileSync(path.join(ROOT, 'functions/lib/agents.js'), 'utf8');
@@ -213,9 +245,76 @@ if (/engine\//.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))) bad('functions/lib/ag
   if (sdb.sql.prepare('SELECT 1 FROM players WHERE pid = ?').get(oldest)) bad('the fan did not replace the oldest filler of his kind');
   if (sdb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id NOT LIKE 'sys:%'").get().n !== 1) bad('the fan row is missing');
   const again = makeDb(), aenv = { DB: again }; await call(lib.register, aenv, { method: 'POST', k: key() });
-  if (again.sql.prepare("SELECT COUNT(*) n FROM meta").get().n !== 1) bad('the seed marker is not written once');
+  if (again.sql.prepare("SELECT COUNT(*) n FROM meta WHERE k = 'system_seeded'").get().n !== 1) bad('the seed marker is not written once');
   await call(lib.list, aenv, { url: '/api/freeagents' }); if (again.sql.prepare("SELECT COUNT(*) n FROM players").get().n !== 2 * lib.SYSTEM_PER_KIND) bad('fillers were seeded twice');
   const listed = await call(lib.list, senv, { url: '/api/freeagents' }); if (!listed.body?.players?.some(p => p.player.system === true)) bad('the public list does not show the system flag'); }
+
+/* #628 part 2: the daily sweep of inactive fans */
+{ const idb = makeDb(), ienv = { DB: idb }, ks = [key(), key(), key(), key()], D = INACTIVE_DAYS, DMS = 86400000, now = Date.now(), day = Math.floor(now / DMS);
+  const post = (h, k, body) => call(h, ienv, { method: 'POST', k, body });
+  const mk = async (k, i, c) => { await call(lib.register, ienv, { method: 'POST', k, ip: `7.7.7.${i}` });
+    for (c.nameDraw = 0; c.nameDraw <= lib.DRAW_CAP; c.nameDraw++) { const r = await call(lib.create, ienv, { method: 'POST', k, ip: `7.7.7.${i}`, body: c }); if (r.status === 201) return r.body.player; } bad('sweep: no free name'); return null; };
+  const ps = [await mk(ks[0], 1, { ...BAT }), await mk(ks[1], 2, { ...PIT }), await mk(ks[2], 3, { ...BAT }), await mk(ks[3], 4, { ...PIT })];
+  const hash = async k => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k)))].map(b => b.toString(16).padStart(2, '0')).join('');
+  const ids = await Promise.all(ks.map(hash));
+  idb.sql.prepare('DELETE FROM agent_seen').run();
+  const seenDay = idb.sql.prepare('INSERT INTO agent_seen (agent_id, day) VALUES (?, ?)');
+  seenDay.run(ids[0], day - (D - 1)); seenDay.run(ids[1], day - D); seenDay.run(ids[2], day - 400);
+  idb.sql.prepare('UPDATE players SET created_at = ? WHERE agent_id = ?').run(now - (D + 5) * DMS, ids[3]);      /* never seen: created D + 5 days ago */
+  idb.sql.prepare('UPDATE players SET created_at = ? WHERE agent_id = ?').run(now - 500 * DMS, ids[0]);
+  idb.sql.prepare("UPDATE players SET created_at = ? WHERE agent_id = ? OR agent_id = ?").run(now - 500 * DMS, ids[1], ids[2]);
+  idb.sql.prepare("DELETE FROM meta WHERE k LIKE 'inactive_%'").run();   /* the keyed calls above already ran a (then empty) sweep chunk today (#807) */
+  const sysBefore = idb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id LIKE 'sys:%'").get().n;
+  const out = await lib.sweepInactive(idb, now);
+  const owner = pid => idb.sql.prepare('SELECT agent_id a FROM players WHERE pid = ?').get(pid)?.a;
+  if (owner(ps[0].id) !== ids[0]) bad('a fan seen D-1 days ago must keep his player');
+  for (const i of [1, 2, 3]) if (owner(ps[i].id) !== 'free:' + ps[i].id) bad(`fan ${i} (seen D days ago, long ago, never seen and created D+5 ago) must be released`);
+  if (JSON.stringify([...out].sort()) !== JSON.stringify([ps[1].id, ps[2].id, ps[3].id].sort())) bad(`sweep returned ${out}`);
+  if (idb.sql.prepare("SELECT COUNT(*) n FROM players WHERE agent_id LIKE 'sys:%'").get().n !== sysBefore) bad('the sweep touched a 系統 player');
+  for (const i of [1, 2, 3]) if (idb.sql.prepare('SELECT former FROM releases WHERE pid = ?').get(ps[i].id)?.former !== ids[i]) bad(`no release note for fan ${i}`);
+  if ((await lib.sweepInactive(idb, now)).length || (await lib.sweepInactive(idb, now + 1000)).length) bad('the sweep must run once a day');
+  if (idb.sql.prepare('SELECT COUNT(*) n FROM releases').get().n !== 3) bad('a second sweep wrote release notes');
+  const row = idb.sql.prepare('SELECT ratings FROM players WHERE pid = ?').get(ps[1].id); if (JSON.parse(row.ratings).ovr !== ps[1].ratings.ovr) bad('a released player must keep his ratings');
+  is('the old agent reclaims after the sweep', await post(lib.reclaim, ks[1], { id: ps[1].id }), 200);
+  /* #628 part 3: a stranger is refused inside RECLAIM_DAYS and may take the player after it */
+  is('a stranger inside RECLAIM_DAYS', await post(lib.reclaim, ks[0], { id: ps[2].id }), 403, 'notyours');
+  idb.sql.prepare('UPDATE releases SET released_at = ? WHERE pid = ?').run(Date.now() - 29 * DMS, ps[2].id);
+  is('a stranger on day 29', await post(lib.reclaim, ks[0], { id: ps[2].id }), 403, 'notyours');
+  idb.sql.prepare('UPDATE releases SET released_at = ? WHERE pid = ?').run(Date.now() - 31 * DMS, ps[2].id);
+  is('a stranger after RECLAIM_DAYS', await post(lib.reclaim, ks[0], { id: ps[2].id }), 200);
+  if (owner(ps[2].id) !== ids[0]) bad('after RECLAIM_DAYS the stranger must own the player');
+  const wasSeen = day => idb.sql.prepare('SELECT day FROM agent_seen WHERE agent_id = ?').get(ids[1])?.day;
+  await call(lib.mine, ienv, { k: ks[1] }); if (wasSeen() !== Math.floor(Date.now() / DMS)) bad('a keyed call must record today as the last seen day');
+  if (JSON.stringify(idb.sql.prepare('PRAGMA table_info(agent_seen)').all().map(c => c.name)) !== '["agent_id","day"]') bad('agent_seen must hold only agent_id and day');
+  const empty = makeDb(); await call(lib.list, { DB: empty }, { url: '/api/freeagents' }); if ((await lib.sweepInactive(empty, now + DMS)).length) bad('a store with only 系統 players must release nobody'); }
+
+/* #438: start place chosen at create (二軍 / 自由市場), stored once on the player, moved either way with POST /api/player/place */
+{ const pdb = makeDb(), penv = { DB: pdb };
+  const post = (h, k, body) => call(h, penv, { method: 'POST', k, body });
+  const [ka, kb] = [key(), key()]; is('register a', await post(lib.register, ka), 201); is('register b', await post(lib.register, kb), 201);
+  const mk = async (k, c) => { for (c.nameDraw = 0; c.nameDraw <= lib.DRAW_CAP; c.nameDraw++) { const r = await post(lib.create, k, c); if (r.status === 201) return r.body.player; } bad('no free name'); return null; };
+  is('create with an unknown place', await post(lib.create, ka, { ...BAT, place: '一軍' }), 400, 'invalid');
+  is('create with a place that is not text', await post(lib.create, ka, { ...BAT, place: 1 }), 400, 'invalid');
+  const pa = await mk(ka, { ...BAT, place: 'free' }), pb = await mk(kb, { ...PIT, place: 'second' });
+  const placeIn = pid => JSON.parse(pdb.sql.prepare('SELECT player FROM players WHERE pid = ?').get(pid).player).place;
+  if (pa?.player?.place !== 'free' || placeIn(pa?.id) !== 'free') bad('a 自由市場 choice is not stored');
+  if (pb?.player?.place !== 'second' || placeIn(pb?.id) !== 'second') bad('a 二軍 choice is not stored');
+  if (placeOf({ system: true }) !== 'free' || placeOf(null) !== 'free') bad('a player with no stored place must count as 自由市場');
+  const before = pdb.sql.prepare('SELECT pid, name, kind, ovr, ratings, created_at, player FROM players WHERE pid = ?').get(pa.id);
+  is('move without a key', await call(lib.place, penv, { method: 'POST', body: { place: 'second' } }), 401, 'key');
+  is('move to an unknown place', await post(lib.place, ka, { place: 'main' }), 400, 'invalid');
+  is('move without a body', await post(lib.place, ka), 400, 'invalid');
+  const kc = key(); await post(lib.register, kc); is('move when the agent has no player', await post(lib.place, kc, { place: 'second' }), 404, 'none');
+  const mv = await post(lib.place, ka, { place: 'second' }); is('move 自由市場 -> 二軍', mv, 200);
+  const after = pdb.sql.prepare('SELECT pid, name, kind, ovr, ratings, created_at, player FROM players WHERE pid = ?').get(pa.id);
+  if (placeIn(pa.id) !== 'second' || (await call(lib.mine, penv, { k: ka })).body?.player?.player?.place !== 'second') bad('the move to 二軍 is not shown');
+  const { place: p0, ...restBefore } = JSON.parse(before.player), { place: p1, ...restAfter } = JSON.parse(after.player);
+  if (JSON.stringify(restBefore) !== JSON.stringify(restAfter) || before.ratings !== after.ratings || before.ovr !== after.ovr || before.name !== after.name || before.created_at !== after.created_at)
+    bad('a move must change nothing but the place');
+  is('move 二軍 -> 自由市場', await post(lib.place, ka, { place: 'free' }), 200); if (placeIn(pa.id) !== 'free') bad('the move back to 自由市場 is not stored');
+  if (placeIn(pb.id) !== 'second') bad("a move changed another agent's player");
+  const listed = (await call(lib.list, penv, { url: '/api/freeagents' })).body?.players || [];
+  for (const p of [pa, pb]) if (listed.filter(x => x.id === p.id).length !== 1) bad(`player ${p.id} must be listed exactly once`); }
 
 if (problems.length) { console.error(`FAILED: ${problems.length} problem(s)`); for (const p of problems) console.error('  ' + p); process.exit(1); }
 console.log(`OK: ${ROUTES.length} routes closed without the binding and on production, caps, one player per agent, unique names, public list of ${total}.`);

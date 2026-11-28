@@ -33,6 +33,13 @@ for(const [id] of EDIT_ELS){const el=$(id);
 let histOn=false;try{histOn=localStorage.getItem('zu_hist')==='1'}catch(e){}
 const histApply=()=>{document.body.classList.toggle('hist',histOn);$('hist').setAttribute('aria-pressed',histOn)};histApply();
 $('hist').onclick=()=>{histOn=!histOn;histApply();try{localStorage.setItem('zu_hist',histOn?'1':'0')}catch(e){}};
+/* #629: scoreboard 顯示/隱藏, kept in this browser (default shown); hidden -> a 44px corner tag with the score brings it back */
+let bugOn=true;try{bugOn=localStorage.getItem('zu_bug')!=='0'}catch(e){}
+const bugTagText=()=>{const t=[0,1].map(i=>{const e=$('bt'+i),n=e&&e.querySelector('.tn'),c=e&&e.querySelector('.sc');return n&&c?n.textContent+' '+c.textContent:null});return t[0]&&t[1]?t.join(' : '):'記分板'};
+const bugApply=()=>{document.body.classList.toggle('nobug',!bugOn);$('sbToggle').setAttribute('aria-pressed',bugOn);$('sbToggle').textContent='記分板：'+(bugOn?'顯示':'隱藏');$('bugTag').hidden=bugOn;if(!bugOn)$('bugTag').textContent=bugTagText()};
+const bugSet=v=>{bugOn=v;bugApply();try{localStorage.setItem('zu_bug',v?'1':'0')}catch(e){}};
+$('sbToggle').onclick=()=>bugSet(!bugOn);$('bugTag').onclick=()=>bugSet(true);
+new MutationObserver(()=>{if(!bugOn)$('bugTag').textContent=bugTagText()}).observe($('bug'),{childList:true,subtree:true});bugApply();
 $('editUI').onclick=()=>setEditing(true);$('edDone').onclick=()=>setEditing(false);
 $('edMinus').onclick=()=>scaleSel(-.1);$('edPlus').onclick=()=>scaleSel(.1);
 $('edOne').onclick=()=>{delete L[selId];applyEl(selId);bugPlace();layoutSave();drawLabels()};

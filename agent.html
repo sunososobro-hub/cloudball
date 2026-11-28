@@ -16,6 +16,7 @@
 <header class="top">
   <a class="back" href="guide.html">← 球隊與球員介紹</a>
   <h1>自創球員</h1>
+  <p class="agent-entry dev-only"><a href="guild.html">創團：當領隊兼總教練</a></p>
   <p class="lead">開發版：每個人能建立一位自己的自由球員，做他的經紀人。帳號目前只存在這個瀏覽器裡（沒有密碼、沒有信箱），清掉瀏覽器資料就找不回來。</p>
 </header>
 <p class="prod-note" id="agentClosed">還沒開放。</p>
@@ -25,7 +26,10 @@
     <svg class="stage-sil" viewBox="0 0 60 110" aria-hidden="true"><circle cx="30" cy="12" r="8"/><path d="M18 24h24l5 34-7 2-3-18v26l5 40h-9l-3-34-3 34h-9l5-40V42l-3 18-7-2z"/></svg>
     <p class="stage-note" role="status" hidden></p>
     <p class="stage-cap" id="stageCap"></p>
-    <div class="stage-ctl"><button type="button" class="stage-turn">轉身看背面</button><button type="button" class="stage-zoom">看全身</button></div>
+    <div class="stage-bar">
+      <div class="stage-kit" role="group" aria-label="球衣和帽子"></div>
+      <div class="stage-ctl"><button type="button" class="stage-turn">轉身看背面</button><button type="button" class="stage-zoom">看全身</button></div>
+    </div>
   </div>
   <p id="stageNeed" class="left need" hidden></p>
   <section id="maker" hidden></section>

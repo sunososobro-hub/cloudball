@@ -126,6 +126,13 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
   if (!played) bad('3D field played nothing');
   const fb = await F3.openField({ width: 360, height: 270 }, () => { throw new Error('no three'); }); if (fb !== null) bad('openField with no 3D and no 2D context must return null');
   if (F3.CAM.pos[2] >= 0 || F3.TRAIL_N < 2) bad('3D camera must sit behind home plate');
+  /* #563 part 3: broadcast camera: low behind the plate on the pitch, eases wider and toward a ball in play, always behind the plate and looking at the field */
+  { const A = F3.camShot(0, null), B = F3.camShot(1, { x: 30, z: 90 }), C = F3.camShot(1, { x: -300, z: 900 }), D = F3.camShot(-5, { x: 9, z: 9 }), E = F3.camShot(9, null);
+    if (A.fov !== F3.CAM.fov || A.pos.join() !== F3.CAM.pos.join() || A.look.join() !== F3.CAM.look.join()) bad('camShot(0) must be the pitch shot');
+    if (D.fov !== A.fov || D.look.join() !== A.look.join()) bad('camShot before the pitch ends must stay the pitch shot');
+    if (!(B.fov > A.fov) || !(B.pos[1] > A.pos[1]) || !(B.look[0] > 0)) bad('camShot with a ball in play must widen, rise and lean toward the ball');
+    if (E.fov !== F3.CAM_HIT.fov || C.look[2] > F3.CAM_REACH * F3.CAM_LEAN + 12 + 1e-9) bad('camShot hit shot / reach limit');
+    for (const c of [A, B, C, E]) if (!(c.pos[2] < 0) || !(c.look[2] > 0)) bad('camShot must sit behind the plate looking at the field'); }
   /* #563 part 1: with the render/ player module the bodies are makePlayer bodies (8 fielders + catcher + batter, runners later), facing the plate; a throwing makePlayer falls back */
   { const calls = [], PL = { makePlayer: o => { calls.push(o); return { g: fake('g') }; } };
     const f2 = await F3.createField3D(canvas, THREE, { PL }); if (!f2) bad('createField3D with PL must still return a field');
@@ -133,22 +140,55 @@ if (guessSet('box', 3, 3).length !== 4 || guessSet('row', 2, 2).length !== 3 || 
     if (calls.filter(o => o.role === 'batter').length !== 1 || calls.filter(o => o.glove).length !== 9) bad('3D field: one batter, nine gloves expected');
     const o = Gm.createGame({ rnd: seeded(9) }); let k = 0, last = null; while (!o.S.over && k++ < 12) last = o.pitch(o.userBats() ? { mode: 'one', r: 1, c: 1, steal: false, app: 'mid' } : { pt: 'fb', r: 2, c: 2, shift: 'N' }), f2.play(last), f2.skip();
     if (Math.abs(F3.faceYaw(0, 18, 0, 0)) !== Math.PI || F3.faceYaw(0, 0, 0, 5) !== 0 || F3.faceYaw(1.3, .2, 0, .2) >= 0) bad('faceYaw must turn a +z-front body toward the target');
+    /* #563 part 2: pitcher windup + batter swing from the mocap clips. Pure timing: the windup runs before release (t < 0), release lands on the clip's release frame,
+       the swing reaches contact when the ball reaches the plate. Then a real frame loop: the pitcher and the batter get setMocap, nobody else, and skip() lets go. */
+    { const A = F3.pitchAct(-F3.WINDUP_S - .5), B = F3.pitchAct(-.5), C = F3.pitchAct(0), D = F3.pitchAct(5);
+      if (A.w !== 0 || !(B.w > .99) || Math.abs(C.ct - F3.PM.rel) > 1e-9 || D.w !== 0 || D.ct > F3.PM.end + 1e-9) bad('pitchAct: windup weight / release time');
+      const S0 = F3.swingAct(F.PITCH_S - 2, false), S1 = F3.swingAct(F.PITCH_S, false), S2 = F3.swingAct(F.PITCH_S + 2, false), H = F3.swingAct(F.PITCH_S + .4, true), M = F3.swingAct(F.PITCH_S + .4, false);
+      if (S0.w !== 0 || !(S1.w > .99) || Math.abs(S1.ct - F3.SW.contact) > 1e-9 || S2.w !== 0 || !(H.w < M.w)) bad('swingAct: swing weight / contact time');
+      if (!F3.swings({ res: { kind: 'whiff' } }) || F3.swings({ res: { kind: 'called' } }) || F3.swings({ res: { kind: 'ball' } }) || F3.swings({ res: { kind: 'bunt' } }) || !F3.swings({ res: { kind: 'x' }, play: { kind: 'single' } }) || F3.swings({ res: {}, play: { bunt: true } })) bad('swings: which results swing');
+      { const a0 = F3.buntAct(F.PITCH_S - F3.BUNT_LEAD - .5), a1 = F3.buntAct(F.PITCH_S), a2 = F3.buntAct(F.PITCH_S + 2);
+        if (a0.w !== 0 || !(a1.w > .99) || a2.w !== 0 || !(a1.ct > a0.ct)) bad('buntAct: weight in at the square-around, full at contact, out after');
+        if (!F3.bunts({ res: { kind: 'bunt' } }) || !F3.bunts({ res: { kind: 'foulBunt' } }) || !F3.bunts({ res: {}, play: { bunt: true } }) || F3.bunts({ res: { kind: 'whiff' } }) || F3.bunts({ res: { kind: 'contact' }, play: { kind: 'single' } })) bad('bunts: which results bunt'); }
+      const rafs = [], calls = []; const raf0 = globalThis.requestAnimationFrame; globalThis.requestAnimationFrame = fn => { rafs.push(fn); return rafs.length; };
+      const mk = () => { const fg = fake('g'); const o = { g: fg, mirrored: true, setMocap: (...a) => calls.push([o, ...a]) }; return o; }, bodies = [];
+      const PL2 = { makePlayer: o => { const b = mk(); b.opts = o; bodies.push(b); return b; }, loadClip: async u => ({ url: u }) };
+      const f4 = await F3.createField3D(canvas, THREE, { PL: PL2 }); const out = { res: { kind: 'whiff' }, play: null, paEnd: false };
+      f4.play(out); await new Promise(r => setTimeout(r, 5)); const now0 = performance.now();
+      f4.play(out); await new Promise(r => setTimeout(r, 5));
+      const cb = rafs[rafs.length - 1]; cb(performance.now() + 100); cb(performance.now() + 1100);
+      const who = new Set(calls.filter(c => c[1]).map(c => c[0])); if (who.size !== 2) bad('3D acts: expected the pitcher and the batter to get a clip, got ' + who.size);
+      if (![...who].some(b => b.opts.role === 'batter')) bad('3D acts: the batter must swing');
+      f4.skip(); if (!calls.slice(-2).every(c => c[1] === null)) bad('3D acts: skip() must let the clips go');
+      void now0; globalThis.requestAnimationFrame = raf0; }
+    /* #563 part 4: the fan's own player: his /api/freeagents row becomes the batter (bat practice) or the pitcher (pitch practice) with his body, height and look;
+       the other body goes back to its stock look; no row = his id look; no id = nothing changes. */
+    { const row = { id: 'fa9', kind: 'bat', player: { id: 'fa9', hand: 'R', body: { belly: .5 }, ht: 1.9, look: { head: 3, skin: 0, hair: 2 } }, ratings: {} };
+      const sp = F3.meSpecOf([{ id: 'x', player: { id: 'x' } }, row], 'fa9'), seen = [], hop = p => { seen.push(p); return 77; };
+      if (!sp || sp.id !== 'fa9' || sp.ht !== 1.9 || sp.head !== 3 || sp.hair !== 2) bad('meSpecOf must find his row by id: ' + JSON.stringify(sp));
+      if (F3.meSpecOf([row], 'nope') !== null || F3.meSpecOf(null, 'fa9') !== null || F3.meSpecOf([row], '') !== null) bad('meSpecOf without his row must be null');
+      const a = F3.meBuild(sp, hop); if (!a || a[0].belly !== .5 || a[1] !== 1.9 || a[2] !== 77 || seen[0].id !== 'fa9' || seen[0].look.head !== 3 || seen[0].look.hair !== 2) bad('meBuild: body / height / head index ' + JSON.stringify(a));
+      const b = F3.meBuild({ id: 'p1' }, hop); if (!b || b[0] !== 'normal' || b[1] !== undefined || b[2] !== 77) bad('meBuild with only an id must give his id look');
+      if (F3.meBuild(null, hop) !== null || F3.meBuild({ id: '' }, hop) !== null || F3.meBuild(sp, null) !== null) bad('meBuild without an id or headOfPlayer must be null');
+      const built = []; const mk2 = o => { const b2 = { g: fake('g'), opts: o, buildArgs: ['normal', undefined, 0] }; b2.setBuild = (...x) => { b2.buildArgs = x; built.push([b2, x]); }; return b2; }, bod = [];
+      const f5 = await F3.createField3D(canvas, THREE, { PL: { makePlayer: o => { const x = mk2(o); bod.push(x); return x; }, headOfPlayer: hop } });
+      const bat = bod.find(x => x.opts.role === 'batter'), pit = bod[0];
+      f5.setMe(sp, 'bat'); if (bat.buildArgs[2] !== 77 || bat.buildArgs[1] !== 1.9 || pit.buildArgs[2] !== 0) bad('setMe bat: the batter must wear his look, the pitcher stays stock');
+      f5.setMe(sp, 'pitch'); if (pit.buildArgs[2] !== 77 || bat.buildArgs[2] !== 0 || bat.buildArgs[0] !== 'normal') bad('setMe pitch: the pitcher wears his look, the batter goes back to stock');
+      if (built.some(([x]) => x !== bat && x !== pit)) bad('setMe must only touch the batter and the pitcher');
+      { const M = await import('../ui/baseball9/me.js'), asked = [], pages = [{ players: [{ id: 'a', player: { id: 'a' } }], more: true, next: '5~a' }, { players: [row], more: false }];
+        const get = async u => { asked.push(u); const pg = new URL(u, 'http://x').searchParams.get('after') ? 1 : 0; return { ok: true, json: async () => pages[pg] }; };
+        const got = await M.findMe('fa9', get); if (!got || got.head !== 3 || asked.length !== 2) bad('findMe must page /api/freeagents until his row: ' + asked.join());
+        if (await M.findMe('zz', get) !== null || await M.findMe('fa9', async () => { throw new Error('offline'); }) !== null || await M.findMe('fa9', async () => ({ ok: false })) !== null) bad('findMe: no row / offline / error -> null'); }
+      { /* #563 part 6: the batter who runs after a hit wears his look (bat side only); teammates on base stay stock */
+        const og = Gm.createGame({ rnd: seeded(9) }); let hit = null, k2 = 0; while (!og.S.over && k2++ < 80 && !hit) { const o2 = og.pitch(og.userBats() ? { mode: 'one', r: 1 + k2 % 3, c: 1 + (k2 >> 1) % 3, steal: false, app: 'mid' } : { pt: 'fb', r: k2 % 5, c: (k2 >> 1) % 5, shift: 'N' }); if (o2.play && o2.play.runners.some(r => r.bat) && og.userBats() !== undefined) hit = o2; }
+        if (!hit) bad('no batted ball in 80 pitches to test the runner look');
+        else { const n0 = bod.length, hits = () => bod.slice(n0).filter(x => x.buildArgs[2] === 77).length;
+          f5.setMe(sp, 'bat'); f5.play(hit); const mine = hits(), runnersBuilt = bod.length - n0; f5.skip();
+          if (mine !== 1 || runnersBuilt < 1) bad(`bat side: exactly the batter-runner wears his look (${mine} of ${runnersBuilt})`);
+          const n1 = bod.length; f5.setMe(sp, 'pitch'); f5.play(hit); if (bod.slice(n1).some(x => x.buildArgs[2] === 77)) bad('pitch side: no runner wears his look'); f5.skip(); } }
+      f5.setMe(null, 'bat'); if (pit.buildArgs[2] !== 0 || bat.buildArgs[2] !== 0) bad('setMe(null) must leave both stock'); }
     const f3 = await F3.createField3D(canvas, THREE, { PL: { makePlayer() { throw new Error('no body'); } } }); if (!f3) bad('a throwing makePlayer must fall back to the low-poly figures'); } }
-/* #563 part 2: pitch / swing acts. Pure timing: a swing reaches the clip's contact frame on the pitch's arrival, a take leaves the batter alone, the pitcher winds up before the release */
-{ const A = await import('../ui/baseball9/acts.js'), F = await import('../ui/baseball9/field.js');
-  const k = (kind, o = {}) => A.actOf({ res: { kind }, ...o });
-  if (k('whiff') !== 'swing' || k('foul') !== 'swing' || k('contact') !== 'swing' || k('popup') !== 'swing') bad('acts: whiff / foul / contact / popup must swing');
-  if (k('called') !== 'take' || k('ball') !== 'take' || k('bunt') !== 'bunt' || A.actOf({ res: {}, play: { bunt: true, ball: [{}] } }) !== 'bunt' || A.actOf({ res: {}, play: { ball: [{ t: 0 }] } }) !== 'swing') bad('acts: take / bunt / batted-ball mapping');
-  const C = A.SWING_CLIP, P = A.PITCH_CLIP, c = A.batterAt('swing', F.PITCH_S);
-  if (Math.abs(c.t - C.contact) > 1e-9 || c.w < .99) bad('acts: swing must be at the contact frame, full weight, when the pitch arrives');
-  if (A.batterAt('take', F.PITCH_S).w !== 0 || A.batterAt('bunt', F.PITCH_S).w !== 0) bad('acts: take and bunt must not play the swing clip');
-  if (A.batterAt('swing', -A.LEAD_S).w !== 0 || A.batterAt('swing', F.PITCH_S + 2).w !== 0) bad('acts: swing weight must be 0 before it starts and after it ends');
-  const p0 = A.pitcherAt(0), pm = A.pitcherAt(-A.LEAD_S + .4);
-  if (Math.abs(p0.t - P.release) > 1e-9 || p0.w < .99) bad('acts: the pitcher must be at the release frame when the ball leaves');
-  if (!(pm.t > P.start && pm.t < P.release && pm.w > 0)) bad('acts: the pitcher must wind up before the release');
-  if (A.pitcherAt(-A.LEAD_S - 1).w !== 0 || A.pitcherAt(P.outS[1] + 1).w !== 0) bad('acts: pitcher weight must be 0 outside the act');
-  let prev = -1; for (let t = -A.LEAD_S; t <= 3; t += .05) { const q = A.pitcherAt(t).t; if (q < prev - 1e-9) bad('acts: pitcher clip time must not run backwards'); prev = q; }
-  prev = -1; for (let t = F.PITCH_S - C.preS; t <= 3; t += .05) { const q = A.batterAt('swing', t).t; if (q < prev - 1e-9) bad('acts: swing clip time must not run backwards'); prev = q; } }
 function batBallRun(B, s, q) { return B.batBall(q, { app: ['pull', 'mid', 'push'][s % 3], pow: s % 4, rnd: seeded(s * 17) }); }
 if (problems.length) { console.error('baseball9.check FAIL\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log('baseball9.check ok (60 seeds, both sides, tiers', [...tiers].join('/') + ')');

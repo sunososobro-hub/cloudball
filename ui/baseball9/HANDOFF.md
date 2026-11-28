@@ -11,10 +11,12 @@
 - #430 part 2: `runnerAt` + runner dots in `field.js` from `out.play.runners` (batter gold, runners blue, out = red at the end); pure part tested.
 - #430 part 3: the practice screens (bat + pitch) show the same field picture (`#pfield`, skip, 1x/3x): pitch to the plate + a text beat (安打/被接住/揮空/好球/壞球/界外); practice has no batted-ball points, so no ball flight.
 - #543 part 2: screenshot `ui/baseball9-3d-390.jpg` of the 3D 三局比賽 field (390px, headless Chromium, software WebGL2 via the WebGPURenderer fallback; three.js 0.186.1 served locally). Not looked at on a real GPU.
+- #563 part 3: `CAM` = broadcast angle low behind the plate (fov 42); `camShot(w, p)` (pure) eases to a wider, higher shot leaning toward the ball in play (`CAM_HIT`, `CAM_EASE_S`), reset on skip. Practice screens already use the same `openField`. Not seen on a real GPU.
+- #563 part 4: the fan's own player (`?player=<id>`): `me.js` `findMe` reads his `/api/freeagents` row (read-only), `field3d.js` `meSpecOf` / `meBuild` -> `setMe(spec, side)` dresses the batter (bat practice) or pitcher (pitch practice) with his body, height and look (headOfPlayer); the other body back to stock. Runners and the 三局比賽 screen still stock. Not seen on a real GPU.
+- #563 part 5: bunt act: `bunts(out)` / `buntAct(t)` in `field3d.js` play render/'s bunt clip (`render/bunt_clip.js`, same square-around timing as the broadcast) on the 3D batter for a bunt, a foul bunt or a bunted ball in play. Picture only. Not seen on a real GPU.
+- #563 part 6: the fan's look (`?player=<id>`) on the batter-runner after his hit (`field3d.js` keeps `meArgs`/`meSide`) and in the 三局比賽 screen (`gamescreen.js` calls `setMe` per pitch: bat side -> batter / batter-runner, pitch side -> pitcher; `me.js` `loadMe` = one lookup per page). Teammates on base stay stock. Picture only. Not seen on a real GPU.
 ## Next
 - Link the page from the player/agent pages once the owner says where (not linked yet; only `guide.html` links back).
-- #430 part 3: the two practice screens (screen.js) still have no picture.
 ## Traps
 - Local only: no backend, no ability change; a created player's result may only feed #369's training bonus number.
 - In bat practice a "hit" is contact with q >= HIT_Q (or a bunt); the ball physics decide base hits only in part 3.
-- #563 part 2: `acts.js` (pure) = which mocap act (pitch / swing) and its clip time + weight; `field3d.js` drives the pitcher and batter with them (script time starts at -LEAD_S for the wind-up), bat follows the hands. Not seen on a real GPU; bunt and take keep the still stance; camera and practice modes = part 3.

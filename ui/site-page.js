@@ -33,10 +33,23 @@ async function releaseMine(act, msg) {
   myId = '';
   if (act === 'switch') location.href = 'agent.html'; else draw();
 }
-$('view').addEventListener('click', e => { const b = e.target.closest && e.target.closest('button[data-act]'); return b ? releaseMine(b.dataset.act, $('view').querySelector('.switch-msg')) : undefined; });
+/* #438: move the created player between 二軍 and 自由市場 (one POST; only the place changes, then the tab is drawn again) */
+async function movePlace(to, msg) {
+  let key = null; try { key = localStorage.getItem(AGENT_KEY); } catch (e) { /* storage blocked */ }
+  const say = t => { msg.textContent = t; msg.hidden = !t; };
+  if (!key) return say('這個瀏覽器沒有你的帳號鑰匙。');
+  let b = null; try { const res = await fetch('/api/player/place', { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ place: to }), cache: 'no-store' }); b = await res.json().catch(() => null); } catch (e) { /* offline */ }
+  if (!b || !b.ok) return say('還沒開放，或現在連不上。');
+  const p = data.players[myId]; if (p) { p.place = b.place; p.tier = b.place === 'second' ? 2 : 3; } draw();
+}
+$('view').addEventListener('click', e => { const m = e.target.closest && e.target.closest('button[data-place]'); if (m && m.dataset.place) return movePlace(m.dataset.place, $('view').querySelector('.place-msg'));
+  const b = e.target.closest && e.target.closest('button[data-act]'); return b ? releaseMine(b.dataset.act, $('view').querySelector('.switch-msg')) : undefined; });
 addEventListener('hashchange', draw);
 draw();
-/* created players (#399): the D1 list, a few pages at most; no answer (closed, offline, no API on this host) = no rows, no error screen */
-const FA_PAGES = 5;
-async function created() { const rows = []; for (let pg = 0; pg < FA_PAGES; pg++) { const r = await get(`/api/freeagents?sort=new&page=${pg}`); if (!r || !r.ok || !Array.isArray(r.players)) break; rows.push(...r.players); if (!r.more) break; } return rows; }
-Promise.all([...Object.values(DATA_FILES).map(get), created(), get(TRAIN_FILE)]).then(([teams, players, games, rows, train]) => { data = mergeCreated(combine({ teams, players, games }), rows); trainTable = train; draw(); });
+/* created players (#399): the D1 list, ONE call per load (#806: D1 bills the rows read; the newest PAGE_SIZE players show); no answer (closed, offline, no API on this host) = no rows, no error screen */
+const FA_PAGES = 1;
+async function created() { const rows = []; let after = ''; for (let pg = 0; pg < FA_PAGES; pg++) { const r = await get(`/api/freeagents?sort=new${after}`); if (!r || !r.ok || !Array.isArray(r.players)) break; rows.push(...r.players); if (!r.more || !r.next) break; after = `&after=${encodeURIComponent(r.next)}`; } return rows; }
+const KEYS = Object.keys(DATA_FILES); /* teams, players, games, farm (#600 part 3: 二軍 replays), trial (#743: 試跑 season) */
+/* today's date in Taipei (the league's night), for the 試跑 season panel */
+const taipeiDay = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+Promise.all([...KEYS.map(k => get(DATA_FILES[k])), created(), get(TRAIN_FILE)]).then(r => { data = mergeCreated(combine(Object.fromEntries(KEYS.map((k, i) => [k, r[i]]))), r[KEYS.length]); data.today = taipeiDay(); data.hour = new Date(Date.now() + 8 * 3600000).getUTCHours(); trainTable = r[KEYS.length + 1]; draw(); });

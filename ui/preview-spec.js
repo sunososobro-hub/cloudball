@@ -3,6 +3,7 @@
  * (specOfChoice) or from a roster row of the free-agent list (specOfRow), so what the fan sees is what is saved.
  * Heights are drawn at creation: the preview of a choice shows the middle of the build's range. */
 import { CREATE } from '../league/freeagents.js';
+import { TEAMS } from '../league/teams.js';
 
 /* the game snaps body weights to quarter steps so geometry is cached (render/game.js qBody); the preview does the same */
 const SNAP = 4;
@@ -45,3 +46,23 @@ export const frameOf = (zoom, ht) => (zoom === 'full' ? { h: FRAME_FULL_H, w: FR
 
 /* two specs that draw the same body (used to skip needless work) */
 export const sameSpec = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
+
+/* #595 part 1: kit buttons (the four teams + free agent) and the cap toggle. The colours are not a table here: a team kit is the game's ROAD kit
+   from render/players.js (kitInk + KIT_ROAD_PANTS, socks and cap in the team colour, as setKit does), the free-agent kit is the old neutral grey.
+   `kit` and `cap` ride in the spec, so a different kit or cap is a different preview. */
+export const FREE_KIT = { jersey: 0x7d8794, pants: 0xe6e6e6, sock: 0x7d8794, cap: 0x7d8794 };
+export const KITS = [{ id: 'free', label: '自由球員' }, ...TEAMS.map(t => ({ id: t.id, label: t.short }))];
+/* #595 part 2: pose buttons. 'stand' is the preview's own standing pose (#439 bat up); 'bat' is the game's batting stance: the mocap swing clip
+   render/game.js plays (SWING_CLIP_URL) held at its stance frame (game.js SW_START, the clip time swTime() holds before the load). A batter-only pose.
+   A fielding ready stance is not here: render/ has no such pose yet (fielders stand until they move), so it is skipped, never invented. */
+export const POSES = [{ id: 'stand', label: '站姿' }, { id: 'bat', label: '打擊預備' }];
+export const POSE_CLIPS = { bat: { url: 'assets/mocap/swing_124_07.json', t: 1.6 } };
+export const DEFAULT_DRESS = { kit: 'free', cap: true, pose: 'stand' };
+const poseOf = (spec, d) => (spec && spec.kind === 'bat' && POSES.some(p => p.id === (d && d.pose)) ? d.pose : DEFAULT_DRESS.pose);
+export const withDress = (spec, d) => ({ ...spec, kit: KITS.some(k => k.id === (d && d.kit)) ? d.kit : DEFAULT_DRESS.kit, cap: !d || d.cap !== false, pose: poseOf(spec, d) });
+/* PL = render/players.js (kitInk, KIT_ROAD_PANTS); returns hex colours for jersey, pants, sock, cap */
+export function kitPaint(id, PL) {
+  const t = TEAMS.find(x => x.id === id); if (!t) return { ...FREE_KIT };
+  const ink = PL.kitInk(t, false);
+  return { jersey: ink.jersey, pants: PL.KIT_ROAD_PANTS, sock: t.color, cap: t.color };
+}

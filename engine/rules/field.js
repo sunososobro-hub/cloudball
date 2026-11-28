@@ -72,10 +72,10 @@ export function tagLeadAt(u, tagUpAt) {
 }
 
 /* When a base runner starts and arrives (seconds into the pitch frame).
- * start: break time override (#23: a steal's jump). kind: 'inplay' | 'steal' | 'walk' | 'wp' | 'bk' | 'trot' (home run: 'inplay' start, HR_TROT_SPEED). tagUpAt: earliest legal start on a caught fly (or null). */
-export function runnerTimeline(from, to, { kind, tagUpAt = null, slide = false, start = null }) {
+ * start: break time override (#23: a steal's jump). pace: multiplies RUN_SPEED on 'inplay' / 'wp' runs (#794, runPace; 1 = average). kind: 'inplay' | 'steal' | 'walk' | 'wp' | 'bk' | 'trot' (home run: 'inplay' start, HR_TROT_SPEED). tagUpAt: earliest legal start on a caught fly (or null). */
+export function runnerTimeline(from, to, { kind, tagUpAt = null, slide = false, start = null, pace = 1 }) {
   const startRun = start != null ? start : kind === 'inplay' || kind === 'trot' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : kind === 'wp' ? K.ARRIVE + K.WP_BREAK : kind === 'bk' ? K.BK_CALL_AT + K.WALK_DELAY : K.ARRIVE + K.WALK_DELAY;
-  const spd = kind === 'walk' ? K.WALK_SPEED : kind === 'trot' ? K.HR_TROT_SPEED : kind === 'steal' ? K.STEAL_SPEED : K.RUN_SPEED;   /* 'wp' (wild pitch) runs at full speed */
+  const spd = kind === 'walk' ? K.WALK_SPEED : kind === 'trot' ? K.HR_TROT_SPEED : kind === 'steal' ? K.STEAL_SPEED : K.RUN_SPEED * pace;   /* 'wp' (wild pitch) runs at full speed; pace (#794): the batter-runner's own speed, runPace */
   const st0 = from > 0 && tagUpAt != null ? tagUpAt : startRun;
   const tag = from > 0 && tagUpAt != null, lead = from > 0 ? (tag ? K.LEAD_STAND : leadAt(st0)) : 0;
   const total = (to - from) * BASE_PATH;
@@ -102,3 +102,6 @@ export function coverArrival(from, spot, react, speed) {
   const d = dist(from, spot);
   return d < K.COVER_NEAR ? 0 : react + runTime(d, speed);
 }
+
+/* Running pace of a batter-runner from his `spd` (#794; missing = 1): RUN_SPEED * this on his run out of the box. */
+export const runPace = spd => clamp(1 + ((spd || 1) - 1) * K.RUN_PACE_PER_SPD, ...K.RUN_PACE_RANGE);

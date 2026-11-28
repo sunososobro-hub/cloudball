@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CREATE, makePlayer, validateCreate } from '../league/freeagents.js';
-import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf } from '../ui/preview-spec.js';
+import { specOfChoice, specOfRow, sameSpec, snapBody, LOOK_CHIPS, LOOK_LEGEND, KITS, FREE_KIT, POSES, POSE_CLIPS, withDress, kitPaint, PREVIEW_OPEN, yawOfSide, flipSide, flipZoom, frameOf } from '../ui/preview-spec.js';
 
 const problems = [], bad = m => problems.push(m);
 /* points come from CREATE, so a change of the budget or the ability list never breaks this guard */
@@ -63,6 +63,45 @@ for (const [k, labels] of Object.entries(LOOK_CHIPS)) {
   for (let i = 0; i < specs.length; i++) for (let j = i + 1; j < specs.length; j++) if (sameSpec(specs[i], specs[j])) bad(`look.${k} ${i} and ${j} give the same preview spec`);
 }
 if (PL) for (const v of LOOK_CHIPS.hair.keys()) if (PL.gearOf(PL.headOfPlayer({ id: 'X1', look: { head: 0, skin: 0, hair: v } })).hair !== v) bad(`hair chip ${v}: the game draws another hair colour`);
+
+/* #595 part 1: four team kits + free agent, and a cap toggle. Colours are the game's road kit from render/players.js (no table here); every kit and
+   the cap state give a different preview spec, and every kit paints jersey, pants, socks and cap */
+{
+  const ids = KITS.map(k => k.id), teamIds = ids.filter(i => i !== 'free');
+  if (ids[0] !== 'free' || teamIds.length !== 4) bad(`kit buttons must be free agent + 4 teams, got ${ids}`);
+  if (new Set(KITS.map(k => k.label)).size !== KITS.length) bad('two kit buttons share a label');
+  const b0 = specOfChoice(base), ds = KITS.map(k => withDress(b0, { kit: k.id, cap: true }));
+  for (let i = 0; i < ds.length; i++) for (let j = i + 1; j < ds.length; j++) if (sameSpec(ds[i], ds[j])) bad(`kits ${ids[i]} and ${ids[j]} give the same preview spec`);
+  if (sameSpec(withDress(b0, { kit: 'free', cap: true }), withDress(b0, { kit: 'free', cap: false }))) bad('cap on/off gives the same preview spec');
+  if (withDress(b0, {}).kit !== 'free' || withDress(b0, { kit: 'nope' }).kit !== 'free' || withDress(b0, {}).cap !== true) bad('default dress must be the free-agent kit with the cap on');
+  if (JSON.stringify(withDress(b0, { kit: 'free', cap: true }).body) !== JSON.stringify(b0.body)) bad('dress must not change the body');
+  if (PL) {
+    const pa = KITS.map(k => kitPaint(k.id, PL));
+    if (JSON.stringify(pa[0]) !== JSON.stringify(FREE_KIT)) bad('the free-agent kit must be the neutral grey');
+    for (let i = 0; i < pa.length; i++) for (let j = i + 1; j < pa.length; j++) for (const part of ['jersey', 'sock', 'cap']) if (pa[i][part] === pa[j][part]) bad(`kits ${ids[i]} and ${ids[j]} share the ${part} colour`);
+    for (const [i, p] of pa.entries()) for (const part of ['jersey', 'pants', 'sock', 'cap']) if (!Number.isInteger(p[part]) || p[part] < 0 || p[part] > 0xffffff) bad(`kit ${ids[i]}: ${part} is not a colour`);
+    for (const p of pa.slice(1)) if (p.pants === FREE_KIT.pants) bad('a team kit must change the pants too');
+  }
+}
+
+/* #595 part 2: pose buttons. Each pose is a different preview spec for a batter; a pitcher stays in the stand pose (batting stance is batter-only);
+   the batting stance is the game's swing clip (a real file under the ~100 KB budget) held at a clip time inside the clip, decoded by render/players.js */
+{
+  const b0 = specOfChoice(base), ids = POSES.map(p => p.id);
+  if (ids[0] !== 'stand' || !ids.includes('bat')) bad(`pose buttons must start with stand and include the batting stance, got ${ids}`);
+  if (new Set(POSES.map(p => p.label)).size !== POSES.length) bad('two pose buttons share a label');
+  const ps = ids.map(id => withDress(b0, { kit: 'free', cap: true, pose: id }));
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) if (sameSpec(ps[i], ps[j])) bad(`poses ${ids[i]} and ${ids[j]} give the same preview spec`);
+  if (withDress(b0, {}).pose !== 'stand' || withDress(b0, { pose: 'nope' }).pose !== 'stand') bad('default and unknown pose must be stand');
+  if (withDress(specOfChoice(pit), { pose: 'bat' }).pose !== 'stand') bad('a pitcher must not take the batting stance');
+  if (JSON.stringify(withDress(b0, { pose: 'bat' }).body) !== JSON.stringify(b0.body)) bad('pose must not change the body');
+  for (const id of ids.filter(i => i !== 'stand')) {
+    const P = POSE_CLIPS[id]; if (!P) { bad(`pose ${id}: no clip`); continue; }
+    let raw = null; try { raw = readFileSync(P.url); } catch { bad(`pose ${id}: ${P.url} missing`); continue; }
+    if (raw.length > 100 * 1024) bad(`pose ${id}: ${P.url} is ${raw.length} bytes, over the ~100 KB extra download`);
+    if (PL) { try { const c = PL.decodeClip(JSON.parse(raw)); if (!(P.t >= 0 && P.t <= c.dur)) bad(`pose ${id}: clip time ${P.t} outside the clip (0..${c.dur})`); } catch (e) { bad(`pose ${id}: clip does not decode: ${e && e.message}`); } }
+  }
+}
 
 /* #441 part 3: opens from the front with a close-up of the head; the turn button flips front/back; the head frame follows the height */
 if (PREVIEW_OPEN.side !== 'front' || PREVIEW_OPEN.zoom !== 'close' || yawOfSide(PREVIEW_OPEN.side) !== 0) bad('the preview must open from the front (yaw 0) with a head close-up');

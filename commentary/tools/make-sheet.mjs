@@ -26,7 +26,12 @@
  * game facts (lineup intros) come back whenever those people are in that spot again; the rest
  * belong to this game. Text rules only (names from league/, numerals 二-十 before 局/分/支/...).
  *
+ * Bank (#604): `--bank` instead of a script writes commentary/audio/bank.tts.json, one row per distinct clip id of
+ * the name-free bank (clips.js bankClips of lines.json), `ctx: "neutral"` on every row (a clip fits any game).
+ * Bank lines carry no emotion, so every row has the default tone.
+ *
  * Usage: node commentary/tools/make-sheet.mjs commentary/scripts/<name>.json [--check] [--audio <dir>]
+ *        node commentary/tools/make-sheet.mjs --bank [--check]   (writes commentary/audio/bank.tts.json)
  *   writes commentary/scripts/<name>.tts.json
  *   --check        write nothing; exit 1 if the sheet is missing or out of date
  *   --audio <dir>  also list mp3 files in <dir> that no row uses any more (orphans) */
@@ -48,6 +53,27 @@ const BIG = new Set(['excited', 'thrilled']);
 const args = process.argv.slice(2);
 const file = args[0] && !args[0].startsWith('--') ? args[0] : null;
 const check = args.includes('--check');
+if (args.includes('--bank')) {
+  const { bankClips } = await import('../clips.js');
+  const voices = JSON.parse(readFileSync(path.join(ROOT, 'voices.json'), 'utf8')).roles;
+  const bank = JSON.parse(readFileSync(path.join(ROOT, 'lines.json'), 'utf8'));
+  const tone = EMOTION_TONE[DEFAULT_EMOTION];
+  const bankRows = [...bankClips(bank)].map(([id, c]) => ({ id, role: c.role, tone, text: c.text, emotion: DEFAULT_EMOTION, ctx: 'neutral' }));
+  const bad = [...new Set(bankRows.filter(r => !voices[r.role]).map(r => r.role))];
+  if (bad.length) { console.error(`no voice in voices.json for: ${bad.join(', ')}`); process.exit(1); }
+  const bankOut = path.join(ROOT, 'audio', 'bank.tts.json'), bankText = '[\n' + bankRows.map(r => JSON.stringify(r)).join(',\n') + '\n]\n';
+  const byRole = {};
+  for (const r of bankRows) byRole[r.role] = (byRole[r.role] || 0) + 1;
+  console.log(`bank: ${bankRows.length} distinct clips (${Object.entries(byRole).map(([k, v]) => `${k} ${v}`).join(', ')})`);
+  if (check) {
+    const same = existsSync(bankOut) && readFileSync(bankOut, 'utf8') === bankText;
+    console.log(same ? 'bank.tts.json is up to date' : 'bank.tts.json is missing or out of date: run node commentary/tools/make-sheet.mjs --bank');
+    process.exit(same ? 0 : 1);
+  }
+  writeFileSync(bankOut, bankText);
+  console.log(`wrote ${path.relative(process.cwd(), bankOut)}`);
+  process.exit(0);
+}
 const audioDir = args.includes('--audio') ? args[args.indexOf('--audio') + 1] : null;
 if (!file) { console.error('usage: node commentary/tools/make-sheet.mjs <script.json> [--check] [--audio <dir>]'); process.exit(2); }
 

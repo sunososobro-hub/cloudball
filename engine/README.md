@@ -79,13 +79,13 @@ belongs to), `t` (seconds on the broadcast timeline) and `type`:
 | `runner_placed` | extra-inning runner: `runner`, `base` |
 | `decision` | `id`, `team`, `kind`, `pick`, `pending` |
 | `substitution` | `team`, `role`, `out`, `in` |
-| `mound_visit` | `team`, `pitcher`, `staff` (`pitching`): the pitching coach's visit after a "stay" pick, once per pitcher (frame `VIS`, `MOUND_VISIT_DUR` s) |
+| `mound_visit` | `team`, `pitcher`, `staff` (`pitching` / `catcher`): the pitching coach's visit after a "stay" pick, once per pitcher (frame `VIS`, `MOUND_VISIT_DUR` s); or the catcher's visit with a runner in scoring position (frame `CVIS`, `CATCHER_VISIT_DUR` s, + `catcher`, `left` = visits the team has left); both share `MOUND_VISIT_LIMIT` per team |
 | `pitch` | `pitcher`, `batter`, `lineup`, `pitchType`, `kmh`, `inZone`, `count`, `n` |
 | `swing` | `batter` |
 | `call` | `call`: `ball`, `called_strike`, `swinging_strike`, `foul`, `hit_by_pitch`; `count` after it |
 | `contact` | `ball` (`GB`/`LD`/`FB`/`PU`), `bunt`, `spray`, `dist`, `hang`, `land`, `fielder` |
 | `fielder_action` | `action`: `field`, `catch`, `throw`, `cover`, `receive`, `touch`, `tag`; `fielder`, `base`, `to` |
-| `out` | `reason` (`force`, `tag`, `fly_catch`, `strikeout_swinging`, `strikeout_looking`), `runner`, `base`, `fielder`, `ballAt`, `touchAt`/`fielderAt`, `runnerAt`, `outs` |
+| `out` | `reason` (`force`, `tag`, `fly_catch`, `strikeout_swinging`, `strikeout_looking`), `runner`, `base` (0 on a `tag` = the catcher tagging the batter near home on a dropped third strike), `fielder`, `ballAt`, `touchAt`/`fielderAt`, `runnerAt`, `outs` |
 | `runner_advance` | `runner`, `from`, `to`, `how` (`batted`, `walk`, `steal`) |
 | `run_scored` | `runner`, `team`, `runs` (team total) |
 | `intentional_walk` | `batter`, `pitcher` |

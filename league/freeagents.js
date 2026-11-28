@@ -35,6 +35,7 @@ import { SURNAMES, GIVEN } from './namepool.js';
 import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS, RATING_MID } from './ratings.js';
 import { validateSplit, defaultSplit, trainKeys } from './training.js';
 import { PITCH_TYPES } from '../engine/constants.js';
+import { TEMPERS, isTemper } from './temper.js';
 
 /* Free agents are young: given names of the youngest pool. */
 export const NAME_DECADE = 1990;
@@ -152,7 +153,7 @@ export function validateCreate(c) {
   const out = [], C = CREATE;
   if (!c || typeof c !== 'object') return ['no choice given'];
   if (!C.kinds.includes(c.kind)) return [`kind must be one of ${C.kinds.join(', ')}`];
-  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'body', 'ht', 'look', 'points', 'nameDraw', 'train', ...(bat ? [] : ['pitches'])];
+  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'body', 'ht', 'look', 'points', 'nameDraw', 'train', 'temper', ...(bat ? [] : ['pitches'])];
   for (const k of Object.keys(c)) if (!allowed.includes(k)) out.push(`unknown field ${k}`);
   if (bat && !C.positions.includes(c.pos)) out.push(`position must be one of ${C.positions.join(', ')}`);
   if (!bat && !C.roles.includes(c.role)) out.push(`role must be one of ${C.roles.join(', ')}`);
@@ -169,6 +170,7 @@ export function validateCreate(c) {
   const lk = Object.keys(C.look);
   if (!sameKeys(c.look, lk)) out.push(`look must hold exactly ${lk.join(', ')}`);
   else for (const k of lk) if (!inRange(c.look[k], C.look[k])) out.push(`look.${k} must be a whole number from ${C.look[k][0]} to ${C.look[k][1]}`);
+  if (c.temper !== undefined && !isTemper(c.temper)) out.push(`temper must be one of ${TEMPERS.join(', ')}`);
   if (c.nameDraw !== undefined && !inRange(c.nameDraw, [0, C.maxNameDraw])) out.push(`nameDraw must be a whole number from 0 to ${C.maxNameDraw}`);
   if (!bat && c.pitches !== undefined) {
     const ok = Array.isArray(c.pitches) && c.pitches.length >= 1 && c.pitches.length <= C.starterPitches;
@@ -216,6 +218,7 @@ export function makePlayer(seed, c) {
     Object.assign(p, { pos: c.pos, con, pow: raw('pow', c.points.pow), eye: raw('eye', c.points.eye), age, pot: raw('pot', pot), arm: r3(raw('arm', c.points.arm)), avg: AVG_FIT(con), spd: r3(raw('spd', c.points.spd)), hand: c.bats });
     if (CREATE.defKey in c.points) p.def = r3(raw('def', c.points.def));
   }
+  if (c.temper !== undefined) p.temper = c.temper;   /* #379: no draw, other fields unchanged */
   if (pit && c.pitches) p.pitches = Object.fromEntries(CREATE.pitches.filter(n => c.pitches.includes(n)).map(n => [n, c.points.stuff]));
   const tk = trainKeys(c.kind, pit && c.pitches ? Object.keys(p.pitches) : null), split = c.train || defaultSplit(c.kind, c.role, pit && c.pitches ? Object.keys(p.pitches) : null);
   Object.assign(p, { body: custom ? Object.fromEntries(CREATE.bodyKeys.map(k => [k, c.body[k] / 100])) : { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(tk.map(k => [k, split[k]])) });
@@ -230,3 +233,12 @@ export function placeFan(pool, fan) {
   if (at < 0) return { pool: [...pool, fan], replaced: null };
   return { pool: pool.map((x, i) => (i === at ? fan : x)), replaced: pool[at].id };
 }
+
+/* #438: where a created player starts, chosen after the last creation step: 二軍 (plays engine-only games from the next day,
+ * #437) or 自由市場 (waits for a team). Left out = DEFAULT_PLACE (二軍: it gives the day-1 box score of the pacing plan, #167).
+ * It is kept on the player as `place` and may move either way at any time; it changes no ability or record (rule 10). */
+export const PLACES = ['second', 'free'];
+export const DEFAULT_PLACE = 'second';
+export const isPlace = p => PLACES.includes(p);
+/* the place of a stored player: a 系統 filler or a player made before #438 has none and counts as 自由市場, where they were */
+export const placeOf = player => (player && isPlace(player.place) ? player.place : 'free');
