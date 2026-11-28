@@ -1,6 +1,6 @@
-/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-3): node commentary/calls.check.mjs
+/* Checks for the play-by-play calls of events that end no plate appearance (#606 parts 1-4): node commentary/calls.check.mjs
  *   - over SEEDS games, each of wild pitch, passed ball, balk, safe pickoff, the catcher's mound visit, pickoff out, rundown, catcher interference
- *     and triple play (about 0.0003 a game: pinned seed 11344, teams [0, 1], as tests/tripleplay.check.mjs (engine 0.4.34))
+ *     triple play, pinch hitter, pinch runner, defensive substitution and the extra-inning runner (triple play about 0.0003 a game: pinned seed 1157, teams [1, 2], as tests/tripleplay.check.mjs)
  *     is called at least once (the drafted line sits on an event of that kind)
  *   - those lines are name-free: no player name, no {desc}, no unfilled slot
  *   - each call key has at least 2 wordings (3 where it fires more than once a game on average) */
@@ -22,6 +22,10 @@ const KINDS = {
   pickoff_rundown: { is: x => x.type === 'pickoff' && x.rundown === true, min: 2 },
   catcher_interference: { is: x => x.type === 'pa_end' && x.result === 'catcher_interference', min: 2 },
   triple_play: { is: x => x.type === 'pa_end' && x.result === 'triple_play', min: 2 },
+  pinch_hitter: { is: x => x.type === 'substitution' && x.role === 'pinch_hitter', min: 3 },
+  pinch_runner: { is: x => x.type === 'substitution' && x.role === 'pinch_runner', min: 2 },
+  defensive_sub: { is: x => x.type === 'substitution' && x.role === 'defensive', min: 2 },
+  runner_placed: { is: x => x.type === 'runner_placed', min: 2 },
 };
 const problems = [], bad = m => { if (problems.length < 20) problems.push(m); };
 const called = Object.fromEntries(Object.keys(KINDS).map(k => [k, 0]));
@@ -36,7 +40,7 @@ for (const [k, min] of Object.entries(WORDINGS)) {
   const n = ((bank.triggers[k] || {}).exchanges || []).length;
   if (n < min) bad(`bank: ${k} has ${n} wording(s), needs ${min}`);
 }
-const GAMES = [...Array.from({ length: SEEDS }, (_, i) => ({ seed: i + 1 })), { seed: 11344, teams: [0, 1] }];
+const GAMES = [...Array.from({ length: SEEDS }, (_, i) => ({ seed: i + 1 })), { seed: 1157, teams: [1, 2] }];
 for (const { seed, teams: pin } of GAMES) {
   const g = simGame(seed, {}, pin ? { teams: pin } : undefined), teams = g.teams.map(i => TEAMS[i]), describe = x => g.ev[x.f].desc;
   const booth = createBooth({ stream: g.stream, seed, bank, teams, describe });

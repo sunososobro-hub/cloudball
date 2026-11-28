@@ -20,6 +20,8 @@ const PAST_FIRST = [BASES[1][0] + K.WILD_THROW_PAST[0], BASES[1][1] + K.WILD_THR
 const THIRD_BAG = [BASES[3][0] + K.BAG_FOOT, BASES[3][1]];
 const THIRD_TAG = [BASES[3][0] + K.THIRD_TAG_OFF, BASES[3][1] + K.THIRD_TAG_OFF];
 const toFrame = t => K.ARRIVE + t;
+const BAG_OF = [null, FIRST_BAG, SECOND_PIVOT, THIRD_BAG];
+const LD_COVER = [null, ['1B', '2B', 'P'], ['SS', '2B', '3B'], ['3B', 'SS', 'P']];   /* #614 part 14: who takes a base's throw, first free one */
 const sinceContact = t => t - K.ARRIVE;
 
 /* The fielder goes to the ball. */
@@ -59,15 +61,16 @@ function throwTo(plan, ctx, cover, { rushBudget = null, notBefore = 0 } = {}) {
   return plan;
 }
 
-const batterArrival = () => sinceContact(runnerTimeline(0, 1, { kind: 'inplay' }).arriveT);
-const slideArrival = (from, to) => sinceContact(runnerTimeline(from, to, { kind: 'inplay', slide: true }).arriveT);
+/* ctx.pace (#794): the batter-runner's pace (runPace of his spd; missing = 1); other runners run at RUN_SPEED. */
+const batterArrival = ctx => sinceContact(runnerTimeline(0, 1, { kind: 'inplay', pace: ctx.pace || 1 }).arriveT);
+const slideArrival = (from, to, ctx = null) => sinceContact(runnerTimeline(from, to, { kind: 'inplay', slide: true, pace: from === 0 && ctx ? ctx.pace || 1 : 1 }).arriveT);
 const coverOf = (base, fielder) => base === 3 ? (fielder === '3B' ? 'SS' : '3B') : (fielder === 'SS' ? '2B' : 'SS');
 
 /* Ground ball that the defence fields cleanly.
  * tryDoublePlay: go second-to-first. leadBase: (bunt) go for the lead runner at this base.
  * Returns kind: 'dp' | 'fc' (lead runner out, batter safe) | 'out' (batter out at first) | 'safe' (nobody out). */
 export function resolveGround(ctx, { tryDoublePlay = false, leadBase = null } = {}) {
-  const B = ctx.bases, batterAt = batterArrival(), f = ctx.play.fielder;
+  const B = ctx.bases, batterAt = batterArrival(ctx), f = ctx.play.fielder;
   if (leadBase) {
     const plan = chase(ctx), from = leadBase - 1, runner = B[from - 1], runnerAt = slideArrival(from, leadBase);
     const forced = isForced(from, B, true), key = coverOf(leadBase, f);
@@ -138,7 +141,7 @@ export function resolveTriple(ctx) {
   const a1 = Math.max(touch3 + xfer + th.flight, pivotAt), r2At = slideArrival(1, 2);
   if (!beats(a1, pivotAt, r2At)) return null;
   const coverAt = coverArrival(fielderStart(CVkey, B, ctx.outs), FIRST_BAG, K.FIELD_REACT + K.COVER_REACT, K.COVER_SPEED);
-  const pxfer = K.XFER_RUSH, arrive = Math.max(a1 + pxfer + th2.flight, coverAt), batterAt = batterArrival();
+  const pxfer = K.XFER_RUSH, arrive = Math.max(a1 + pxfer + th2.flight, coverAt), batterAt = batterArrival(ctx);
   if (!beats(arrive, coverAt, batterAt)) return null;
   Object.assign(plan, { dp: true, tp: true, touch3, bag3: THIRD_BAG, PV, PVspot: SECOND_PIVOT, CV: { key: CVkey, spot: FIRST_BAG, base: 1, at: coverAt }, pivotAt,
     xfer: touch3 - plan.catchT + xfer, v: th.v, TD, TT: th.flight, t0: touch3 + xfer, a1, pxfer, t1: a1 + pxfer, TD2, V2: th2.v, TT2: th2.flight, arrive,
@@ -181,11 +184,14 @@ export function resolveFly(ctx, tagUp = null, drop = false) {
 /* Line-drive double play (#614 part 13): an infielder catches a liner and the runner on `base` broke on contact. He has gone
  * from his secondary lead since BAT_RUN_DELAY; at the catch he stops (LD_RETURN_TURN) and runs back. The catcher of the ball
  * steps on the bag himself when he is within LD_SOLO_R of it, else throws to its cover. Returns the plan and two outs (the
- * catch, the runner doubled off), or null when the runner gets back first (then the play is an ordinary lineout). */
-export function resolveDoubledOff(ctx, base) {
+ * catch, the runner doubled off), or null when the runner gets back first (then the play is an ordinary lineout).
+ * base2 (#614 part 14): a second runner who broke too; a third out when the throw on beats him back. */
+export function resolveDoubledOff(ctx, base, base2 = 0) {
   const plan = chase(ctx), f = plan.fielder, runner = ctx.bases[base - 1];
   const bag = base === 1 ? FIRST_BAG : base === 2 ? SECOND_PIVOT : THIRD_BAG;
-  const off = K.LEAD_PITCH + runDist(plan.catchT - K.BAT_RUN_DELAY, K.RUN_SPEED);
+  /* #614 part 14: two runners off = a hit-and-run: both broke with the pitch (RELEASE) from the primary lead, not on contact */
+  const offOf = () => base2 ? K.LEAD_PRIMARY + runDist(plan.catchT + K.ARRIVE - K.RELEASE, K.RUN_SPEED) : K.LEAD_PITCH + runDist(plan.catchT - K.BAT_RUN_DELAY, K.RUN_SPEED);
+  const off = offOf();
   const runnerAt = plan.catchT + K.LD_RETURN_TURN + runTime(off, K.RUN_SPEED);
   const caught = flyCatch({ batter: ctx.batter, fielder: f, fielderAt: toFrame(plan.fielderAt), ballDownAt: toFrame(plan.ballDownAt), at: toFrame(plan.catchT) });
   const toBag = dist(plan.stand, bag);
@@ -199,10 +205,30 @@ export function resolveDoubledOff(ctx, base) {
     ballAt = plan.arrive; touchAt = plan.CV.at;
   }
   if (!beats(ballAt, touchAt, runnerAt)) return null;
-  plan.actions.push({ t: Math.max(ballAt, touchAt), a: 'touch', f: key, base });
+  const t1 = Math.max(ballAt, touchAt);
+  plan.actions.push({ t: t1, a: 'touch', f: key, base });
   Object.assign(plan, { ldDp: { base, runner, off, runnerAt } });
   const out = doubledOff({ runner, from: base, base, fielder: key, caughtAt: toFrame(plan.catchT), ballAt: toFrame(ballAt), touchAt: toFrame(touchAt), runnerAt: toFrame(runnerAt) });
-  return { plan, outs: [caught, out] };
+  const outs = [caught, out];
+  /* #614 part 14: line-drive triple play. With nobody out a second runner (on base2) broke too; the man on the first bag
+   * throws on to base2's cover (XFER_RUSH), and that runner is doubled off when the ball is held there before he is back. */
+  if (base2) {
+    const r2 = ctx.bases[base2 - 1], bag2 = BAG_OF[base2];
+    const off2 = offOf();
+    const r2At = plan.catchT + K.LD_RETURN_TURN + runTime(off2, K.RUN_SPEED);
+    const key2 = LD_COVER[base2].find(c => c !== f && c !== key);
+    const th = throwPlan(ctx.arm(key), key, dist(bag, bag2), null);
+    const cover2At = coverArrival(fielderStart(key2, ctx.bases, ctx.outs), bag2, K.FIELD_REACT + K.COVER_REACT, K.COVER_SPEED);
+    const t0 = t1 + K.XFER_RUSH, arrive2 = Math.max(t0 + th.flight, cover2At);
+    if (beats(arrive2, cover2At, r2At)) {
+      plan.actions.push({ t: t0, a: 'throw', f: key, to: key2 }, { t: cover2At, a: 'cover', f: key2, base: base2 },
+        { t: arrive2, a: 'receive', f: key2, base: base2 }, { t: arrive2, a: 'touch', f: key2, base: base2 });
+      plan.ldTp = { base: base2, runner: r2, off: off2, runnerAt: r2At, key: key2, spot: bag2, t0, v: th.v, TT: th.flight, arrive: arrive2 };
+      plan.rt = Math.max(plan.rt, t0 + K.RETURN_AFTER_THROW);
+      outs.push(doubledOff({ runner: r2, from: base2, base: base2, fielder: key2, caughtAt: toFrame(plan.catchT), ballAt: toFrame(arrive2), touchAt: toFrame(cover2At), runnerAt: toFrame(r2At) }));
+    }
+  }
+  return { plan, outs };
 }
 
 /* Hit, error or home run: nobody is out (except a runner sent home or a batter stretching a single, below). The ball comes back in to second base.
@@ -213,7 +239,7 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch =
   if (wildThrow) {
     /* advancing on an error (#38): the infielder throws to first in a hurry and the ball sails past the bag into foul
      * ground (nobody receives it); the batter and every runner take an extra base on it */
-    throwTo(plan, ctx, { key: null, spot: PAST_FIRST, base: null }, { rushBudget: batterArrival() - K.FORCE_MARGIN - plan.catchT });
+    throwTo(plan, ctx, { key: null, spot: PAST_FIRST, base: null }, { rushBudget: batterArrival(ctx) - K.FORCE_MARGIN - plan.catchT });
     plan.wild = true;
     return { plan, outs: [] };
   }
@@ -241,7 +267,7 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch =
     /* out on the bases (#38): the batter tries to stretch the single into a double; the outfielder throws to the
      * middle infielder covering second beside the lane. Held to TAG_EARLY before him (a close play); safe when the
      * ball cannot be there by then. */
-    const runnerAt = slideArrival(0, 2);
+    const runnerAt = slideArrival(0, 2, ctx);
     throwTo(plan, ctx, { key, spot: SECOND_TAG, base: 2 }, { notBefore: runnerAt - K.TAG_EARLY });
     plan.tagPlay = true;
     if (!beats(plan.arrive, plan.CV.at, runnerAt)) return { plan, outs: [], safe: true };
@@ -250,7 +276,7 @@ export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch =
     return { plan, outs: [out], safe: false };
   }
   /* bobble (#38): ctx.fumble already delays the pickup; the ball comes in to the relay at second only after the batter is there */
-  return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }, { notBefore: bobble ? slideArrival(0, 2) + K.TAG_LATE : 0 }), outs: [] };
+  return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }, { notBefore: bobble ? slideArrival(0, 2, ctx) + K.TAG_LATE : 0 }), outs: [] };
 }
 
 /* Steal of second on a pitch that is not put in play. wantOut: the simulation's draw says the

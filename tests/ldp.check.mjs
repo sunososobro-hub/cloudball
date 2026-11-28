@@ -1,7 +1,7 @@
 /* Line-drive double play (#614 part 13): a liner an infielder catches with a runner on and fewer than two outs; the runner
  * nearest the catch broke on contact in LD_DOUBLED_OFF_P of them (`rare` RNG) and is doubled off when the ball is held on his
  * base before he gets back (`resolveDoubledOff`, out reason `doubled_off`). Fails when
- *   - a seed in SEEDS (found at engine 0.4.34) has none, or the rate over GAMES seeds is outside RATE,
+ *   - a seed in SEEDS (found at engine 0.4.34; 13 replaces 1 at 0.4.37, #815) has none, or the rate over GAMES seeds is outside RATE,
  *   - a doubled-off out is not right after a fly_catch of the batter on a fair LD to P/1B/2B/3B/SS with < 2 outs, is not at
  *     the runner's own base, is not before the runner gets back, or the runner is still on base after the play,
  *   - the result is not lineout, a run scores or the line lacks 雙殺,
@@ -12,7 +12,7 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
-const GAMES = 600, SEEDS = [1, 8], RATE = [0.04, 0.16];
+const GAMES = 600, SEEDS = [8, 13], RATE = [0.04, 0.16];
 const INF = ['P', '1B', '2B', '3B', 'SS'];
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 
@@ -22,6 +22,7 @@ const look = (s, pinned) => {
   let here = 0;
   for (const x of S) {
     if (x.type !== 'out' || x.reason !== 'doubled_off') continue;
+    if (g.ev[x.f].play && g.ev[x.f].play.ldTp) continue;   /* line-drive triple plays (#614 part 14): tests/ldtp.check.mjs */
     here++; found++;
     const e = g.ev[x.f], at = `seed ${s} frame ${x.f}`, F = S.filter(y => y.f === x.f), outs = F.filter(y => y.type === 'out');
     const c = F.find(y => y.type === 'contact'), pa = F.find(y => y.type === 'pa_end');

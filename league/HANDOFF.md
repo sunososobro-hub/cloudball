@@ -55,3 +55,11 @@
 - Part 1: `player_stats.js` (pure: `tally`, `seasonLine`, `lineText`) + `site/player_stats.json` (one row per batter per recorded 試跑 game, 一軍 `trial_games.json` + 二軍 `farm_games.json`) + `tools/player_stats.mjs` (replays each game, stops on a score mismatch; run it with `--engine <worktree of the data commit>` while the data engine is older than HEAD) + `tests/player_stats.check.mjs`. `ui/site/me.js` sums rows of nights before today (batters only).
 - Trap: regenerate `player_stats.json` after anything that rewrites `season.json` / `trial_games.json` / `farm_games.json` (`season_run.mjs --reset`, a refill, a new engine commit); `--reset` does not do it yet.
 - Left: pitcher line (needs pitching lines in the engine box), game log (part 2), career by season (part 3, #749), guild page (#800).
+
+## Guild nights (#809)
+- Done: `league/guild_night.js` pure core (freeze, fixtures, sharded lines, standings) + `tests/guild_night.check.mjs`.
+- Next: `GET /api/guilds/export` (keyset paging), `tools/guild_night.mjs` (wires simGame + boxFromStream), practice reads the newest lock.
+- Traps: `play` is injected (no engine import in league/); the nightly hook is the owner's (W11).
+
+## #795 經紀人 agent set
+- Part 1: `agentset.js` (pure): 4 situations x 3 frequencies per kind (bat / pit, owner list), level 0..4 (`LEVEL_NEUTRAL` 2 = today's engine), `normal` row inherited, price = sum of the resolved grid <= `AGENT_POOL` (24 = all neutral), `freezeSet` canonical form for the game lock, `situationOf` buckets. `tests/agentset.check.mjs`. Next: part 2 engine reads it (neutral = no extra draw, byte for byte), then sim, storage, UI.

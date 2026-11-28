@@ -1,7 +1,7 @@
 /* Triple play (#614 part 12): with nobody out and runners on first and second (bases loaded too), a double-play grounder to
  * the third baseman becomes a 5-4-3 triple play when all three forces beat their runners (`resolveTriple`): 3B steps on
  * third, throws to the pivot at second, the pivot relays to first. No draw: the timing decides. Fails when
- *   - a seed in SEEDS (found at engine 0.4.34) has no triple play, or a triple play shows up out of its situation
+ *   - a seed in SEEDS (found at engine 0.4.32; 2273 replaces 6270 at 0.4.34, #794; 1157, 1234 and 2271 replace 1131, 7269 and 8463 at 0.4.37, #815 slow rollers) has no triple play, or a triple play shows up out of its situation
  *     (not 3B, outs, first or second empty) over GAMES seeds,
  *   - a triple play is not three force outs at third, second and first by 3B, 2B and 1B in that time order, each before its
  *     runner, or a runner moves, a run scores, the half does not end, the result is not triple_play or the line lacks 三殺,
@@ -12,7 +12,7 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = await import(pathToFileURL(path.join(ROOT, 'engine/index.js')));
-const GAMES = 1500, SEEDS = [11344, 13948, 16537, 20448];
+const GAMES = 1500, SEEDS = [1157, 2273, 1234, 2271];
 const WANT = [[3, '3B', 2], [2, '2B', 1], [1, '1B', 0]];   /* base, fielder, the runner's starting base */
 const errs = [], bad = m => { if (errs.length < 20) errs.push(m); };
 
@@ -22,6 +22,7 @@ const look = (s, pinned) => {
   let here = 0;
   for (const x of S) {
     if (x.type !== 'pa_end' || x.result !== 'triple_play') continue;
+    if (g.ev[x.f].play && g.ev[x.f].play.ldTp) continue;   /* line-drive triple plays (#614 part 14): tests/ldtp.check.mjs */
     here++; found++;
     const e = g.ev[x.f], at = `seed ${s} frame ${x.f}`, F = S.filter(y => y.f === x.f), outs = F.filter(y => y.type === 'out');
     if (!e.play || e.play.fielder !== '3B' || e.play.type !== 'GB' || e.s0.outs !== 0 || !e.s0.b[0] || !e.s0.b[1]) bad(`${at}: triple play out of its situation`);

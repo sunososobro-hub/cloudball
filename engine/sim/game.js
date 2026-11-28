@@ -11,7 +11,7 @@
  * really do, and rules/outs.js is the only way an out gets recorded. */
 import * as K from '../constants.js';
 import { mulberry32 } from '../rng.js';
-import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, BASES, spotXZ, dist, clamp, runnerTimeline, fielderStart } from '../rules/field.js';
+import { FIELDER_KEYS, OUTFIELD_KEYS, HOME, BASES, spotXZ, dist, clamp, runnerTimeline, fielderStart, runPace } from '../rules/field.js';
 import { strikeout, isForced } from '../rules/outs.js';
 import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, resolveRundown, resolveDroppedThird, resolveTriple, resolveDoubledOff } from '../rules/fielding.js';
 import { TEAMS } from '../../league/teams.js';
@@ -43,6 +43,7 @@ export function simGame(seed, decisions, opts) {
   const owed = [0, 0];                                 /* grudge points a team holds for its hit batters, cleared at its pitcher's next chance */
   let warned = false;                                  /* after a retaliation the umpire has warned both benches: no more in this game */
   const feud = mulberry32((seed ^ K.FEUD_SALT) >>> 0);  /* #379 part 4: retaliation draws apart, so R keeps its sequence until one happens */
+  const benchOn = retaliateOn && (opts.benchClear ?? K.BENCH_CLEAR_ON);   /* #379 part 5: needs retaliation; off = part 4 games byte for byte */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
@@ -268,7 +269,7 @@ export function simGame(seed, decisions, opts) {
       const tire = Math.max(0, st.pc[def] - K.TIRE_AFTER_PITCHES);
       const pit = { name: pit0.name, stuff: pit0.stuff * (1 - tire * K.TIRE_STUFF_PER_PITCH), ctrl: pit0.ctrl * (1 - tire * K.TIRE_CTRL_PER_PITCH) };
       const line = COPY.batLine(bs), pline = COPY.pitLine(ps);
-      const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def), vavg: rangeOf(def) });
+      const ctxOf = play => ({ play, bases: st.b.slice(), outs: st.outs, batter: bat.name, arm: armOf(def), vavg: rangeOf(def), pace: runPace(bat.spd) });
       const endPA = () => { st.lu[off] = (bi + 1) % K.LINEUP_SIZE; st.hold[def]--; ps.bf++; st.phAsked = false; st.prAsked = false; };
 
       /* ---- offence: steal second (or third, #38)? The runner breaks on the next real pitch. st.steal = the base. ---- */
@@ -482,15 +483,19 @@ export function simGame(seed, decisions, opts) {
             /* #614 part 7: ground-rule double: an air-ball double whose roll reaches the wall bounces over it; the ball is dead
              * and every runner gets exactly two bases (the runner from first stops at third) */
             const groundRule = res === '2B' && type !== 'GB' && !bunt && Math.sqrt(lx * lx + lz * lz) * K.HIT_ROLL_FACTOR > K.FENCE_R - K.WALL_PICKUP && R() < K.GRD_OF_WALL_2B_P;
+            /* extra bases taken (#794 part 3): the runner's spd raises, the outfielder's arm lowers the chance he takes the
+             * extra base (same one draw each, only the threshold moves; spd 1 and arm 1 give the old chance exactly) */
+            const holdArm = OUTFIELD_KEYS.includes(fielder) ? clamp(1 - (armOf(def)(fielder) - 1) * K.XB_HOLD_PER_ARM, ...K.XB_ARM_RANGE) : 1;
+            const xbP = (p, runner) => p * clamp(1 + (spdOf(off, runner) - 1) * K.XB_PER_SPD, ...K.XB_SPD_RANGE) * holdArm;
             for (let i = 2; i >= 0; i--) {
               if (!B[i]) continue; let to = i + 1 + adv;
               if (bobble || wildThrow) { to = Math.min(HOME, to + 1); moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i]; continue; }
-              if (res === '1B' && i === 1 && R() < K.SCORE_FROM_2ND_ON_SINGLE) to = HOME;
+              if (res === '1B' && i === 1 && R() < xbP(K.SCORE_FROM_2ND_ON_SINGLE, B[i])) to = HOME;
               else if (res === '1B' && i === 1 && OUTFIELD_KEYS.includes(fielder) && st.outs < K.OUTS_PER_HALF - 1 && R() < K.SEND_FROM_2ND_ON_SINGLE_P) {
                 sendHome = true; moves.push([2, HOME, B[1]]); continue;   /* scores or is out: decided by the throw below */
               }
-              if (res === '1B' && i === 0 && !nb[2] && R() < K.FIRST_TO_THIRD_ON_SINGLE) to = 3;
-              if (res === '2B' && i === 0 && !groundRule && R() < K.SCORE_FROM_1ST_ON_DOUBLE) to = HOME;
+              if (res === '1B' && i === 0 && !nb[2] && R() < xbP(K.FIRST_TO_THIRD_ON_SINGLE, B[i])) to = 3;
+              if (res === '2B' && i === 0 && !groundRule && R() < xbP(K.SCORE_FROM_1ST_ON_DOUBLE, B[i])) to = HOME;
               to = Math.min(HOME, to); while (to < HOME && nb[to - 1]) to++;
               moves.push([i + 1, to, B[i]]); if (to === HOME) runs++; else nb[to - 1] = B[i];
             }
@@ -526,7 +531,7 @@ export function simGame(seed, decisions, opts) {
             if (g.kind === 'dp') { const tp = resolveTriple(ctx); if (tp) g = tp; }
             plan = g.plan; outs = g.outs;
             if (g.kind === 'tp') {
-              play.dp = true; play.tp = true; moves = [];   /* three force outs: nobody advances and no run counts */
+              play.dp = true; play.tp = true; play.pace = runPace(bat.spd); moves = [];   /* three force outs: nobody advances and no run counts; pace: the batter's run (#794, render tpFix) */
               result = 'triple_play'; desc = COPY.triplePlay(name, fielder);
             } else if (g.kind === 'dp') {
               play.dp = true; moves = [[1, 2, B[0]], [0, 1, name]]; const nb = [null, B[1], B[2]];
@@ -547,8 +552,11 @@ export function simGame(seed, decisions, opts) {
               const nb = B.slice(); moves = [[0, 1, name]];
               if (bunt || (forcedOnGround && st.outs < K.OUTS_PER_HALF - 1)) {
                 /* everyone the batter pushes has to run, and is on the next base by the time the batter is out at first */
-                const push = bunt ? [1, 0].filter(i => B[i]) : [...Array(forcedOnGround).keys()].reverse();
-                for (const i of push) { if (i === 2) { moves.push([3, HOME, B[2]]); runs++; nb[2] = null; } else { moves.push([i + 1, i + 2, B[i]]); nb[i + 1] = B[i]; nb[i] = null; } }
+                const push = bunt ? [2, 1, 0].filter(i => B[i]) : [...Array(forcedOnGround).keys()].reverse();
+                for (const i of push) {
+                  /* #826: a bunt never puts two runners on a base: the runner on third goes only when forced (bases loaded), the one on second only while third is free after that */
+                  if (bunt && (i === 2 ? !(B[0] && B[1]) : nb[i + 1])) continue;
+                  if (i === 2) { moves.push([3, HOME, B[2]]); runs++; nb[2] = null; } else { moves.push([i + 1, i + 2, B[i]]); nb[i + 1] = B[i]; nb[i] = null; } }
                 result = bunt ? 'sac_bunt' : 'groundout'; desc = bunt ? COPY.sacBunt(name) : COPY.groundAdvance(name, fielder);
                 if (bunt) bs.ab--;   /* a sacrifice is not an at-bat */
               } else if (st.outs < K.OUTS_PER_HALF - 1 && (B[1] || B[2]) && R() < K.GB_ADVANCE_P) {
@@ -580,12 +588,18 @@ export function simGame(seed, decisions, opts) {
             if (type === 'LD' && !foulKey && !bunt && (fielder === 'P' || INFIELD_KEYS.includes(fielder)) && st.outs < K.OUTS_PER_HALF - 1 && (B[0] || B[1] || B[2])) {
               let base = 0, best = Infinity;
               for (let i = 0; i < 3; i++) if (B[i]) { const dd = dist([lx, lz], BASES[i + 1]); if (dd < best) { best = dd; base = i + 1; } }
-              if (rare() < K.LD_DOUBLED_OFF_P) ldDp = resolveDoubledOff(ctx, base);
+              /* #614 part 14: with nobody out, the low end of that same draw (LD_BOTH_BROKE_OF_P of it) has the next runner
+               * off too (a hit-and-run sends them all): one number, so `rare` keeps its sequence */
+              let base2 = 0;
+              if (st.outs === 0) { best = Infinity; for (let i = 0; i < 3; i++) if (B[i] && i + 1 !== base) { const dd = dist([lx, lz], BASES[i + 1]); if (dd < best) { best = dd; base2 = i + 1; } } }
+              const u = rare();
+              if (u < K.LD_DOUBLED_OFF_P) ldDp = resolveDoubledOff(ctx, base, u < K.LD_DOUBLED_OFF_P * K.LD_BOTH_BROKE_OF_P ? base2 : 0);
               if (ldDp) { nb[base - 1] = null; play.ldDp = base; }
+              if (ldDp && ldDp.plan.ldTp) { nb[ldDp.plan.ldTp.base - 1] = null; play.ldTp = ldDp.plan.ldTp.base; }
             }
             const fly = ldDp || resolveFly(ctx, tagUp, !!play.iffDrop); plan = fly.plan; outs = fly.outs; st.b = nb;
             if (sacFly) { result = 'sac_fly'; desc = COPY.sacFly(name, B[2]); bs.ab--; }   /* a sacrifice fly is not an at-bat */
-            else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.iffDrop ? COPY.infieldFlyDrop(name, fielder) : play.foul ? COPY.foulOut(name, fielder) : play.ldDp ? COPY.lineDoublePlay(name, fielder, B[play.ldDp - 1], play.ldDp) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
+            else { result = play.ldTp ? 'triple_play' : type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.iffDrop ? COPY.infieldFlyDrop(name, fielder) : play.foul ? COPY.foulOut(name, fielder) : play.ldTp ? COPY.lineTriplePlay(name, fielder, B[play.ldDp - 1], B[play.ldTp - 1]) : play.ldDp ? COPY.lineDoublePlay(name, fielder, B[play.ldDp - 1], play.ldDp) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
             if (toThird) desc += COPY.tagToThird(toThird);
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);
@@ -660,7 +674,7 @@ export function simGame(seed, decisions, opts) {
           if (m[3]) continue;
           const [from, to, who] = m, stays = to < HOME && e.s1.b[to - 1] === who, outHere = outs.some(o => o.runner === who && o.base === to);
           const slide = to >= 2 && inplay && play.res !== 'HR' && ((flyOut && from > 0) || (to === HOME ? outHere || look() < K.HOME_SLIDE_P : stays || outHere));
-          m[3] = runnerTimeline(from, to, { kind: inplay ? (play.res === 'HR' ? 'trot' : 'inplay') : e.wp || e.k3 ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide });
+          m[3] = runnerTimeline(from, to, { kind: inplay ? (play.res === 'HR' ? 'trot' : 'inplay') : e.wp || e.k3 ? 'wp' : e.bk ? 'bk' : 'walk', tagUpAt: flyOut && from > 0 ? K.ARRIVE + plan.catchT : null, slide, pace: from === 0 && inplay && !play.onThrow ? runPace(bat.spd) : 1 });   /* on the throw home he trails the runner (#38 part 7) */
         }
 
         /* ---- broadcast timing: the result is shown when it has really happened ---- */
@@ -699,6 +713,12 @@ export function simGame(seed, decisions, opts) {
         e.d = d; e.showAt = showAt;
         emitPitchFrame(e, { pitcher: pit.name, result, rbi });
         pushFrame(e);
+        /* #379 part 5: after a retaliation the hit batter may charge the mound and both benches empty; a feud draw only after a
+         * retaliation (which R never sees), state unchanged, so outcomes stay; only later times move */
+        if (e.retal && benchOn && !over && feud() < Math.min(K.BENCH_CLEAR_MAX_P, K.BENCH_CLEAR_P * K.GRUDGE_TEMPER_SCALE[temperOf(bat)])) {
+          emit('bench_clearing', t, { team: off, batter: bat.name, pitcher: pit0.name });
+          pushFrame({ t, d: K.BENCH_CLEAR_DUR, k: 'BENCH', desc: COPY.benchClear(bat.name, pit0.name), s0: snap(), s1: snap(), off, def, big: K.BIG.HUGE });
+        }
         if (st.outs >= K.OUTS_PER_HALF && !paDone) break;
         /* #614 part 3: two strikes after a foul bunt: the coach mostly takes the bunt off and lets him swing away */
         if (bunt && !paDone && strikes === K.STRIKES_FOR_OUT - 1 && R() >= K.BUNT_2K_KEEP_P) bunt = false;
