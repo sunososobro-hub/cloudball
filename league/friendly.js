@@ -28,6 +28,9 @@
  *   (0..4) and must be that side's starting pitcher (sp[side] = starter), so the link says who starts.
  *   ownParam(o) / parseOwn(s)         text <-> { side, slot, con, pow, eye, spd, arm, hand, age, num, name } (parse gives null when it does not fit)
  *   ownProblem(o)                     named reason why an own player is not playable, or null
+ * Look (#751 part 6, optional, appearance only: the engine never reads it, so the game is the same with or without it): four more fields
+ *   .<slim>.<power>.<heavy>.<ht> after the name (batter 15 fields, pitcher 13): build blend weights 0..100 (league/players.js body x 100) and
+ *   height in cm (LOOK_HT_MIN..LOOK_HT_MAX); `o.body = { slim, power, heavy }`, `o.ht`. Links without them draw him with the normal build.
  * He takes the slot's defensive position; his raw ratings come from league/friendly_own.js (ownRosters), which builds the `rosters` argument of
  * friendlyOpening / friendlyOpeningAt. Practice and friendly games never count for anyone's stats (rule 24). */
 export const TEAM_COUNT = 4;
@@ -38,11 +41,14 @@ export const COMMIT_RE = /^[0-9a-f]{7,40}$/;
 export const LINEUP_SLOTS = 9;
 export const OWN_RATINGS = ['con', 'pow', 'eye', 'spd', 'arm'];
 export const OWN_PITCH_RATINGS = ['stuff', 'ctrl', 'arm'];
+export const LOOK_KEYS = ['slim', 'power', 'heavy'];
+export const LOOK_HT_MIN = 150, LOOK_HT_MAX = 220;   /* cm; the league's players are 1.72..1.92 m (league/freeagents.js CREATE builds) */
+const lookParam = o => (o.body ? `.${LOOK_KEYS.map(k => o.body[k]).join('.')}.${o.ht}` : '');
 const NAME_RE = /^[^.\u0000-\u001f<>&"'\\]{1,12}$/u;
 
 export const ownParam = o => (o.role === 'P'
-  ? `${o.side}.${o.slot}.${OWN_PITCH_RATINGS.map(k => o[k]).join('.')}.${o.hand}.${o.age}.${o.num}.${o.name}`
-  : `${o.side}.${o.slot}.${OWN_RATINGS.map(k => o[k]).join('.')}.${o.hand}.${o.age}.${o.num}.${o.name}`);
+  ? `${o.side}.${o.slot}.${OWN_PITCH_RATINGS.map(k => o[k]).join('.')}.${o.hand}.${o.age}.${o.num}.${o.name}${lookParam(o)}`
+  : `${o.side}.${o.slot}.${OWN_RATINGS.map(k => o[k]).join('.')}.${o.hand}.${o.age}.${o.num}.${o.name}${lookParam(o)}`);
 
 export function ownProblem(o) {
   if (!o || typeof o !== 'object') return 'no own player';
@@ -55,19 +61,24 @@ export function ownProblem(o) {
   if (!Number.isInteger(o.age) || o.age < 15 || o.age > 60) return 'own age is not 15..60';
   if (!Number.isInteger(o.num) || o.num < 0 || o.num > 99) return 'own number is not 0..99';
   if (typeof o.name !== 'string' || !NAME_RE.test(o.name)) return 'own name is not 1..12 plain characters';
+  if (o.body !== undefined || o.ht !== undefined) {
+    if (!o.body || typeof o.body !== 'object' || !LOOK_KEYS.every(k => Number.isInteger(o.body[k]) && o.body[k] >= 0 && o.body[k] <= 100)) return 'own body is not three 0..100 weights';
+    if (!Number.isInteger(o.ht) || o.ht < LOOK_HT_MIN || o.ht > LOOK_HT_MAX) return `own height is not ${LOOK_HT_MIN}..${LOOK_HT_MAX} cm`;
+  }
   return null;
 }
 
 export function parseOwn(s) {
   if (typeof s !== 'string') return null;
   const f = s.split('.');
-  if (f.length !== 11 && f.length !== 9) return null;
+  if (![9, 11, 13, 15].includes(f.length)) return null;
   const n = i => (/^[0-9]{1,3}$/.test(f[i]) ? Number(f[i]) : NaN);
-  if (f.length === 9) {
-    const q = { role: 'P', side: n(0), slot: n(1), stuff: n(2), ctrl: n(3), arm: n(4), hand: f[5], age: n(6), num: n(7), name: f[8] };
+  const look = (q, i) => (f.length > i ? Object.assign(q, { body: { slim: n(i), power: n(i + 1), heavy: n(i + 2) }, ht: n(i + 3) }) : q);
+  if (f.length === 9 || f.length === 13) {
+    const q = look({ role: 'P', side: n(0), slot: n(1), stuff: n(2), ctrl: n(3), arm: n(4), hand: f[5], age: n(6), num: n(7), name: f[8] }, 9);
     return ownProblem(q) ? null : q;
   }
-  const o = { side: n(0), slot: n(1), con: n(2), pow: n(3), eye: n(4), spd: n(5), arm: n(6), hand: f[7], age: n(8), num: n(9), name: f[10] };
+  const o = look({ side: n(0), slot: n(1), con: n(2), pow: n(3), eye: n(4), spd: n(5), arm: n(6), hand: f[7], age: n(8), num: n(9), name: f[10] }, 11);
   return ownProblem(o) ? null : o;
 }
 
