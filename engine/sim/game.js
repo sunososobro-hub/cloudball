@@ -17,6 +17,7 @@ import { resolveGround, resolveFly, resolveHit, resolveSteal, resolvePickoff, re
 import { TEAMS } from '../../league/teams.js';
 import { ROSTERS } from '../../league/players.js';
 import { COPY } from './copy.js';
+import { temperOf } from '../../league/temper.js';
 
 const GLOVE_KEYS = FIELDER_KEYS.filter(k => k !== 'P' && k !== 'C');            /* the seven who chase batted balls */
 const INFIELD_KEYS = GLOVE_KEYS.filter(k => !OUTFIELD_KEYS.includes(k));
@@ -36,6 +37,8 @@ export function simGame(seed, decisions, opts) {
   const pinchHit = opts.pinchHit ?? K.PINCH_HIT_ON;   /* #436 part 2: off = factory games byte for byte */
   const pinchRun = opts.pinchRun ?? K.PINCH_RUN_ON;   /* #436 part 3: off = factory games byte for byte */
   const defSub = opts.defSub ?? K.DEF_SUB_ON;         /* #436 part 7: off = factory games byte for byte */
+  const grudgeOn = opts.grudge ?? K.GRUDGE_ON;        /* #379 part 3: off = factory games byte for byte */
+  const grudges = [];                                  /* one row per hit batter: { inning, half, from, to, temper, score } */
   const R = mulberry32(seed);                          /* decides outcomes */
   const look = mulberry32((seed ^ K.COSMETIC_SALT) >>> 0);   /* decides looks only; never read by outcome code */
   const rare = mulberry32((seed ^ K.RARE_PLAY_SALT) >>> 0);
@@ -360,6 +363,10 @@ export function simGame(seed, decisions, opts) {
         } else if (e.r === 'hbp' || balls === K.BALLS_FOR_WALK) {
           const f = forceAdvance(name); moves = f.moves; runs = f.runs; bs.bb++; ps.bb++; paDone = true;
           result = e.r === 'hbp' ? 'hit_by_pitch' : 'walk';
+          if (e.r === 'hbp' && grudgeOn) {
+            const tp = temperOf(bat);
+            grudges.push({ inning: st.inn, half: st.half, from: bat.id, to: pit0.id, temper: tp, score: K.GRUDGE_HBP * K.GRUDGE_TEMPER_SCALE[tp] });
+          }
           desc = e.r === 'hbp' ? COPY.hbp(name) : COPY.walk(name);
           if (e.r === 'ball' && look() < K.CHECK_APPEAL_BALL_P) desc = COPY.call('ball') + appeal(false) + '，' + desc;
           if (runs) { rbi = runs; desc += COPY.forcedIn(runs); }
@@ -685,5 +692,7 @@ export function simGame(seed, decisions, opts) {
   emit('game_end', t, { score: fin.sc.slice(), innings: fin.inn, winner, walkoff: st.outs < K.OUTS_PER_HALF });
   fin.outs = K.OUTS_PER_HALF;
   ev.push({ t, d: 1e9, k: 'END', desc: winner < 0 ? COPY.tie(fin.sc) : COPY.final(TT[winner], fin.sc), s0: fin, s1: fin });
-  return { ev, stream, dur: t, stats, batters, pst, final: fin, wp, lp, staff: RR.map(r => r.pit), teams: TI, seed, engine: K.ENGINE_VERSION };
+  const out = { ev, stream, dur: t, stats, batters, pst, final: fin, wp, lp, staff: RR.map(r => r.pit), teams: TI, seed, engine: K.ENGINE_VERSION };
+  if (grudgeOn) out.grudges = grudges;
+  return out;
 }
