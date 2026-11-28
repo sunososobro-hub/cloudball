@@ -1,14 +1,26 @@
 /* Training model of created players (league/training.js, #369) and its simulation (league/tools/train_sim.mjs). Fails when
  *   - a legal split is refused, or a split off the rules (sum, keys, whole numbers, range) is accepted,
- *   - a created player does not carry his split (or the even one when none was chosen),
+ *   - a created player does not carry his split (or the default one when none was chosen: even for a batter, ROLE_SPLIT
+ *     by pitcher role, #378), a ROLE_SPLIT entry is not a legal split, or the starter and the short relievers share a
+ *     default (SP must lean less on stuff than RP and CL),
  *   - a day gains more than DAILY_CAP, the overall passes the potential, an ability passes ABIL_MAX or drops,
  *     an ability with 0 % grows, or a player at an age of AGE_CURVE's last point grows,
  *   - growth does not slow inside POT_SLOW_BAND below the potential, or a player below it with room stops (#374),
  *   - the potential draw misses the 一軍 of league/site/players.json: median under the 一軍 median, share above the
  *     一軍 p75 off a fifth (POT_FIFTH_TOL), star-line tail (>= RATING_TOP) outside 2 to 5 %, or potShareAtLeast()
  *     disagrees with makePlayer's draws,
+ *   - a pitch list (#378 part 2) off the rules is accepted (pitch not in the engine's PITCH_TYPES, repeat, no fastball,
+ *     more than CREATE.starterPitches, on a batter), a legal one refused, the created pitcher does not carry each pitch at
+ *     his stuff points with a split holding every pitch (default: PITCH_SHARE each, the rest in his role's ratio), a pitch
+ *     does not grow with its share, a pitch moves the overall, or train_sim's 5-pitch pitchers reach the 一軍 sooner than 1-pitch ones,
  *   - the same seed does not give the same days (determinism), or a bonus makes a player slower,
  *   - the sim targets are not the nearest-rank median and bottom quartile of the 一軍 in league/site/players.json,
+ *   - learning a pitch (#378 part 5): learnPitch accepts a batter, an unknown or already held pitch or an illegal split;
+ *     the new pitch is thrown (knownPitches) before LEARN_AT, does not reach it, moves the overall, stops at the potential,
+ *     or a wider share does not learn it sooner (train_sim);
+ *   - decline (#433): an ability drops at 30 or younger; a 0 % ability of a hands-off or active player does not drop
+ *     after DECLINE_CURVE starts, or drops by a different amount in the two modes; it goes below DECLINE_FLOOR; spd, stuff
+ *     or arm decline no faster than eye and ctrl; declineFactor falls with age; a pitch still being learned declines;
  *   - league/training.js uses Math.random or Date.
  * static.mjs runs this file.
  * Usage: node tests/training.check.mjs */
@@ -17,8 +29,10 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { CREATE, validateCreate, makePlayer, potShareAtLeast } from '../league/freeagents.js';
 import { RATING_TOP } from '../league/ratings.js';
-import { validateSplit, evenSplit, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
-import { targets, daysTo, choiceOf } from '../league/tools/train_sim.mjs';
+import { PITCH_TYPES } from '../engine/constants.js';
+import { declineFactor, declineDay, DECLINE_CURVE, DECLINE_FLOOR, ageOn } from '../league/training.js';
+import { validateSplit, evenSplit, defaultSplit, ROLE_SPLIT, PITCH_SHARE, trainKeys, learnPitch, learnSplit, knownPitches, LEARN_AT, LEARN_SHARE, trainDay, ageFactor, overallOf, roomFactor, DAILY_CAP, ABIL_MAX, POT_SLOW_BAND, AGE_CURVE, DAYS_PER_SEASON, ACTIVE_BONUS, SPLIT_TOTAL } from '../league/training.js';
+import { targets, daysTo, choiceOf, withPitches, pitchRun, learnDays, LEARN_WIDE } from '../league/tools/train_sim.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DAYS = 400, EPS = 1e-9;
@@ -36,11 +50,80 @@ for (const [what, keys, s] of [['sum 99', kp, { stuff: 50, ctrl: 49, arm: 0 }], 
 /* the split goes through creation and is stored */
 const look = { head: 0, skin: 0, hair: 0 };
 const BAT = { kind: 'bat', pos: 'SS', bats: 'L', build: 'slim', look, points: { con: 70, pow: 40, eye: 65, spd: 70, arm: 60 } };
+const PIT = { kind: 'pit', role: 'SP', throws: 'R', build: 'power', look, points: { stuff: 66, ctrl: 62, arm: 55 } };
 const split = { con: 0, pow: 60, eye: 40, spd: 0, arm: 0 };
 if (validateCreate({ ...BAT, train: split }).length) bad('choice with a legal split refused');
 if (!validateCreate({ ...BAT, train: { con: 100 } }).length) bad('choice with a bad split accepted');
 if (JSON.stringify(makePlayer(9, { ...BAT, train: split }).player.train) !== JSON.stringify(split)) bad('created player does not carry his split');
 if (JSON.stringify(makePlayer(9, BAT).player.train) !== JSON.stringify(evenSplit(kb)) || validateSplit(kb, evenSplit(kb)).length) bad('created player without a split does not carry the even one');
+for (const role of CREATE.roles) {
+  const want = defaultSplit('pit', role), got = makePlayer(9, { ...PIT, role }).player.train;
+  if (JSON.stringify(got) !== JSON.stringify(want)) bad(`created ${role} without a split carries ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  if (validateSplit(kp, want).length) bad(`default split of ${role} is not legal: ${validateSplit(kp, want).join('; ')}`);
+}
+for (const [role, sp] of Object.entries(ROLE_SPLIT)) if (!CREATE.roles.includes(role) || validateSplit(kp, sp).length) bad(`ROLE_SPLIT.${role}: not a creatable role or not a legal split`);
+for (const role of ['RP', 'CL']) if (!(ROLE_SPLIT.SP.stuff < ROLE_SPLIT[role].stuff)) bad(`SP default leans on stuff as much as ${role}`);
+
+/* pitch lists (#378 part 2) */
+{
+  const FB = PITCH_TYPES[0][0], all = PITCH_TYPES.map(t => t[0]);
+  if (JSON.stringify(CREATE.pitches) !== JSON.stringify(all)) bad(`CREATE.pitches ${CREATE.pitches} is not the engine's PITCH_TYPES`);
+  for (const list of [[FB], [FB, all[1]], [all[2], FB, all[4]]]) {
+    const c = { ...PIT, role: 'RP', pitches: list }, w = validateCreate(c);
+    if (w.length) { bad(`legal pitch list ${list} refused: ${w.join('; ')}`); continue; }
+    const p = makePlayer(9, c).player, want = defaultSplit('pit', 'RP', Object.keys(p.pitches));
+    if (Object.keys(p.pitches).length !== list.length || Object.values(p.pitches).some(v => v !== PIT.points.stuff)) bad(`pitches ${JSON.stringify(p.pitches)} not each at stuff ${PIT.points.stuff}`);
+    if (JSON.stringify(p.train) !== JSON.stringify(want) || validateSplit(trainKeys('pit', list), p.train).length) bad(`pitch-list split ${JSON.stringify(p.train)} is not the legal default ${JSON.stringify(want)}`);
+    if (list.some(n => p.train[n] !== PITCH_SHARE)) bad(`default split does not give each pitch ${PITCH_SHARE} %`);
+    const rest = kp.map(k => p.train[k]);
+    if (!(rest[0] >= rest[1] && rest[1] >= rest[2])) bad(`ability part ${rest} of RP default left his role's order (stuff >= ctrl >= arm)`);
+    const own = Object.fromEntries([...kp.map(k => [k, 0]), ...list.map((n, i) => [n, i ? 0 : 100])]);
+    if (validateCreate({ ...c, train: own }).length || !validateCreate({ ...c, train: { stuff: 100, ctrl: 0, arm: 0 } }).length) bad('split rules ignore the pitch list');
+  }
+  for (const [what, c] of [['unknown pitch', { ...PIT, pitches: [FB, '魔球'] }], ['repeat', { ...PIT, pitches: [FB, FB] }], ['no fastball', { ...PIT, pitches: [all[1]] }],
+    ['empty', { ...PIT, pitches: [] }], ['too many', { ...PIT, pitches: all.slice(0, CREATE.starterPitches + 1) }], ['not a list', { ...PIT, pitches: FB }], ['batter', { ...BAT, pitches: [FB] }]])
+    if (!validateCreate(c).length) bad(`pitch list ${what}: accepted`);
+  if (makePlayer(9, PIT).player.pitches) bad('a pitcher created without a list got pitches');
+  /* a pitch grows with its share and never moves the overall */
+  const s = { pit: true, age0: 20, day: 0, pot: 99, split: { stuff: 0, ctrl: 0, arm: 0, [FB]: 100 }, abil: { stuff: 60, ctrl: 60, arm: 60, [FB]: 60 } }, o0 = overallOf(s);
+  for (let d = 0; d < 30; d++) trainDay(s, rng(d), 0);
+  if (!(s.abil[FB] > 60) || s.abil.stuff !== 60 || overallOf(s) !== o0) bad(`100 % on ${FB}: pitch ${s.abil[FB]}, stuff ${s.abil.stuff}, overall ${o0} -> ${overallOf(s)}`);
+  /* more pitches, slower to the 一軍 (train_sim) */
+  const sr2 = rng(5); let slower = 0, faster = 0;
+  for (let i = 1; i < 80; i += 2) {
+    const made = makePlayer(2000 + i, choiceOf(i, sr2)), a = pitchRun(withPitches(made, 1), 0, i, 62).days, b = pitchRun(withPitches(made, 5), 0, i, 62).days;
+    if (b > a) slower++; if (b < a) faster++;
+  }
+  if (faster || !slower) bad(`5 pitches vs 1: ${faster} pitchers faster, ${slower} slower to the 一軍`);
+}
+
+/* learning a pitch (#378 part 5) */
+{
+  const [FB, SL, CU] = PITCH_TYPES.map(t => t[0]);
+  const mk = pot => ({ pit: true, age0: 20, day: 0, pot, split: { stuff: 22, ctrl: 45, arm: 25, [FB]: 8 }, abil: { stuff: 60, ctrl: 60, arm: 60, [FB]: 60 } });
+  for (const [what, s, name, split] of [['batter', { ...mk(99), pit: false }, SL], ['unknown pitch', mk(99), '魔球'], ['held pitch', mk(99), FB],
+    ['split without it', mk(99), SL, { stuff: 22, ctrl: 45, arm: 25, [FB]: 8 }], ['split not 100', mk(99), SL, { stuff: 22, ctrl: 45, arm: 25, [FB]: 8, [SL]: 1 }]])
+    if (!learnPitch(s, name, split).length) bad(`learnPitch ${what}: accepted`);
+  const want = learnSplit(mk(99).split, SL);
+  if (want[SL] !== LEARN_SHARE || validateSplit([...Object.keys(mk(99).split), SL], want).length) bad(`learnSplit ${JSON.stringify(want)} is not a legal split with ${LEARN_SHARE} % on ${SL}`);
+  for (const pot of [99, 30]) {
+    const s = mk(pot), o0 = overallOf(s), stuff0 = s.abil.stuff, w = learnPitch(s, SL);
+    if (w.length) { bad(`learnPitch refused a legal pitch: ${w.join('; ')}`); continue; }
+    if (s.abil[SL] !== 0 || JSON.stringify(s.split) !== JSON.stringify(want)) bad(`learning ${SL} did not start at 0 with the learnSplit`);
+    let early = false;
+    for (let d = 0; d < DAYS_PER_SEASON * 2 && s.abil[SL] < LEARN_AT; d++) { trainDay(s, rng(d), 0); if (s.abil[SL] < LEARN_AT && knownPitches(s).includes(SL)) early = true; }
+    if (early) bad(`${SL} thrown before ${LEARN_AT}`);
+    if (!knownPitches(s).includes(SL)) bad(`${SL} not learned in two seasons at ${LEARN_SHARE} % (potential ${pot}): ${s.abil[SL]}`);
+    if (pot < o0 && (s.abil.stuff !== stuff0 || overallOf(s) !== o0)) bad(`over the potential an ability grew while learning (stuff ${stuff0} -> ${s.abil.stuff})`);
+    if (learnPitch(s, CU).length || knownPitches(s).includes(CU)) bad(`${CU} refused or thrown at once after ${SL}`);
+  }
+  { const s = mk(99), o0 = overallOf(s); learnPitch(s, SL, { stuff: 0, ctrl: 0, arm: 0, [FB]: 0, [SL]: 100 });
+    for (let d = 0; d < 30; d++) trainDay(s, rng(d), 0);
+    if (overallOf(s) !== o0 || s.abil.stuff !== 60) bad('learning a pitch moved the overall'); }
+  const lr = rng(11); let slower = 0;
+  for (let i = 1; i < 40; i += 2) { const made = withPitches(makePlayer(3000 + i, choiceOf(i, lr)), 1); if (!(learnDays(made, SL, LEARN_WIDE, 0, i) < learnDays(made, SL, LEARN_SHARE, 0, i))) slower++; }
+  if (slower) bad(`${slower} pitchers did not learn ${SL} sooner at ${LEARN_WIDE} % than at ${LEARN_SHARE} %`);
+}
 
 /* daily cap, potential caps the overall, no drop, 0 % does not grow, age */
 const last = AGE_CURVE[AGE_CURVE.length - 1];
@@ -74,6 +157,36 @@ const old = { pit: true, age0: last[0], day: 0, pot: 99, split: { stuff: 50, ctr
 for (let d = 0; d < DAYS_PER_SEASON; d++) if (trainDay(old, r, 0) > 0) { bad(`a ${last[0]}-year-old grew hands-off`); break; }
 if (overallOf({ pit: false, pot: 50, abil: { con: 61, pow: 61, eye: 61, spd: 61, arm: 61 } }) !== makePlayer(9, { ...BAT, points: { con: 61, pow: 61, eye: 61, spd: 61, arm: 61 } }).ratings.ovr) bad('overallOf disagrees with ratingsOf of a created player');
 
+/* decline after the peak (#433) */
+{
+  const d0 = DECLINE_CURVE[0][0];
+  if (declineFactor(d0) !== 0 || !(declineFactor(d0 + 1) > 0)) bad(`declineFactor: ${declineFactor(d0)} at ${d0}, ${declineFactor(d0 + 1)} at ${d0 + 1}`);
+  for (let a = 18; a < 45; a++) if (declineFactor(a + 1) < declineFactor(a) - EPS) bad(`declineFactor falls with age at ${a}`);
+  const season = (pit, age0, abil, split, bonus) => { const s = { pit, age0, day: 0, pot: 99, split, abil: { ...abil } }, rr = rng(age0);
+    for (let d = 0; d < DAYS_PER_SEASON; d++) trainDay(s, rr, bonus); return s.abil; };
+  const bAbil = { con: 70, pow: 70, eye: 70, spd: 70, arm: 70 }, bSplit = { con: 100, pow: 0, eye: 0, spd: 0, arm: 0 };
+  const young = season(false, d0, bAbil, bSplit, 0);
+  for (const k of kb) if (young[k] < bAbil[k] - EPS) bad(`${k} dropped at ${d0}`);
+  for (const age of [d0 + 1, 34, 38, 42]) {
+    const h = season(false, age, bAbil, bSplit, 0), a = season(false, age, bAbil, bSplit, ACTIVE_BONUS);
+    for (const k of ['pow', 'eye', 'spd', 'arm']) {
+      if (!(h[k] < bAbil[k] - EPS)) bad(`age ${age}: 0 % ${k} did not decline hands-off (${h[k]})`);
+      if (Math.abs((bAbil[k] - h[k]) - (bAbil[k] - a[k])) > EPS) bad(`age ${age}: ${k} declines ${bAbil[k] - h[k]} hands-off, ${bAbil[k] - a[k]} active`);
+    }
+    if (!(bAbil.spd - h.spd > bAbil.eye - h.eye) || !(bAbil.arm - h.arm > bAbil.eye - h.eye)) bad(`age ${age}: spd/arm do not decline faster than eye`);
+    const p = season(true, age, { stuff: 70, ctrl: 70, arm: 70 }, { stuff: 0, ctrl: 0, arm: 0, [PITCH_TYPES[0][0]]: 100 }, 0);
+    if (!(70 - p.stuff > 70 - p.ctrl) || !(70 - p.arm > 70 - p.ctrl)) bad(`age ${age}: stuff/arm do not decline faster than ctrl`);
+  }
+  const floor = season(false, 45, { con: DECLINE_FLOOR + 0.5, pow: DECLINE_FLOOR, eye: DECLINE_FLOOR - 5, spd: 41, arm: 90 }, { ...bSplit, con: 0, pow: 100 }, 0);
+  if (floor.con !== DECLINE_FLOOR || floor.spd !== DECLINE_FLOOR || floor.pow < DECLINE_FLOOR || floor.eye !== DECLINE_FLOOR - 5) bad(`decline floor ${DECLINE_FLOOR}: ${JSON.stringify(floor)}`);
+  const [FB, SL] = PITCH_TYPES.map(t => t[0]);
+  const ls = { pit: true, age0: 40, day: 0, pot: 99, split: { stuff: 0, ctrl: 0, arm: 0, [FB]: 100 }, abil: { stuff: 70, ctrl: 70, arm: 70, [FB]: 70 } };
+  learnPitch(ls, SL, { stuff: 0, ctrl: 0, arm: 0, [FB]: 0, [SL]: 100 });
+  let prev = ls.abil[SL];
+  for (let d = 0; d < 20; d++) { trainDay(ls, rng(d), 0); if (ls.abil[SL] < prev) bad(`${SL} declined while being learned`); prev = ls.abil[SL]; }
+  if (!(declineDay(ageOn(ls), FB) > 0) || !(ls.abil[FB] < 70)) bad(`${FB} did not decline at 40`);
+}
+
 /* determinism and bonus */
 const sr = rng(11);
 for (let i = 0; i < 60; i++) {
@@ -84,7 +197,7 @@ for (let i = 0; i < 60; i++) {
 }
 
 /* targets from the site data */
-const players = JSON.parse(readFileSync(path.join(ROOT, 'league/site/players.json'), 'utf8'));
+const players = (await import('../league/tools/site.mjs')).factoryPlayers();   /* factory 一軍, not the day-1 snapshot (#565) */
 const o = Object.values(players).filter(p => p.tier === 1).map(p => p.overall).sort((x, y) => x - y), t = targets(players);
 if (t.median !== o[Math.ceil(o.length / 2) - 1] || t.bottom !== o[Math.ceil(o.length / 4) - 1]) bad(`sim targets ${t.median}/${t.bottom} are not the nearest-rank median and bottom quartile of the 一軍`);
 

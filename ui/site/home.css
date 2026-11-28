@@ -37,3 +37,12 @@ a.vid:hover{border-color:#3a3d44}
 .thumb::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.55)}
 .thumb b{position:relative;font-size:28px;font-weight:600;color:#fff}
 .vt{display:flex;flex-direction:column;gap:2px;padding:10px 12px}.vt b{font-size:15px;font-weight:600;line-height:1.35}.vt small{color:var(--muted);font-size:13px}
+/* 試跑賽季 panel (#743) */
+.trial{display:grid;gap:10px;padding:16px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
+.trial .sec{margin:0}.trial .tag{font-size:12px;font-weight:500;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+.trial h3{margin:4px 0 0;font-size:14px;font-weight:600;color:var(--soft)}
+.trial .gl{list-style:none;margin:0;padding:0;display:grid;gap:6px}.trial .gl li{display:flex;flex-direction:column;gap:2px}
+.trial .gl small{color:var(--muted);font-size:13px}.trial .gl .at{color:var(--muted);font-size:13px}.trial .gl b{color:var(--gold)}
+.trial .gl .farm-replay{display:inline-flex;align-items:center;min-height:44px;font-size:14px}
+.trial .empty{margin:0}
+.trial .health{margin:0;font-size:13px;color:var(--muted)}.trial .health.stale{color:#ff6b6b;font-weight:600}

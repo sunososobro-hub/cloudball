@@ -3,6 +3,7 @@
 //        node commentary/tools/synth.mjs --in lines.json --out dir [--redo] [--only id,id,...]
 //        node commentary/tools/synth.mjs --ping     (free: can this machine reach the API? nothing is made)
 //        node commentary/tools/synth.mjs --in lines.json --out dir --show id,id  (free: print what would be sent)
+//        node commentary/tools/synth.mjs --in lines.json --out dir --dry-run  (free: rows still to make and the estimated US$ cost; no key, no ffmpeg)
 //        node commentary/tools/synth.mjs --converse [--dry-run] [--at 30,142] [--redo] [--cap 1]
 //          conversation trial (#129, tools/converse.mjs): the lines of tools/converse-trial.json, each
 //          speaker hearing the clips before his; A/B files in audio/_trial/converse/. Its own gate
@@ -94,7 +95,7 @@ const outDir = flag('--trial') ? join(root, 'audio', '_trial') : converse ? opt(
 if (!inFile || !outDir) { console.error('usage: --trial | --in <json> --out <dir>  [--redo] [--only ids] | --ping'); process.exit(2); }
 
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
-if (!(converse && (flag('--dry-run') || opt('--show'))) && spawnSync(FFMPEG, ['-version'], { stdio: 'ignore', windowsHide: true }).error) {
+if (!(flag('--dry-run') || (converse && opt('--show'))) && spawnSync(FFMPEG, ['-version'], { stdio: 'ignore', windowsHide: true }).error) {
   console.error(`ffmpeg not found (${FFMPEG}). Install it with the package manager (apt-get install ffmpeg / brew install ffmpeg / winget install ffmpeg),`
     + ' or `npm i -g ffmpeg-static` and set FFMPEG to the path it prints. Never commit the binary.');
   process.exit(1);
@@ -103,6 +104,19 @@ if (!(converse && (flag('--dry-run') || opt('--show'))) && spawnSync(FFMPEG, ['-
 const roles = JSON.parse(readFileSync(join(root, 'voices.json'), 'utf8')).roles;
 const lines = converse ? [] : JSON.parse(readFileSync(inFile, 'utf8'));
 if (only) { const ids = new Set(lines.map(l => l.id)), unknown = [...only].filter(i => !ids.has(i)); if (unknown.length) { console.error(`--only: not in ${inFile}: ${unknown.join(', ')}`); process.exit(2); } }
+if (!converse && flag('--dry-run')) {
+  /* free estimate (#604): rows with no mp3 yet, at one try each and at MAX_TRIES tries each; nothing is requested or written */
+  const { estimate } = await import('./cost.mjs');
+  const todo = lines.filter(l => (!only || only.has(l.id)) && !existsSync(join(outDir, `${l.id}.mp3`)));
+  const bad = todo.filter(l => !roles[l.role]);
+  if (bad.length) { console.error(`unknown role in ${inFile}: ${[...new Set(bad.map(l => l.role))].join(', ')}`); process.exit(2); }
+  const e = estimate(todo);
+  console.log(`${lines.length} rows in ${inFile}, ${lines.length - todo.length} already have an mp3 in ${outDir}, ${todo.length} to make (${e.chars} characters, about ${e.seconds.toFixed(0)} s of speech)`);
+  console.log(`estimated cost: US$${e.cost.toFixed(2)} for one try per row; US$${(e.cost * MAX_TRIES).toFixed(2)} if every row were made ${MAX_TRIES} times`);
+  console.log(cap != null ? `--cap ${cap}: a run stops once its estimated cost reaches US$${cap}.` : 'no --cap given: pass --cap <US$> to stop a run at a limit.');
+  console.log('nothing was requested (--dry-run).');
+  process.exit(0);
+}
 if (!converse) mkdirSync(outDir, { recursive: true });
 const manifestPath = join(outDir, 'manifest.json');
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};

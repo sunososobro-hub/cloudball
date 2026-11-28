@@ -1,12 +1,16 @@
 /* 九宮格棒球 practice screen (#332 part 2). Plain DOM over practice.js: no three.js, no engine/, no network.
  * Bat: pick a guess mode, tap a zone cell (3x3), the computer pitches. Pitch: pick a pitch type, tap a cell of the 5x5 grid
- * (the outer ring is outside the zone), the computer swings. The result stays on this page (local only). */
+ * (the outer ring is outside the zone), the computer swings. The result stays on this page (local only).
+ * #563 part 4: me.js reads the fan's own player (public GET) to dress him on the field; no answer = his id look. */
 import { createPractice, PRACTICE_PITCHES, HIT_Q, MODE, PT, STAMINA, inZ } from './practice.js';
 import { describeOutcome, describeResult } from './text.js';
 import { startGame } from './gamescreen.js';
+import { SPEEDS } from './field.js';
+import { openField } from './field3d.js';
+import { findMe } from './me.js';
 
 const $ = id => document.getElementById(id);
-let sess = null, side = null, mode = 'one', ptk = 'fb';
+let opening = false, sess = null, side = null, mode = 'one', ptk = 'fb', field = null, speedI = 0;
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
@@ -34,6 +38,15 @@ function drawGrid() {
   $('go').hidden = !(bat && noCell); $('go').disabled = !sess || sess.S.done;
 }
 
+/* #429: opened from 我的球員 with ?player=<id>, the practice result is kept in this browser for the 訓練 screen (local only, never sent) */
+const PLAYER = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('player');
+function keepResult(result) { if (PLAYER) try { localStorage.setItem('cloudball.trainResult', JSON.stringify({ id: PLAYER, result })); } catch (e) { /* storage blocked: the result stays on this page */ } }
+if (PLAYER) { const back = $('me-link'); if (back) { back.href = 'index.html#me/train'; back.hidden = false; } }
+/* #563 part 4: his body and look (create page) on the field: the batter in bat practice, the pitcher in pitch practice. Same pages as index.html reads. */
+let me = PLAYER ? { id: PLAYER } : null;
+const showMe = () => { if (field && field.setMe && me) field.setMe(me, side); };
+if (PLAYER) findMe(PLAYER).then(s => { if (s) { me = s; showMe(); } });
+
 function status() {
   const S = sess.S; $('count').textContent = `第 ${Math.min(S.pitches + 1, PRACTICE_PITCHES)} / ${PRACTICE_PITCHES} 球`;
   $('score').textContent = `${side === 'bat' ? '安打' : '成功'} ${S.hits}`;
@@ -46,12 +59,15 @@ function play(r, c) {
   try { res = side === 'bat' ? sess.swing({ mode, r, c }) : sess.pitch({ pt: ptk, r, c }); }
   catch (e) { $('line').textContent = String(e.message || e); return; }
   const li = el('li', '', describeOutcome(res.out, side, HIT_Q)); $('log').prepend(li);
+  if (field) field.play({ res: res.out });   // picture only: reads the result, never changes it
   $('line').textContent = li.textContent; status();
-  if (res.done) { $('end').textContent = describeResult(res.result); $('end').hidden = false; window.baseball9Result = res.result; drawGrid(); }
+  if (res.done) { $('end').textContent = describeResult(res.result); $('end').hidden = false; window.baseball9Result = res.result; keepResult(res.result); drawGrid(); }
 }
 
 function start(s) {
   side = s; sess = createPractice(s); window.baseball9Result = null;
+  if (!field && !opening) { opening = true; openField($('pfield')).then(f => { field = f; opening = false; $('pfbar').hidden = !field; $('pfield').hidden = !field; if (field) { field.skip(); showMe(); } }); }
+  if (field) { field.skip(); showMe(); }
   $('menu').hidden = true; $('stage').hidden = false; $('end').hidden = true; $('log').textContent = ''; $('line').textContent = '';
   $('title').textContent = s === 'bat' ? '打擊練習：猜投手會投哪一格' : '投球練習：選球種，投進哪一格';
   drawOptions(); drawGrid(); status();
@@ -62,3 +78,5 @@ $('game').onclick = startGame;
 $('go').onclick = () => play(2, 2);
 $('again').onclick = () => start(side);
 $('back').onclick = () => { $('stage').hidden = true; $('menu').hidden = false; };
+$('pskip').onclick = () => { if (field) field.skip(); };
+$('pspeed').onclick = () => { speedI = (speedI + 1) % SPEEDS.length; if (field) field.setSpeed(SPEEDS[speedI]); $('pspeed').textContent = `速度 ${SPEEDS[speedI]}x`; };

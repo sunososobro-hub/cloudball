@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>球隊外觀對照</title>
+<style>
+/* #559: contact sheet of one team's first 9 batters in caps, to tell hair styles apart. ?team=<id>&webgl&blocky&back */
+:root{color-scheme:dark;--bg:#0a1020;--ink:#eef2f8;--muted:#9aa6bd}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0}#stage canvas{display:block;width:100%;height:100%}
+.lbl{position:fixed;transform:translate(-50%,0);color:var(--muted);text-align:center;pointer-events:none;white-space:nowrap;font-size:12px}
+.lbl b{display:block;color:var(--ink);font-size:13px}
+#info{position:fixed;left:12px;top:8px;color:var(--muted)}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.js",
+  "three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.js",
+  "three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="stage"></div><div id="info"></div>
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { makePlayer, loadPlayerAssets, headOfPlayer, hairStyleOf, HAIR_STYLES } from './players.js';
+const Q = new URLSearchParams(location.search), $ = id => document.getElementById(id);
+const all = await (await fetch('../league/site/players.json')).json(), team = Q.get('team') || 'pheasants';
+const nine = Object.entries(all).filter(([id, p]) => p.team === team && p.role === 'B').slice(0, 9).map(([id, p]) => ({ id, ...p }));
+const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: Q.has('webgl') });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.toneMapping = THREE.ACESFilmicToneMapping; $('stage').appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0a1020);
+const SPACING = .62, X0 = -SPACING * (nine.length - 1) / 2, back = Q.has('back');
+/* head-and-shoulders framing: the hair under the cap is what this sheet is for; the figures face -z, so ?back puts the camera at +z */
+const cam = new THREE.PerspectiveCamera(11, 1, .1, 100); cam.position.set(0, 1.8, back ? 9 : -9); cam.lookAt(0, 1.68, 0);
+scene.add(new THREE.HemisphereLight(0xcfe2ff, 0x2a2418, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(3, 8, back ? 6 : -6); scene.add(sun);
+await renderer.init(); if (!Q.has('blocky')) { try { await loadPlayerAssets('../assets/') } catch (e) { console.warn('glb load failed', e) } }
+const rows = nine.map((p, i) => { const f = makePlayer({ jersey: 0x2f7fc4, head: 'cap', parent: scene }), h = headOfPlayer(p);
+  f.setBuild('normal', undefined, h); f.g.position.set(X0 + i * SPACING, 0, 0); 
+  const d = document.createElement('div'); d.className = 'lbl'; d.innerHTML = `<b>${p.id.split('-').pop()}</b>${HAIR_STYLES[hairStyleOf(h)].name ?? hairStyleOf(h)}`; document.body.appendChild(d);
+  return { f, d, x: X0 + i * SPACING, style: HAIR_STYLES[hairStyleOf(h)].name ?? String(hairStyleOf(h)) } });
+window.ROWS = rows; window.SHEET = nine.map((p, i) => ({ id: p.id, name: p.name, style: rows[i].style }));
+$('info').textContent = `${team}: ${window.SHEET.map(r => r.id.split('-').pop() + ' ' + r.style).join(' · ')}`;
+const v = new THREE.Vector3();
+function resize() { renderer.setSize(innerWidth, innerHeight, false); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix() }
+addEventListener('resize', resize); resize();
+renderer.setAnimationLoop(() => { renderer.render(scene, cam);
+  for (const r of rows) { v.set(r.x, 1.42, 0).project(cam); r.d.style.left = ((v.x + 1) / 2 * innerWidth) + 'px'; r.d.style.top = ((1 - v.y) / 2 * innerHeight) + 'px' }
+  window.SHEET_READY = true });
+</script>
+</body>
+</html>

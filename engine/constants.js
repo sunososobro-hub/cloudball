@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.7';
+export const ENGINE_VERSION = '0.4.31';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -18,14 +18,40 @@ export const STREAM_TIME_PRECISION = 1000; /* stream times are rounded to 1/1000
 export const BIG = { NONE: 0, NOTABLE: 1, HUGE: 2 };   /* how much a frame matters to the broadcast (crowd, captions) */
 export const IBB_PITCH_SPOT = [0.6, 0.7];  /* where the pitch-out of an intentional walk is drawn */
 export const COSMETIC_SALT = 0x5ca1ab1e;  /* seed offset of the RNG used for looks only (pitch type, speed, slides) */
+export const RARE_PLAY_SALT = 0x0c1d0e11;  /* #614 part 9: seed offset of the seeded RNG for rare-play outcomes (one draw per swing), so adding one keeps R's sequence */
 
 /* ---- broadcast timeline (how long each frame takes on screen) ---- */
 export const PRE_DUR = 18;
-export const BREAK_DUR = 34;
-export const CHANGE_DUR = 14;
+/* #610: dead-ball time as in a real game (so 哥 2026-11-27: time is no constraint). Timing only: no draw, no outcome reads these;
+ * only later times move. Sources: MLB Official Baseball Rules 5.07(b) (up to 8 preparatory pitches before each inning and for a
+ * reliever), MLB pace-of-game regulations (inning break and pitching change timed at about two minutes), CPBL follows the same rules. */
+export const WARMUP_PITCH_GAP = 9;         /* s from one warm-up pitch to the next (throw, catcher's return, set) */
+export const BRK_SWAP_DUR = 20;            /* s: the sides change and the pitcher reaches the mound (render: fielders on by BRK_ON_AT 17.5) */
+export const BRK_WARMUP_PITCHES = 8;       /* warm-up pitches between innings (OBR 5.07(b)) */
+export const BRK_THROW_AROUND_DUR = 12;    /* s: the catcher's throw down to second and the ball around the infield */
+export const BRK_BATTER_IN_DUR = 8;        /* s: the leadoff batter steps in */
+export const BREAK_DUR = BRK_SWAP_DUR + BRK_WARMUP_PITCHES * WARMUP_PITCH_GAP + BRK_THROW_AROUND_DUR + BRK_BATTER_IN_DUR;   /* 112 s */
+export const RELIEF_SIGNAL_DUR = 14;       /* s: the manager walks to the mound and signals the bullpen (render/visit.js needs ~13.2 s) */
+export const BULLPEN_JOG_M = 105;          /* m from the outfield bullpen gate to the mound */
+export const RELIEF_JOG_SPEED = 4.2;       /* m/s: the reliever's jog in */
+export const RELIEF_WARMUP_PITCHES = 8;    /* a reliever's warm-up pitches on the mound (OBR 5.07(b)) */
+export const RELIEF_SETTLE_DUR = 10;       /* s: the ball handed over, the manager back to the dugout, the batter in */
+export const CHANGE_DUR = RELIEF_SIGNAL_DUR + BULLPEN_JOG_M / RELIEF_JOG_SPEED + RELIEF_WARMUP_PITCHES * WARMUP_PITCH_GAP + RELIEF_SETTLE_DUR;   /* 121 s */
+export const HBP_PLAY_DUR = 15;            /* s: the pitch, the reaction and the walk to first: the old hbp frame (WALK_FRAME_DUR + PA_END_HOLD) */
+export const HBP_CHECK_DUR = 20;           /* s: the trainer and the manager check on the hit batter before play resumes */
+/* #81: the pitching coach's mound visit after a "stay" pick, once per pitcher (frame `VIS`). render/visit.js needs about 13.2 s for the
+ * walk out and back from either dugout; the rest is the talk at the mound. Timing only: no draw, no outcome reads it. */
+export const MOUND_VISIT_DUR = 16;
+/* #614 part 11: the catcher's mound visit (frame `CVIS`, stream `mound_visit` staff `catcher`). Timing only: drawn from its own seeded RNG
+ * (`VISIT_SALT`), so R and the looks RNG keep their sequences; no outcome reads it. */
+export const VISIT_SALT = 0x0b15175a;      /* seed offset of the RNG that decides catcher visits */
+export const MOUND_VISIT_LIMIT = 4;        /* mound visits per team per nine innings, coach and catcher together (OBR 5.10(m), 4 since 2024) */
+export const MOUND_VISIT_EXTRA = 1;        /* one more for each extra inning a team starts with none left (OBR 5.10(m)) */
+export const CATCHER_VISIT_P = 0.13;       /* estimate: per plate appearance with a runner in scoring position after a pitch; ~0.8 per team per game (no public count of catcher visits) */
+export const CATCHER_VISIT_DUR = 30;       /* s: time out, the catcher's jog to the mound, the talk, back and set (MLB 30 s mound-visit clock, 2018) */
 export const VOTE_DUR = 2;
 export const VOTE_WINDOW = 15;
-export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: 15, ibb: 10, bk: 10 };
+export const PITCH_DUR = { ball: 12, cstr: 12, sstr: 12, foul: 12, hbp: HBP_PLAY_DUR + HBP_CHECK_DUR, ibb: 10, bk: 10, po: 10, pof: 8 };
 export const PITCH_DUR_DEFAULT = 10;
 export const PA_END_HOLD = 3;             /* extra pause after a plate appearance ends */
 export const WALK_FRAME_DUR = 12;
@@ -64,6 +90,11 @@ export const MISS_LOW_SPAN = 0.25;
 export const MISS_HIGH_Y = 1.15;
 export const MISS_HIGH_SPAN = 0.3;
 export const HBP_P = 0.0077;              /* chance that a taken pitch outside the zone hits the batter */
+/* #614 part 9: share of non-bunt swings (no steal on) where the bat hits the catcher's mitt: catcher's interference, batter to first.
+ * Data: MLB had about 100 catcher's interference calls a season in 2023-2024 (Baseball-Reference, ~98 / ~96) in ~184,000 PA,
+ * about 5.4e-4 per PA = ~0.04 a game for both teams. MLB swings ~1.9 times a PA (47% of ~3.9 pitches, Statcast) -> 2.8e-4 a swing,
+ * but this engine swings more often: 2.8e-4 gave 0.054 a game (seeds 1-2000), scaled to 0.04 -> 2.1e-4 (0.035 on seeds 1-2000) */
+export const CI_OF_SWING = 0.00021;
 export const TIRE_AFTER_PITCHES = 85;
 export const TIRE_STUFF_PER_PITCH = 0.003;
 export const TIRE_CTRL_PER_PITCH = 0.002;
@@ -94,6 +125,53 @@ export const CONTACT_CHASE = 0.555;
 export const CONTACT_MAX = 0.97;
 export const FOUL_P = 0.5;
 export const FOUL_P_2K = 0.51;
+/* ---- caught foul flies (#614 part 1): a ball fouled off in the air is caught in foul ground for a fly-catch out ----
+ * FOUL_OUT_P: of the balls a batter fouls off. Data: MLB play-by-play (Retrosheet event files, hit-location suffix `F`)
+ * has about 1.4 foul-territory catches per game (both teams) against about 52 fouls per game here; an estimate, not
+ * re-measured in this PR. FOUL_OUT_ZONES: who catches it, [fielder, cumulative share, [angle from the centre-field
+ * line, width] in degrees, [distance from home, width] in metres]; every angle is beyond the 45-degree foul lines (or
+ * behind the plate), so the catch is in foul ground. Shares follow the usual split (catcher, the two corner infielders
+ * most, corner outfielders on flies drifting over the line). The catcher and corner infielders catch pop-ups, the
+ * outfielders fly balls. FOUL_OUT_HANG_PAD: a foul fly stays up long enough for its fielder to be under it with this
+ * margin (seconds), so the catch is always inside his reach and the landing spot never moves back into fair ground. */
+export const FOUL_OUT_P = 0.027;
+export const FOUL_OUT_ZONES = [
+  ['C', 0.24, [125, 110], [5, 12]],
+  ['1B', 0.52, [50, 25], [22, 16]],
+  ['3B', 0.80, [-75, 25], [22, 16]],
+  ['LF', 0.90, [-53, 6], [62, 20]],
+  ['RF', 1, [47, 6], [62, 20]],
+];
+export const FOUL_OUT_FB_KEYS = ['LF', 'RF'];
+export const FOUL_OUT_HANG_PAD = 0.05;
+export const FOUL_LINE_DEG = 45;
+/* ---- foul tips (#614 part 2): a swing that ticks the ball straight into the catcher's mitt is a strike, the ball stays live,
+ * and with two strikes it is a (swinging) strikeout. FOUL_TIP_OF_WHIFF: share of the swinging strikes the catcher holds
+ * that are foul tips. Data: Baseball Savant pitch descriptions (MLB 2023-2025), `foul_tip` is about 1% of all pitches
+ * against about 11% for `swinging_strike` + `swinging_strike_blocked` + `foul_tip`; an estimate, not re-measured in this PR.
+ * Only a label on a swinging strike: it is drawn from the looks RNG after the wild-pitch / passed-ball draw, so no
+ * outcome changes (a ball that got by is never a tip). */
+export const FOUL_TIP_OF_WHIFF = 0.08;
+/* ---- check-swing appeals (#614 part 6, OBR 8.02(c)): when the plate umpire calls a half swing a ball, the catcher may ask the
+ * base umpire on the batter's open side (first base for a right-handed batter, third for a left-handed one); his ruling is the call.
+ * Only labels: drawn from the looks RNG on a ball or a swinging strike the engine already decided, so no outcome moves.
+ * CHECK_APPEAL_BALL_P: share of balls (no swing) that were half swings appealed and denied. CHECK_APPEAL_OF_WHIFF: share of
+ * swinging strikes (not foul tips) that were half swings the base umpire ruled a swing. Data: no public pitch-level field records
+ * appeals (Baseball Savant folds them into `ball` / `swinging_strike`); estimate of about 3 appeals per MLB game, about a third
+ * ruled a swing (about 2 of ~100 balls and 1 of ~30 swinging strikes per game), not measured in this PR.
+ * CHECK_APPEAL_AT: s after the pitch arrives when the base umpire signals (catcher points, umpire answers). */
+export const CHECK_APPEAL_BALL_P = 0.02;
+export const CHECK_APPEAL_OF_WHIFF = 0.035;
+export const CHECK_APPEAL_AT = 1.2;
+/* ---- foul bunts (#614 part 3): a bunt attempt bunted foul is a strike at any count, so with two strikes it is a
+ * strikeout (rule 5.09(a)(4)). BUNT_FOUL_P: share of bunt attempts (pitches bunted at) that go foul. Data: Baseball Savant
+ * pitch descriptions (MLB 2023-2025), `foul_bunt` against `foul_bunt` + bunts `hit_into_play`; an estimate of about a third,
+ * not re-measured in this PR. BUNT_FOUL_RIGHT_P: share that rolls foul past first (most go up the third-base line, as the
+ * BUNT_SPRAY_DEG window does). BUNT_2K_KEEP_P: after the second strike the coach keeps the bunt on (risking the foul-bunt
+ * strikeout) instead of letting him swing away; an estimate, most two-strike bunts in MLB are squeeze or bunt-for-hit tries. */
+export const BUNT_FOUL_P = 0.33;
+export const BUNT_FOUL_RIGHT_P = 0.3;
+export const BUNT_2K_KEEP_P = 0.2;
 
 /* ---- batted ball mix and results ---- */
 export const GB_SHARE = 0.43;
@@ -133,15 +211,53 @@ export const FB_HIT_DIST = [85, 25];
 export const FB_HANG = [3.4, 1.4];
 export const FB_PEAK = [22, 12];
 export const TRIPLE_MIN_DIST = 100;
+export const HIT_HORIZ_SPEED_MAX = 50;       /* m/s (180 km/h): no hit covers its distance faster than this; a triple pushed out to TRIPLE_MIN_DIST stays up for d / this (#690: 100 m in 1.8 s was 200 km/h flat, over EV_MAX) */
 export const HIT_ROLL_FACTOR = 1.08;      /* an air-ball hit rolls this much past its landing point */
 export const HIT_ROLL_TIME = 0.8;
+export const FENCE_R = 110;              /* #684: outfield wall radius from home, m (render/game.js fence CylinderGeometry(110, ...)) */
+export const WALL_PICKUP = 1;            /* #684: a hit rolling to the wall stops at its base; the fielder picks it up this far in front of it, m */
+/* #614 part 7: share of air-ball doubles whose roll reaches the wall (FENCE_R) that bounce over it: a ground-rule double, every
+ * runner gets two bases. Estimate, not a fit: MLB scores roughly 0.2 ground-rule doubles a game (a few percent of its ~3.3
+ * doubles; Retrosheet event files mark them `DGR`); this engine has ~0.35 wall-reaching doubles a game (seeds 1-2000), 0.6 of them -> ~0.21 */
+export const GRD_OF_WALL_2B_P = 0.6;
+/* #614 part 10: an infield fly the infielder drops (the ERROR_P draw on a fair pop-up or fly in an infield-fly situation)
+ * comes off his glove and is picked up IFF_DROP_PICKUP s after it comes down; the batter is out by rule all the same.
+ * Estimate, not a fit: about a second to bend, find the ball at his feet and grab it (as K3_RETRIEVE for a catcher). */
+export const IFF_DROP_PICKUP = 0.8;
 
 /* ---- baserunning choices ---- */
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;
 export const FIRST_TO_THIRD_ON_SINGLE = 0.29;
 export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
+/* Advancing on a throw (#38): on an outfield single that scores the runner from second, the outfielder throws home
+ * with this chance (he is safe: the throw arrives after him) and the batter, with second open, takes it on the throw.
+ * First guess, not tuned: about one try in three; it only moves a runner, never adds an out. */
+export const THROW_HOME_ON_SINGLE_P = 0.35;
+/* Out on the bases (#38): on an outfield single with fewer than two outs, a runner from second who would be held at
+ * third is sent home anyway with this chance; the outfielder's throw to the catcher decides (rules/fielding.js): out
+ * when the ball beats him, else he scores. First guess, not tuned (MLB sends about 60% and loses a few percent of them). */
+export const SEND_FROM_2ND_ON_SINGLE_P = 0.12;
+/* Out on the bases (#38): on an outfield single with fewer than two outs and second open, the batter tries to stretch it
+ * into a double with this chance; the throw to second decides: tagged out when the ball beats him, else a double.
+ * First guess, not tuned (MLB: a few hundred batters a season are thrown out stretching, about 0.1 a game). */
+export const STRETCH_1B_P = 0.03;
+/* Advancing on an error (#38): on an outfield single the outfielder bobbles the ball with this chance, loses
+ * OF_BOBBLE_TIME seconds securing it, and the batter and every runner take one base more than the single gives them.
+ * Scored a single plus an error on that fielder. First guess, not tuned (MLB outfielders make roughly 0.1-0.15 errors
+ * a game between both teams; only some of those are bobbles on a single). */
+export const OF_BOBBLE_1B_P = 0.012;
+export const OF_BOBBLE_TIME = 1.6;
+/* Advancing on an error (#38): a reached-on-error ground ball to an infielder other than the first baseman is a wild
+ * throw past first with this chance: the ball ends WILD_THROW_PAST metres (x, z) beyond the bag in foul territory, the
+ * batter takes second and every runner two bases. First guess, not tuned (MLB infield errors split roughly evenly
+ * between fielding and throwing errors; not every bad throw gets past the first baseman). */
+export const WILD_THROW_SHARE = 0.4;
+export const WILD_THROW_PAST = [6, 6];
 export const DP_TRY_P = 0.44;
-export const SAC_FLY_P = 0.8;             /* runner on third tags and scores on a fly out */
+/* Runner on third, fewer than two outs, ball caught by an outfielder (fly or liner): he tags and scores with this chance.
+ * Tuned so SF/game approaches tests/replay/run.mjs REFERENCE (MLB 2025 0.54, #38): 0.8 gave 0.40, 0.9 gives 0.45 on 10,000
+ * games. The rest of the gap is chances, not this rate (about 0.5 outfield catches a game with a runner on third). */
+export const SAC_FLY_P = 0.9;
 export const TAG_2ND_TO_3RD_P = 0.2;      /* runner on second tags and takes an open third on a fly out */
 export const GB_ADVANCE_P = 0.5;
 export const STEAL_CONSIDER_P = 0.4;       /* 0.48 before #38 part 4: steals of third now take their share of SB/game */
@@ -164,11 +280,70 @@ export const HOME_SLIDE_P = 0.5;
  * Both tuned so WP/game and PB/game match tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
 export const WP_P = 0.025;
 export const PB_P = 0.002;
+/* ---- dropped third strike (#614 part 4, rule 5.09(a)(2)/(3)): with first base open, or with two outs, a third strike the
+ * catcher does not hold leaves the batter free to run to first; the catcher picks the ball up and throws to first (a force,
+ * rules/outs.js forceOut) or the batter is safe (a strikeout for the pitcher and the batter, no out).
+ * K3_DROP_DIRT_P: share of those swinging third strikes on a ball in the dirt (out of the zone, below MISS_LOW_Y) the
+ * catcher only blocks; K3_DROP_P: any other third strike he drops. K3_RETRIEVE: [min, width] s from the ball reaching the
+ * plate to the catcher's throw (a block in front of him .. a ball that kicks away to the backstop); the batter needs about
+ * 4.3 s to first, so roughly one drop in nine (the ball that kicks far away) gets him there.
+ * Data: MLB.com, A. Castrovince, "Odd, but not out: baseball's most bizarre rule" (2018) and Baseball-Reference Bullpen
+ * "Dropped third strike": most uncaught third strikes are a routine K 2-3 and a batter reaching is rare (a few hundredths of a
+ * game per team); the shares here are estimates in that range, not re-measured in this PR. */
+export const K3_DROP_DIRT_P = 0.12;
+export const K3_DROP_P = 0.004;
+export const K3_RETRIEVE = [0.6, 3.3];
+/* #614 part 5: the catcher tags the batter instead of throwing when the ball stays in front of the plate (rule 5.09(a)(2):
+ * "tagged ... before he touches first base"). After picking it up he runs K3_TAG_STEP s up the line at COVER_SPEED and tags
+ * the batter if the batter is still within K3_TAG_REACH m (arm and glove). With WP_BREAK and RUN_ACCEL this is a pickup within
+ * about 0.25 s of the shortest K3_RETRIEVE (a ball blocked at his feet), so roughly one drop in thirteen ends in a tag.
+ * Data: Baseball-Reference Bullpen "Dropped third strike" (the catcher "tags the batter or throws to first"); MLB video of
+ * blocked third strikes shows a tag one or two strides out of the box. Step and reach are estimates, not re-measured here. */
+export const K3_TAG_STEP = 0.6;
+export const K3_TAG_REACH = 1.0;
 /* Balk: before a pitch with a runner on (no steal on) the pitcher balks with BK_P; no pitch counts, every runner moves
  * up one base. The plate umpire calls it BK_CALL_AT s into the frame (the pitcher stops at the top of his leg lift);
  * runners trot from there. Tuned so BK/game matches tests/replay/run.mjs REFERENCE (MLB 2025, see there). */
 export const BK_P = 0.0006;
 export const BK_CALL_AT = 0.9;
+/* Pickoff (#38): before a pitch with a runner on first, second open and no steal on, the pitcher picks him off with PO_P
+ * (only the throws that get him: attempts that do not are not modelled). No pitch counts. The runner has his lead
+ * (PO_LEAD m, taken by PO_LEAD_AT s), the pitcher steps off and throws to the first baseman holding him on at PO_THROW_AT
+ * at PO_THROW_V; the runner reacts PO_REACT later and dives back; the tag beats his hand. Tuned so PO/game matches
+ * tests/replay/run.mjs REFERENCE (FanGraphs 2023, see there). */
+export const PO_P = 0.0022;
+export const PO_LEAD = 3.4;
+export const PO_LEAD_AT = 1.0;
+export const PO_THROW_AT = 1.3;
+export const PO_THROW_V = 30;
+export const PO_REACT = 0.3;
+/* #614 part 8: rundown on a pickoff. RD_OF_PO_P of the pickoffs above (a label from the looks RNG: the same runner is out,
+ * box scores unchanged) catch the runner leaning: he breaks for second PO_REACT after the throw, the first baseman throws to
+ * the shortstop covering second (RD_RELEASE after his catch, never before the shortstop is on the bag), the runner stops and
+ * turns back (RD_TURN), the shortstop runs him back RD_CHASE s and tosses to the first baseman, who has stepped RD_1B_UP m up
+ * the line; he runs at the runner and tags him within RD_TAG_REACH before he gets back to first. Both throws at RD_THROW_V
+ * (a short infield toss, under run.mjs MAX_THROW). Estimate, not a fit: Retrosheet scores about a third of MLB pickoffs at
+ * first as "picked off, caught stealing" (POCS: the runner broke for second), most of them run down between the bases. */
+export const RD_OF_PO_P = 0.3;
+export const RD_RELEASE = 0.4;
+export const RD_THROW_V = 25;
+export const RD_TURN = 0.5;
+export const RD_CHASE = 0.8;
+export const RD_1B_UP = 4;
+export const RD_TAG_REACH = 1.0;
+export const RD_STEP = 0.01;      /* s: time step when finding where the first baseman meets the runner */
+/* Throw-over that does not get him (#38): same set-up, drawn with POF_P after the pickoff draw, at most POF_MAX_PA times
+ * in one plate appearance (MLB rule since 2023: two disengagements per plate appearance; a third that does not get the
+ * runner is a balk, so pitchers stop at two). The runner keeps a shorter lead (POF_LEAD m), reads the step-off and breaks
+ * back POF_READ s before the throw leaves, so he is back before the ball (resolvePickoff checks it). The first baseman's
+ * swipe tag comes too late, he lobs the ball back to the pitcher POF_BACK_AFTER s after the catch at POF_BACK_V.
+ * Tuned so pickoff throws/game (PO + POF) match tests/replay/run.mjs REFERENCE (CBS Sports 2023, see there). */
+export const POF_P = 0.062;
+export const POF_MAX_PA = 2;
+export const POF_LEAD = 2.8;
+export const POF_READ = 0.35;
+export const POF_BACK_AFTER = 1.2;
+export const POF_BACK_V = 14;
 export const WP_BREAK = 0.35;             /* runners break this long after the ball reaches the plate (it gets past the mitt): WP and PB */
 
 /* ---- manager decisions ---- */
@@ -189,6 +364,24 @@ export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
 export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
 export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
+/* pinch hit (#436 part 2, on since part 5 / 0.4.15); simGame opts.pinchHit overrides */
+export const PINCH_HIT_ON = true;
+export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
+export const PH_EDGE = 0.3;               /* coach's own pick is the pinch hitter when his bat value (con x pow) is this much higher */
+export const PH_DUR = 10;                 /* seconds of the pinch-hit frame (walk from the dugout) */
+/* pinch run (#436 part 3, on since part 5 / 0.4.15); simGame opts.pinchRun overrides */
+export const PINCH_RUN_ON = true;
+export const PR_MIN_INNING = 8;           /* asked only from this inning on, for the lead runner */
+export const PR_EDGE = 0.15;              /* asked only when the fastest bench man's spd is this much higher (bench x3 runners ~1.3 vs ~0.95) */
+export const PR_CLOSE_RUNS = 2;           /* coach's own pick is the pinch runner only within this many runs */
+export const PR_DUR = 8;                  /* seconds of the pinch-run frame (jog out from the dugout) */
+/* defensive replacement (#436 part 7, on since part 8 / 0.4.17); simGame opts.defSub overrides */
+export const DEF_SUB_ON = true;
+export const DS_MIN_INNING = 8;           /* asked only from this inning on, at the start of the half the leading team fields */
+export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
+export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
+export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */
+export const DS_DUR = 8;                  /* seconds of the defensive-replacement frame (jog out to the position) */
 export const BUNT_POW_MAX = 1.0;
 export const BUNT_ASK_P = 0.75;
 export const BUNT_MIN_INNING = 7;
@@ -204,6 +397,17 @@ export const BUNT_HIT_FUMBLE = 1.5;        /* seconds lost picking up a bunt tha
 /* ---- fielding and throwing ---- */
 export const FIELD_VAVG = 6.4;            /* average chase speed used to decide what is reachable */
 export const FIELD_REACT = 0.25;
+/* Fielder range (#378): a batter's optional `def` (centred on 1.0 like arm; missing = 1) scales his chase speed,
+ * clamped to the same 0.85..1.15 band as ARM_MIN + ARM_SPAN. The factory rosters carry no `def`, so their games stay
+ * byte for byte the same. */
+export const DEF_MIN = 0.85;
+export const DEF_MAX = 1.15;
+/* ... and the defence behind the pitcher turns hits into outs: a hit or error chance is divided by
+ * 1 + (mean def of the fielders who play that ball - 1) x weight (grounders: the infield, line drives and fly balls:
+ * the outfield, pop-ups: all seven). First guess, owner to tune: at the clamp ends a whole team moves hits by about
+ * +-5%, near the MLB spread of team defence (about +-0.015 BABIP). Errors follow the glove fully. */
+export const DEF_HIT_WEIGHT = 0.33;
+export const DEF_ERR_WEIGHT = 1;
 export const GB_REACH_BONUS = 0.5;        /* a grounder may be picked up this far past the chase range */
 export const AIR_REACH_SAFETY = 0.999;    /* a catchable air ball is strictly inside the fielder's range */
 export const CATCH_STAND_OFF = 0.4;       /* fielder sets up this far beside the ball */
@@ -249,12 +453,30 @@ export const RETURN_AFTER_THROW = 0.7;
 /* ---- running ---- */
 export const RUN_SPEED = 7.8;
 export const WALK_SPEED = 4.5;            /* trot on a walk */
+/* #266: home-run trot. MLB trots run about 22-23 s home to home (Statcast / Tater Trot Tracker averages, 2015-2024);
+ * 4 x 27.43 m at 5.0 m/s with RUN_ACCEL is 22.4 s. Every runner of a home run trots at this pace. */
+export const HR_TROT_SPEED = 5.0;
 export const RUN_ACCEL = 0.9;             /* seconds to reach full speed */
 export const BAT_RUN_DELAY = 0.1;         /* batter leaves the box this long after contact */
 export const STEAL_JUMP = 0.3;            /* a stealing runner breaks this long before release */
+/* #23 part 2: a steal's break is fitted to the draw between the pitcher's first move (render: the delivery clip starts at
+ * u 0, leg lift at 0.6 s) and the old fixed break (RELEASE - STEAL_JUMP). STEAL_SPEED 8.7 m/s = 28.5 ft/s, between the
+ * Statcast sprint-speed league average (27 ft/s) and elite (30 ft/s): the runners who try steals are the faster ones.
+ * First guess without per-runner data; SB/CS rates still come from the draw (stealOkP), not from these times. */
+export const STEAL_FIRST_MOVE = 0.4;
+export const STEAL_BREAK_LAST = 1.3;
+export const STEAL_SPEED = 8.7;
+/* steal of third: the runner at second is not held on, he walks off with the set (walking lead), so he may break at u 0 */
+export const STEAL3_FIRST_MOVE = 0;
+export const STEAL_SAFE_BY = 0.1;          /* good jump: the ball reaches the bag this long after the runner (a close play; TAG_LATE elsewhere) */
+export const STEAL_OUT_BY = 0.35;          /* bad jump: the runner arrives this long after the ball (> TAG_EARLY) */
+export const STEAL_FIT_ITER = 3;           /* the lead grows after the break, so the fit is refined a few times */
 export const WALK_DELAY = 0.8;
 export const SLIDE_D = 3;
 export const LEAD_STAND = 0;
+/* #23 part 1: primary lead a runner keeps between pitches (before the first move and after the pitch); same as the lead a
+ * held runner takes on a pickoff (PO_LEAD). A runner who tags up on a caught fly goes back to the bag (LEAD_STAND). */
+export const LEAD_PRIMARY = 3.4;
 export const LEAD_PITCH = 3.8;
 export const LEAD_OPEN = 0.6;
 export const LEAD_GROW = 0.9;

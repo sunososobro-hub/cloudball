@@ -56,24 +56,33 @@ export function runTime(d, v) {
   return d <= accelDist ? Math.sqrt(2 * d * K.RUN_ACCEL / v) : K.RUN_ACCEL + (d - accelDist) / v;
 }
 
-/* A runner's lead off his base, u seconds into a pitch frame. */
+/* A runner's lead off his base, u seconds into a pitch frame: the primary lead, the secondary lead as the pitch is
+ * thrown, then back to the primary lead (#23 part 1: he no longer goes back to the bag, so a steal starts from a lead). */
 export function leadAt(u) {
-  if (u < K.ARRIVE) return lerp(K.LEAD_STAND, K.LEAD_PITCH, ease(sat01((u - (K.RELEASE - K.LEAD_OPEN)) / K.LEAD_GROW)));
-  return lerp(K.LEAD_PITCH, K.LEAD_STAND, ease(sat01((u - (K.ARRIVE + K.LEAD_BACK_AT)) / K.LEAD_BACK_DUR)));
+  if (u < K.ARRIVE) return lerp(K.LEAD_PRIMARY, K.LEAD_PITCH, ease(sat01((u - (K.RELEASE - K.LEAD_OPEN)) / K.LEAD_GROW)));
+  return lerp(K.LEAD_PITCH, K.LEAD_PRIMARY, ease(sat01((u - (K.ARRIVE + K.LEAD_BACK_AT)) / K.LEAD_BACK_DUR)));
+}
+
+/* Lead of a runner who tags up on a caught fly (he starts from the bag at tagUpAt): the secondary lead, then back to
+ * the bag, by tagUpAt at the latest. */
+export function tagLeadAt(u, tagUpAt) {
+  const back = Math.min(K.ARRIVE + K.LEAD_BACK_AT, tagUpAt), dur = Math.min(K.LEAD_BACK_DUR, tagUpAt - back);
+  if (u < back) return leadAt(u);
+  return dur > 0 ? lerp(leadAt(back), K.LEAD_STAND, ease(sat01((u - back) / dur))) : K.LEAD_STAND;
 }
 
 /* When a base runner starts and arrives (seconds into the pitch frame).
- * kind: 'inplay' | 'steal' | 'walk'. tagUpAt: earliest legal start on a caught fly (or null). */
-export function runnerTimeline(from, to, { kind, tagUpAt = null, slide = false }) {
-  const startRun = kind === 'inplay' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : kind === 'wp' ? K.ARRIVE + K.WP_BREAK : kind === 'bk' ? K.BK_CALL_AT + K.WALK_DELAY : K.ARRIVE + K.WALK_DELAY;
-  const spd = kind === 'walk' ? K.WALK_SPEED : K.RUN_SPEED;   /* 'wp' (wild pitch) runs at full speed */
+ * start: break time override (#23: a steal's jump). kind: 'inplay' | 'steal' | 'walk' | 'wp' | 'bk' | 'trot' (home run: 'inplay' start, HR_TROT_SPEED). tagUpAt: earliest legal start on a caught fly (or null). */
+export function runnerTimeline(from, to, { kind, tagUpAt = null, slide = false, start = null }) {
+  const startRun = start != null ? start : kind === 'inplay' || kind === 'trot' ? K.ARRIVE + K.BAT_RUN_DELAY : kind === 'steal' ? K.RELEASE - K.STEAL_JUMP : kind === 'wp' ? K.ARRIVE + K.WP_BREAK : kind === 'bk' ? K.BK_CALL_AT + K.WALK_DELAY : K.ARRIVE + K.WALK_DELAY;
+  const spd = kind === 'walk' ? K.WALK_SPEED : kind === 'trot' ? K.HR_TROT_SPEED : kind === 'steal' ? K.STEAL_SPEED : K.RUN_SPEED;   /* 'wp' (wild pitch) runs at full speed */
   const st0 = from > 0 && tagUpAt != null ? tagUpAt : startRun;
-  const lead = from > 0 ? leadAt(st0) : 0;
+  const tag = from > 0 && tagUpAt != null, lead = from > 0 ? (tag ? K.LEAD_STAND : leadAt(st0)) : 0;
   const total = (to - from) * BASE_PATH;
   const slideTime = 2 * K.SLIDE_D / spd;
   const ts = slide ? st0 + runTime(Math.max(0, total - K.SLIDE_D - lead), spd) : Infinity;
   const arriveT = slide ? ts + slideTime : st0 + runTime(total - lead, spd);
-  return { st0, lead, spd, slide, ts, slideTime, arriveT };
+  return tag ? { st0, lead, spd, slide, ts, slideTime, arriveT, tag } : { st0, lead, spd, slide, ts, slideTime, arriveT };
 }
 
 /* Throw speed and glove-to-hand transfer for a fielder. rushBudget: seconds from the catch

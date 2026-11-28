@@ -25,7 +25,7 @@ async def main():
       return await r.abort()
     await pg.route('**/*',route)
     await pg.add_init_script(INIT)
-    await pg.goto(BASE+'index.html'+(('?off='+os.environ['OFF']) if os.environ.get('OFF') else ''),wait_until='commit')
+    await pg.goto(BASE+'play.html'+(('?off='+os.environ['OFF']) if os.environ.get('OFF') else ''),wait_until='commit')
     if SHOT:
       await pg.wait_for_timeout(int(os.environ.get('SW','1000')));await pg.screenshot(path=SHOT,timeout=90000);print('shot');return
     await pg.wait_for_function("()=>{const e=document.getElementById('enter');return e&&!e.disabled}",timeout=240000)

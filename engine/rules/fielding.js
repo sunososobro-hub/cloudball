@@ -8,14 +8,15 @@
  *
  * Plan times are seconds after contact. Out records use seconds into the pitch frame. */
 import * as K from '../constants.js';
-import { BASES, HOME, FIELD_HOME, dist, fielderStart, runTime, runnerTimeline, throwPlan, coverArrival, clamp } from './field.js';
-import { forceOut, tagOut, flyCatch, isForced, beats } from './outs.js';
+import { BASES, BASE_PATH, HOME, FIELD_HOME, dist, fielderStart, runDist, runTime, runnerTimeline, throwPlan, coverArrival, clamp } from './field.js';
+import { forceOut, tagOut, flyCatch, infieldFly, isForced, beats } from './outs.js';
 
 export const HIT_LIKE = ['1B', '2B', '3B', 'E'];   /* results where the ball is not caught or fielded for an out */
 const FIRST_BAG = [BASES[1][0] - K.BAG_FOOT, BASES[1][1]];
 const SECOND_PIVOT = [BASES[2][0] - K.BAG_FOOT, BASES[2][1] - K.BAG_FOOT];   /* outfield corner, clear of the slide */
 const SECOND_RELAY = [BASES[2][0] - K.RELAY_SPOT_OFF[0], BASES[2][1] - K.RELAY_SPOT_OFF[1]];
 const SECOND_TAG = [BASES[2][0] + K.SECOND_TAG_OFF[0], BASES[2][1] + K.SECOND_TAG_OFF[1]];   /* beside the lane from first */
+const PAST_FIRST = [BASES[1][0] + K.WILD_THROW_PAST[0], BASES[1][1] + K.WILD_THROW_PAST[1]];   /* foul ground behind first */
 const THIRD_BAG = [BASES[3][0] + K.BAG_FOOT, BASES[3][1]];
 const THIRD_TAG = [BASES[3][0] + K.THIRD_TAG_OFF, BASES[3][1] + K.THIRD_TAG_OFF];
 const toFrame = t => K.ARRIVE + t;
@@ -26,10 +27,11 @@ function chase(ctx) {
   const p = ctx.play, hit = HIT_LIKE.includes(p.res);
   const start = fielderStart(p.fielder, ctx.bases, ctx.outs);
   const roll = hit && p.type !== 'GB' ? K.HIT_ROLL_FACTOR : 1;
-  const target = hit ? [p.lx * roll, p.lz * roll] : [p.lx, p.lz];
+  const r = dist([p.lx, p.lz], [0, 0]) || 1, inWall = hit ? Math.min(roll, (K.FENCE_R - K.WALL_PICKUP) / r) : 1;   /* #684: a roll stops at the wall */
+  const target = [p.lx * inWall, p.lz * inWall];
   const D = dist(target, start);
   const ballDownAt = hit ? p.hang + K.HIT_ROLL_TIME : p.hang;
-  const fielderAt = D / K.FIELD_VAVG + K.FIELD_REACT;
+  const fielderAt = D / (ctx.vavg ? ctx.vavg(p.fielder) : K.FIELD_VAVG) + K.FIELD_REACT;   /* vavg: his chase speed (range, `def`) */
   const catchT = Math.max(ballDownAt, fielderAt) + (ctx.fumble || 0);   /* fumble: seconds lost securing the ball */
   return {
     fielder: p.fielder, start, target, stand: [target[0] - (hit ? 0 : K.CATCH_STAND_OFF), target[1]], D,
@@ -121,8 +123,18 @@ export function resolveGround(ctx, { tryDoublePlay = false, leadBase = null } = 
 
 /* Ball caught in the air. tagUp: { from, to } of a runner who tags up and goes (he is safe:
  * the throw is made, and arrives after him), or null. */
-export function resolveFly(ctx, tagUp = null) {
+export function resolveFly(ctx, tagUp = null, drop = false) {
   const plan = chase(ctx);
+  if (drop) {
+    /* #614 part 10: an infield fly dropped: off the glove when it comes down, picked up IFF_DROP_PICKUP later and tossed back
+     * in; the batter is out by rule (infieldFly), the runners hold (none was forced, none tagged on it) */
+    const downAt = plan.catchT, p = ctx.play;
+    plan.actions[0].a = 'drop'; plan.drop = true; plan.dropAt = downAt; plan.catchT = downAt + K.IFF_DROP_PICKUP;
+    plan.actions.push({ t: plan.catchT, a: 'field', f: plan.fielder });
+    const out = infieldFly({ batter: ctx.batter, fielder: plan.fielder, type: p.type, foul: !!p.foul, bunt: !!p.bunt, outs: ctx.outs, bases: ctx.bases, ballDownAt: toFrame(plan.ballDownAt), at: toFrame(downAt) });
+    throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null });
+    return { plan, outs: [out] };
+  }
   const out = flyCatch({ batter: ctx.batter, fielder: plan.fielder, fielderAt: toFrame(plan.fielderAt), ballDownAt: toFrame(plan.ballDownAt), at: toFrame(plan.catchT) });
   if (tagUp) {
     const runnerAt = sinceContact(runnerTimeline(tagUp.from, tagUp.to, { kind: 'inplay', tagUpAt: toFrame(plan.catchT), slide: true }).arriveT);
@@ -133,13 +145,52 @@ export function resolveFly(ctx, tagUp = null) {
   return { plan, outs: [out] };
 }
 
-/* Hit, error or home run: nobody is out. The ball comes back in to second base. */
-export function resolveHit(ctx) {
+/* Hit, error or home run: nobody is out (except a runner sent home or a batter stretching a single, below). The ball comes back in to second base.
+ * throwHome (#38): the outfielder throws home behind the runner scoring from second (he is safe: the ball arrives
+ * TAG_LATE after him), so the batter takes second on the throw. */
+export function resolveHit(ctx, { throwHome = false, sendHome = false, stretch = false, bobble = false, wildThrow = false } = {}) {
   const plan = chase(ctx), p = ctx.play;
+  if (wildThrow) {
+    /* advancing on an error (#38): the infielder throws to first in a hurry and the ball sails past the bag into foul
+     * ground (nobody receives it); the batter and every runner take an extra base on it */
+    throwTo(plan, ctx, { key: null, spot: PAST_FIRST, base: null }, { rushBudget: batterArrival() - K.FORCE_MARGIN - plan.catchT });
+    plan.wild = true;
+    return { plan, outs: [] };
+  }
   if (p.res === 'HR') return { plan: throwTo(plan, ctx, { key: null, spot: FIELD_HOME.P, base: null }), outs: [] };
+  if (sendHome) {
+    /* out on the bases (#38): the runner from second is sent home; the outfielder throws to the catcher. The ball is
+     * held back to TAG_EARLY before the runner (a close play); if it cannot be there by then he is safe and scores. */
+    const runnerAt = slideArrival(2, HOME);
+    throwTo(plan, ctx, { key: 'C', spot: K.HOME_TAG_SPOT, base: HOME }, { notBefore: runnerAt - K.TAG_EARLY });
+    plan.throwHome = true; plan.tagPlay = true;
+    if (!beats(plan.arrive, plan.CV.at, runnerAt)) return { plan, outs: [], safe: true };
+    const out = tagOut({ runner: ctx.bases[1], from: 2, base: HOME, fielder: 'C', ballAt: toFrame(plan.arrive), fielderAt: toFrame(plan.CV.at), runnerAt: toFrame(runnerAt) });
+    plan.actions.push({ t: runnerAt, a: 'tag', f: 'C', base: HOME });
+    return { plan, outs: [out], safe: false };
+  }
+  if (throwHome) {
+    const runnerAt = sinceContact(runnerTimeline(2, HOME, { kind: 'inplay', slide: true }).arriveT);
+    throwTo(plan, ctx, { key: 'C', spot: K.HOME_TAG_SPOT, base: HOME }, { notBefore: runnerAt + K.TAG_LATE });
+    plan.throwHome = true; plan.tagPlay = true;   /* the catcher's late sweep tag, as on a sac fly */
+    return { plan, outs: [] };
+  }
   let key = p.lx >= 0 ? '2B' : 'SS';
   if (key === p.fielder) key = key === '2B' ? 'SS' : '2B';
-  return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }), outs: [] };
+  if (stretch) {
+    /* out on the bases (#38): the batter tries to stretch the single into a double; the outfielder throws to the
+     * middle infielder covering second beside the lane. Held to TAG_EARLY before him (a close play); safe when the
+     * ball cannot be there by then. */
+    const runnerAt = slideArrival(0, 2);
+    throwTo(plan, ctx, { key, spot: SECOND_TAG, base: 2 }, { notBefore: runnerAt - K.TAG_EARLY });
+    plan.tagPlay = true;
+    if (!beats(plan.arrive, plan.CV.at, runnerAt)) return { plan, outs: [], safe: true };
+    const out = tagOut({ runner: ctx.batter, from: 0, base: 2, fielder: key, ballAt: toFrame(plan.arrive), fielderAt: toFrame(plan.CV.at), runnerAt: toFrame(runnerAt) });
+    plan.actions.push({ t: runnerAt, a: 'tag', f: key, base: 2 });
+    return { plan, outs: [out], safe: false };
+  }
+  /* bobble (#38): ctx.fumble already delays the pickup; the ball comes in to the relay at second only after the batter is there */
+  return { plan: throwTo(plan, ctx, { key, spot: SECOND_RELAY, base: null }, { notBefore: bobble ? slideArrival(0, 2) + K.TAG_LATE : 0 }), outs: [] };
 }
 
 /* Steal of second on a pitch that is not put in play. wantOut: the simulation's draw says the
@@ -147,16 +198,108 @@ export function resolveHit(ctx) {
  * Times are seconds into the pitch frame. */
 export function resolveSteal(ctx, wantOut, base = 2) {
   /* base 2: steal of second, SS covers beside the lane from first; base 3 (#38): steal of third, 3B covers inside the diamond */
-  const tl = runnerTimeline(base - 1, base, { kind: 'steal', slide: true }), runner = ctx.bases[base - 2];
+  const runner = ctx.bases[base - 2];
   const key = base === 3 ? '3B' : 'SS', spot = base === 3 ? THIRD_TAG : SECOND_TAG, from = FIELD_HOME.C;
   const coverAt = K.RELEASE + coverArrival(fielderStart(key, ctx.bases, ctx.outs), spot, K.FIELD_REACT, K.COVER_SPEED);
   const TD = dist(from, spot), th = throwPlan(ctx.arm('C'), 'C', TD, null);
   const catchAt = K.ARRIVE + K.CATCH_SNAP, soonest = Math.max(catchAt + K.CATCHER_POP + th.flight, coverAt);
+  /* #23 part 2: the catcher throws right after his pop; the runner's jump comes from the draw. A good jump (safe) has him
+   * in STEAL_SAFE_BY before that throw, a bad one (out) STEAL_OUT_BY after it. The break stays between the pitcher's first move
+   * and STEAL_BREAK_LAST; only when that range cannot fit does the throw wait (hold) or the out turn safe, as before. */
+  const target = wantOut ? soonest + K.STEAL_OUT_BY : soonest - K.STEAL_SAFE_BY, first = base === 3 ? K.STEAL3_FIRST_MOVE : K.STEAL_FIRST_MOVE;
+  let start = first, tl = runnerTimeline(base - 1, base, { kind: 'steal', slide: true, start });
+  for (let i = 0; i < K.STEAL_FIT_ITER; i++) {
+    start = clamp(start + target - tl.arriveT, first, K.STEAL_BREAK_LAST);
+    tl = runnerTimeline(base - 1, base, { kind: 'steal', slide: true, start });
+  }
   const out = wantOut && soonest < tl.arriveT - K.TAG_EARLY;
-  const arrive = Math.max(soonest, out ? tl.arriveT - K.TAG_EARLY : tl.arriveT + K.TAG_LATE);
+  const arrive = Math.max(soonest, out ? tl.arriveT - K.TAG_EARLY : tl.arriveT + K.STEAL_SAFE_BY);
   const plan = { steal: true, CV: { key, spot, base, at: coverAt }, from, TD, v: th.v, TT: th.flight, t0: arrive - th.flight, arrive, runnerAt: tl.arriveT,
     actions: [{ t: arrive - th.flight, a: 'throw', f: 'C', to: key }, { t: coverAt, a: 'cover', f: key, base }, { t: arrive, a: 'receive', f: key, base }] };
   if (!out) return { ok: true, plan, outs: [], tl };
   plan.actions.push({ t: tl.arriveT, a: 'tag', f: key, base });
   return { ok: false, plan, tl, outs: [tagOut({ runner, from: base - 1, base, fielder: key, ballAt: arrive, fielderAt: coverAt, runnerAt: tl.arriveT })] };
+}
+
+/* Pickoff at first (#38): the pitcher throws to the first baseman holding the runner on.
+ * safe false: the runner dives back and is tagged (tagOut checks the tag beats him).
+ * safe true (a throw-over that does not get him): shorter lead, he reads the step-off and is back before the ball;
+ * the first baseman lobs it back to the pitcher. Times are seconds into the frame. */
+export function resolvePickoff(ctx, safe = false) {
+  const runner = ctx.bases[0], from = FIELD_HOME.P, key = '1B', spot = fielderStart(key, ctx.bases, ctx.outs);
+  const TD = dist(from, spot), TT = Math.max(K.THROW_MIN, TD / K.PO_THROW_V), t0 = K.PO_THROW_AT, arrive = t0 + TT;
+  const lead = safe ? K.POF_LEAD : K.PO_LEAD, react = safe ? -K.POF_READ : K.PO_REACT;
+  const runnerAt = t0 + react + runTime(lead, K.RUN_SPEED);
+  const plan = { po: true, CV: { key, spot, base: 1, at: 0 }, from, TD, v: K.PO_THROW_V, TT, t0, arrive, runnerAt, lead, react,
+    actions: [{ t: t0, a: 'throw', f: 'P', to: key }, { t: arrive, a: 'receive', f: key, base: 1 }] };
+  if (!safe) {
+    plan.actions.push({ t: runnerAt, a: 'tag', f: key, base: 1 });
+    return { plan, outs: [tagOut({ runner, from: 1, base: 1, fielder: key, ballAt: arrive, fielderAt: 0, runnerAt })] };
+  }
+  if (beats(arrive, 0, runnerAt)) throw new Error(`throw-over beats the runner back to first (${arrive.toFixed(3)} < ${runnerAt.toFixed(3)})`);
+  const BT = Math.max(K.THROW_MIN, TD / K.POF_BACK_V), b0 = arrive + K.POF_BACK_AFTER;
+  Object.assign(plan, { safe: true, back: { t0: b0, TT: BT, arrive: b0 + BT, v: K.POF_BACK_V } });
+  plan.actions.push({ t: b0, a: 'throw', f: key, to: 'P' }, { t: b0 + BT, a: 'receive', f: 'P', base: null });
+  return { plan, outs: [] };
+}
+
+/* Rundown on a pickoff (#614 part 8, constants RD_*): the runner on first breaks for second, 1B -> SS at second, the runner
+ * turns back, SS runs him back and tosses to 1B up the line, 1B tags him in the base path. Positions are metres from first
+ * along the line to second. Times are seconds into the frame. Throws (a setup error) when the play does not fit. */
+export function resolveRundown(ctx) {
+  const runner = ctx.bases[0], from = FIELD_HOME.P, spot = fielderStart('1B', ctx.bases, ctx.outs);
+  const TD = dist(from, spot), TT = Math.max(K.THROW_MIN, TD / K.PO_THROW_V), t0 = K.PO_THROW_AT, arrive = t0 + TT;
+  const goAt = t0 + K.PO_REACT, out = t => K.PO_LEAD + runDist(t - goAt, K.RUN_SPEED);
+  const ssAt = t0 + coverArrival(fielderStart('SS', ctx.bases, ctx.outs), BASES[2], K.FIELD_REACT, K.COVER_SPEED);
+  const T1 = Math.max(K.THROW_MIN, dist(spot, BASES[2]) / K.RD_THROW_V), r1 = Math.max(arrive + K.RD_RELEASE, ssAt - T1), r2 = r1 + T1;
+  const turn = out(r2);
+  if (!(turn < BASE_PATH - K.RD_TAG_REACH)) throw new Error(`rundown: the runner reaches second before the throw (${turn.toFixed(2)} m)`);
+  const backAt = r2 + K.RD_TURN, back = t => turn - runDist(t - backAt, K.RUN_SPEED), runnerAt = backAt + runTime(turn, K.RUN_SPEED);
+  const s0 = r2 + K.RD_CHASE, ssPos = BASE_PATH - runDist(K.RD_CHASE, K.COVER_SPEED);
+  if (!(ssPos > back(s0))) throw new Error('rundown: the shortstop passes the runner');
+  const T2 = Math.max(K.THROW_MIN, (ssPos - K.RD_1B_UP) / K.RD_THROW_V), r3 = s0 + T2;
+  if (!(back(r3) > K.RD_1B_UP + K.RD_TAG_REACH)) throw new Error('rundown: the runner is past the first baseman before the toss');
+  let tagAt = r3;
+  while (back(tagAt) - (K.RD_1B_UP + runDist(tagAt - r3, K.COVER_SPEED)) > K.RD_TAG_REACH) tagAt += K.RD_STEP;
+  const tagPos = back(tagAt);
+  if (!(tagAt < runnerAt && beats(r3, r3, runnerAt))) throw new Error('rundown: the runner gets back to first before the tag');
+  const plan = { po: true, rundown: true, CV: { key: '1B', spot, base: 1, at: 0 }, from, TD, v: K.PO_THROW_V, TT, t0, arrive, runnerAt, lead: K.PO_LEAD, react: K.PO_REACT,
+    rd: { goAt, ssAt, r1, r2, turn, backAt, s0, ssPos, r3, tagAt, tagPos, up: K.RD_1B_UP },
+    actions: [{ t: t0, a: 'throw', f: 'P', to: '1B' }, { t: arrive, a: 'receive', f: '1B', base: 1 },
+      { t: r1, a: 'throw', f: '1B', to: 'SS' }, { t: r2, a: 'receive', f: 'SS', base: 2 },
+      { t: s0, a: 'throw', f: 'SS', to: '1B' }, { t: r3, a: 'receive', f: '1B', base: null }, { t: tagAt, a: 'tag', f: '1B', base: 1 }] };
+  return { plan, outs: [tagOut({ runner, from: 1, base: 1, fielder: '1B', ballAt: r3, fielderAt: r3, runnerAt, tagAt })] };
+}
+
+/* Dropped third strike (#614 part 4): the batter runs to first from the plate; the catcher picks the ball up `retrieve` s after
+ * it reaches the plate and throws to the first baseman, who covers the bag. Out only when the ball held on the bag beats the
+ * batter (forceOut checks it). Times are seconds into the frame.
+ * #614 part 5: a ball that stays in front of the plate lets the catcher chase the batter and tag him instead: he picks it up,
+ * runs K3_TAG_STEP s at COVER_SPEED up the line, and tags him when the batter is still within K3_TAG_REACH (tagOut, base 0:
+ * the tag is made in the base path near home, not at first). Otherwise he throws. */
+/* How far up the line (m) a batter on timeline tl is at time t: runTime turned around (RUN_ACCEL ramp, then full speed). */
+export function batterRunAt(tl, t) {
+  const u = t - tl.st0, accelDist = K.HALF * tl.spd * K.RUN_ACCEL;
+  if (u <= 0) return 0;
+  return u <= K.RUN_ACCEL ? K.HALF * tl.spd * u * u / K.RUN_ACCEL : accelDist + (u - K.RUN_ACCEL) * tl.spd;
+}
+export function resolveDroppedThird(ctx, retrieve) {
+  const batter = ctx.batter, key = '1B', spot = BASES[1], from = FIELD_HOME.C;
+  const tl = runnerTimeline(0, 1, { kind: 'wp' });
+  const pickAt = K.ARRIVE + retrieve, tagAt = pickAt + K.K3_TAG_STEP;
+  const gap = batterRunAt(tl, tagAt) - K.COVER_SPEED * K.K3_TAG_STEP;
+  if (gap <= K.K3_TAG_REACH) {
+    const plan = { k3: true, k3tag: true, CV: null, from, TD: 0, v: 0, TT: 0, t0: pickAt, arrive: pickAt, runnerAt: tl.arriveT, tagAt,
+      actions: [{ t: pickAt, a: 'field', f: 'C' }, { t: tagAt, a: 'tag', f: 'C', base: 0 }] };
+    return { ok: false, plan, tl, outs: [tagOut({ runner: batter, from: 0, base: 0, fielder: 'C', ballAt: pickAt, fielderAt: pickAt, runnerAt: tl.arriveT, tagAt })] };
+  }
+  const coverAt = K.ARRIVE + coverArrival(fielderStart(key, ctx.bases, ctx.outs), spot, K.FIELD_REACT, K.COVER_SPEED);
+  const TD = dist(from, spot), th = throwPlan(ctx.arm('C'), 'C', TD, null);
+  const t0 = K.ARRIVE + retrieve, arrive = t0 + th.flight, touchAt = Math.max(arrive, coverAt);
+  const plan = { k3: true, CV: { key, spot, base: 1, at: coverAt }, from, TD, v: th.v, TT: th.flight, t0, arrive, runnerAt: tl.arriveT,
+    actions: [{ t: coverAt, a: 'cover', f: key, base: 1 }, { t: t0, a: 'throw', f: 'C', to: key }, { t: arrive, a: 'receive', f: key, base: 1 }] };
+  plan.actions.sort((a, b) => a.t - b.t);
+  if (!beats(arrive, coverAt, tl.arriveT)) return { ok: true, plan, outs: [], tl };
+  plan.actions.push({ t: touchAt, a: 'touch', f: key, base: 1 });
+  return { ok: false, plan, tl, outs: [forceOut({ runner: batter, from: 0, base: 1, fielder: key, forced: true, ballAt: arrive, touchAt: coverAt, runnerAt: tl.arriveT })] };
 }

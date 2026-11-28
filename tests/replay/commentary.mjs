@@ -8,8 +8,8 @@
  *   - every registered per-game script is valid for the game it names
  *   - fan guest moments (bank.fan) use known slots ({guest} allowed there only), and the fan's
  *     share of all drafted lines stays within FAN_SHARE over the sample (target about one in five)
- *   - the tension index, banter score and recorded audio checks (commentary/tension.check.mjs,
- *     banter.check.mjs, audio.check.mjs) pass; they run as child processes so CI covers them
+ *   - the tension index, banter score, recorded audio and clip-bank checks (commentary/tension.check.mjs,
+ *     banter.check.mjs, audio.check.mjs, clips.check.mjs) pass; they run as child processes so CI covers them
  * Usage: node tests/replay/commentary.mjs */
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -23,9 +23,10 @@ const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../co
 const GAMES = Number(process.env.GAMES || 60);
 const KNOWN_SLOTS = new Set(['desc', 'batter', 'pitcher', 'runner', 'team', 'fieldTeam', 'away', 'home', 'inning', 'half', 'outs', 'awayScore', 'homeScore', 'margin', 'leadTeam', 'tied', 'runs', 'halfRuns',
   'lastInningRuns', 'hadLastInning', 'batterPa', 'batterAb', 'batterHits', 'batterKToday', 'batterHrToday', 'batterPrev', 'hasPrev', 'pitcherK', 'pitchCount',
-  'manager', 'pitchingCoach', 'homeManager', 'managerName', 'managerLine', 'plateUmp', 'plateUmpLine']);
+  'manager', 'pitchingCoach', 'homeManager', 'managerName', 'managerLine', 'plateUmp', 'plateUmpLine', 'count', 'pitchType', 'pos', 'bases']);
 const KNOWN_TRIGGERS = new Set(['game_start', 'batter_up', 'two_strikes', 'full_count', 'stolen_base', 'caught_stealing', 'run_scores', 'pitching_change', 'fan_decision', 'half_end', 'walkoff', 'game_end',
-  'strikeout', 'walk', 'intentional_walk', 'hit_by_pitch', 'single', 'infield_single', 'bunt_single', 'double', 'triple', 'home_run', 'groundout', 'flyout', 'lineout', 'popout', 'double_play', 'fielders_choice', 'sac_bunt', 'sac_fly', 'error']);
+  'strikeout', 'walk', 'intentional_walk', 'hit_by_pitch', 'single', 'infield_single', 'bunt_single', 'double', 'triple', 'home_run', 'groundout', 'flyout', 'lineout', 'popout', 'double_play', 'fielders_choice', 'sac_bunt', 'sac_fly', 'error',
+  'wild_pitch', 'passed_ball', 'balk', 'pickoff_safe', 'catcher_visit']);
 const FAN_SLOTS = new Set([...KNOWN_SLOTS, 'guest']);
 const FAN_SHARE = { min: 0.10, max: 0.30 };
 const problems = [], bad = m => { if (problems.length < 30) problems.push(m); };
@@ -95,7 +96,7 @@ const fanShare = lines ? fanLines / lines : 0;
 if (fanShare < FAN_SHARE.min || fanShare > FAN_SHARE.max) bad(`fan share ${(fanShare * 100).toFixed(1)}% is outside ${FAN_SHARE.min * 100}%..${FAN_SHARE.max * 100}% over ${GAMES} games`);
 console.log(`bank: ${fanMoments} fan moments, ${fanTexts} fan-moment lines`);
 console.log(`${GAMES} games: ${(lines / GAMES).toFixed(0)} lines/game, one line every ${(seconds / lines).toFixed(0)} s on average, fan share ${(fanShare * 100).toFixed(1)}%, ${Object.keys(index).length} registered script(s)`);
-for (const file of ['tension.check.mjs', 'banter.check.mjs', 'audio.check.mjs']) {
+for (const file of ['tension.check.mjs', 'banter.check.mjs', 'calls.check.mjs', 'audio.check.mjs', 'clips.check.mjs', 'repeat.check.mjs']) {
   const child = spawnSync(process.execPath, [path.join(DIR, file)], { encoding: 'utf8', env: { ...process.env, GAMES: String(GAMES) } });
   process.stdout.write(child.stdout || ''); process.stderr.write(child.stderr || '');
   if (child.status !== 0) bad(`commentary/${file} failed (exit ${child.status === null ? 'killed by ' + child.signal : child.status})`);

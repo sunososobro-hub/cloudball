@@ -7,9 +7,15 @@
 - #332 part 3b: `play.js` = `playBall(q,{batter,bases,outs,def,rnd,...})`: one batted ball with runners (fielding, throws, double plays, tag-ups, runner advance, runs), ported from the prototype's `play`/`hitPlay`, pure + seedable (the prototype's two `Math.random` calls now use `rnd`). Check in `tests/baseball9.check.mjs`.
 - #332 part 3c-1: `game.js` = `createGame({rnd})`, 3 innings (+2 tie-break), score, half-run cap, AI approach / shift / pitch / swing, steals, walks, strikeouts, on top of `practice.resolve` (new `app` option) and `playBall`. `game.pitch(choice)` = one pitch. Check in `tests/baseball9.check.mjs`.
 - #332 part 3c-2: `gamescreen.js` + `#gstage` in `baseball9.html`: the 3-inning game screen (approach / shift / mode / pitch type, 3x3 or 5x5 grid, steal / hold, count, bases, line score, log, result in `window.baseball9GameResult`). Check drives the real screen on a fake DOM through whole games.
+- #430 part 1: `field.js` = canvas 2D field in the 三局比賽 screen: pitch leg, then the batted ball along `out.play.ball`; text beats (strikeout, walk, steal, HR); skip + 1x/3x buttons. `buildBeats` / `ballAt` pure and tested; no canvas = no picture. Reads results only.
+- #430 part 2: `runnerAt` + runner dots in `field.js` from `out.play.runners` (batter gold, runners blue, out = red at the end); pure part tested.
+- #430 part 3: the practice screens (bat + pitch) show the same field picture (`#pfield`, skip, 1x/3x): pitch to the plate + a text beat (安打/被接住/揮空/好球/壞球/界外); practice has no batted-ball points, so no ball flight.
+- #543 part 2: screenshot `ui/baseball9-3d-390.jpg` of the 3D 三局比賽 field (390px, headless Chromium, software WebGL2 via the WebGPURenderer fallback; three.js 0.186.1 served locally). Not looked at on a real GPU.
+- #563 part 3: `CAM` = broadcast angle low behind the plate (fov 42); `camShot(w, p)` (pure) eases to a wider, higher shot leaning toward the ball in play (`CAM_HIT`, `CAM_EASE_S`), reset on skip. Practice screens already use the same `openField`. Not seen on a real GPU.
+- #563 part 4: the fan's own player (`?player=<id>`): `me.js` `findMe` reads his `/api/freeagents` row (read-only), `field3d.js` `meSpecOf` / `meBuild` -> `setMe(spec, side)` dresses the batter (bat practice) or pitcher (pitch practice) with his body, height and look (headOfPlayer); the other body back to stock. Runners and the 三局比賽 screen still stock. Not seen on a real GPU.
+- #563 part 5: bunt act: `bunts(out)` / `buntAct(t)` in `field3d.js` play render/'s bunt clip (`render/bunt_clip.js`, same square-around timing as the broadcast) on the 3D batter for a bunt, a foul bunt or a bunted ball in play. Picture only. Not seen on a real GPU.
 ## Next
 - Link the page from the player/agent pages once the owner says where (not linked yet; only `guide.html` links back).
-- No field picture / ball animation for the game yet (text + grids only); `batBall` / `playBall` scripts (`sc.runners`, `fl.pts`) are ready if the owner wants one.
 ## Traps
 - Local only: no backend, no ability change; a created player's result may only feed #369's training bonus number.
 - In bat practice a "hit" is contact with q >= HIT_Q (or a bunt); the ball physics decide base hits only in part 3.

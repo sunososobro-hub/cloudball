@@ -82,9 +82,11 @@ const buttons = dom => dom.maker.all(e => e.tag === 'button').map(b => b.textCon
   if (!shown(a.dom) || a.calls.includes('POST /api/agent')) bad('returning browser without a player: maker, no sign-up');
   const b = await run({ key, mine: 'unknown' });
   if (!shown(b.dom) || b.calls.filter(c => c === 'POST /api/agent').length !== 1 || b.store.get('cloudball.agentKey') !== key) bad('key unknown to the server: sign up again with the same key, then the maker');
-  const row = { kind: 'bat', player: { name: '老球員', num: 7, pos: 'SS', bats: 'R', age: 22, ht: 180, wt: 80 }, ratings: { con: 60, pow: 60, eye: 60, spd: 60, arm: 60, ovr: 60, pot: 70 } };
+  const row = { id: 'fa-abc', kind: 'bat', player: { id: 'fa-abc', name: '老球員', num: 7, pos: 'SS', bats: 'R', age: 22, ht: 180, wt: 80 }, ratings: { con: 60, pow: 60, eye: 60, spd: 60, arm: 60, ovr: 60, pot: 70 } };
   const c = await run({ key, mine: row });
   if (shown(c.dom) || c.dom.mine.hidden) bad('returning browser with a player: show the player, not the maker');
+  if (c.store.get('cloudball.myPlayerId') !== 'fa-abc') bad('#399: showing the player must store his id under cloudball.myPlayerId for the data site');
+  if (a.store.has('cloudball.myPlayerId')) bad('#399: no player, no myPlayerId');
   /* #384: a created player's potential is hidden: no 潛力 row in the card, no pot in the compare rows */
   if (c.dom.mine.textContent.includes('潛力') || c.dom.mine.textContent.includes('70')) bad('#384: the created player card must not show 潛力 or the pot value');
   const { compareKeys } = await import(pathToFileURL(path.join(ROOT, 'ui/compare.js')).href);

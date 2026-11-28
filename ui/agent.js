@@ -2,18 +2,20 @@
  * free-agent list. No free text anywhere: every choice is a button, a chip or a slider, and the server judges it again.
  * The account is a random 32-byte key kept in localStorage; the server stores only its SHA-256 (functions/lib/agents.js).
  * Every call that is not answered ok (no binding, production, offline, a static server) reads as 「還沒開放」. */
-import { CREATE, validateCreate } from '../league/freeagents.js';
+import { CREATE, validateCreate, pointKeys, budgetOf, positionFit, presetBody, presetHt } from '../league/freeagents.js';
 import { makePreview } from './agent-preview.js';
 import { ratingRow } from './bars.js';
 import { attachCompare } from './compare.js';
-import { specOfChoice, specOfRow } from './preview-spec.js';
+import { specOfChoice, specOfRow, LOOK_CHIPS, LOOK_LEGEND } from './preview-spec.js';
+import { needsOf, slotLine, abilityTag, compareLine, RBI_NOTE, WORD } from '../league/needs.js';
 
 const KEY_NAME = 'cloudball.agentKey';
 const POS = { C: '捕手', '1B': '一壘手', '2B': '二壘手', '3B': '三壘手', SS: '游擊手', LF: '左外野', CF: '中外野', RF: '右外野', DH: '指定打擊' };
-const ROLE = { SP: '先發投手', RP: '後援投手' };
+const ROLE = { SP: '先發投手', MR: '中繼投手', RP: '後援投手', CL: '終結投手' };
 const HAND = { L: '左', R: '右' };
+const BODY = { slim: '精瘦', power: '力量', heavy: '壯碩' };
 const BUILD = { normal: '標準', slim: '精瘦', power: '力量型', heavy: '壯碩' };
-const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球' };
+const BAT_RATINGS = { con: '打擊', pow: '長打', eye: '選球', spd: '速度', arm: '傳球', def: '守備' };
 const PIT_RATINGS = { stuff: '球威', ctrl: '控球', arm: '臂力' };
 const KIND = { bat: '打者', pit: '投手' };
 const WHY = { limit: '今天的新帳號名額滿了，明天再來。', already: '你已經有一位球員了。', name: '這個名字剛被別人用掉，換一個。', invalid: '選項有誤，請重新選。', key: '帳號資料不對。', unknown: '伺服器找不到這個帳號。' };
@@ -41,14 +43,34 @@ const preview = makePreview($('stage'));
 const showPreview = (spec, caption) => { $('stage').hidden = false; $('stageCap').textContent = caption; preview.show(spec); };
 const say = (text, err) => { const s = $('status'); s.textContent = text; s.hidden = !text; s.classList.toggle('err', !!err); };
 
+/* ---- 取回 (#435): the browser remembers the ids it released (site-page.js); the server decides again who may take him back ---- */
+const RELEASED_KEY = 'cloudball.releasedIds';
+const releasedByMe = id => { try { return id != null && JSON.parse(localStorage.getItem(RELEASED_KEY) || '[]').includes(String(id)); } catch (e) { return false; } };
+async function reclaimPlayer(row, btn) {
+  const key = store.get(), pid = String(row.id ?? row.player.id); btn.disabled = true;
+  const r = await api('/api/player/reclaim', { method: 'POST', key, body: { id: pid } });
+  if (r.body && r.body.ok) {
+    try { localStorage.setItem('cloudball.myPlayerId', pid); const old = JSON.parse(localStorage.getItem(RELEASED_KEY) || '[]').filter(x => x !== pid); if (r.body.released != null) old.push(String(r.body.released)); localStorage.setItem(RELEASED_KEY, JSON.stringify(old)); } catch (e) { /* storage blocked */ }
+    location.reload(); return;
+  }
+  btn.disabled = false; say(r.body && r.body.why === 'taken' ? '他已經被別人簽走了，取不回來。' : '取回失敗，等一下再試。', true);
+}
+
+/* ---- team needs (#431): display only, read once from the data site's roster file; no answer = no needs lines ---- */
+const rosterData = (async () => {
+  try { const r = await fetch('league/site/players.json'), j = await r.json(), needs = needsOf(j); return needs.teams.length ? { players: j, needs } : null; } catch (e) { return null; }
+})();
+
 /* ---- player rows (same look as the guide page) ---- */
 function playerRow(row) {
   const p = row.player, R = row.ratings, pit = row.kind === 'pit', li = el('li', 'p'), who = el('div', 'who'), r = el('dl', 'r');
   const meta = pit ? `${ROLE[p.role] || p.role}・${HAND[p.throws] || ''}投` : `${POS[p.pos] || p.pos}・${HAND[p.hand] || ''}打`;
   who.append(el('b', null, p.name), el('span', 'no num', `#${p.num}`), el('span', null, meta), el('span', null, `${p.age} 歲`));
   r.appendChild(ratingRow('綜合', R.ovr, 'ovr'));
-  for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) r.appendChild(ratingRow(label, R[k]));
+  for (const [k, label] of Object.entries(pit ? PIT_RATINGS : BAT_RATINGS)) if (R[k] !== undefined) r.appendChild(ratingRow(label, R[k]));
+  if (!pit) who.appendChild(el('span', 'fit', `守位適性：${positionFit(p.pos, R)}`));
   const see = el('button', 'see', '看他'); see.type = 'button'; see.setAttribute('aria-label', `看 ${p.name} 的樣子`); who.appendChild(see);
+  if (row.free && releasedByMe(p.id ?? row.id)) { const b = el('button', 'see', '取回'); b.type = 'button'; b.onclick = ev => { ev.stopPropagation(); reclaimPlayer(row, b); }; who.appendChild(b); }   /* #435 */
   li.onclick = () => { for (const o of document.querySelectorAll('li.p[aria-current]')) o.removeAttribute('aria-current'); li.setAttribute('aria-current', 'true'); showPreview(specOfRow(row), `${p.name} #${p.num}`); };
   li.append(who, r);
   attachCompare(li, { id: `fa:${p.id ?? p.name}`, name: p.name, num: p.num, meta, kind: row.kind, R: { ...R, pot: undefined }, hidePot: true });/* #384: potential is hidden for created players */
@@ -76,6 +98,7 @@ function buildSortBar() {
 
 /* ---- your player ---- */
 function showMine(row) {
+  const pid = row.id ?? (row.player && row.player.id); try { if (pid != null) localStorage.setItem('cloudball.myPlayerId', String(pid)); } catch (e) { /* storage blocked: the data site cannot find him */ }  /* #399: the data site's 我的球員 looks him up by this id */
   const s = $('mine'); s.replaceChildren(el('h2', null, '你的球員'));
   const ul = el('ul', 'roster me'); ul.appendChild(playerRow(row)); s.append(ul, el('p', 'left', '每個人只能有一位。之後經紀人要怎麼幫他，等開放再說。'));
   s.hidden = false; $('maker').hidden = true; showPreview(specOfRow(row), `${row.player.name} #${row.player.num}`);
@@ -89,8 +112,10 @@ function chipGroup(legend, options, current, onPick, cls) {
   for (const [v, label] of options) { const b = el('button', 'chip', label); b.type = 'button'; b.dataset.v = String(v); b.onclick = () => { set(v); onPick(v); }; box.appendChild(b); }
   set(current); f.appendChild(box); return f;
 }
-const evenPoints = kind => Object.fromEntries(CREATE.keys[kind].map(k => [k, CREATE.budget[kind] / CREATE.keys[kind].length]));
-const defaults = kind => ({ kind, [kind === 'bat' ? 'pos' : 'role']: kind === 'bat' ? 'SS' : 'SP', [kind === 'bat' ? 'bats' : 'throws']: 'R', build: 'normal',
+/* a batter always gets the defence slider (#378 part 6): his points hold def, so the pool is budget + defBudget */
+const evenPoints = kind => { const c = { kind, points: kind === 'bat' ? { [CREATE.defKey]: 0 } : {} }, keys = pointKeys(c);
+  return Object.fromEntries(keys.map(k => [k, budgetOf(c) / keys.length])); };
+const defaults = kind => ({ kind, [kind === 'bat' ? 'pos' : 'role']: kind === 'bat' ? 'SS' : 'SP', [kind === 'bat' ? 'bats' : 'throws']: 'R', body: presetBody('normal'), ht: presetHt('normal'),
   look: { head: 0, skin: 0, hair: 0 }, points: evenPoints(kind) });
 
 function buildMaker(key, state) {
@@ -101,12 +126,23 @@ function buildMaker(key, state) {
   const nameField = el('fieldset', 'field'); nameField.append(el('legend', null, '名字（抽的，不能自己取）'), nameBox);
   const left = el('p', 'left'), make = el('button', 'btn', '建立球員'); make.type = 'button';
   const msg = el('p', 'status'); msg.setAttribute('role', 'status');
+  const fit = el('p', 'left fit'), slotNeed = el('p', 'left need'), cmp = $('stageNeed') || el('p', 'left need'), tags = {};
+  let data = null; rosterData.then(d => { data = d; showNeeds(); });
+  const showNeeds = () => {   /* the same state the form posts; nothing here is sent anywhere */
+    if (!data) return;
+    const slot = state.kind === 'bat' ? state.pos : state.role;
+    slotNeed.textContent = slotLine(data.needs, slot);
+    for (const [k, t] of Object.entries(tags)) t.textContent = abilityTag(data.needs, k);
+    cmp.textContent = compareLine(data.players, state); cmp.hidden = false;
+  };
   const choice = () => ({ ...state, nameDraw: draw.n });
-  const look = () => showPreview(specOfChoice(choice()), draw.name ? `${draw.name}（還沒建立）` : '你正在捏的球員');   /* the same object that is posted */
+  const look = () => showPreview({ ...specOfChoice(choice()), seed: draw.name }, draw.name ? `${draw.name}（還沒建立）` : '你正在捏的球員');   /* the same object that is posted */
   const refresh = () => {
-    const keys = CREATE.keys[state.kind], free = CREATE.budget[state.kind] - keys.reduce((t, k) => t + state.points[k], 0);
+    const keys = pointKeys(state), free = budgetOf(state) - keys.reduce((t, k) => t + state.points[k], 0);
     left.textContent = free ? `還有 ${free} 點沒分配。分完才能建立。` : '點數分配完了。'; left.classList.toggle('ok', !free);
+    if (state.kind === 'bat') fit.textContent = `守位適性：${positionFit(state.pos, { def: state.points.def, arm: state.points.arm })}`;   /* display points = his ratings (freeagents.check) */
     make.disabled = !!validateCreate(choice()).length || !draw.name || draw.busy;
+    showNeeds();
   };
   const edit = fn => v => { fn(v); look(); };   /* every pick that can change the body redraws it at once */
   /* the draw: the server knows the seed; a name already taken is skipped by drawing on, up to the cap */
@@ -125,26 +161,46 @@ function buildMaker(key, state) {
 
   const kindRow = chipGroup('位置類型', Object.entries(KIND), state.kind, v => { for (const k of Object.keys(state)) delete state[k]; Object.assign(state, defaults(v)); buildFields(); refresh(); look(); });
   const fields = el('div');
+  /* #442: body mix (whole percents, sum <= CREATE.bodyMax) and height (whole cm) sliders; presets above fill them */
+  function bodyFields() {
+    const box = el('fieldset', 'field'), grid = el('div', 'pts'), keys = CREATE.bodyKeys, [lo, hi] = CREATE.htRange.map(h => Math.round(h * 100));
+    box.appendChild(el('legend', null, `身形（瘦、壯、重加起來不超過 ${CREATE.bodyMax}%，身高 ${lo} 到 ${hi} 公分）`));
+    const slider = (label, min, max, value, aria, onset, unit) => {
+      const row = el('div', 'pt'), input = el('input'), out = el('output', 'num', value + unit);
+      input.type = 'range'; input.min = min; input.max = max; input.step = 1; input.value = value; input.setAttribute('aria-label', aria);
+      input.oninput = () => { const v = onset(Number(input.value)); input.value = v; out.textContent = v + unit; look(); refresh(); };
+      row.append(el('span', null, label), input, out); grid.appendChild(row);
+    };
+    for (const k of keys) slider(BODY[k], 0, CREATE.bodyMax, state.body[k], BODY[k], v => {   /* stops where the other two leave room */
+      const others = keys.reduce((t, o) => t + (o === k ? 0 : state.body[o]), 0); return (state.body[k] = Math.min(v, CREATE.bodyMax - others)); }, '%');
+    slider('身高', lo, hi, Math.round(state.ht * 100), '身高（公分）', v => { state.ht = v / 100; return v; }, ' cm');
+    box.appendChild(grid); return box;
+  }
   function buildFields() {
-    const bat = state.kind === 'bat'; fields.replaceChildren();
+    const bat = state.kind === 'bat'; fields.replaceChildren(); for (const k of Object.keys(tags)) delete tags[k];
     kindRow.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.kind)));
     fields.append(
-      chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; })),
+      chipGroup(bat ? '守備位置' : '投手角色', Object.entries(bat ? POS : ROLE).filter(([v]) => (bat ? CREATE.positions : CREATE.roles).includes(v)), bat ? state.pos : state.role, edit(v => { state[bat ? 'pos' : 'role'] = v; refresh(); })),
+      slotNeed,
       chipGroup(bat ? '打擊方向' : '投球方向', CREATE.hands.map(h => [h, HAND[h]]), bat ? state.bats : state.throws, edit(v => { state[bat ? 'bats' : 'throws'] = v; })),
-      chipGroup('體型', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), state.build, edit(v => { state.build = v; })));
-    /* 外觀 chips (head, skin, hair) are hidden until #151 lands a real look mapping: they draw nothing yet. `state.look` keeps its defaults (0) so the posted choice is unchanged. */
-    const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = CREATE.budget[state.kind];
+      chipGroup('體型預設', Object.keys(CREATE.builds).map(b => [b, BUILD[b]]), null, v => { state.body = presetBody(v); state.ht = presetHt(v); buildFields(); refresh(); look(); }),
+      bodyFields(),
+      /* #441: 外觀 chips, only the look numbers the preview and the game draw (ui/preview-spec.js LOOK_CHIPS); look.skin stays 0 (draws nothing off max) */
+      ...Object.entries(LOOK_CHIPS).map(([k, labels]) => chipGroup(LOOK_LEGEND[k], labels.map((l, i) => [i, l]), state.look[k], edit(v => { state.look = { ...state.look, [k]: Number(v) }; }))));
+    const pts = el('fieldset', 'field'), grid = el('div', 'pts'), cap = CREATE.cap[state.kind], budget = budgetOf(state), keys = pointKeys(state);
     pts.appendChild(el('legend', null, `能力點數（共 ${budget} 點，每項 ${CREATE.floor} 到 ${cap}）`));
-    for (const k of CREATE.keys[state.kind]) {
+    for (const k of keys) {
       const row = el('div', 'pt'), input = el('input'), out = el('output', 'num', state.points[k]);
       input.type = 'range'; input.min = CREATE.floor; input.max = cap; input.step = 1; input.value = state.points[k]; input.setAttribute('aria-label', (bat ? BAT_RATINGS : PIT_RATINGS)[k]);
       input.oninput = () => {   /* cannot go over the budget: it stops where the other abilities leave room */
-        const others = CREATE.keys[state.kind].reduce((t, o) => t + (o === k ? 0 : state.points[o]), 0);
+        const others = keys.reduce((t, o) => t + (o === k ? 0 : state.points[o]), 0);
         const v = Math.min(Number(input.value), cap, budget - others); input.value = v; state.points[k] = v; out.textContent = v; refresh();
       };
       row.append(el('span', null, (bat ? BAT_RATINGS : PIT_RATINGS)[k]), input, out); grid.appendChild(row);
+      if (WORD[k]) { const tag = el('span', 'left need'); tags[k] = tag; grid.appendChild(tag); }
     }
-    pts.append(grid, left); fields.appendChild(pts);
+    if (bat) pts.appendChild(el('p', 'left', RBI_NOTE));
+    pts.append(grid, left); if (bat) pts.appendChild(fit); fields.appendChild(pts);
   }
   buildFields();
   make.onclick = async () => {

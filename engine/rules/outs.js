@@ -9,6 +9,7 @@ export const OUT = Object.freeze({
   FLY_CATCH: 'fly_catch',
   FORCE: 'force',
   TAG: 'tag',
+  INFIELD_FLY: 'infield_fly',
 });
 
 import { STRIKES_FOR_OUT, CLOSE_PLAY_MARGIN } from '../constants.js';
@@ -39,6 +40,20 @@ export function flyCatch({ batter, fielder, fielderAt, ballDownAt, at }) {
   return { reason: OUT.FLY_CATCH, runner: batter, from: 0, base: 0, fielder, fielderAt, ballAt: ballDownAt, at };
 }
 
+/* Infield fly (OBR 5.09(a)(5), definition in Definitions of Terms): a fair fly, not a line drive or a bunt, that an
+ * infielder can catch with ordinary effort, runners on first and second, fewer than two outs. The umpire declares it and
+ * the batter is out whether the ball is caught or not; this constructor is the out for one that is NOT caught (#614).
+ * at: when the ball comes down (the batter was declared out while it was in the air). */
+const IFF_FIELDERS = ['P', 'C', '1B', '2B', '3B', 'SS'];
+export function infieldFly({ batter, fielder, type, foul, bunt, outs, bases, ballDownAt, at }) {
+  need(IFF_FIELDERS.includes(fielder), `${fielder} is not an infielder`);
+  need(type === 'PU' || type === 'FB', `a ${type} is not a fly ball`);
+  need(!foul && !bunt, 'an infield fly is a fair fly, not a bunt');
+  need(outs < 2 && !!bases[0] && !!bases[1], 'no infield-fly situation (runners on first and second, fewer than two outs)');
+  need(isTime(ballDownAt) && isTime(at) && at >= ballDownAt, 'missing times');
+  return { reason: OUT.INFIELD_FLY, runner: batter, from: 0, base: 0, fielder, ballAt: ballDownAt, at };
+}
+
 /* Force out: a fielder holding the ball touches the base before the forced runner gets there.
  * ballAt: when the fielder has the ball; touchAt: when he is on the base; runnerAt: runner's arrival. */
 export function forceOut({ runner, from, base, fielder, forced, ballAt, touchAt, runnerAt }) {
@@ -50,12 +65,15 @@ export function forceOut({ runner, from, base, fielder, forced, ballAt, touchAt,
   return { reason: OUT.FORCE, runner, from, base, fielder, ballAt, touchAt, runnerAt, at };
 }
 
-/* Tag out: a fielder holding the ball tags the runner before he reaches the base. */
-export function tagOut({ runner, from, base, fielder, ballAt, fielderAt, runnerAt }) {
+/* Tag out: a fielder holding the ball tags the runner before he reaches the base.
+ * tagAt (optional): a tag in the base path, before the runner gets near the base (the catcher tagging a batter on a
+ * dropped third strike, #614); it must come after the fielder holds the ball and before the runner arrives. */
+export function tagOut({ runner, from, base, fielder, ballAt, fielderAt, runnerAt, tagAt = null }) {
   need(fielder, `nobody is there to tag at base ${base}`);
   need(isTime(ballAt) && isTime(fielderAt) && isTime(runnerAt), 'missing times');
   need(beats(ballAt, fielderAt, runnerAt), `no ball in the glove at base ${base} before the runner arrives`);
-  return { reason: OUT.TAG, runner, from, base, fielder, ballAt, fielderAt, runnerAt, at: runnerAt };
+  if (tagAt != null) need(isTime(tagAt) && tagAt >= Math.max(ballAt, fielderAt) && tagAt < runnerAt, `tag at ${tagAt} is not between the ball in the glove and the runner's arrival`);
+  return { reason: OUT.TAG, runner, from, base, fielder, ballAt, fielderAt, runnerAt, at: tagAt != null ? tagAt : runnerAt };
 }
 
 /* Does the ball, held by a fielder who is there, beat the runner? The only test for a force or a tag,

@@ -7,7 +7,9 @@
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <title>雲端職棒</title>
 <script src="ui/site.js"></script>
+<script src="ui/landhint.js"></script>
 <script src="ui/layout.js"></script>
+<script src="ui/bootwait.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="ui/player.css">
@@ -20,7 +22,9 @@
 <script>
 /* #162: fail() = a load the page cannot start without broke: say so in plain words instead of 「準備球場中…」 forever */
 /* #162: t = ms from page open at which each boot stage ended (mark keeps the first); str() is the 🐞 report's boot= field */
-window.BOOT={share:.5,n:0,N:11,own:false,failed:false,t:{},mark(k){if(!(k in this.t))this.t[k]=Math.round(performance.now())},str(){return Object.entries(this.t).map(([k,v])=>k+'@'+v).join(',')},fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
+window.BOOT={share:.5,n:0,N:11,own:false,failed:false,t:{},mark(k){if(!(k in this.t))this.t[k]=Math.round(performance.now())},str(){return Object.entries(this.t).map(([k,v])=>k+'@'+v).join(',')},fail(e){console.error('boot failed',e);if(this.failed)return;this.failed=true;const t='載入失敗，請重新整理',b=document.getElementById('enter'),p=document.querySelector('#warmBar p');if(b&&b.disabled)b.textContent=t;if(p)p.textContent=t;if(window.BOOTWAIT)BOOTWAIT.show(document,t,()=>location.reload())},step(){this.n++;if(this.own)return;const b=document.getElementById('warmBar');if(!b)return;const pc=Math.round(100*this.share*Math.min(1,this.n/this.N));b.firstElementChild.firstElementChild.style.width=pc+'%';b.setAttribute('aria-valuenow',String(pc))}};
+/* #668: a stage still open after BOOTWAIT.STALL_MS is named on the entry card with a 重試 button */
+if(window.BOOTWAIT)BOOTWAIT.arm(window.BOOT,document,null,()=>location.reload());
 </script>
 <style>
 #warmBar{position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;width:min(320px,calc(100vw - 48px));text-align:center;pointer-events:none;opacity:0;animation:wbIn .2s .3s forwards}
@@ -69,6 +73,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1
 #bug .bb,#bug .bp{display:flex;gap:8px;align-items:center;padding:4px 10px;font-size:14px;border-top:1px solid rgba(255,255,255,.14);white-space:nowrap;overflow:hidden;min-height:26px}#bug .bb b{color:#ffd24d}#bug .bp b{color:#8fd0ff}#bug .st{margin-left:auto;color:#cfd8e8}#bug .sp{margin-left:auto;font-weight:700}#bug .sp+.st{margin-left:10px}
 #bug .av{font-weight:700;font-size:13px;color:#e8edf7}#bug .av i{font-style:normal;font-size:10px;color:#9aa6bd;margin-right:3px}
 #bug .ft{padding:3px 10px;font-size:11px;color:#9aa6bd;background:#14171f;border-top:1px solid rgba(255,255,255,.1)}
+/* #292: while the loading bar shows, the score bug (and its footer line) must not sit under it */
+body:has(#warmBar:not([hidden])) #bug{visibility:hidden}
+body.nobug #bug{display:none}#bugTag{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));min-width:44px;min-height:44px;padding:4px 10px;z-index:5;background:#0b0d12;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;font:600 13px/1.2 inherit;font-variant-numeric:tabular-nums}
 body.edit #bug,body.edit #feed,body.edit #who,body.edit #gear,body.edit #tag{cursor:move;touch-action:none;user-select:none}body.edit #feed{min-width:220px;min-height:44px}#lu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto;padding:12px;cursor:pointer}#lu .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}#lu h3{margin:0 0 6px;font-size:15px}#lu table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}#lu td{padding:2px 3px;border-top:1px solid rgba(255,255,255,.12)}#lu td:first-child{color:var(--muted);width:16px}#lu .sp{margin-top:6px;font-size:13px}#lu .hint{margin-top:8px;font-size:12px;color:var(--muted);text-align:center}@media(max-width:520px){#lu .cols{grid-template-columns:1fr}}
 #lbls{position:fixed;inset:0;pointer-events:none;z-index:30}#lbls .bx{position:fixed;border:2px dashed #f2c230;border-radius:6px}#lbls .bx.sel{border-style:solid;background:rgba(242,194,48,.12)}#lbls .lb{position:fixed;background:#f2c230;color:#14110a;font-size:12px;font-weight:700;padding:1px 6px;border-radius:4px;white-space:nowrap}#lbls .lb.sel{background:#fff}#edbar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:40;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 10px;max-width:calc(100vw - 16px)}#edbar #edTxt{font-size:13px;margin-right:4px}.mas{display:flex;gap:18px;justify-content:center;margin:0 0 10px}.mas svg{width:84px;height:84px}
 #pinfo{position:fixed;left:max(12px,env(safe-area-inset-left));top:calc(max(12px,env(safe-area-inset-top)) + 170px);padding:6px 10px;font-size:13px;line-height:1.5;max-width:min(300px,58vw)}#pinfo b{color:#f2c230}#pinfo .spd{font-size:20px;font-weight:700;color:#fff}#pinfo small{color:var(--muted);font-size:12px}
@@ -132,9 +139,16 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
 #who{top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:auto;max-width:56vw;padding:6px 10px}#matchup{display:none}#pinfo{top:calc(max(12px,env(safe-area-inset-top)) + 214px);max-width:64vw}#feed{bottom:208px;max-width:calc(100vw - 24px);font-size:13px}#vr:disabled{display:none}#feed li:nth-child(n+3){display:none}#tag{display:none}button{font-size:14px;padding:0 10px}}
 #land{position:fixed;top:max(12px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 196px);z-index:6;display:none}
 @media(pointer:coarse){#land{display:inline-block}}
+#landLine{margin:2px 0 0;font-size:14px;opacity:.85;display:flex;gap:8px;align-items:center;justify-content:center}#landLine[hidden],#landChip[hidden]{display:none}
+#landLine button,#landChip button{min-height:32px;padding:2px 10px;font-size:14px;border-radius:10px}
+#landChip{position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:6;display:flex;gap:6px;align-items:center;padding:4px 8px;font-size:13px;background:rgba(0,0,0,.65);color:#fff;border-radius:12px;white-space:nowrap}
 /* 手機橫放：高度很矮，介面縮小讓球場多露一點 */
 @media(orientation:landscape) and (max-height:520px){#bug{zoom:.72}#tag,#pinfo,#matchup{display:none}#feed{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-width:38vw;font-size:12px}#feed li:nth-child(n+3){display:none}
  #who{padding:4px 8px;font-size:12px}button{min-height:36px;font-size:13px;padding:0 9px}.bar{top:calc(max(8px,env(safe-area-inset-top)) + 44px);max-height:calc(100vh - 56px)}#vote{max-width:46vw}}
+/* #629 part 2: compact scoreboard on a phone held sideways: teams stacked left, inning + diamond + count right, batter / pitcher in one thin row under them; no footer. Same information, about a third of the height */
+@media(orientation:landscape) and (max-height:520px){#bug{zoom:.8;width:min(400px,calc(100vw - 24px));display:grid;grid-template-columns:auto 1fr;align-items:stretch}#bug .r1{grid-template-columns:1fr;min-width:112px}#bug .tm{padding:1px 6px}#bug .tm .lg{width:22px;height:22px}#bug .tm .sc{font-size:24px}
+ #bug .r2{padding:2px 8px;gap:6px;justify-content:start}#bug .bin{font-size:26px;min-width:34px}#bug .bs .dia{width:46px;height:32px}#bug .bso{font-size:12px;line-height:1.2}#bug .bso b{width:12px}
+ #bug .bb,#bug .bp{grid-row:2;padding:2px 6px;font-size:12px;min-height:20px;text-overflow:ellipsis}#bug .bb{grid-column:1}#bug .bp{grid-column:2}#bug .bb .av,#bug .bb small,#bug .bp .st{display:none}#bug .ft{display:none}}
 @media(prefers-reduced-motion:reduce){#feed li{animation:none}#status.live::before{animation:none}}
 </style>
 </head>
@@ -163,6 +177,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
 <div id="big"></div>
 <div id="note" class="panel"></div>
 <div id="vote" class="panel" hidden></div>
+<button id="bugTag" aria-label="顯示記分板" hidden></button>
 <button id="gear" aria-label="設定">⚙ 設定</button>
 <button id="report" class="dev-only" title="複製這一刻給 Claude">🐞 回報</button>
 <button id="land" aria-label="全螢幕橫向">⛶ 橫向</button>
@@ -180,6 +195,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
   <div class="seg g2">
     <button id="zone" aria-pressed="true">好球帶</button>
     <button id="hist" aria-pressed="false">戰況紀錄</button>
+    <button id="sbToggle" aria-pressed="true">記分板：顯示</button>
     <button id="lineup" class="wide">先發名單</button>
     <button id="gfx" title="卡卡的就選順暢">畫面：精緻<small>卡卡的就選順暢</small></button>
     <button id="compat" aria-pressed="false">畫面怪怪的？點這裡</button>
@@ -212,6 +228,7 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
   <div class="srow x"><button id="stSpd">1×</button><button id="stLoop" aria-pressed="true">循環</button><button id="stStep">+0.05s</button><button id="stExit">離開片場</button></div>
 </div>
 <div id="edbar" class="panel" hidden><span id="edTxt"></span><button id="edMinus">－</button><button id="edPlus">＋</button><button id="edOne">這個復原</button><button id="edAll">全部復原</button><button id="edDone">完成</button></div>
+<div id="landChip" hidden><span></span><button id="landChipGo">橫向</button><button id="landX" aria-label="關閉提示">✕</button></div>
 <div class="over" id="intro">
   <div class="card">
     <div id="mas" hidden></div>
@@ -222,12 +239,14 @@ body:has(#intro:not([hidden])) :is(#bug,#who,#tag,#feed,#vote,#note,#big,#pinfo)
       <figure class="side" id="sideB"><div class="mark"></div><figcaption></figcaption></figure>
     </div>
     <p id="introStatus" hidden></p>
+    <p id="bootStall" hidden role="status"><span></span> <button id="bootRetry">重試</button></p>
     <div class="pick" id="introTeam" hidden><button data-t="0"></button><button data-t="1"></button><button data-t="-1">中立看球</button></div>
     <div class="acts">
       <button class="go" id="enter" disabled>準備球場中…</button>
       <button id="enterHl" disabled>看精華</button>
       <button id="enterMute" disabled>靜音進場</button>
     </div>
+    <p id="landLine" hidden><span></span><button id="landGo">橫向</button></p>
     <small>季前熱身賽，成績不列入正史</small>
     <small><a class="guide" href="guide.html">球隊與球員介紹</a>・<a class="guide" href="index.html">資料首頁</a></small>
   </div>
@@ -265,11 +284,20 @@ window.THREE=THREE;window.TSL=TSL;window.FX={bloom,ao,fxaa};
 const R=new THREE.WebGPURenderer({antialias:true,forceWebGL:!!window.FORCE_GL||(()=>{try{return localStorage.getItem("zu_gl")==="1"}catch(e){return false}})()});try{await st('gpu',R.init())}catch(e){console.error(e)}window.RENDERER=R;
 /* The engine (pure game logic) and the commentary booth are ES modules; the 3D/UI code (render/game.js) is a classic script that reads them from window. */
 const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('failed to load '+src));document.body.appendChild(s)});
-window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
+window.PL=await pPl;window.ENGINE=await pEngine.catch(halt);window.OPENING=await pOpening;
+/* #600: play.html?f=<id> replays a 二軍 game (league/site/farm_games.json) with the engine of its own commit, in place of the frozen game. Failure: a note, then the frozen game as usual.
+   #668: the whole load (list + engine from jsDelivr) is given up after BOOTWAIT.OPTIONAL_MS, so a CDN that never answers cannot keep the entry asleep. */
+const WAIT=window.BOOTWAIT,inTime=(p,what)=>WAIT?WAIT.deadline(p,WAIT.OPTIONAL_MS,what):p;
+{const fid=new URLSearchParams(location.search).get('f');if(fid){B.mark('farm0');try{const r=await inTime((async()=>{const [F,list]=await Promise.all([import('./league/farm.js'),fetch('league/site/farm_games.json').then(r=>r.ok?r.json():[])]);return F.farmOpening(list,fid)})(),'farm replay');if(r.opening){window.OPENING=r.opening;window.FARM=r.rec}else{window.FARM_NOTE=`找不到這場二軍比賽的重播（${r.status}）`;console.warn('二軍重播失敗',r.status,r.reason)}}catch(e){window.FARM_NOTE=/no answer/.test(e&&e.message)?'二軍重播載入逾時，先播熱身賽':'二軍重播載入失敗';console.warn('二軍重播載入失敗',e)}B.mark('farm')}}
+/* #751: play.html?x=<away>-<home>-<awaySP>-<homeSP>-<seed> plays a 友誼賽 arranged on friendly.html, computed here with the page's own engine (league/friendly.js). Never official; silent, feed only. Failure: a note, then the frozen game as usual. */
+{const xp=new URLSearchParams(location.search).get('x');if(xp){try{const F=await import('./league/friendly.js');const r=F.friendlyOpening(xp,window.ENGINE);if(r.opening){window.OPENING=r.opening;window.FRIENDLY=r.arrangement}else{window.FARM_NOTE=`友誼賽的安排不對（${r.reason}），先播熱身賽`;console.warn('友誼賽失敗',r.status,r.reason)}}catch(e){window.FARM_NOTE='友誼賽載入失敗，先播熱身賽';console.warn('友誼賽載入失敗',e)}}}
+/* #592: play.html?g=<season>-<id> replays an official ledger game (cloudball-league, read-only) with the engine of its own commit; silent, feed only. Failure: a note, then the frozen game as usual. */
+{const gp=new URLSearchParams(location.search).get('g');if(gp){B.mark('ledger0');try{const r=await inTime((async()=>{const [G,L]=await Promise.all([import('./league/gameplay.js'),import('./league/ledger.js')]);return G.gameOpening(gp,async(s,i)=>{const x=await fetch(L.ledgerUrl(s,i));if(x.status===404)return null;if(!x.ok)throw new Error('HTTP '+x.status);return x.json()})})(),'ledger replay');if(r.opening){window.OPENING=r.opening;window.LEDGER_GAME=r.rec}else{window.FARM_NOTE=`找不到這場比賽的重播（${r.status}）`;console.warn('正式比賽重播失敗',r.status,r.reason)}}catch(e){window.FARM_NOTE=/no answer/.test(e&&e.message)?'比賽重播載入逾時，先播熱身賽':'比賽重播載入失敗';console.warn('正式比賽重播載入失敗',e)}B.mark('ledger')}}
+window.COMMENTARY=await pComm.catch(halt);window.COMMENTARY_BANK=await pBank;window.HIGHLIGHTS=await pHl;
 await load('render/game.js').catch(halt);B.mark('game');
 /* #125: the park is compiled and drawn behind the poster before the buttons wake up, so pressing enter never lands on a frozen tab */
 await window.READY;document.getElementById('enter').textContent='進場（開聲音）';
-for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;B.mark('button');
+for(const id of ['enter','enterHl','enterMute'])document.getElementById(id).disabled=false;B.mark('button');if(window.BOOTWAIT)BOOTWAIT.hide(document);
 </script>
 </body>
 </html>

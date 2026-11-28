@@ -7,18 +7,35 @@
  *   makePlayer(seed, choice) { player, ratings }: the player in the roster format of league/players.js, and
  *                            ratingsOf(player) on the factory scale (league/ratings.js).
  *
- * A choice: { kind: 'bat', pos, bats, build, look, points: {con, pow, eye, spd, arm}, nameDraw, train }
- *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw, train }.
+ * A choice: { kind: 'bat', pos, bats, build | (body, ht), look, points: {con, pow, eye, spd, arm}, nameDraw, train }
+ *        or { kind: 'pit', role, throws, build, look, points: {stuff, ctrl, arm}, nameDraw, train, pitches }.
+ * pitches (#378 part 2, optional): the pitcher's starter list, names from CREATE.pitches (the engine's PITCH_TYPES),
+ * 1 to CREATE.starterPitches of them, no repeats, always with the fastball CREATE.pitches[0]. Each starts at his stuff
+ * points and is stored on the player as `pitches: { name: display rating }`; the training split then holds each pitch
+ * too (league/training.js). The engine throws only the listed pitches, at their factory shares (engine/sim/game.js mixOf);
+ * the pitch is a look there (name, km/h), never an outcome.
+ * points.def (#378 part 6, batters, optional): fielder defence (range and glove), FLOOR to CAP like the rest; with it the
+ * budget is CREATE.budget.bat + CREATE.defBudget over all six, so defence trades against the bat. Stored as the
+ * engine's raw `def` (league/ratings.js defRaw; the engine's fielding code reads it through the roster), shown 1 to
+ * 100, not in the overall. Left out (choices made before it) = the factory fielder, def 1.0. positionFit(pos, ratings)
+ * is the plain text of how his def and arm suit the position he picked.
+ * role (#378): SP 先發, MR 中繼, RP 後援, CL 終結. The engine starts an SP and puts every other role in the bullpen.
  * train (#369, optional): the daily training split, whole percents over the same ability keys, sum 100
- * (league/training.js); left out = even. It is stored on the player as `train`.
+ * (league/training.js); left out = defaultSplit (by pitcher role, even for batters). It is stored on the player as `train`.
+ * body + ht (#442, instead of build): the body mix as whole percents { slim, power, heavy } (each 0 to 100, sum at most
+ * 100, so the mix stays the one MakeHuman blends) and the height in whole centimetres, as metres, inside CREATE.htRange.
+ * Stored on the player as weights (percent / 100) and ht. Exactly one of `build` (a preset, drawn height) or `body` + `ht`.
+ * Nothing here reads the body: display points and games do not depend on it (rule 10).
  * The points are spent in full (sum = the budget of the kind), each between FLOOR and CAP. Potential, age, height
  * and shirt number are not chosen: they are drawn from the seed (potential is the luck people talk about).
  * Nothing here touches ROSTERS: a created player reaches a game only through a roster given to the engine (rule 10). */
 import { ROSTERS } from './players.js';
 import { STAFF, UMPIRES } from './staff.js';
 import { SURNAMES, GIVEN } from './namepool.js';
-import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS } from './ratings.js';
-import { validateSplit, evenSplit } from './training.js';
+import { ratingsOf, BAT_WEIGHTS, PIT_WEIGHTS, RATING_MID } from './ratings.js';
+import { validateSplit, defaultSplit, trainKeys } from './training.js';
+import { PITCH_TYPES } from '../engine/constants.js';
+import { TEMPERS, isTemper } from './temper.js';
 
 /* Free agents are young: given names of the youngest pool. */
 export const NAME_DECADE = 1990;
@@ -32,7 +49,10 @@ const NAME_SALT = 0x9e3779b1;
 export const CREATE = {
   kinds: ['bat', 'pit'],
   positions: ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'],
-  roles: ['SP', 'RP'],
+  roles: ['SP', 'MR', 'RP', 'CL'],
+  /* the engine's pitches; the first (直球) is in every list. starterPitches: the most a created pitcher starts with */
+  pitches: PITCH_TYPES.map(t => t[0]),
+  starterPitches: 3,
   hands: ['L', 'R'],
   /* build -> body blend weights (render) and height range in metres */
   builds: {
@@ -41,15 +61,44 @@ export const CREATE = {
     power: { body: { slim: 0, power: 0.7, heavy: 0 }, ht: [1.78, 1.90] },
     heavy: { body: { slim: 0, power: 0.5, heavy: 0.7 }, ht: [1.78, 1.92] },
   },
+  /* #442 body sliders: the height range of the builds above (min to max), the most a body mix may add up to */
+  htRange: [1.72, 1.92],
+  bodyKeys: ['slim', 'power', 'heavy'],
+  bodyMax: 100,
   /* look: whole numbers, checked by range only; the render window decides what each number draws */
   look: { head: [0, 7], skin: [0, 5], hair: [0, 9] },
   keys: { bat: Object.keys(BAT_WEIGHTS), pit: Object.keys(PIT_WEIGHTS) },
   /* the one fixed budget per kind, and the floor and cap of each ability (display points, 1 to 100) */
   budget: { bat: 305, pit: 183 },
+  /* the optional fielder defence point (#378 part 6) and what it adds to the batter budget: one average ability,
+   * so 366 over six keys stays divisible (the UI splits it evenly) */
+  defKey: 'def',
+  defBudget: 61,
   floor: 40,
   cap: { bat: 70, pit: 66 },
   maxNameDraw: 999,
 };
+/* the point keys of a choice: a batter who sets points.def spends it from the same pool */
+export const pointKeys = c => [...CREATE.keys[c.kind], ...(c.kind === 'bat' && c.points && CREATE.defKey in c.points ? [CREATE.defKey] : [])];
+export const budgetOf = c => CREATE.budget[c.kind] + (pointKeys(c).includes(CREATE.defKey) ? CREATE.defBudget : 0);
+
+/* How a position asks for glove and arm (#378 part 6), display only (rule 10: the engine never reads it). need = the
+ * 1-100 mix of def and arm the position wants, by the usual defensive spectrum (C, SS, CF, 2B, 3B, RF, LF, 1B);
+ * first guesses, not tuned: an even created batter (61 everywhere) reads 適任 at C and SS, a 70/70 one 拿手 there. FIT_BAND: within this many points of the need reads 適任, above it 拿手, below it 吃力. */
+export const POS_NEED = {
+  C: { def: 0.5, arm: 0.5, need: 64 }, SS: { def: 0.65, arm: 0.35, need: 64 }, CF: { def: 0.7, arm: 0.3, need: 62 },
+  '2B': { def: 0.8, arm: 0.2, need: 60 }, '3B': { def: 0.5, arm: 0.5, need: 58 }, RF: { def: 0.4, arm: 0.6, need: 56 },
+  LF: { def: 0.7, arm: 0.3, need: 52 }, '1B': { def: 1, arm: 0, need: 46 },
+};
+export const FIT_BAND = 4;
+export const FIT_TEXT = { good: '拿手', ok: '適任', poor: '吃力', none: '不守備' };
+export function positionFit(pos, r) {
+  const n = POS_NEED[pos];
+  if (!n) return FIT_TEXT.none;
+  const v = n.def * (r.def ?? RATING_MID) + n.arm * r.arm;
+  return v >= n.need + FIT_BAND ? FIT_TEXT.good : v >= n.need - FIT_BAND ? FIT_TEXT.ok : FIT_TEXT.poor;
+}
+
 /* drawn, not chosen */
 export const AGE = [20, 24];
 export const NUM = [1, 99];
@@ -79,7 +128,7 @@ const pick = (r, items) => { const total = items.reduce((s, [, w]) => s + w, 0);
 const between = (r, [a, b]) => a + Math.floor(r() * (b - a + 1));
 const POOL = Object.entries(GIVEN[NAME_DECADE]).flatMap(([w, s]) => s.split(' ').map(g => [g, Number(w)]));
 /* names already in league data: factory players, coaches, umpires */
-const TAKEN = new Set([...ROSTERS.flatMap(t => [...t.bat, ...t.pit]), ...STAFF, ...UMPIRES].map(p => p.name));
+const TAKEN = new Set([...ROSTERS.flatMap(t => [...t.bat, ...(t.bench || []), ...t.pit]), ...STAFF, ...UMPIRES].map(p => p.name));
 const NOT_FREE = new Set([...BLOCKED, ...TAKEN]);
 
 export function drawName(seed, n) {
@@ -87,6 +136,14 @@ export function drawName(seed, n) {
   for (let i = 0; i < NAME_TRIES; i++) { const name = pick(r, SURNAMES) + pick(r, POOL); if (!NOT_FREE.has(name)) return name; }
   throw new Error(`no free name for seed ${seed}, draw ${n}`);
 }
+
+/* a preset build as slider percents (a mix over bodyMax is scaled down to it): what the sliders show for that preset */
+export function presetBody(build) {
+  const B = CREATE.builds[build] || CREATE.builds.normal, raw = Object.fromEntries(CREATE.bodyKeys.map(k => [k, Math.round((B.body[k] || 0) * 100)]));
+  const sum = CREATE.bodyKeys.reduce((t, k) => t + raw[k], 0), f = sum > CREATE.bodyMax ? CREATE.bodyMax / sum : 1;
+  return Object.fromEntries(CREATE.bodyKeys.map(k => [k, Math.floor(raw[k] * f)]));
+}
+export const presetHt = build => { const [a, b] = (CREATE.builds[build] || CREATE.builds.normal).ht; return Math.round((a + b) / 2 * 100) / 100; };
 
 const isWhole = x => Number.isInteger(x);
 const inRange = (x, [a, b]) => isWhole(x) && x >= a && x <= b;
@@ -96,18 +153,36 @@ export function validateCreate(c) {
   const out = [], C = CREATE;
   if (!c || typeof c !== 'object') return ['no choice given'];
   if (!C.kinds.includes(c.kind)) return [`kind must be one of ${C.kinds.join(', ')}`];
-  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'look', 'points', 'nameDraw', 'train'];
+  const bat = c.kind === 'bat', allowed = ['kind', bat ? 'pos' : 'role', bat ? 'bats' : 'throws', 'build', 'body', 'ht', 'look', 'points', 'nameDraw', 'train', 'temper', ...(bat ? [] : ['pitches'])];
   for (const k of Object.keys(c)) if (!allowed.includes(k)) out.push(`unknown field ${k}`);
   if (bat && !C.positions.includes(c.pos)) out.push(`position must be one of ${C.positions.join(', ')}`);
   if (!bat && !C.roles.includes(c.role)) out.push(`role must be one of ${C.roles.join(', ')}`);
   if (!C.hands.includes(bat ? c.bats : c.throws)) out.push(`${bat ? 'bats' : 'throws'} must be L or R`);
-  if (!(c.build in C.builds)) out.push(`build must be one of ${Object.keys(C.builds).join(', ')}`);
+  const custom = c.body !== undefined || c.ht !== undefined;
+  if (custom) {
+    if (c.build !== undefined) out.push('give a build or a body with a height, not both');
+    const bk = C.bodyKeys, bodyOk = sameKeys(c.body, bk) && bk.every(k => inRange(c.body[k], [0, C.bodyMax]));
+    if (!bodyOk) out.push(`body must hold exactly ${bk.join(', ')}, each a whole percent from 0 to ${C.bodyMax}`);
+    else if (bk.reduce((t, k) => t + c.body[k], 0) > C.bodyMax) out.push(`body adds up to more than ${C.bodyMax} percent`);
+    const cm = [C.htRange[0] * HT_STEP, C.htRange[1] * HT_STEP].map(Math.round);
+    if (!(typeof c.ht === 'number' && isWhole(Math.round(c.ht * HT_STEP)) && Math.abs(c.ht * HT_STEP - Math.round(c.ht * HT_STEP)) < 1e-6 && Math.round(c.ht * HT_STEP) >= cm[0] && Math.round(c.ht * HT_STEP) <= cm[1])) out.push(`ht must be whole centimetres from ${C.htRange[0]} to ${C.htRange[1]} m`);
+  } else if (!(c.build in C.builds)) out.push(`build must be one of ${Object.keys(C.builds).join(', ')}`);
   const lk = Object.keys(C.look);
   if (!sameKeys(c.look, lk)) out.push(`look must hold exactly ${lk.join(', ')}`);
   else for (const k of lk) if (!inRange(c.look[k], C.look[k])) out.push(`look.${k} must be a whole number from ${C.look[k][0]} to ${C.look[k][1]}`);
+  if (c.temper !== undefined && !isTemper(c.temper)) out.push(`temper must be one of ${TEMPERS.join(', ')}`);
   if (c.nameDraw !== undefined && !inRange(c.nameDraw, [0, C.maxNameDraw])) out.push(`nameDraw must be a whole number from 0 to ${C.maxNameDraw}`);
-  if (c.train !== undefined) out.push(...validateSplit(C.keys[c.kind], c.train));
-  const keys = C.keys[c.kind], budget = C.budget[c.kind], cap = C.cap[c.kind];
+  if (!bat && c.pitches !== undefined) {
+    const ok = Array.isArray(c.pitches) && c.pitches.length >= 1 && c.pitches.length <= C.starterPitches;
+    if (!ok) out.push(`pitches must be a list of 1 to ${C.starterPitches} pitches`);
+    else {
+      for (const n of c.pitches) if (!C.pitches.includes(n)) out.push(`pitch ${n} must be one of ${C.pitches.join(', ')}`);
+      if (new Set(c.pitches).size !== c.pitches.length) out.push('pitches must not repeat');
+      if (!c.pitches.includes(C.pitches[0])) out.push(`pitches must include ${C.pitches[0]}`);
+    }
+  }
+  if (c.train !== undefined) out.push(...validateSplit(trainKeys(c.kind, Array.isArray(c.pitches) ? c.pitches : null), c.train));
+  const keys = pointKeys(c), budget = budgetOf(c), cap = C.cap[c.kind];
   if (!sameKeys(c.points, keys)) out.push(`points must hold exactly ${keys.join(', ')}`);
   else {
     for (const k of keys) if (!inRange(c.points[k], [C.floor, cap])) out.push(`${k} must be a whole number from ${C.floor} to ${cap}`);
@@ -130,9 +205,10 @@ export function makePlayer(seed, c) {
   const why = validateCreate(c);
   if (why.length) throw new Error(`invalid choice: ${why.join('; ')}`);
   seed >>>= 0;
-  const r = rng(seed), pit = c.kind === 'pit', B = CREATE.builds[c.build];
+  const r = rng(seed), pit = c.kind === 'pit', B = CREATE.builds[c.build] || CREATE.builds.normal;
   const age = between(r, AGE), num = between(r, NUM);
-  const ht = between(r, B.ht.map(h => Math.round(h * HT_STEP))) / HT_STEP;
+  const drawn = between(r, B.ht.map(h => Math.round(h * HT_STEP))) / HT_STEP;   /* always drawn, so a chosen height leaves the other draws (potential) as they were */
+  const custom = !c.build, ht = custom ? Math.round(c.ht * HT_STEP) / HT_STEP : drawn;
   const pot = potDraw(r(), r());
   const raw = (k, d) => ratingsOf.raw(pit, k, d);
   const p = { id: `fa-${seed.toString(36)}`, name: drawName(seed, c.nameDraw || 0), num };
@@ -140,7 +216,29 @@ export function makePlayer(seed, c) {
   else {
     const con = raw('con', c.points.con);
     Object.assign(p, { pos: c.pos, con, pow: raw('pow', c.points.pow), eye: raw('eye', c.points.eye), age, pot: raw('pot', pot), arm: r3(raw('arm', c.points.arm)), avg: AVG_FIT(con), spd: r3(raw('spd', c.points.spd)), hand: c.bats });
+    if (CREATE.defKey in c.points) p.def = r3(raw('def', c.points.def));
   }
-  Object.assign(p, { body: { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(CREATE.keys[c.kind].map(k => [k, (c.train || evenSplit(CREATE.keys[c.kind]))[k]])) });
+  if (c.temper !== undefined) p.temper = c.temper;   /* #379: no draw, other fields unchanged */
+  if (pit && c.pitches) p.pitches = Object.fromEntries(CREATE.pitches.filter(n => c.pitches.includes(n)).map(n => [n, c.points.stuff]));
+  const tk = trainKeys(c.kind, pit && c.pitches ? Object.keys(p.pitches) : null), split = c.train || defaultSplit(c.kind, c.role, pit && c.pitches ? Object.keys(p.pitches) : null);
+  Object.assign(p, { body: custom ? Object.fromEntries(CREATE.bodyKeys.map(k => [k, c.body[k] / 100])) : { ...B.body }, ht, look: { ...c.look }, train: Object.fromEntries(tk.map(k => [k, split[k]])) });
   return { player: p, ratings: ratingsOf(p) };
 }
+
+/* #437 part 2: a real fan takes the place of a 系統 filler of the same kind (bat / pit), never a 一軍 player and never another fan.
+ * pool: [{ id, kind, player }] (a 系統 player has `player.system === true`); fan: { id, kind, player }. Pure: returns a new pool and the replaced id
+ * (null when no 系統 player of that kind is left, then the fan is just added). The oldest 系統 filler (first in the pool) goes first. */
+export function placeFan(pool, fan) {
+  const at = pool.findIndex(x => x.kind === fan.kind && x.player && x.player.system === true);
+  if (at < 0) return { pool: [...pool, fan], replaced: null };
+  return { pool: pool.map((x, i) => (i === at ? fan : x)), replaced: pool[at].id };
+}
+
+/* #438: where a created player starts, chosen after the last creation step: 二軍 (plays engine-only games from the next day,
+ * #437) or 自由市場 (waits for a team). Left out = DEFAULT_PLACE (二軍: it gives the day-1 box score of the pacing plan, #167).
+ * It is kept on the player as `place` and may move either way at any time; it changes no ability or record (rule 10). */
+export const PLACES = ['second', 'free'];
+export const DEFAULT_PLACE = 'second';
+export const isPlace = p => PLACES.includes(p);
+/* the place of a stored player: a 系統 filler or a player made before #438 has none and counts as 自由市場, where they were */
+export const placeOf = player => (player && isPlace(player.place) ? player.place : 'free');

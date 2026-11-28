@@ -1,11 +1,12 @@
 /* Exports the publishable data of the text-first site (#336, read by the pages of #335) into league/site/:
  *   teams.json    { season, teams: [{ id, name, city, logo, record: {w, l}, roster: [playerId, ...] }] }   (roster = 一軍)
- *   players.json  { "<playerId>": { name, num, age, role: "P"|"B", pos, hand, overall, abilities, team, tier } }
- *                 tier 1 = 一軍, 2 = 二軍, 3 = free agent (team null)
+ *   players.json  (the day-1 snapshot, #565 part 4: DAY1_SEASONS turnover seasons after the factory league) { "<playerId>": { name, num, age, role: "P"|"B", pos, hand, overall, abilities, team, tier } }
+ *                 tier 1 = 一軍, 2 = 二軍, 3 = free agent (team null); `system: true` only on a 系統 filler (#437), shown as a 系統 tag
  *   games.json    [{ id, season, date, home, away, score: [home, away], replay }]
  *
  *   node league/tools/site.mjs           print what would be written (no file is written)
  *   node league/tools/site.mjs --write   write the three files
+ *   node league/tools/site.mjs --fans fans.json [--write]   real fans [{ team, player }] replace 系統 二軍 players (#437 part 5)
  *
  * Export only: it reads the league modules and the recorded games and never changes an ability or a result
  * (rules 10, 11). No randomness, no clock: two runs give the same bytes. tests/leaguesite.check.mjs keeps the files
@@ -16,12 +17,19 @@ import path from 'node:path';
 import { TEAMS } from '../teams.js';
 import { ROSTERS } from '../players.js';
 import { ratingsOf } from '../ratings.js';
+import { CREATE, makePlayer, placeFan } from '../freeagents.js';
 import { parseRecording } from '../recording.js';
+import { simulate } from './turnover_sim.mjs';
+import { ROTATION_SIZE } from '../../engine/constants.js';
 
 const LEAGUE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const OUT_DIR = path.join(LEAGUE, 'site');
 export const SEASON = '0';
 export const TIER = { FIRST: 1, SECOND: 2, FREE: 3 };
+/* #565 part 4: "day 1 for the first player". The site data is the factory league (league/players.js + systemSecond) run
+ * DAY1_SEASONS seasons ahead by turnover_sim.simulate (seed DAY1_SEED): mixed ages, a call-up queue, players on the 自由市場.
+ * Season 0 of the factory export is the start; 0 seasons = the plain factory export. Regenerate with `node league/tools/site.mjs --write`. */
+export const DAY1_SEASONS = 8, DAY1_SEED = 565;
 /* Characters of the city at the start of every team name (台北, 新竹, 高雄, 台東). */
 export const CITY_CHARS = 2;
 /* Recorded games of the season, oldest first. `file` is relative to the site root (it is also the replay path);
@@ -29,6 +37,53 @@ export const CITY_CHARS = 2;
 export const RECORDED_GAMES = [
   { id: 'preseason-opening', file: 'league/preseason/opening.json', date: '2026-11-21' },
 ];
+
+/* #437 part 4: the 二軍 of the static data site is filled with 系統 players until real fans replace them (the store's
+ * fillers are the free market; the site cannot read the store). SYSTEM_SECOND_PER_KIND per team and kind, an even spread of
+ * the creation budget, positions / roles cycled, names unique in the whole league. No clock, no RNG outside makePlayer's seed. */
+export const SYSTEM_SECOND_PER_KIND = 3, SYSTEM_SECOND_SEED = 437;
+const mixSeed = (...n) => n.reduce((h, x) => Math.imul(h ^ (x >>> 0), 0x9e3779b1) >>> 0, 0x811c9dc5);
+export function systemSecond(teams = TEAMS, rosters = ROSTERS) {
+  const taken = new Set(rosters.flatMap(r => [...r.bat, ...r.pit].map(p => p.name))), out = {};
+  teams.forEach((t, ti) => {
+    out[t.id] = [];
+    for (const kind of CREATE.kinds) for (let i = 0; i < SYSTEM_SECOND_PER_KIND; i++) {
+      const keys = CREATE.keys[kind], per = CREATE.budget[kind] / keys.length, look = { head: 0, skin: 0, hair: 0 };
+      const points = Object.fromEntries(keys.map(k => [k, per]));
+      const c = kind === 'bat' ? { kind, pos: CREATE.positions[i % CREATE.positions.length], bats: 'R', build: 'normal', look, points }
+        : { kind, role: CREATE.roles[i % CREATE.roles.length], throws: 'R', build: 'normal', look, points };
+      const seed = mixSeed(SYSTEM_SECOND_SEED, ti, kind === 'bat' ? 2 : 3, i);
+      let made;
+      for (let n = 0; ; n++) { made = makePlayer(seed, { ...c, nameDraw: n }); if (!taken.has(made.player.name)) break; }
+      taken.add(made.player.name);
+      out[t.id].push({ ...made.player, system: true });
+    }
+  });
+  return out;
+}
+
+/* #748 part 1: a FULL 二軍 per team (not wired into the export yet, part 2): one batter per position of CREATE.positions (the nine of a lineup,
+ * DH included), ROTATION_SIZE starters, then SECOND_BULLPEN relievers (roles cycled over the non-SP roles). Same recipe and seeds as systemSecond
+ * (an even spread of the creation budget, names unique in the league), so two calls give the same bytes. */
+export const SECOND_BULLPEN = 4, FULL_SECOND_SEED = 748;
+export function fullSecond(teams = TEAMS, rosters = ROSTERS) {
+  const taken = new Set(rosters.flatMap(r => [...r.bat, ...r.pit].map(p => p.name))), out = {};
+  const relief = CREATE.roles.filter(r => r !== 'SP'), look = { head: 0, skin: 0, hair: 0 };
+  const plan = [...CREATE.positions.map(pos => ({ kind: 'bat', pos })), ...Array.from({ length: ROTATION_SIZE }, () => ({ kind: 'pit', role: 'SP' })),
+    ...Array.from({ length: SECOND_BULLPEN }, (_, i) => ({ kind: 'pit', role: relief[i % relief.length] }))];
+  teams.forEach((t, ti) => {
+    out[t.id] = plan.map((slot, i) => {
+      const keys = CREATE.keys[slot.kind], per = CREATE.budget[slot.kind] / keys.length, points = Object.fromEntries(keys.map(k => [k, per]));
+      const c = slot.kind === 'bat' ? { kind: 'bat', pos: slot.pos, bats: 'R', build: 'normal', look, points } : { kind: 'pit', role: slot.role, throws: 'R', build: 'normal', look, points };
+      const seed = mixSeed(FULL_SECOND_SEED, ti, i);
+      let made;
+      for (let n = 0; ; n++) { made = makePlayer(seed, { ...c, nameDraw: n }); if (!taken.has(made.player.name)) break; }
+      taken.add(made.player.name);
+      return { ...made.player, system: true };
+    });
+  });
+  return out;
+}
 
 /* buildSite({ teams, rosters, rate, games, second, free }) -> { teams, players, games } (plain objects, ready for JSON).
  * second: { teamId: [player in the roster format of league/players.js] } (二軍); free: [player] (free agents).
@@ -39,7 +94,7 @@ export function buildSite({ teams = TEAMS, rosters = ROSTERS, rate = ratingsOf, 
     if (players[p.id]) throw new Error(`player id ${p.id} appears twice`);
     const { ovr, ...abilities } = rate(p);
     players[p.id] = { name: p.name, num: p.num, age: p.age, role: p.role ? 'P' : 'B', pos: p.role || p.pos,
-      hand: p.role ? p.throws : p.hand, overall: ovr, abilities, team, tier };
+      hand: p.role ? p.throws : p.hand, overall: ovr, abilities, team, tier, ...(p.system === true ? { system: true } : {}) };
   };
   const record = Object.fromEntries(teams.map(t => [t.id, { w: 0, l: 0 }]));
   const gameRows = games.map(({ id, date, file, rec }) => {
@@ -57,6 +112,30 @@ export function buildSite({ teams = TEAMS, rosters = ROSTERS, rate = ratingsOf, 
   });
   for (const p of free) add(p, null, TIER.FREE);
   return { teams: { season: SEASON, teams: teamRows }, players, games: gameRows };
+}
+
+/* #437 part 5: real fans from a json file take the place of 系統 二軍 players. fans: [{ team: <team id>, player: <player in the roster format> }]
+ * (default none = the bytes do not change). Per team a fan replaces the first 系統 player of his kind (placeFan), is added when none is left,
+ * and never touches a 一軍 player. Pure: returns a new { teamId: [player] }; a team id that does not exist is an error. */
+export function placeFans(second, fans = []) {
+  const out = Object.fromEntries(Object.entries(second).map(([id, list]) => [id, list.map(player => ({ id: player.id, kind: player.role ? 'pit' : 'bat', player }))]));
+  for (const f of fans) {
+    if (!f || !out[f.team] || !f.player || typeof f.player.id !== 'string') throw new Error(`fan ${JSON.stringify(f && f.player && f.player.id)}: team ${f && f.team} does not exist or the player has no id`);
+    out[f.team] = placeFan(out[f.team], { id: f.player.id, kind: f.player.role ? 'pit' : 'bat', player: f.player }).pool;
+  }
+  return Object.fromEntries(Object.entries(out).map(([id, list]) => [id, list.map(x => x.player)]));
+}
+
+/* The factory league as players.json rows (no snapshot): what `turnover_sim.mjs` starts from. */
+export const factoryPlayers = () => buildSite({ second: systemSecond() }).players;
+
+/* day-1 snapshot: factory league run `seasons` seasons ahead; the 一軍 roster of each team is rebuilt from the result
+ * (team order and player order of the factory data, newcomers appended), so teams.json and players.json agree. */
+export function day1(site, seasons = DAY1_SEASONS, seed = DAY1_SEED) {
+  if (!seasons) return site;
+  const players = simulate(site.players, { seasons, seed }).players;
+  const teams = site.teams.teams.map(t => ({ ...t, roster: Object.keys(players).filter(id => players[id].team === t.id && players[id].tier === TIER.FIRST) }));
+  return { ...site, players, teams: { ...site.teams, teams } };
 }
 
 /* validateSite({ teams, players, games }) -> list of plain problems; empty = fine. */
@@ -97,14 +176,15 @@ export function validateSite({ teams, players, games }) {
 }
 
 /* The three files as text, exactly as written. */
-export function siteFiles(root = path.resolve(LEAGUE, '..')) {
+export function siteFiles(root = path.resolve(LEAGUE, '..'), fans = []) {
   const games = RECORDED_GAMES.map(g => ({ ...g, rec: parseRecording(readFileSync(path.join(root, g.file), 'utf8')) }));
-  const site = buildSite({ games });
+  const site = day1(buildSite({ games, second: placeFans(systemSecond(), fans) }));
   return Object.fromEntries(Object.entries(site).map(([k, v]) => [`${k}.json`, JSON.stringify(v, null, 2) + '\n']));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const files = siteFiles();
+  const at = process.argv.indexOf('--fans');
+  const files = siteFiles(undefined, at > 0 ? JSON.parse(readFileSync(process.argv[at + 1], 'utf8')) : []);
   if (process.argv.includes('--write')) {
     mkdirSync(OUT_DIR, { recursive: true });
     for (const [name, text] of Object.entries(files)) writeFileSync(path.join(OUT_DIR, name), text);

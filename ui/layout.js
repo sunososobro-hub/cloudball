@@ -33,6 +33,13 @@ for(const [id] of EDIT_ELS){const el=$(id);
 let histOn=false;try{histOn=localStorage.getItem('zu_hist')==='1'}catch(e){}
 const histApply=()=>{document.body.classList.toggle('hist',histOn);$('hist').setAttribute('aria-pressed',histOn)};histApply();
 $('hist').onclick=()=>{histOn=!histOn;histApply();try{localStorage.setItem('zu_hist',histOn?'1':'0')}catch(e){}};
+/* #629: scoreboard 顯示/隱藏, kept in this browser (default shown); hidden -> a 44px corner tag with the score brings it back */
+let bugOn=true;try{bugOn=localStorage.getItem('zu_bug')!=='0'}catch(e){}
+const bugTagText=()=>{const t=[0,1].map(i=>{const e=$('bt'+i),n=e&&e.querySelector('.tn'),c=e&&e.querySelector('.sc');return n&&c?n.textContent+' '+c.textContent:null});return t[0]&&t[1]?t.join(' : '):'記分板'};
+const bugApply=()=>{document.body.classList.toggle('nobug',!bugOn);$('sbToggle').setAttribute('aria-pressed',bugOn);$('sbToggle').textContent='記分板：'+(bugOn?'顯示':'隱藏');$('bugTag').hidden=bugOn;if(!bugOn)$('bugTag').textContent=bugTagText()};
+const bugSet=v=>{bugOn=v;bugApply();try{localStorage.setItem('zu_bug',v?'1':'0')}catch(e){}};
+$('sbToggle').onclick=()=>bugSet(!bugOn);$('bugTag').onclick=()=>bugSet(true);
+new MutationObserver(()=>{if(!bugOn)$('bugTag').textContent=bugTagText()}).observe($('bug'),{childList:true,subtree:true});bugApply();
 $('editUI').onclick=()=>setEditing(true);$('edDone').onclick=()=>setEditing(false);
 $('edMinus').onclick=()=>scaleSel(-.1);$('edPlus').onclick=()=>scaleSel(.1);
 $('edOne').onclick=()=>{delete L[selId];applyEl(selId);bugPlace();layoutSave();drawLabels()};
@@ -43,6 +50,15 @@ async function goLandscape(){const d=document,inFs=d.fullscreenElement||d.webkit
   let ok=false;try{const el=d.documentElement;await (el.requestFullscreen||el.webkitRequestFullscreen).call(el);await screen.orientation.lock('landscape');ok=true;$('land').textContent='⤢ 離開'}catch(e){}
   if(!ok)note('這台不能自動轉：關掉螢幕旋轉鎖定，把手機轉橫就好')}
 $('land').onclick=goLandscape;
-{const mq=matchMedia('(pointer:coarse) and (orientation:portrait)');let told=false;try{told=localStorage.getItem('zu_landHint')==='1'}catch(e){}
- if(mq.matches&&!told)setTimeout(()=>{note('手機轉橫看，畫面比較大（右上「⛶ 橫向」）');try{localStorage.setItem('zu_landHint','1')}catch(e){}},2500)}
+/* #299: hint on the entry screen (one line + 橫向) and a dismissible chip while playing; shown on every visit, gone in landscape or on desktop */
+{const mq=matchMedia('(pointer:coarse) and (orientation:portrait)'),LH=window.LANDHINT,line=$('landLine'),chip=$('landChip');let dismissed=false;
+ const ios=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ const inFs=()=>document.fullscreenElement||document.webkitFullscreenElement;
+ const show=()=>{if(!LH||!line||!chip)return;if(!mq.matches)dismissed=false;const h=LH.decide({coarse:matchMedia('(pointer:coarse)').matches,portrait:matchMedia('(orientation:portrait)').matches,ios,intro:!$('intro').hidden,dismissed});
+  line.hidden=!h.line;chip.hidden=!h.chip;line.firstChild.textContent=chip.firstChild.textContent=h.text;$('landGo').hidden=$('landChipGo').hidden=!h.button};
+ $('landGo').onclick=$('landChipGo').onclick=goLandscape;$('landX').onclick=()=>{dismissed=true;show()};
+ /* a tap that enters the game also asks for landscape fullscreen (only a tap may; Android Chrome) */
+ for(const id of ['enter','enterHl','enterMute'])$(id).addEventListener('click',()=>{if(!ios&&mq.matches&&!inFs())goLandscape()});
+ addEventListener('resize',show);addEventListener('orientationchange',show);mq.addEventListener&&mq.addEventListener('change',show);
+ new MutationObserver(show).observe($('intro'),{attributes:true,attributeFilter:['hidden']});show()}
 return {bugPlace,applyLayout,editing:()=>editing}};

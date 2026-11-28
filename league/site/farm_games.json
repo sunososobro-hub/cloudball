@@ -1,0 +1,14 @@
+[
+  {"id":"f-1","tier":2,"day":0,"seed":1000001000,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[3,0],"decisions":{},"result":{"score":[10,2],"line_score":[[5,2,0,1,0,2,0,0,0],[1,0,1,0,0,0,0,0,0]]}},
+  {"id":"f-2","tier":2,"day":0,"seed":1000001001,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[2,1],"decisions":{},"result":{"score":[3,6],"line_score":[[0,0,0,0,1,0,0,0,2],[1,4,0,0,0,0,1,0]]}},
+  {"id":"f-3","tier":2,"day":1,"seed":1000001010,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[0,1],"decisions":{},"result":{"score":[4,2],"line_score":[[0,0,0,0,0,0,1,2,1],[0,0,0,0,1,0,1,0,0]]}},
+  {"id":"f-4","tier":2,"day":1,"seed":1000001011,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[2,3],"decisions":{},"result":{"score":[2,0],"line_score":[[0,0,1,0,1,0,0,0,0],[0,0,0,0,0,0,0,0,0]]}},
+  {"id":"f-5","tier":2,"day":2,"seed":1000001020,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[2,0],"decisions":{},"result":{"score":[1,5],"line_score":[[0,0,0,0,1,0,0,0,0],[0,0,0,1,4,0,0,0]]}},
+  {"id":"f-6","tier":2,"day":2,"seed":1000001021,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[1,3],"decisions":{},"result":{"score":[0,1],"line_score":[[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,1,0,0]]}},
+  {"id":"f-7","tier":2,"day":3,"seed":1000001030,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[0,3],"decisions":{},"result":{"score":[3,4],"line_score":[[1,0,0,0,0,1,0,1,0],[1,0,0,1,0,0,1,0,1]]}},
+  {"id":"f-8","tier":2,"day":3,"seed":1000001031,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[1,2],"decisions":{},"result":{"score":[2,1],"line_score":[[0,1,0,0,0,0,0,1,0],[0,0,0,0,0,0,0,1,0]]}},
+  {"id":"f-9","tier":2,"day":4,"seed":1000001040,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[1,0],"decisions":{},"result":{"score":[5,1],"line_score":[[0,2,1,1,0,0,0,1,0],[0,0,0,1,0,0,0,0,0]]}},
+  {"id":"f-10","tier":2,"day":4,"seed":1000001041,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[3,2],"decisions":{},"result":{"score":[5,11],"line_score":[[0,1,0,0,2,1,1,0,0],[1,0,1,0,4,0,5,0]]}},
+  {"id":"f-11","tier":2,"day":5,"seed":1000001050,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[0,2],"decisions":{},"result":{"score":[6,10],"line_score":[[0,1,1,1,1,0,0,2,0],[0,0,2,3,1,0,0,4]]}},
+  {"id":"f-12","tier":2,"day":5,"seed":1000001051,"engine":{"commit":"1e8dc6fb1a0a7a120d4dff8d8187985b6d9a1916","version":"0.4.22"},"teams":[3,1],"decisions":{},"result":{"score":[4,11],"line_score":[[0,1,0,0,0,0,0,2,1],[0,1,5,1,0,3,0,1]]}}
+]

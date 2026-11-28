@@ -11,12 +11,13 @@
  * No network, no AI call, no DOM: this module runs under plain Node. */
 import { mulberry32 } from '../engine/rng.js';
 import { staffOf, crewFor, umpire } from '../league/staff.js';
+import { validateLine, speak, partsOf } from './clips.js';
 
 export const SPEAKERS = ['pbp', 'color', 'fan'];   /* play-by-play voice, colour voice, the home team's fan guest */
 const SEEK_GAP = 6;                                /* a jump in playback time longer than this is a seek, not playback */
 const RESPONSE_DELAY = 0.1;
 const HIT_RESULTS = new Set(['single', 'double', 'triple', 'home_run', 'infield_single', 'bunt_single']);
-const NOT_AT_BAT = new Set(['walk', 'intentional_walk', 'hit_by_pitch', 'sac_bunt', 'sac_fly']);
+const NOT_AT_BAT = new Set(['walk', 'intentional_walk', 'hit_by_pitch', 'catcher_interference', 'sac_bunt', 'sac_fly']);
 const FAN_DELAY = 0.2;                             /* each line of a fan moment follows the previous one by this much */
 /* The fan guest only talks once a play is over: never during a live at-bat or a live running play. */
 export const FAN_TRIGGERS = new Set(['game_start', 'run_scores', 'pitching_change', 'half_end', 'walkoff', 'game_end', 'strikeout', 'walk', 'intentional_walk', 'hit_by_pitch',
@@ -43,18 +44,26 @@ function peopleOf(teams, seed) {
   };
 }
 
+/* occupied-bases bit mask (1st = 1, 2nd = 2, 3rd = 4) -> state id of VOICED.bases in clips.js */
+const BASE_STATE = [0, 1, 2, 4, 3, 5, 6, 7];
+
 /* ---------- what the booth remembers about the game so far ---------- */
 function createMemory(teams, seed = 0) {
   const people = peopleOf(teams, seed);
-  const m = { inning: 1, half: 0, score: [0, 0], outs: 0, batters: {}, pitchers: {}, halfRuns: [[], []], frameRuns: 0, frame: -1, strikes: 0, balls: 0, last: {} };
+  const m = { inning: 1, half: 0, score: [0, 0], outs: 0, batters: {}, pitchers: {}, halfRuns: [[], []], frameRuns: 0, frame: -1, strikes: 0, balls: 0, last: {}, runners: [null, null, null, null] };
   const batter = n => m.batters[n] || (m.batters[n] = { pa: 0, ab: 0, h: 0, k: 0, hr: 0, prev: null });
   const pitcher = n => m.pitchers[n] || (m.pitchers[n] = { k: 0, pitches: 0 });
   m.apply = x => {
     if (x.f !== m.frame) { m.frame = x.f; m.frameRuns = 0; }
-    if (x.type === 'half_start') { m.inning = x.inning; m.half = x.half; m.outs = 0; m.halfRuns[x.team][x.inning - 1] = 0; }
-    else if (x.type === 'pitch') { pitcher(x.pitcher).pitches++; m.strikes = x.count[1]; m.balls = x.count[0]; m.last = { batter: x.batter, pitcher: x.pitcher, team: x.team }; }
+    if (x.type === 'half_start') { m.inning = x.inning; m.half = x.half; m.outs = 0; m.halfRuns[x.team][x.inning - 1] = 0; m.runners = [null, null, null, null]; }
+    else if (x.type === 'runner_placed') m.runners[x.base] = x.runner;
+    else if (x.type === 'substitution') { if (x.role === 'pinch_runner' && m.runners[x.base] === x.out) m.runners[x.base] = x.in; }
+    else if (x.type === 'runner_advance') { if (x.from >= 1 && x.from <= 3 && m.runners[x.from] === x.runner) m.runners[x.from] = null; if (x.to >= 1 && x.to <= 3) m.runners[x.to] = x.runner; }
+    else if (x.type === 'half_end') m.runners = [null, null, null, null];
+    else if (x.type === 'pitch') { pitcher(x.pitcher).pitches++; m.strikes = x.count[1]; m.balls = x.count[0]; m.last = { batter: x.batter, pitcher: x.pitcher, team: x.team }; m.pitchType = x.pitchType; }
+    else if (x.type === 'contact') m.pos = x.fielder;
     else if (x.type === 'call') { m.balls = x.count[0]; m.strikes = x.count[1]; }
-    else if (x.type === 'out') m.outs = x.outs;
+    else if (x.type === 'out') { m.outs = x.outs; if (x.from >= 1 && x.from <= 3 && m.runners[x.from] === x.runner) m.runners[x.from] = null; }
     else if (x.type === 'run_scored') { m.score[x.team]++; m.frameRuns++; m.halfRuns[x.team][m.inning - 1] = (m.halfRuns[x.team][m.inning - 1] || 0) + 1; }
     else if (x.type === 'pa_end') {
       const b = batter(x.batter); b.pa++; b.prev = b.now || null; b.now = x.result;
@@ -81,6 +90,8 @@ function createMemory(teams, seed = 0) {
       batterPa: b.pa || 0, batterAb: b.ab || 0, batterHits: b.h || 0, batterKToday: b.k || 0, batterHrToday: b.hr || 0,
       batterPrev: PREV_LABEL[last] || '', hasPrev: last ? 1 : 0,
       pitcherK: p ? pitcher(p).k : 0, pitchCount: p ? pitcher(p).pitches : 0,
+      /* voiced closed-set values (clips.js): the count, the last pitch's type, the fielder of the last ball in play; the bases as the id of the 8 states in clips.js (0 empty, 1 first, 2 second, 3 third, 4 first+second, 5 first+third, 6 second+third, 7 loaded) */
+      count: m.balls >= 0 && m.strikes >= 0 ? `${m.balls}-${m.strikes}` : '', pitchType: m.pitchType || '', pos: m.pos || '', bases: BASE_STATE[(m.runners[1] ? 1 : 0) | (m.runners[2] ? 2 : 0) | (m.runners[3] ? 4 : 0)],
       /* staff of the team in {team} (on a pitching change: the team making it), the home manager, the plate umpire */
       manager: onAir(people.team[bat].manager), pitchingCoach: onAir(people.team[bat].pitching), homeManager: onAir(people.team[1].manager),
       managerName: people.team[bat].manager ? people.team[bat].manager.name : '', managerLine: people.team[bat].manager ? people.team[bat].manager.line : '',
@@ -100,10 +111,13 @@ function triggerOf(x, m) {
     case 'game_start': return 'game_start';
     case 'pitch': return x.count[0] === 0 && x.count[1] === 0 ? 'batter_up' : null;
     case 'call': if (x.count[0] === 3 && x.count[1] === 2 && x.call !== 'foul') return 'full_count'; return x.count[1] === 2 && x.call !== 'foul' && x.call !== 'ball' ? 'two_strikes' : null;
-    case 'runner_advance': return x.how === 'steal' ? 'stolen_base' : null;
+    case 'runner_advance': return x.how === 'steal' ? 'stolen_base' : x.how === 'wild_pitch' ? 'wild_pitch' : x.how === 'passed_ball' ? 'passed_ball' : null;   /* balk: its own event below */
+    case 'balk': return 'balk';
+    case 'pickoff': return x.safe ? 'pickoff_safe' : null;
+    case 'mound_visit': return x.staff === 'catcher' ? 'catcher_visit' : null;
     case 'out': return x.steal ? 'caught_stealing' : null;
     case 'pa_end': if (m.frameRuns > 0 && x.result !== 'home_run') return 'run_scores'; return x.result;
-    case 'substitution': return 'pitching_change';
+    case 'substitution': return x.role === 'pitcher' ? 'pitching_change' : null;   /* #436: a pinch hitter / runner is not a pitching change; the feed shows its line */
     case 'decision': return x.pending ? null : 'fan_decision';
     case 'half_end': return 'half_end';
     case 'game_end': return x.walkoff ? 'walkoff' : 'game_end';
@@ -126,7 +140,7 @@ function homeSide(name, x) {
 /* The fan in the third seat: the fan of the home team, or the one a script names. */
 const guestOf = (bank, id) => (id && bank && bank.guests && bank.guests[id]) ? { id, ...bank.guests[id] } : null;
 
-const fill = (text, slots) => text.replace(/\{(\w+)\}/g, (all, k) => (k in slots ? String(slots[k]) : all));
+const fill = (text, slots) => String(text).replace(/\{(\w+)\}/g, (all, k) => (k in slots ? String(slots[k]) : all));
 const matches = (when, slots) => !when || Object.entries(when).every(([k, c]) => {
   const v = slots[k]; if (v === undefined) return false;
   if (typeof c !== 'object') return v === c;
@@ -146,17 +160,19 @@ const slotErrs = (where, text, known) => [...(text || '').matchAll(/\{(\w+)\}/g)
 
 /* Problems in the fallback bank's slots and gag wiring (empty array = fine). */
 export function validateBank(bank) {
-  const errs = [], sets = new Map(), all = [];
+  const errs = [], sets = new Map(), all = [], v2 = bank.version === 2;
+  /* v2 (#603): every spoken text is a list of clip parts over closed sets; no name slot and no {desc} (see clips.js) */
+  const spoken = (where, t) => { errs.push(...(v2 ? validateLine(where, t) : slotErrs(where, t, where.startsWith('fan') ? FAN_SLOTS : SLOTS))); };
   for (const [name, T] of Object.entries(bank.triggers || {})) for (const e of T.exchanges || []) {
     all.push([name, e]);
-    for (const t of [e.call, e.response, ...(e.alt || [])]) errs.push(...slotErrs(name, t, SLOTS));
+    for (const t of [e.call, e.response, ...(e.alt || [])]) if (t !== undefined) spoken(name, t);
     for (const k of Object.keys(e.when || {})) if (!SLOTS.has(k)) errs.push(`${name}: condition on unknown slot "${k}"`);
     if ((e.sets || e.needs) && !e.gag) errs.push(`${name}: a line with sets/needs must name its gag`);
     if (e.alt !== undefined) {
       /* other wordings of the same response, said in turn: same slots, so any of them fits the moment */
-      const slotsOf = t => [...new Set([...(t || '').matchAll(/\{(\w+)\}/g)].map(m => m[1]))].sort().join();
+      const slotsOf = t => [...new Set(partsOf(t).filter(p => p.slot).map(p => p.slot + (p.slot === 'n' ? ':' + p.src : '')))].sort().join();
       if (!e.response || !Array.isArray(e.alt) || !e.alt.length) errs.push(`${name}: "alt" needs a response and a list of other wordings`);
-      else for (const a of e.alt) if (typeof a !== 'string' || !a.trim() || slotsOf(a) !== slotsOf(e.response)) errs.push(`${name}: alt wording ${JSON.stringify(a)} must use the same slots as its response`);
+      else for (const a of e.alt) if ((typeof a !== 'string' && !Array.isArray(a)) || slotsOf(a) !== slotsOf(e.response)) errs.push(`${name}: alt wording ${JSON.stringify(a)} must use the same slots as its response`);
     }
     for (const f of e.sets || []) sets.set(f, e.gag);
   }
@@ -173,7 +189,7 @@ export function validateBank(bank) {
     if (!FAN_SIDES.has(e.side)) errs.push(`${where}: side must be up, down or any`);
     if (e.guest && !(bank.guests || {})[e.guest]) errs.push(`${where}: unknown guest "${e.guest}"`);
     if (!Array.isArray(e.lines) || !e.lines.some(l => l[0] === 'fan')) errs.push(`${where}: needs at least one fan line`);
-    for (const l of e.lines || []) if (!SPEAKERS.includes(l[0]) || typeof l[1] !== 'string' || !l[1].trim()) errs.push(`${where}: bad line ${JSON.stringify(l)}`); else errs.push(...slotErrs(where, l[1], FAN_SLOTS));
+    for (const l of e.lines || []) if (!SPEAKERS.includes(l[0]) || (typeof l[1] !== 'string' && !Array.isArray(l[1]))) errs.push(`${where}: bad line ${JSON.stringify(l)}`); else spoken(where, l[1]);
     for (const k of Object.keys(e.when || {})) if (!FAN_SLOTS.has(k)) errs.push(`${where}: condition on unknown slot "${k}"`);
   });
   return errs;
@@ -185,19 +201,25 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
   const gags = { chosen: null, flags: new Set(), used: new Set() };   /* the one running gag of this game and how far it has got */
   const turns = new Map();   /* how often each exchange was said: its response and "alt" wordings are said in turn */
   /* the fan guest has his own random stream, so his picks never shift what the other two pick */
+  const colorRng = mulberry32((seed ^ 0xc0102) >>> 0);   /* the colour voice's own stream too (#607): rules.colorChance never shifts the other picks */
   const fanRng = mulberry32((seed ^ 0xfa11) >>> 0), guest = guestOf(bank, teams[1] && teams[1].id), fanRecent = [], fanUses = new Map();
+  const v2 = bank.version === 2;
+  /* v2: what a line says for this game state, { text, clips } or null (a value outside its closed set); v1: the filled text */
+  const say = (line, slots, speaker, emotion) => v2 ? speak(line, slots, speaker, guest ? guest.id : undefined, emotion) : { text: fill(line, slots) };
+  const at = (x, speaker, s, extra) => ({ at: x.i, speaker, text: s.text, ...(s.clips ? { clips: s.clips } : {}), ...extra });
   let quietUntil = -Infinity;
   for (const x of stream) {
     mem.apply(x);
     const name = triggerOf(x, mem), T = name && bank.triggers[name];
     if (!T) continue;
     const roll = rng(), pickRoll = rng();            /* always drawn, so one silent moment does not shift every later choice */
-    const fanRoll = fanRng(), fanPick = fanRng();
+    const fanRoll = fanRng(), fanPick = fanRng(), colorRoll = colorRng();
     const priority = T.priority || 0;
     if (priority < 2 && x.t < quietUntil) continue;  /* the booth just spoke: let the picture breathe */
     if (roll < (T.silence || 0)) continue;           /* sometimes nobody talks */
     const slots = mem.slots(x, describe(x));
-    const fits = T.exchanges.filter(e => matches(e.when, slots) && !recent.includes(e) && gagAllows(e, gags));
+    const fits = T.exchanges.filter(e => matches(e.when, slots) && !recent.includes(e) && gagAllows(e, gags)
+      && (!v2 || [e.call, e.response, ...(e.alt || [])].every(t => !t || say(t, slots, 'pbp')))); /* v2: every wording is sayable now, so the pick never depends on the turn */
     if (!fits.length) continue;
     /* a gag payoff beats a line about this moment, which beats a generic line */
     const payoff = fits.filter(e => e.needs), specific = fits.filter(e => e.when), pool = payoff.length ? payoff : specific.length ? specific : fits, ex = pool[Math.floor(pickRoll * pool.length)];
@@ -205,10 +227,12 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
     gags.used.add(ex);
     if (ex.gag) { gags.chosen = ex.gag; for (const f of ex.sets || []) gags.flags.add(f); }
     const delay = T.delay || 0;
-    if (ex.call) lines.push({ at: x.i, speaker: 'pbp', text: fill(ex.call, slots), delay, priority });
+    if (ex.call) lines.push(at(x, 'pbp', say(ex.call, slots, 'pbp'), { delay, priority }));
     const turn = turns.get(ex) || 0, wordings = [ex.response, ...(ex.alt || [])];
     turns.set(ex, turn + 1);
-    if (ex.response) lines.push({ at: x.i, speaker: 'color', text: fill(wordings[turn % wordings.length], slots), delay: delay + RESPONSE_DELAY, priority });
+    /* #607: the colour voice answers only some calls; a gag line keeps its response, it is the set-up or the payoff */
+    const colorChance = T.colorChance !== undefined ? T.colorChance : rules.colorChance !== undefined ? rules.colorChance : 1;
+    if (ex.response && (ex.gag || ex.needs || colorRoll < colorChance)) lines.push(at(x, 'color', say(wordings[turn % wordings.length], slots, 'color'), { delay: delay + RESPONSE_DELAY, priority }));
     quietUntil = x.t + (rules.minGapSec || 0);
     /* the fan guest, after the two professionals, only on moments where the play is over */
     if (!guest || !FAN_TRIGGERS.has(name)) continue;
@@ -216,7 +240,7 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
     if (fanRoll >= chance) continue;
     const fanSlots = { ...slots, guest: guest.nick };
     const ok = (bank.fan || []).filter(e => e.on.includes(name) && (e.side === 'any' || e.side === side) && (!e.guest || e.guest === guest.id)
-      && matches(e.when, fanSlots) && !fanRecent.includes(e) && (fanUses.get(e) || 0) < (e.once ? 1 : rules.fanMaxUses || 2));
+      && matches(e.when, fanSlots) && (!v2 || e.lines.every(([sp, t]) => say(t, fanSlots, sp))) && !fanRecent.includes(e) && (fanUses.get(e) || 0) < (e.once ? 1 : rules.fanMaxUses || 2));
     if (!ok.length) continue;
     /* his own signature lines get a fixed share of his moments; the rest are drawn from everything that fits */
     const own = ok.filter(e => e.guest), share = own.length ? (rules.fanOwnShare || 0) : 0, mine = fanPick < share;
@@ -227,7 +251,7 @@ export function draftFromBank(stream, bank, { seed = 0, teams, describe = () => 
     let d = delay + RESPONSE_DELAY;
     for (const [speaker, text] of fe.lines) {
       d += FAN_DELAY;
-      const l = { at: x.i, speaker, text: fill(text, fanSlots), delay: d, priority: 0, aside: true };   /* aside: the voice may drop it for a new call */
+      const l = at(x, speaker, say(text, fanSlots, speaker), { delay: d, priority: 0, aside: true });   /* aside: the voice may drop it for a new call */
       if (speaker === 'fan' && guest.cast) l.cast = guest.cast;
       lines.push(l);
     }

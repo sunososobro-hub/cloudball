@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>九宮格棒球練習・雲端職棒</title>
 <link rel="stylesheet" href="ui/baseball9/screen.css">
+<!-- the 3D field (#543) uses the same three.js build as agent.html and the match page; the import map must come before any module script -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.min.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.min.js"}}</script>
 </head>
 <body>
 <main>
   <p><a href="guide.html">← 球隊與球員介紹</a></p>
+  <p><a id="me-link" href="index.html#me" hidden>← 回我的球員</a></p>
   <h1>九宮格棒球練習</h1>
   <p class="lead">各 10 球，成績只留在這個頁面，不會改任何球員的能力或聯盟紀錄。</p>
   <section id="menu">
@@ -18,6 +21,8 @@
   </section>
   <section id="stage" hidden>
     <h2 id="title"></h2>
+    <canvas id="pfield" width="360" height="270" aria-label="球場動畫" hidden></canvas>
+    <div class="row" id="pfbar" hidden><button id="pskip" type="button">略過動畫</button><button id="pspeed" type="button">速度 1x</button></div>
     <div class="bar"><span id="count"></span><span id="score"></span><span id="stam"></span></div>
     <div id="opts"></div>
     <div id="grid" class="grid"></div>
@@ -29,6 +34,8 @@
   </section>
   <section id="gstage" hidden>
     <h2 id="ghalf"></h2>
+    <canvas id="gfield" width="360" height="270" aria-label="球場動畫"></canvas>
+    <div class="row" id="gfbar"><button id="gskip" type="button">略過動畫</button><button id="gspeed" type="button">速度 1x</button></div>
     <div class="bar"><span id="gscore"></span><span id="gcount"></span><span id="gstam"></span></div>
     <div class="bar"><span id="gbases"></span><span id="gbatter"></span></div>
     <pre id="gline" class="mut"></pre>
