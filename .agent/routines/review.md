@@ -44,7 +44,7 @@ Merging is automatic (rules W9): the dev ruleset merges a PR once the check runs
   last 3 h. For each linked issue still open: `Closes` -> remove `status:review`, comment `merged into dev, PR #N`,
   close. `Refs` -> `status:todo`, comment what is left; if it got closed anyway (a `fix/closes #N` in a title or
   commit), reopen and comment `reopened: part PR #N only`. Copy any 「沒驗到」 / owner-look list from the PR top into
-  that comment. An issue already closed with a `merged into dev` comment, or a `Refs` one already in `status:todo` with
+  that comment. PRs with head `fix/817-s*` are stamp PRs (F): skip them, never reopen or requeue #817 for them. An issue already closed with a `merged into dev` comment, or a `Refs` one already in `status:todo` with
   a later comment: done, skip.
 
 ## E. dev red (rules W15)
