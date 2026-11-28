@@ -18,9 +18,9 @@ export function normalize(raw) {
   return { season: raw && !Array.isArray(raw) && raw.season != null ? String(raw.season) : '', teams };
 }
 /* `trial` = league/site/season.json, the 試跑 season-0 run (#743; null when missing or bad: the 首頁 says 賽季尚未開始) */
-export function combine({ teams, players, games, farm, trial } = {}) {
+export function combine({ teams, players, games, farm, trial, stats } = {}) {
   const n = normalize(teams);
-  return { season: n.season, teams: n.teams, players: players && typeof players === 'object' && !Array.isArray(players) ? players : {}, games: Array.isArray(games) ? games : [], farm: Array.isArray(farm) ? farm : [], trial: trial && typeof trial === 'object' && !Array.isArray(trial) ? trial : null };
+  return { season: n.season, teams: n.teams, players: players && typeof players === 'object' && !Array.isArray(players) ? players : {}, games: Array.isArray(games) ? games : [], farm: Array.isArray(farm) ? farm : [], trial: trial && typeof trial === 'object' && !Array.isArray(trial) ? trial : null, stats: stats && typeof stats === 'object' && !Array.isArray(stats) ? stats : null };
 }
 /* season "0" is the pre-season: on screen it reads 熱身賽 (#343); the data key stays "0". Later seasons read 第 N 季. */
 export const seasonLabel = d => (d.season === '' || d.season == null ? '' : String(d.season) === '0' ? '熱身賽' : `第 ${esc(d.season)} 季`);
