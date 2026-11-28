@@ -22,6 +22,7 @@ const look = (s, pinned) => {
   let here = 0;
   for (const x of S) {
     if (x.type !== 'pa_end' || x.result !== 'triple_play') continue;
+    if (g.ev[x.f].play && g.ev[x.f].play.ldTp) continue;   /* line-drive triple plays (#614 part 14): tests/ldtp.check.mjs */
     here++; found++;
     const e = g.ev[x.f], at = `seed ${s} frame ${x.f}`, F = S.filter(y => y.f === x.f), outs = F.filter(y => y.type === 'out');
     if (!e.play || e.play.fielder !== '3B' || e.play.type !== 'GB' || e.s0.outs !== 0 || !e.s0.b[0] || !e.s0.b[1]) bad(`${at}: triple play out of its situation`);

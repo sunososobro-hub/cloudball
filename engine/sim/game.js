@@ -577,12 +577,18 @@ export function simGame(seed, decisions, opts) {
             if (type === 'LD' && !foulKey && !bunt && (fielder === 'P' || INFIELD_KEYS.includes(fielder)) && st.outs < K.OUTS_PER_HALF - 1 && (B[0] || B[1] || B[2])) {
               let base = 0, best = Infinity;
               for (let i = 0; i < 3; i++) if (B[i]) { const dd = dist([lx, lz], BASES[i + 1]); if (dd < best) { best = dd; base = i + 1; } }
-              if (rare() < K.LD_DOUBLED_OFF_P) ldDp = resolveDoubledOff(ctx, base);
+              /* #614 part 14: with nobody out, the low end of that same draw (LD_BOTH_BROKE_OF_P of it) has the next runner
+               * off too (a hit-and-run sends them all): one number, so `rare` keeps its sequence */
+              let base2 = 0;
+              if (st.outs === 0) { best = Infinity; for (let i = 0; i < 3; i++) if (B[i] && i + 1 !== base) { const dd = dist([lx, lz], BASES[i + 1]); if (dd < best) { best = dd; base2 = i + 1; } } }
+              const u = rare();
+              if (u < K.LD_DOUBLED_OFF_P) ldDp = resolveDoubledOff(ctx, base, u < K.LD_DOUBLED_OFF_P * K.LD_BOTH_BROKE_OF_P ? base2 : 0);
               if (ldDp) { nb[base - 1] = null; play.ldDp = base; }
+              if (ldDp && ldDp.plan.ldTp) { nb[ldDp.plan.ldTp.base - 1] = null; play.ldTp = ldDp.plan.ldTp.base; }
             }
             const fly = ldDp || resolveFly(ctx, tagUp, !!play.iffDrop); plan = fly.plan; outs = fly.outs; st.b = nb;
             if (sacFly) { result = 'sac_fly'; desc = COPY.sacFly(name, B[2]); bs.ab--; }   /* a sacrifice fly is not an at-bat */
-            else { result = type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.iffDrop ? COPY.infieldFlyDrop(name, fielder) : play.foul ? COPY.foulOut(name, fielder) : play.ldDp ? COPY.lineDoublePlay(name, fielder, B[play.ldDp - 1], play.ldDp) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
+            else { result = play.ldTp ? 'triple_play' : type === 'LD' ? 'lineout' : type === 'PU' ? 'popout' : 'flyout'; desc = play.iffDrop ? COPY.infieldFlyDrop(name, fielder) : play.foul ? COPY.foulOut(name, fielder) : play.ldTp ? COPY.lineTriplePlay(name, fielder, B[play.ldDp - 1], B[play.ldTp - 1]) : play.ldDp ? COPY.lineDoublePlay(name, fielder, B[play.ldDp - 1], play.ldDp) : type === 'LD' ? COPY.lineOut(name, fielder) : type === 'PU' ? COPY.popOut(name) : COPY.flyOut(name, fielder); }
             if (toThird) desc += COPY.tagToThird(toThird);
           }
           if (runs && outs.length) desc += COPY.runsNote(runs);

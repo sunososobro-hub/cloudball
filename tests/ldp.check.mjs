@@ -22,6 +22,7 @@ const look = (s, pinned) => {
   let here = 0;
   for (const x of S) {
     if (x.type !== 'out' || x.reason !== 'doubled_off') continue;
+    if (g.ev[x.f].play && g.ev[x.f].play.ldTp) continue;   /* line-drive triple plays (#614 part 14): tests/ldtp.check.mjs */
     here++; found++;
     const e = g.ev[x.f], at = `seed ${s} frame ${x.f}`, F = S.filter(y => y.f === x.f), outs = F.filter(y => y.type === 'out');
     const c = F.find(y => y.type === 'contact'), pa = F.find(y => y.type === 'pa_end');
