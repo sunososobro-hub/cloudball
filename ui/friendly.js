@@ -4,15 +4,21 @@
 import { TEAMS } from '../league/teams.js';
 import { ROSTERS } from '../league/players.js';
 import { STARTERS, friendlyShare, friendlyProblem } from '../league/friendly.js';
-import { myBatter, ownOf } from './friendly_me.js';
+import { myBatter, myPitcher, ownOf, ownOfPitcher } from './friendly_me.js';
 import { ENGINE_PIN } from '../league/engine_pin.js';
 
 const $ = id => document.getElementById(id);
 const st = { away: 0, home: 1, sp: [0, 0], seed: 0, own: -1 };
 let me = null;   /* { team, row } of the visitor's own batter, or null */
+let mp = null;   /* same for his pitcher (#751 part 4): he takes one of the five starter places and starts */
 const arr = () => {
   const a = { away: st.away, home: st.home, sp: st.sp.slice(), seed: st.seed };
   if (me && st.own >= 0 && (me.team === st.away || me.team === st.home)) a.own = ownOf(me.row, me.team === st.away ? 0 : 1, st.own);
+  if (mp && st.own >= 0 && (mp.team === st.away || mp.team === st.home)) {
+    const k = mp.team === st.away ? 0 : 1;
+    a.sp[k] = st.own;
+    a.own = ownOfPitcher(mp.row, k, st.own);
+  }
   return a;
 };
 const roll = () => (crypto.getRandomValues(new Uint32Array(1))[0]) >>> 0;
@@ -32,12 +38,16 @@ function draw() {
   const side = (k, teamBox, spBox) => {
     const t = k ? st.home : st.away;
     chips($(teamBox), TEAMS.map(x => [x.short]), t, i => { st[k ? 'home' : 'away'] = i; st.sp[k] = 0; draw(); });
-    chips($(spBox), ROSTERS[t].pit.slice(0, STARTERS).map(p => [p.name, `${p.throws === 'L' ? '左' : '右'}投 #${p.num}`]), st.sp[k], i => { st.sp[k] = i; draw(); });
+    const mine = mp && mp.team === t && st.own >= 0 ? st.own : -1;   /* his place among the five starters */
+    chips($(spBox), ROSTERS[t].pit.slice(0, STARTERS).map((p, i) => (i === mine ? [mp.row.name, `${mp.row.hand === 'L' ? '左' : '右'}投 #${mp.row.num}（我的球員）`] : [p.name, `${p.throws === 'L' ? '左' : '右'}投 #${p.num}`])), mine >= 0 ? mine : st.sp[k], i => { st.sp[k] = i; if (mine >= 0) st.own = i; draw(); });
   };
   side(0, 'awayTeam', 'awaySP'); side(1, 'homeTeam', 'homeSP');
-  const inGame = me && (me.team === st.away || me.team === st.home);
-  $('ownBox').hidden = !inGame;
-  if (inGame) {
+  const inGame = me && (me.team === st.away || me.team === st.home), pInGame = mp && (mp.team === st.away || mp.team === st.home);
+  $('ownBox').hidden = !inGame && !pInGame;
+  if (pInGame) {
+    $('ownWho').textContent = `${mp.row.name}（${TEAMS[mp.team].short}，投手，戰力 ${mp.row.overall}）：選一個先發位置放他進去，他先發；不選就不放。`;
+    chips($('ownSlot'), [['不放他'], ...ROSTERS[mp.team].pit.slice(0, STARTERS).map((p, i) => [`先發${i + 1}`, p.name])], st.own + 1, i => { st.own = i - 1; if (i > 0) st.sp[mp.team === st.away ? 0 : 1] = i - 1; draw(); });
+  } else if (inGame) {
     $('ownWho').textContent = `${me.row.name}（${TEAMS[me.team].short}，${me.row.pos}，戰力 ${me.row.overall}）：選一個打序放他進去，他守那個位置；不選就不放。`;
     chips($('ownSlot'), [['不放他'], ...ROSTERS[me.team].bat.map((b, i) => [`${i + 1}棒`, `${b.pos} ${b.name}`])], st.own + 1, i => { st.own = i - 1; draw(); });
   }
@@ -64,6 +74,6 @@ $('copy').onclick = async () => {
   try { await navigator.clipboard.writeText(box.value); $('copied').textContent = '已複製連結'; } catch { box.select(); $('copied').textContent = '請長按上面的連結複製'; }
 };
 st.seed = roll(); $('seed').value = String(st.seed);
-me = await myBatter();
+[me, mp] = await Promise.all([myBatter(), myPitcher()]);
 $('status').hidden = true; $('form').hidden = false;
 draw();

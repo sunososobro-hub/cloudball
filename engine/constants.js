@@ -1,7 +1,7 @@
 /* Every tunable number of the engine lives here, with a name.
  * Units: metres, seconds, metres/second unless stated. Probabilities are 0..1. */
 
-export const ENGINE_VERSION = '0.4.34';
+export const ENGINE_VERSION = '0.4.36';
 
 /* ---- game structure ---- */
 export const REGULATION_INNINGS = 9;
@@ -229,6 +229,15 @@ export const IFF_DROP_PICKUP = 0.8;
 export const SCORE_FROM_2ND_ON_SINGLE = 0.6;
 export const FIRST_TO_THIRD_ON_SINGLE = 0.29;
 export const SCORE_FROM_1ST_ON_DOUBLE = 0.42;
+/* Extra bases taken (#794 part 3): the three chances above are multiplied by the runner's speed factor and the fielding
+ * outfielder's arm factor (spd 1 and arm 1 = exactly the chance above). Data: Baseball-Reference XBT% (extra bases taken
+ * on singles / doubles) runs about 40% for the league, 55-65% for the fastest regulars and 20-25% for the slowest, i.e.
+ * roughly +-40% around average for spd 1.3 / 0.7; Statcast arm strength (league OF ~88 mph, elite 95+) moves the
+ * opponents' advance rate on balls to that fielder by about +-20%, the ARM_MIN..ARM_MIN + ARM_SPAN band (0.85..1.15). */
+export const XB_PER_SPD = 1.3;
+export const XB_SPD_RANGE = [0.6, 1.4];
+export const XB_HOLD_PER_ARM = 1.4;
+export const XB_ARM_RANGE = [0.78, 1.22];
 /* Advancing on a throw (#38): on an outfield single that scores the runner from second, the outfielder throws home
  * with this chance (he is safe: the throw arrives after him) and the batter, with second open, takes it on the throw.
  * First guess, not tuned: about one try in three; it only moves a runner, never adds an out. */
@@ -332,6 +341,11 @@ export const RD_OF_PO_P = 0.3;
  * Data: estimate. MLB line-drive double plays are roughly 0.1 a game for both teams (Retrosheet play-by-play, LD + DP lines);
  * 0.28 gives 0.091 a game here (seeds 1-2000; about two in three runners who broke get back in time). */
 export const LD_DOUBLED_OFF_P = 0.28;
+/* #614 part 14: line-drive triple play. With nobody out and a second runner on, this share of the broken-runner liners above
+ * had him off too (a hit-and-run with two on sends both; a bad read is one man). Taken from the low end of the same `rare`
+ * number, so no new draw. Data: estimate. MLB has about 5 triple plays a season (2430 games, ~0.002 a game; SABR triple-play
+ * list), about a third of them on a caught liner. 0.2 gives 0.0008 a game here (seeds 1-10000), plus ~0.0003 ground 5-4-3s. */
+export const LD_BOTH_BROKE_OF_P = 0.2;
 export const LD_RETURN_TURN = 0.45;       /* s: a runner going full speed stops, turns and starts back (about 2 steps) */
 export const LD_SOLO_R = 6;               /* m: a fielder who catches it this close to the runner's bag steps on it himself */
 export const RD_RELEASE = 0.4;
@@ -372,7 +386,7 @@ export const IBB_MIN_INNING = 4;
 export const IBB_MIN_POWER = 1;
 export const IBB_CONSIDER_P = 0.8;
 export const IBB_CLOSE_RUNS = 1;          /* the coach's own pick is a walk only within this many runs... */
-export const IBB_COACH_MIN_INNING = 8;    /* ...and from this inning on; earlier he pitches to the batter */
+export const IBB_COACH_MIN_INNING = 9;    /* ...and from this inning on; earlier he pitches to the batter. 8 -> 9 (#794 part 3): over 4000 games IBB/game was 0.324 at 8 against the run.mjs reference 0.23 (1000-seed print 0.35, on the tolerance edge); 0.236 at 9 */
 /* pinch hit (#436 part 2, on since part 5 / 0.4.15); simGame opts.pinchHit overrides */
 export const PINCH_HIT_ON = true;
 export const PH_MIN_INNING = 7;           /* asked only from this inning on, with a runner on second or third */
@@ -400,6 +414,13 @@ export const RETALIATE_ON = false;
 export const RETALIATE_P = 0.15;
 export const RETALIATE_MAX_P = 0.4;
 export const FEUD_SALT = 0x0f3e0d17;      /* #379 part 4: seed offset of the seeded RNG for retaliation draws */
+/* bench-clearing (#379 part 5, off; needs RETALIATE_ON); simGame opts.benchClear overrides. Right after a retaliation pitch the hit
+ * batter may charge the mound and both benches empty: BENCH_CLEAR_P x the batter's temperament factor, capped, from the feud RNG.
+ * Timing only (a BENCH frame of BENCH_CLEAR_DUR, stream `bench_clearing`); ejections are a later part. First guesses, no data yet. */
+export const BENCH_CLEAR_ON = false;
+export const BENCH_CLEAR_P = 0.2;
+export const BENCH_CLEAR_MAX_P = 0.35;
+export const BENCH_CLEAR_DUR = 240;     /* s: benches and bullpens empty, umpires separate the players, both benches are warned */
 export const DS_EDGE = 0.1;               /* asked only when the bench man's glove (def x arm) is this much better at that position */
 export const DS_OFF_POS = 0.8;            /* glove factor the coach gives a man playing out of his own position (a pinch hitter / runner) */
 export const DS_CLOSE_RUNS = 3;           /* coach's own pick is the replacement only with a lead of at most this many runs */

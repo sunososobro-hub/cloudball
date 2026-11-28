@@ -19,6 +19,8 @@
 
 - #379 part 1: `temper.js` (pure): `TEMPERS` 火爆/平穩/溫和, `temperOf(p)` = stored `p.temper` or a fixed default from an FNV hash of the id bucketed by `TEMPER_SHARE` (25/45/30, first guess); create choice takes optional `temper` (`validateCreate`, `makePlayer` stores it, no draw); engine does not read it. `tests/temper.check.mjs`. Left: player page, grudges, rivalries, injuries.
 
+- #810 part 1: `practice.js` (pure): `PRACTICE_PER_DAY` limit kept in the caller's storage only, `practiceOpening` plays one practice game with the loaded engine (0 network calls), `practiceLink` = the 友誼賽 share link (URL only, no server row) + `tests/practice.check.mjs`. Left: the practice screen (#800), guild / snapshot lineups, no beacons.
+
 ## Next
 0. #437 part 2 done in code: `system: true` in `site.mjs` export + 系統 tag on cards, pure `placeFan` in `freeagents.js` (`tests/system.check.mjs`). Part 3: D1 store seeds `SYSTEM_PER_KIND` 系統 rows per kind (`agent_id` `sys:<pid>`, `system:true`, table `meta` marker) and `create` deletes the oldest filler of the fan's kind (`tests/agent.check.mjs`). Part 4: `site.mjs` `systemSecond()` puts `SYSTEM_SECOND_PER_KIND` (3) 系統 players per kind into each team's 二軍 in `players.json` (tier 2, `system:true`; leaguesite check). Part 5: `site.mjs` `placeFans(second, fans)` + `--fans fans.json` ([{team, player}]) put real fans in place of 系統 二軍 players (`tests/system.check.mjs`). Left: nothing reads the D1 store into that json yet (server side, out of scope of #437).
 1. If the owner strikes wave-2 lines (list at the top of the #54 wave-2 PR), rewrite only those; then #54 closes. Order: issue #68.
@@ -54,4 +56,13 @@
 ## #804 我的球員 season line
 - Part 1: `player_stats.js` (pure: `tally`, `seasonLine`, `lineText`) + `site/player_stats.json` (one row per batter per recorded 試跑 game, 一軍 `trial_games.json` + 二軍 `farm_games.json`) + `tools/player_stats.mjs` (replays each game, stops on a score mismatch; run it with `--engine <worktree of the data commit>` while the data engine is older than HEAD) + `tests/player_stats.check.mjs`. `ui/site/me.js` sums rows of nights before today (batters only).
 - Trap: regenerate `player_stats.json` after anything that rewrites `season.json` / `trial_games.json` / `farm_games.json` (`season_run.mjs --reset`, a refill, a new engine commit); `--reset` does not do it yet.
-- Left: pitcher line (needs pitching lines in the engine box), game log (part 2), career by season (part 3, #749), guild page (#800).
+- Part 2 (pitchers): `pitchers` key in `player_stats.json` = `[season, day, bf, outs, k, bb, r]` per pitcher per game, counted by the tool from the engine stream (`pitchingFromStream`: outs / runs go to the pitcher on the mound, so RA9 not ERA; no engine change). Page shows 局 / BF / RA9 / K9 / BB9. Check: runs allowed per night = recorded scores.
+- Left: game log, career by season (#749), guild page (#800).
+
+## Guild nights (#809)
+- Done: `league/guild_night.js` pure core (freeze, fixtures, sharded lines, standings) + `tests/guild_night.check.mjs`.
+- Next: `GET /api/guilds/export` (keyset paging), `tools/guild_night.mjs` (wires simGame + boxFromStream), practice reads the newest lock.
+- Traps: `play` is injected (no engine import in league/); the nightly hook is the owner's (W11).
+
+## #795 經紀人 agent set
+- Part 1: `agentset.js` (pure): 4 situations x 3 frequencies per kind (bat / pit, owner list), level 0..4 (`LEVEL_NEUTRAL` 2 = today's engine), `normal` row inherited, price = sum of the resolved grid <= `AGENT_POOL` (24 = all neutral), `freezeSet` canonical form for the game lock, `situationOf` buckets. `tests/agentset.check.mjs`. Next: part 2 engine reads it (neutral = no extra draw, byte for byte), then sim, storage, UI.

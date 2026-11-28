@@ -24,6 +24,8 @@
  * Own player (#751 part 3): `a.own` (optional) puts the visitor's batter into one lineup slot of one side. The link carries a frozen copy of him,
  * so a friend needs no account and the game stays the same whatever he becomes later (same link = same game):
  *   o=<side>.<slot>.<con>.<pow>.<eye>.<spd>.<arm>.<hand>.<age>.<num>.<name>   side 0 away / 1 home, slot 0..8, ratings = the 1..100 display numbers
+ *   Pitcher (#751 part 4, role 'P'): o=<side>.<starter>.<stuff>.<ctrl>.<arm>.<hand>.<age>.<num>.<name> (9 fields); he takes the SP place `starter`
+ *   (0..4) and must be that side's starting pitcher (sp[side] = starter), so the link says who starts.
  *   ownParam(o) / parseOwn(s)         text <-> { side, slot, con, pow, eye, spd, arm, hand, age, num, name } (parse gives null when it does not fit)
  *   ownProblem(o)                     named reason why an own player is not playable, or null
  * He takes the slot's defensive position; his raw ratings come from league/friendly_own.js (ownRosters), which builds the `rosters` argument of
@@ -35,15 +37,20 @@ export const SEED_MAX = 0xffffffff;
 export const COMMIT_RE = /^[0-9a-f]{7,40}$/;
 export const LINEUP_SLOTS = 9;
 export const OWN_RATINGS = ['con', 'pow', 'eye', 'spd', 'arm'];
+export const OWN_PITCH_RATINGS = ['stuff', 'ctrl', 'arm'];
 const NAME_RE = /^[^.\u0000-\u001f<>&"'\\]{1,12}$/u;
 
-export const ownParam = o => `${o.side}.${o.slot}.${OWN_RATINGS.map(k => o[k]).join('.')}.${o.hand}.${o.age}.${o.num}.${o.name}`;
+export const ownParam = o => (o.role === 'P'
+  ? `${o.side}.${o.slot}.${OWN_PITCH_RATINGS.map(k => o[k]).join('.')}.${o.hand}.${o.age}.${o.num}.${o.name}`
+  : `${o.side}.${o.slot}.${OWN_RATINGS.map(k => o[k]).join('.')}.${o.hand}.${o.age}.${o.num}.${o.name}`);
 
 export function ownProblem(o) {
   if (!o || typeof o !== 'object') return 'no own player';
   if (o.side !== 0 && o.side !== 1) return 'own side is not 0 or 1';
-  if (!Number.isInteger(o.slot) || o.slot < 0 || o.slot >= LINEUP_SLOTS) return 'own slot is not 0..8';
-  for (const k of OWN_RATINGS) if (!Number.isInteger(o[k]) || o[k] < 1 || o[k] > 100) return `own ${k} is not 1..100`;
+  const pit = o.role === 'P';
+  if (o.role !== undefined && !pit) return 'own role is not P';
+  if (!Number.isInteger(o.slot) || o.slot < 0 || o.slot >= (pit ? STARTERS : LINEUP_SLOTS)) return pit ? 'own starter slot is not 0..4' : 'own slot is not 0..8';
+  for (const k of pit ? OWN_PITCH_RATINGS : OWN_RATINGS) if (!Number.isInteger(o[k]) || o[k] < 1 || o[k] > 100) return `own ${k} is not 1..100`;
   if (o.hand !== 'L' && o.hand !== 'R') return 'own hand is not L or R';
   if (!Number.isInteger(o.age) || o.age < 15 || o.age > 60) return 'own age is not 15..60';
   if (!Number.isInteger(o.num) || o.num < 0 || o.num > 99) return 'own number is not 0..99';
@@ -54,8 +61,12 @@ export function ownProblem(o) {
 export function parseOwn(s) {
   if (typeof s !== 'string') return null;
   const f = s.split('.');
-  if (f.length !== 11) return null;
+  if (f.length !== 11 && f.length !== 9) return null;
   const n = i => (/^[0-9]{1,3}$/.test(f[i]) ? Number(f[i]) : NaN);
+  if (f.length === 9) {
+    const q = { role: 'P', side: n(0), slot: n(1), stuff: n(2), ctrl: n(3), arm: n(4), hand: f[5], age: n(6), num: n(7), name: f[8] };
+    return ownProblem(q) ? null : q;
+  }
   const o = { side: n(0), slot: n(1), con: n(2), pow: n(3), eye: n(4), spd: n(5), arm: n(6), hand: f[7], age: n(8), num: n(9), name: f[10] };
   return ownProblem(o) ? null : o;
 }
@@ -86,7 +97,11 @@ export function friendlyProblem(a) {
   if (a.away === a.home) return 'a team cannot play itself';
   if (!Array.isArray(a.sp) || a.sp.length !== 2 || !a.sp.every(i => Number.isInteger(i) && i >= 0 && i < STARTERS)) return 'starter is not one of the five SP';
   if (!Number.isInteger(a.seed) || a.seed < 0 || a.seed > SEED_MAX) return 'seed is not a uint32';
-  if (a.own !== undefined && a.own !== null) return ownProblem(a.own);
+  if (a.own !== undefined && a.own !== null) {
+    const why = ownProblem(a.own);
+    if (why) return why;
+    if (a.own.role === 'P' && a.own.slot !== a.sp[a.own.side]) return 'own starter is not the side\'s starting pitcher';
+  }
   return null;
 }
 
